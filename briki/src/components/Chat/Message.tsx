@@ -2,33 +2,116 @@
 
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { Info } from "lucide-react";
+import React, { forwardRef } from "react";
+import MessageAgent from "@/components/Chat/MessageAgent";
 
-export type MessageRole = "user" | "system";
+export type MessageRole = "user" | "assistant" | "system";
 
-export function Message({
-  role,
-  content,
-  className,
-}: {
+export interface MessageAgentMeta {
+  label: string;
+  icon?: React.ReactNode;
+  actions?: string[];
+  tag?: string;
+}
+
+interface MessageProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "content"> {
   role: MessageRole;
   content: string | React.ReactNode;
-  className?: string;
-}) {
+  agent?: MessageAgentMeta;
+  isGroupStart?: boolean;
+  isGroupEnd?: boolean;
+  isTyping?: boolean;
+  timestamp?: string;
+}
+
+export const Message = forwardRef<HTMLDivElement, MessageProps>(function Message(
+  { role, content, agent, className, isGroupStart, isGroupEnd, isTyping, timestamp, ...rest },
+  ref
+) {
   const isUser = role === "user";
+  const isStringContent = typeof content === "string";
+  // Timestamp is handled inside the agent card for accessibility context
+
+  if (isTyping) {
+    return (
+      <Card
+        ref={ref}
+        className={cn(
+          "flex items-center gap-3 p-4 border-border/70 bg-background/95 shadow-[0_18px_42px_-24px_rgba(15,23,42,0.35)]",
+          "rounded-t-2xl rounded-br-2xl rounded-bl-md"
+        )}
+      >
+        <div className="flex h-2 w-2 animate-pulse rounded-full bg-primary/80 delay-100" />
+        <div className="flex h-2 w-2 animate-pulse rounded-full bg-primary/80 delay-200" />
+        <div className="flex h-2 w-2 animate-pulse rounded-full bg-primary/80 delay-300" />
+        <span className="sr-only">{content}</span>
+      </Card>
+    );
+  }
+
   return (
-    <div className={cn("w-full", className)}>
+    <div ref={ref} className={cn("w-full", className)} {...rest}>
       {isUser ? (
         <div className="max-w-full">
-          <div className="rounded-lg bg-primary text-primary-foreground px-3 py-2 inline-block">
-            {content}
+          <div
+            className={cn(
+              "inline-flex max-w-full items-start gap-2 bg-primary px-4 py-2.5 text-primary-foreground",
+              "rounded-t-2xl rounded-bl-2xl",
+              isGroupStart && "rounded-tr-2xl",
+              !isGroupStart && "rounded-tr-md",
+              isGroupEnd && "rounded-br-2xl",
+              !isGroupEnd && "rounded-br-md"
+            )}
+          >
+            <span className="sr-only">Broker:</span>
+            <div className="flex flex-col gap-1 min-w-0">
+              <span className="text-sm leading-relaxed break-words">{content}</span>
+              {timestamp && isGroupEnd && (
+                <span className="text-[10px] leading-none opacity-70 self-end mt-1">{timestamp}</span>
+              )}
+            </div>
           </div>
         </div>
+      ) : role === "assistant" ? (
+        <MessageAgent
+          className={cn(
+            "rounded-t-2xl rounded-br-2xl",
+            isGroupStart && "rounded-tl-2xl",
+            !isGroupStart && "rounded-tl-md",
+            isGroupEnd && "rounded-bl-2xl",
+            !isGroupEnd && "rounded-bl-md"
+          )}
+          title={agent?.label}
+          tagLabel={agent?.tag}
+          timestamp={timestamp}
+          body={<div className="break-words">{content}</div>}
+        />
       ) : (
-        <Card className="p-3 text-sm">{content}</Card>
+        <div className="max-w-full">
+          <div className="inline-flex w-full items-start gap-2 rounded-lg border border-border/70 bg-muted/40 px-4 py-2 text-xs leading-relaxed text-muted-foreground/90">
+            <span className="sr-only">System note:</span>
+            <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/80" aria-hidden />
+            <div className="flex flex-col gap-1 min-w-0 flex-1">
+              <div
+                className={cn(
+                  "break-words",
+                  isStringContent ? "whitespace-pre-wrap" : undefined
+                )}
+              >
+                {content}
+              </div>
+              {timestamp && isGroupEnd && (
+                <span className="text-[10px] leading-none text-muted-foreground/60 self-end mt-1">{timestamp}</span>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
-}
+});
+
 
 export default Message;
 

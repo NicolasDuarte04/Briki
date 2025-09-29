@@ -2,60 +2,124 @@
 
 import TopBar from "@/components/TopBar";
 import Canvas from "@/components/Canvas";
-import { Composer } from "@/components/Chat/Composer";
-import { Message } from "@/components/Chat/Message";
+import Hotkeys from "@/components/Hotkeys";
+import Landing from "@/components/Landing";
+import FooterNav from "@/components/FooterNav";
+import { useUI, type UIStep } from "@/lib/ui/state";
+import { motion, AnimatePresence } from "framer-motion";
+import BrikiSidebarLayout from "@/components/BrikiSidebarLayout";
+import SidebarNav from "@/components/SidebarNav";
+import BrikiLandingNavbar from "@/components/BrikiLandingNavbar";
 import WorkspaceTabs from "@/components/Workspace/Tabs";
-import CTAchips from "@/components/Common/CTAchips";
-import { useUI } from "@/lib/ui/state";
+import CaseBrief from "@/components/Workspace/CaseBrief";
+import SourcingProgressWidget from "@/components/Sourcing/SourcingProgressWidget";
+import { Button } from "@/components/ui/button";
+import HotkeysGuide from "@/components/HotkeysGuide";
+import dynamic from "next/dynamic";
+import ComplianceGate from "@/components/Workspace/ComplianceGate";
+
+const ConversationPane = dynamic(() => import("@/components/Chat/ConversationPane"), { ssr: false });
 
 export default function Home() {
-  const { step, brief } = useUI();
+  const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing } = useUI();
 
-  if (step === "landing") {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <TopBar />
-        <div className="flex-1 flex flex-col items-center justify-center gap-6 p-6">
-          <div className="w-full max-w-2xl">
-            <Composer />
-          </div>
-          <CTAchips />
-        </div>
-      </div>
-    );
-  }
+  const steps: UIStep[] = [
+    "landing",
+    "conversation",
+    "sourcing",
+    "normalized",
+    "comparison",
+    "proposal",
+    "compliance",
+    "followups",
+  ];
 
-  // Conversation stub
   return (
-    <div className="min-h-screen flex flex-col">
-      <TopBar />
-      <Canvas
-        left={
-          <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-auto space-y-3 p-1">
-              <Message role="user" content={brief.coverage ?? "New case"} />
-              <Message
-                role="system"
-                content={
-                  <div className="space-y-2">
-                    <div className="font-medium">Intake Agent: case created</div>
-                    <div className="text-muted-foreground text-xs">
-                      Approve, edit, or re-run intake.
-                    </div>
-                    <div className="flex gap-2">
-                      <button className="px-2 py-1 text-xs rounded-md bg-secondary">Approve</button>
-                      <button className="px-2 py-1 text-xs rounded-md bg-secondary">Edit</button>
-                      <button className="px-2 py-1 text-xs rounded-md bg-secondary">Re-run</button>
-                    </div>
-                  </div>
-                }
-              />
-            </div>
-            <Composer className="mt-auto" />
-          </div>
-        }
-        right={<WorkspaceTabs />}
+    <div className="h-dvh min-h-0 w-full flex flex-col overflow-hidden">
+      {step !== "landing" && <TopBar className="shrink-0" />}
+      <Hotkeys
+        primaryAction={primaryAction}
+        onToggleRightPanel={toggleRight}
+        onSetStep={(index) => {
+          const next = steps[index - 1];
+          if (next) setStep(next);
+        }}
       />
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <AnimatePresence mode="wait">
+          {step === "landing" ? (
+            <motion.div
+              key="landing"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="landing-scroll relative flex-1 min-h-screen overflow-auto"
+            >
+              <BrikiLandingNavbar />
+              <Landing />
+              <div className="relative z-10 bg-background shrink-0">
+                <FooterNav />
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="conversation"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="relative z-10 flex flex-1 flex-col bg-background min-h-0 overflow-hidden"
+            >
+              <BrikiSidebarLayout sidebar={<SidebarNav />}>
+                <Canvas
+                  rightOpen={rightOpen}
+                  isSourcing={isSourcing}
+                  left={
+                    step === "conversation" || step === "compliance" ? (
+                      <ConversationPane />
+                    ) : (
+                      <div className="flex h-full flex-col justify-start">Current step: {step}</div>
+                    )
+                  }
+                  right={(() => {
+                    if (step === "conversation") {
+                      return isSourcing ? (
+                        <div className="flex h-full min-h-0 flex-col gap-4">
+                          <SourcingProgressWidget compact onStop={stopSourcing} />
+                          <div className="flex flex-1 min-h-0 flex-col">
+                            <CaseBrief />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex h-full flex-col">
+                          <WorkspaceTabs />
+                        </div>
+                      );
+                    }
+
+                    if (step === "compliance") {
+                      return (
+                        <div className="flex h-full flex-col">
+                          <ComplianceGate />
+                        </div>
+                      );
+                    }
+
+                    return <div className="flex h-full flex-col">Workspace for step: {step}</div>;
+                  })()}
+                />
+              </BrikiSidebarLayout>
+              <FooterNav className="mt-4" fullBleed />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      
+      {/* Hotkey Guide Button - Bottom Left */}
+      <div className="fixed bottom-4 left-4 z-50">
+        <HotkeysGuide />
+      </div>
     </div>
   );
 }

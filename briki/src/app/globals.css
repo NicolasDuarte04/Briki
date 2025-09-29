@@ -1,8 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -68,10 +66,14 @@
   --muted: #F8FAFC;
   --accent: #F8FAFC;
 
+  /* Layout */
+  --briki-split-left: 40%;
+
   /* UI */
   --border: #E2E8F0; /* Slate 200 */
   --input: #E2E8F0;
   --ring: #BFDBFE; /* Light blue ring */
+  --shadow-edge: rgba(2, 8, 23, 0.08); /* subtle edge shadow for pinned cols */
 
   /* Sidebar/Charts (kept neutral) */
   --chart-1: #3B82F6;
@@ -121,13 +123,251 @@
   --sidebar-accent-foreground: #E5E7EB;
   --sidebar-border: #1F2937;
   --sidebar-ring: #1D4ED8;
+  --shadow-edge: rgba(0, 0, 0, 0.25);
 }
 
 @layer base {
+  /* Reset defaults */
   * {
     @apply border-border outline-ring/50;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
+
+  html, body {
+    height: 100%;
+    background: var(--background);
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    min-height: 100dvh;
+    width: 100vw;
+    overflow: hidden;
+  }
+  
+  /* Ensure landing page has no white background behind navbar */
+  body:has(.landing-hero) {
+    background: transparent;
+  }
+
+  /* App shell layout */
+  [data-app-shell] {
+    min-height: 100dvh;
+    width: 100vw;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+@layer utilities {
+  /* Layout utilities */
+  .pane-scroll {
+    height: calc(100dvh - 64px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Z-index layers */
+  .z-header {
+    @apply z-50;
+  }
+  .z-tabs {
+    @apply z-40;
+  }
+
+  /* Marketing container - only constrains width when explicitly used */
+  .container-marketing {
+    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .landing-hero {
+    background: url('/brand/landing-bg.png') center/cover no-repeat;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    image-rendering: auto;
+    image-rendering: smooth;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  .landing-overlay {
+    background: transparent;
+    min-height: 100vh;
+    min-height: 100dvh;
+    position: relative;
+    z-index: 1;
+  }
+  .text-briki-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] via-[#0EA5E9] to-[#0284C7];
+  }
+  
+  /* Ensure navbar is completely transparent */
+  .navbar-transparent {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Sticky pinned column helpers */
+  .sticky-col {
+    position: sticky;
+    background: var(--background);
+  }
+  .sticky-left {
+    left: var(--pin-left, 0px);
+    z-index: 10;
+    box-shadow: 8px 0 8px -8px var(--shadow-edge);
+  }
+  .sticky-right {
+    right: var(--pin-right, 0px);
+    z-index: 10;
+    box-shadow: -8px 0 8px -8px var(--shadow-edge);
+  }
+
+  /* Workspace table helpers */
+  .workspace-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+
+  .workspace-table th,
+  .workspace-table td {
+    vertical-align: middle;
+  }
+
+  .cell-nowrap {
+    white-space: nowrap;
+  }
+
+  .cell-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cell-actions {
+    min-width: 18rem;
+  }
+}
+
+input[type="range"][data-slot="slider"]::-webkit-slider-thumb {
+  @apply bg-primary h-5 w-5 appearance-none rounded-full border border-primary/20 shadow-sm transition disabled:bg-muted;
+}
+
+input[type="range"][data-slot="slider"]::-moz-range-thumb {
+  @apply bg-primary h-5 w-5 rounded-full border border-primary/20 shadow-sm transition disabled:bg-muted;
+}
+
+input[type="range"][data-slot="slider"]::-webkit-slider-runnable-track {
+  @apply bg-muted h-2 rounded-full;
+}
+
+input[type="range"][data-slot="slider"]::-moz-range-track {
+  @apply bg-muted h-2 rounded-full;
+}
+
+input[type="range"][data-slot="slider"]:focus-visible::-webkit-slider-thumb,
+input[type="range"][data-slot="slider"]:focus-visible::-moz-range-thumb {
+  outline: none;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ring) 60%, transparent);
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
+
+  :root {
+    color-scheme: only light;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  nav,
+  aside,
+  footer,
+  header,
+  [role="tablist"],
+  [data-print="hide"],
+  .print-hidden,
+  button,
+  .TabsList,
+  .BrikiSidebar,
+  .SidebarNav,
+  .Toolbar,
+  .WorkspaceTabs-controls {
+    display: none !important;
+  }
+
+  [role="tabpanel"][data-state="inactive"] {
+    display: none !important;
+  }
+
+  main,
+  section,
+  article,
+  .card,
+  .Card,
+  .table-wrapper,
+  table,
+  thead,
+  tbody,
+  tr,
+  td,
+  th {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .workspace-proposal-print {
+    margin: 0 auto;
+    max-width: 960px;
+  }
+
+  .workspace-proposal-card,
+  .workspace-proposal-surface {
+    box-shadow: none !important;
+    border-color: #d1d5db !important;
+    background: #ffffff !important;
+  }
+
+  .workspace-proposal-content {
+    color: #1f2937 !important;
+  }
+
+  .workspace-proposal-section,
+  .workspace-proposal-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  th,
+  td {
+    color: #111827 !important;
+    background: transparent !important;
+  }
+
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
   }
 }

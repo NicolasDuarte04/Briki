@@ -1,33 +1,77 @@
 "use client";
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import CaseBrief from "@/components/Workspace/CaseBrief";
+import { useCallback, useMemo, useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTranslations } from "next-intl";
+import { useUI } from "@/lib/ui/state";
+import ComplianceGate from "./ComplianceGate";
+import CaseBrief from "./CaseBrief";
+import Policies from "./Policies";
+import Comparison from "./Comparison";
+import Proposal from "./Proposal";
+import Renewals from "./Renewals";
 
-export type WorkspaceTab =
-  | "case-brief"
-  | "policies"
-  | "comparisons"
-  | "proposal"
-  | "renewals";
+export type WorkspaceTab = "case-brief" | "policies" | "comparisons" | "proposal" | "compliance" | "renewals";
 
 export function WorkspaceTabs() {
+  const t = useTranslations("workspace.tabs");
+  const tabLabels = useMemo(() => ({
+      "case-brief": t("caseBrief"),
+      policies: t("policies"),
+      comparisons: t("comparisons"),
+      proposal: t("proposal"),
+      compliance: t("compliance"),
+      renewals: t("renewals"),
+    } satisfies Record<WorkspaceTab, string>), [t]);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("case-brief");
+  const logRenewalsEvent = useUI((state) => state.logRenewalsEvent);
+
+  const handleTabChange = useCallback((value: string) => {
+    const nextTab = value as WorkspaceTab;
+    setActiveTab(nextTab);
+    if (nextTab === "renewals") {
+      logRenewalsEvent("RenewalsViewOpen");
+    }
+  }, [logRenewalsEvent]);
+
   return (
-    <Tabs defaultValue="case-brief" className="w-full">
-      <TabsList className="grid grid-cols-5">
-        <TabsTrigger value="case-brief">Case Brief</TabsTrigger>
-        <TabsTrigger value="policies" disabled>
-          Policies
-        </TabsTrigger>
-        <TabsTrigger value="comparisons" disabled>
-          Comparisons
-        </TabsTrigger>
-        <TabsTrigger value="proposal" disabled>Proposal</TabsTrigger>
-        <TabsTrigger value="renewals" disabled>Renewals</TabsTrigger>
-      </TabsList>
-      <TabsContent value="case-brief" className="mt-4">
-        <CaseBrief />
-      </TabsContent>
-    </Tabs>
+    <div className="w-full h-full flex flex-col">
+      <Tabs
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="flex h-full min-h-0 flex-col"
+      >
+        <div className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b">
+          <TabsList className="w-full justify-start gap-2" role="tablist" aria-label={t("ariaLabel")}>
+            {(Object.keys(tabLabels) as WorkspaceTab[]).map((tab) => (
+              <TabsTrigger key={tab} value={tab} aria-label={tabLabels[tab]}>
+                {tabLabels[tab]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 md:px-8">
+          <TabsContent value="case-brief" className="py-6">
+            <CaseBrief />
+          </TabsContent>
+          <TabsContent value="policies" className="py-6">
+            <Policies />
+          </TabsContent>
+          <TabsContent value="comparisons" className="py-6">
+            <Comparison />
+          </TabsContent>
+          <TabsContent value="proposal" className="py-6">
+            <Proposal />
+          </TabsContent>
+          <TabsContent value="compliance" className="py-6">
+            <ComplianceGate />
+          </TabsContent>
+          <TabsContent value="renewals" className="py-6">
+            <Renewals />
+          </TabsContent>
+        </div>
+      </Tabs>
+    </div>
   );
 }
 
