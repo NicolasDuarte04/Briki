@@ -1,0 +1,23 @@
+{
+  "extends": "./briki/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./briki/src/*"],
+      "react": ["./briki/node_modules/react"],
+      "react/*": ["./briki/node_modules/react/*"],
+      "react-dom": ["./briki/node_modules/react-dom"],
+      "react-dom/*": ["./briki/node_modules/react-dom/*"],
+      "react/jsx-runtime": ["./briki/node_modules/react/jsx-runtime"],
+      "react/jsx-dev-runtime": ["./briki/node_modules/react/jsx-dev-runtime"]
+    }
+  },
+  "include": [
+    "briki/next-env.d.ts",
+    "briki/**/*.ts",
+    "briki/**/*.tsx",
+    "briki/.next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules", "briki/node_modules"]
+}
+
