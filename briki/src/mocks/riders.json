@@ -1,0 +1,269 @@
+[
+  {
+    "id": "rdr_virtual_care",
+    "name": "Virtual Care Support",
+    "code": "RDR_HEALTH_VCS",
+    "type": "health",
+    "description": "24/7 telemedicine access with bilingual nurses.",
+    "premiumAdjustment": {
+      "amountMinor": 1500,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "visitLimit": 6,
+      "specialistRouting": true
+    },
+    "compatibleProductIds": [
+      "prod_salud_individual_01"
+    ],
+    "isActive": true
+  },
+  {
+    "id": "rdr_dental_implants",
+    "name": "Dental Implants Upgrade",
+    "code": "RDR_DENTAL_IMPLANT",
+    "type": "dental",
+    "description": "Enhanced coverage for restorative dental implants.",
+    "premiumAdjustment": {
+      "amountMinor": 2800,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "annualMax": 400000,
+      "waitingPeriodMonths": 6
+    },
+    "compatibleProductIds": [
+      "prod_harmonia_familia_mx",
+      "prod_flex_familia_latam"
+    ],
+    "isActive": true
+  },
+  {
+    "id": "rdr_vision_focus",
+    "name": "Vision Focus Booster",
+    "code": "RDR_VISION_FOCUS",
+    "type": "vision",
+    "description": "Covers specialty lenses and annual eye exams.",
+    "premiumAdjustment": {
+      "amountMinor": 1200,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "lensAllowance": 18000,
+      "includesBlueLight": true
+    },
+    "compatibleProductIds": [
+      "prod_flex_familia_latam"
+    ],
+    "isActive": true
+  },
+  {
+    "id": "rdr_life_accidental",
+    "name": "Accidental Death Benefit",
+    "code": "RDR_LIFE_ADB",
+    "type": "life",
+    "description": "Doubles payout for accidental loss scenarios.",
+    "premiumAdjustment": {
+      "amountMinor": 3600,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "payoutMultiplier": 2
+    },
+    "compatibleProductIds": [],
+    "isActive": true
+  },
+  {
+    "id": "rdr_disability_toptier",
+    "name": "Disability Income Top-Up",
+    "code": "RDR_DISABILITY_TOP",
+    "type": "disability",
+    "description": "Increases monthly disability benefits by 25%.",
+    "premiumAdjustment": {
+      "amountMinor": 4200,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "benefitIncreasePercent": 25
+    },
+    "compatibleProductIds": [],
+    "isActive": true
+  },
+  {
+    "id": "rdr_wellness_reset",
+    "name": "Wellness Reset Days",
+    "code": "RDR_WELLNESS_RESET",
+    "type": "wellness",
+    "description": "Provides quarterly company-wide wellness stipends.",
+    "premiumAdjustment": {
+      "amountMinor": 900,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "stipendPerEmployeeMinor": 5000,
+      "frequencyPerYear": 4
+    },
+    "compatibleProductIds": [
+      "prod_salud_individual_01"
+    ],
+    "isActive": true
+  },
+  {
+    "id": "rdr_travel_globalassist",
+    "name": "Global Travel Assistance",
+    "code": "RDR_TRAVEL_GTA",
+    "type": "travel",
+    "description": "Emergency evacuation and concierge travel services.",
+    "premiumAdjustment": {
+      "amountMinor": 3100,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "evacuationLimitMinor": 750000,
+      "tripCoverageDays": 45
+    },
+    "compatibleProductIds": [
+      "prod_globalcare_enterprise"
+    ],
+    "isActive": true
+  },
+  {
+    "id": "rdr_cyber_familyshield",
+    "name": "Cyber Family Shield",
+    "code": "RDR_CYBER_FAM",
+    "type": "cyber",
+    "description": "Identity protection and fraud monitoring for dependents.",
+    "premiumAdjustment": {
+      "amountMinor": 2600,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "familyMembersIncluded": 5,
+      "creditMonitoring": true
+    },
+    "compatibleProductIds": [
+      "prod_globalcare_enterprise"
+    ],
+    "isActive": false
+  },
+  {
+    "id": "rdr_telemedicina_plus",
+    "name": "Telemedicina Plus",
+    "code": "RDR_HEALTH_TELEPLUS",
+    "type": "health",
+    "description": "Cobertura ampliada de telemedicina con acceso ilimitado a médicos generales.",
+    "premiumAdjustment": {
+      "amountMinor": 185000,
+      "currency": "COP"
+    },
+    "coverageDetails": {
+      "virtualVisitsPerYear": 24,
+      "includesSpecialists": true
+    },
+    "compatibleProductIds": [],
+    "isActive": true
+  },
+  {
+    "id": "rdr_wellness_gym_access",
+    "name": "Wellness Gym Access",
+    "code": "RDR_WELLNESS_GYM",
+    "type": "wellness",
+    "description": "Acceso a red de gimnasios aliados con seguimiento digital de hábitos.",
+    "premiumAdjustment": {
+      "amountMinor": 92000,
+      "currency": "COP"
+    },
+    "coverageDetails": {
+      "gymPartners": 120,
+      "includesPersonalCoach": true
+    },
+    "compatibleProductIds": [],
+    "isActive": true
+  },
+  {
+    "id": "rdr_dental_familiar",
+    "name": "Dental Familiar",
+    "code": "RDR_DENTAL_FAM",
+    "type": "dental",
+    "description": "Cobertura odontológica integral para todos los dependientes registrados.",
+    "premiumAdjustment": {
+      "amountMinor": 145000,
+      "currency": "MXN"
+    },
+    "coverageDetails": {
+      "annualMax": 550000,
+      "familyMembersCovered": 6
+    },
+    "compatibleProductIds": [],
+    "isActive": true
+  },
+  {
+    "id": "rdr_travel_emergency",
+    "name": "Travel Emergency Assist",
+    "code": "RDR_TRAVEL_EMERG",
+    "type": "travel",
+    "description": "Cobertura de emergencias médicas y evacuación durante viajes internacionales.",
+    "premiumAdjustment": {
+      "amountMinor": 2800,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "emergencyLimitMinor": 1000000,
+      "travelDaysCovered": 60
+    },
+    "compatibleProductIds": [],
+    "isActive": true
+  },
+  {
+    "id": "rdr_cyber_protect",
+    "name": "Cyber Protect",
+    "code": "RDR_CYBER_PROTECT",
+    "type": "cyber",
+    "description": "Supervisión de ciberseguridad corporativa y respuesta a incidentes 24/7.",
+    "premiumAdjustment": {
+      "amountMinor": 3100,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "monitoringScope": "enterprise",
+      "identityTheftSupport": true
+    },
+    "compatibleProductIds": [],
+    "isActive": true
+  },
+  {
+    "id": "rdr_dental_premium",
+    "name": "Dental Premium",
+    "code": "RDR_DENTAL_PREMIUM",
+    "type": "dental",
+    "description": "Plan dental premium con ortodoncia para adultos y odontopediatría.",
+    "premiumAdjustment": {
+      "amountMinor": 2100,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "orthodonticsIncluded": true,
+      "annualMax": 850000
+    },
+    "compatibleProductIds": [],
+    "isActive": true
+  },
+  {
+    "id": "rdr_vision_flex",
+    "name": "Vision Flex",
+    "code": "RDR_VISION_FLEX",
+    "type": "vision",
+    "description": "Cobertura de lentes premium y evaluaciones visuales avanzadas.",
+    "premiumAdjustment": {
+      "amountMinor": 1600,
+      "currency": "USD"
+    },
+    "coverageDetails": {
+      "lensAllowance": 25000,
+      "includesLasikDiscount": true
+    },
+    "compatibleProductIds": [],
+    "isActive": true
+  }
+]
+

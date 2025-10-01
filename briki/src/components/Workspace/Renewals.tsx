@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { BellIcon, MessageSquareIcon, FileTextIcon, PlusIcon } from "lucide-react";
 import {
   Dialog,
@@ -16,23 +17,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useUI } from "@/lib/ui/state";
 import {
-  useUI,
+  type Money,
+  type RenewalRecord,
   type RenewalStatus,
+  type RenewalStatusChipProps,
   type RenewalWindowDays,
-} from "@/lib/ui/state";
-
-// RenewalView type from state (matches the view selector output)
-type RenewalView = {
-  id: string;
-  carrier: string;
-  plan: string;
-  renewalDateISO: string;
-  premium: number;
-  status: RenewalStatus;
-  reminderSet: boolean;
-  policyId?: string;
-};
+  type RenewalsSortBy,
+  type RenewalsSortDir,
+} from "@/lib/types";
+import {
+  formatDate,
+  formatMoney,
+  type FormatDateOptions,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -40,48 +39,86 @@ import { toast } from "sonner";
 const RENEWALS_PREFIX = "workspace.renewals";
 
 const STATUS_ORDER: RenewalStatus[] = ["ok", "dueSoon", "overdue"];
+const STATUS_TONE_STYLES: Record<RenewalStatusChipProps["tone"], string> = {
+  neutral: "bg-success/10 text-success border-success/50",
+  warning: "bg-warning/10 text-warning border-warning/50",
+  critical: "bg-destructive/10 text-destructive border-destructive/50",
+};
 const FOLLOWUP_PRESET_DAYS = [2, 5, 7];
 
+// Type definitions for component-specific props and state
+type NudgeType = "quote" | "message";
+
+type ReminderDialogState = {
+  open: boolean;
+  targetId: string | null;
+  date: string; // ISO date string in YYYY-MM-DD format
+};
+
+type ActionsGroupProps = {
+  record: RenewalRecord;
+  onNudge: (type: NudgeType, record: RenewalRecord) => void;
+  onReminder: () => void;
+};
+
+type SortIndicatorProps = {
+  active: boolean;
+  direction: RenewalsSortDir;
+};
+
+// Custom hooks to properly use selectors and avoid infinite re-renders
+function useWindowCounts() {
+  // Get the selector function
+  const selectWindowCounts = useUI((state) => state.selectWindowCounts);
+  
+  // Memoize the result based on the selector function reference
+  return useMemo(() => selectWindowCounts(), [selectWindowCounts]);
+}
+
+function useFilteredSortedRenewals() {
+  // Get the selector function
+  const selectFilteredSortedRenewals = useUI((state) => state.selectFilteredSortedRenewals);
+
+  // Memoize the result based on the selector function reference
+  return useMemo(() => selectFilteredSortedRenewals(), [selectFilteredSortedRenewals]);
+}
+
 export default function Renewals() {
-  const [dialogState, setDialogState] = useState<{ open: boolean; targetId: string | null; date: string }>(() => ({
+  const [dialogState, setDialogState] = useState<ReminderDialogState>(() => ({
     open: false,
     targetId: null,
     date: defaultReminderDate(),
   }));
 
-  const allRenewals = useUI((state) => state.selectRenewalsView());
+  // Use proper selectors to avoid infinite loops
+  const renewalsData = useUI((state) => state.renewals);
   const setFilters = useUI((state) => state.setRenewalsFilters);
   const setSorting = useUI((state) => state.setRenewalsSorting);
   const logEvent = useUI((state) => state.logRenewalsEvent);
   const setReminder = useUI((state) => state.setReminder);
-  const getStatusChip = useUI((state) => state.getRenewalStatusChip);
   const filters = useUI((state) => state.renewalsFilters);
   const sorting = useUI((state) => state.renewalsSorting);
-  const windowCounts = useUI((state) => state.selectWindowCounts());
-  const renewals = useUI((state) => state.selectFilteredSortedRenewalsView());
-
+  const renewalsLoading = useUI((state) => state.renewalsLoading);
+  const renewalsLoaded = useUI((state) => state.renewalsLoaded);
+  const getRenewalStatusChip = useUI((state) => state.getRenewalStatusChip);
+  
+  // Use custom hooks to avoid infinite re-renders
+  const windowCounts = useWindowCounts();
+  const renewals = useFilteredSortedRenewals();
+  const showSkeleton = renewalsLoading && !renewalsLoaded;
+  
   const t = useTranslations(RENEWALS_PREFIX);
   const tStatus = useTranslations(`${RENEWALS_PREFIX}.status`);
   const tColumns = useTranslations(`${RENEWALS_PREFIX}.columns`);
-  const tActions = useTranslations(`${RENEWALS_PREFIX}.actions`);
   const tBadges = useTranslations(`${RENEWALS_PREFIX}.badges`);
   const tDialog = useTranslations(`${RENEWALS_PREFIX}.dialog.reminder`);
   const tToast = useTranslations(`${RENEWALS_PREFIX}.toast`);
   const tMeta = useTranslations(`${RENEWALS_PREFIX}.meta.window`);
 
   const locale = useLocale();
-  const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(locale, {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0,
-      }),
-    [locale]
-  );
-  const dateFormatter = useMemo(() => new Intl.DateTimeFormat(locale, { dateStyle: "medium" }), [locale]);
+  const dateFormatterOptions = useMemo<FormatDateOptions>(() => ({ dateStyle: "medium" }), []);
 
-  const carriers = useMemo(() => extractCarriers(allRenewals), [allRenewals]);
+  const carriers = useMemo(() => extractCarriers(renewalsData), [renewalsData]);
 
   const statusOptions = STATUS_ORDER.map((status) => ({ value: status, label: tStatus(status) }));
 
@@ -100,12 +137,12 @@ export default function Renewals() {
     setFilters({ statuses: nextStatuses });
   };
 
-  const handleSortToggle = (column: "date" | "premium") => {
+  const handleSortToggle = (column: RenewalsSortBy) => {
     const nextDirection = sorting.sortBy === column && sorting.sortDir === "asc" ? "desc" : "asc";
     setSorting({ sortBy: column, sortDir: nextDirection });
   };
 
-  const handleNudge = (type: "quote" | "message", record: RenewalView) => {
+  const handleNudge = (type: NudgeType, record: RenewalRecord) => {
     const eventType = type === "quote" ? "NudgeQuote" : "NudgeMessage";
     logEvent(eventType, { id: record.id });
     const toastKey = type === "quote" ? "nudgeQuote" : "nudgeMessage";
@@ -125,13 +162,9 @@ export default function Renewals() {
   };
 
   const renderStatusBadge = (status: RenewalStatus, reminderActive: boolean) => {
-    const chip = getStatusChip(status);
-    const label = tStatus(status);
-    const statusStyles = {
-      ok: "bg-success/10 text-success border-success/50",
-      dueSoon: "bg-warning/10 text-warning border-warning/50",
-      overdue: "bg-destructive/10 text-destructive border-destructive/50",
-    }[status];
+    const { status: normalizedStatus, tone } = getRenewalStatusChip(status);
+    const label = tStatus(normalizedStatus);
+    const statusStyles = STATUS_TONE_STYLES[tone];
     return (
       <div className="flex flex-wrap gap-1">
         <span className={cn(
@@ -256,121 +289,127 @@ export default function Renewals() {
             </Card>
           </div>
 
-          <div className="hidden md:block">
-            <Table className="w-full table-fixed @print:w-full @print:border @print:border-border/40 @print:[&_td]:border @print:[&_td]:border-border/40 @print:[&_th]:border @print:[&_th]:border-border/40">
-              <colgroup>
-                <col className="min-w-[10rem]" />
-                <col className="min-w-[12rem]" />
-                <col className="min-w-[8rem]" />
-                <col className="min-w-[8rem]" />
-                <col className="min-w-[8rem]" />
-                <col className="min-w-[16rem]" />
-              </colgroup>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="min-w-[10rem]">{tColumns("carrier")}</TableHead>
-                  <TableHead className="min-w-[12rem]">{tColumns("plan")}</TableHead>
-                  <TableHead className="min-w-[120px]">
-                    <div className="@print:hidden">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 text-left font-medium rounded-md px-2 py-1 hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-neutral-950 focus-visible:outline-none"
-                        onClick={() => handleSortToggle("date")}
-                        aria-label={t("sort.date")}
-                        aria-sort={sorting.sortBy === "date" ? (sorting.sortDir === "asc" ? "ascending" : "descending") : "none"}
-                        data-print="hide"
-                      >
-                        {tColumns("date")}
-                        <SortIndicator active={sorting.sortBy === "date"} direction={sorting.sortDir} />
-                      </button>
-                    </div>
-                    <span className="hidden @print:inline">{tColumns("date")}</span>
-                  </TableHead>
-                  <TableHead className="min-w-[120px] text-right">
-                    <div className="@print:hidden">
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 justify-end font-medium rounded-md px-2 py-1 hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-neutral-950 focus-visible:outline-none"
-                        onClick={() => handleSortToggle("premium")}
-                        aria-label={t("sort.premium")}
-                        aria-sort={sorting.sortBy === "premium" ? (sorting.sortDir === "asc" ? "ascending" : "descending") : "none"}
-                        data-print="hide"
-                      >
-                        {tColumns("premium")}
-                        <SortIndicator active={sorting.sortBy === "premium"} direction={sorting.sortDir} />
-                      </button>
-                    </div>
-                    <span className="hidden @print:inline">{tColumns("premium")}</span>
-                  </TableHead>
-                  <TableHead>{tColumns("status")}</TableHead>
-                  <TableHead className="min-w-[16rem] text-right" data-print="hide">
-                    {tColumns("actions")}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {renewals.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
-                      {t("empty")}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  renewals.map((renewal) => (
-                    <TableRow key={renewal.id}>
-                      <TableCell className="px-4 py-3 truncate min-w-[10rem]">{renewal.carrier}</TableCell>
-                      <TableCell className="px-4 py-3 truncate min-w-[12rem]">{renewal.plan}</TableCell>
-                      <TableCell className="px-4 py-3 tabular-nums font-medium">{dateFormatter.format(new Date(renewal.renewalDateISO))}</TableCell>
-                      <TableCell className="px-4 py-3 text-right tabular-nums font-medium">{currencyFormatter.format(renewal.premium)}</TableCell>
-                      <TableCell className="px-4 py-3">{renderStatusBadge(renewal.status, renewal.reminderSet)}</TableCell>
-                      <TableCell className="px-4 py-3 text-right min-w-[16rem]" data-print="hide">
-                        <ActionsGroup
-                          record={renewal}
-                          onNudge={handleNudge}
-                          onReminder={() => handleOpenReminder(renewal.id)}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          <div className="grid gap-4 md:hidden" aria-live="polite">
-            {renewals.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("empty")}</p>
+          <section aria-busy={showSkeleton}>
+            {showSkeleton ? (
+              <RenewalsLoadingSkeleton />
             ) : (
-              renewals.map((renewal) => (
-                <article key={renewal.id} className="rounded-lg border border-border bg-card p-4 shadow-sm">
-                  <header className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold">{renewal.carrier}</p>
-                      <p className="text-xs text-muted-foreground">{renewal.plan}</p>
-                    </div>
-                    {renderStatusBadge(renewal.status, renewal.reminderSet)}
-                  </header>
-                  <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <dt className="text-muted-foreground uppercase tracking-wide">{tColumns("date")}</dt>
-                      <dd className="font-medium">{dateFormatter.format(new Date(renewal.renewalDateISO))}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground uppercase tracking-wide">{tColumns("premium")}</dt>
-                      <dd className="font-medium">{currencyFormatter.format(renewal.premium)}</dd>
-                    </div>
-                  </dl>
-                  <footer className="mt-4 border-t border-border pt-3" data-print="hide">
-                    <ActionsGroup
-                      record={renewal}
-                      onNudge={handleNudge}
-                      onReminder={() => handleOpenReminder(renewal.id)}
-                    />
-                  </footer>
-                </article>
-              ))
+              <Fragment>
+                <div className="hidden md:block">
+                  <Table className="w-full table-fixed @print:w-full @print:border @print:border-border/40 @print:[&_td]:border @print:[&_td]:border-border/40 @print:[&_th]:border @print:[&_th]:border-border/40">
+                    <colgroup>
+                      <col className="min-w-[10rem]" />
+                      <col className="min-w-[12rem]" />
+                      <col className="min-w-[8rem]" />
+                      <col className="min-w-[8rem]" />
+                      <col className="min-w-[8rem]" />
+                      <col className="min-w-[16rem]" />
+                    </colgroup>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[10rem]">{tColumns("carrier")}</TableHead>
+                        <TableHead className="min-w-[12rem]">{tColumns("plan")}</TableHead>
+                        <TableHead className="min-w-[120px]">
+                          <div className="@print:hidden">
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 text-left font-medium rounded-md px-2 py-1 hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-neutral-950 focus-visible:outline-none"
+                              onClick={() => handleSortToggle("date")}
+                              aria-label={t("sort.date")}
+                              data-print="hide"
+                            >
+                              {tColumns("date")}
+                              <SortIndicator active={sorting.sortBy === "date"} direction={sorting.sortDir} />
+                            </button>
+                          </div>
+                          <span className="hidden @print:inline">{tColumns("date")}</span>
+                        </TableHead>
+                        <TableHead className="min-w-[120px] text-right">
+                          <div className="@print:hidden">
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 justify-end font-medium rounded-md px-2 py-1 hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-neutral-950 focus-visible:outline-none"
+                              onClick={() => handleSortToggle("premium")}
+                              aria-label={t("sort.premium")}
+                              data-print="hide"
+                            >
+                              {tColumns("premium")}
+                              <SortIndicator active={sorting.sortBy === "premium"} direction={sorting.sortDir} />
+                            </button>
+                          </div>
+                          <span className="hidden @print:inline">{tColumns("premium")}</span>
+                        </TableHead>
+                        <TableHead>{tColumns("status")}</TableHead>
+                        <TableHead className="min-w-[16rem] text-right" data-print="hide">
+                          {tColumns("actions")}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {renewals.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                            {t("empty")}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        renewals.map((renewal) => (
+                          <TableRow key={renewal.id}>
+                            <TableCell className="px-4 py-3 truncate min-w-[10rem]">{renewal.carrier}</TableCell>
+                            <TableCell className="px-4 py-3 truncate min-w-[12rem]">{renewal.plan}</TableCell>
+                            <TableCell className="px-4 py-3 tabular-nums font-medium">{formatRenewalDate(renewal.renewalDateISO, locale, dateFormatterOptions)}</TableCell>
+                            <TableCell className="px-4 py-3 text-right tabular-nums font-medium">{formatRenewalPremium(renewal.premium, locale)}</TableCell>
+                            <TableCell className="px-4 py-3">{renderStatusBadge(renewal.status, renewal.reminderSet)}</TableCell>
+                            <TableCell className="px-4 py-3 text-right min-w-[16rem]" data-print="hide">
+                              <ActionsGroup
+                                record={renewal}
+                                onNudge={handleNudge}
+                                onReminder={() => handleOpenReminder(renewal.id)}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="grid gap-4 md:hidden" aria-live="polite">
+                  {renewals.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">{t("empty")}</p>
+                  ) : (
+                    renewals.map((renewal) => (
+                      <article key={renewal.id} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                        <header className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold">{renewal.carrier}</p>
+                            <p className="text-xs text-muted-foreground">{renewal.plan}</p>
+                          </div>
+                          {renderStatusBadge(renewal.status, renewal.reminderSet)}
+                        </header>
+                        <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <dt className="text-muted-foreground uppercase tracking-wide">{tColumns("date")}</dt>
+                            <dd className="font-medium">{formatRenewalDate(renewal.renewalDateISO, locale, dateFormatterOptions)}</dd>
+                          </div>
+                          <div>
+                            <dt className="text-muted-foreground uppercase tracking-wide">{tColumns("premium")}</dt>
+                            <dd className="font-medium">{formatRenewalPremium(renewal.premium, locale)}</dd>
+                          </div>
+                        </dl>
+                        <footer className="mt-4 border-t border-border pt-3" data-print="hide">
+                          <ActionsGroup
+                            record={renewal}
+                            onNudge={handleNudge}
+                            onReminder={() => handleOpenReminder(renewal.id)}
+                          />
+                        </footer>
+                      </article>
+                    ))
+                  )}
+                </div>
+              </Fragment>
             )}
-          </div>
+          </section>
       </CardContent>
     </Card>
 
@@ -424,6 +463,101 @@ export default function Renewals() {
   );
 }
 
+function RenewalsLoadingSkeleton() {
+  return (
+    <Fragment>
+      <div className="hidden md:block" aria-hidden="true">
+        <Table className="w-full table-fixed pointer-events-none select-none opacity-80">
+          <colgroup>
+            <col className="min-w-[10rem]" />
+            <col className="min-w-[12rem]" />
+            <col className="min-w-[8rem]" />
+            <col className="min-w-[8rem]" />
+            <col className="min-w-[8rem]" />
+            <col className="min-w-[16rem]" />
+          </colgroup>
+          <TableHeader>
+            <TableRow>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <TableHead key={index} className="px-4 py-3">
+                  <Skeleton className="h-4 w-24" />
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {Array.from({ length: 6 }).map((_, index) => (
+              <TableRow key={index}>
+                <TableCell className="px-4 py-3">
+                  <Skeleton className="h-4 w-32" />
+                </TableCell>
+                <TableCell className="px-4 py-3">
+                  <Skeleton className="h-4 w-40" />
+                </TableCell>
+                <TableCell className="px-4 py-3">
+                  <Skeleton className="h-4 w-24" />
+                </TableCell>
+                <TableCell className="px-4 py-3">
+                  <div className="flex justify-end">
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                </TableCell>
+                <TableCell className="px-4 py-3">
+                  <div className="flex gap-2">
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                </TableCell>
+                <TableCell className="px-4 py-3">
+                  <div className="ml-auto flex justify-end gap-2">
+                    <Skeleton className="h-6 w-16 rounded-md" />
+                    <Skeleton className="h-6 w-16 rounded-md" />
+                    <Skeleton className="h-6 w-16 rounded-md" />
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="grid gap-4 md:hidden" aria-hidden="true">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <article key={index} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+            <header className="flex flex-wrap items-center justify-between gap-2">
+              <div className="space-y-1">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <div className="flex gap-1">
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-5 w-12 rounded-full" />
+              </div>
+            </header>
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            </dl>
+            <footer className="mt-4 border-t border-border pt-3">
+              <div className="flex justify-end gap-2">
+                <Skeleton className="h-6 w-16 rounded-md" />
+                <Skeleton className="h-6 w-16 rounded-md" />
+                <Skeleton className="h-6 w-16 rounded-md" />
+              </div>
+            </footer>
+          </article>
+        ))}
+      </div>
+    </Fragment>
+  );
+}
+
 function FollowupsBanner() {
   const followupCadenceDays = useUI((state) => state.followupCadenceDays);
   const addFollowupDay = useUI((state) => state.addFollowupDay);
@@ -432,7 +566,7 @@ function FollowupsBanner() {
   const tFollowups = useTranslations("workspace.followups");
   const [customDay, setCustomDay] = useState("");
 
-  const cadenceReadback = useMemo(() => followupCadenceLabel(), [followupCadenceDays, followupCadenceLabel]);
+  const cadenceReadback = useMemo(() => followupCadenceLabel(), [followupCadenceLabel]);
 
   const showCadenceToast = (previousLabel: string) => {
     const nextLabel = followupCadenceLabel();
@@ -539,11 +673,7 @@ function ActionsGroup({
   record,
   onNudge,
   onReminder,
-}: {
-  record: RenewalView;
-  onNudge: (type: "quote" | "message", record: RenewalView) => void;
-  onReminder: () => void;
-}) {
+}: ActionsGroupProps) {
   const tActions = useTranslations(`${RENEWALS_PREFIX}.actions`);
 
   return (
@@ -581,7 +711,7 @@ function ActionsGroup({
           {tActions("setReminder")}
         </Button>
       ) : (
-        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs bg-emerald-500/10 text-emerald-700 shrink-0">
+        <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs bg-success/10 text-success shrink-0">
           <BellIcon className="size-3" />
           {tActions("reminderSet")}
         </span>
@@ -590,7 +720,7 @@ function ActionsGroup({
   );
 }
 
-function SortIndicator({ active, direction }: { active: boolean; direction: "asc" | "desc" }) {
+function SortIndicator({ active, direction }: SortIndicatorProps) {
   return (
     <span aria-hidden="true" className={cn("text-xs transition-opacity", active ? "opacity-100" : "opacity-30")}>
       {direction === "asc" ? "↑" : "↓"}
@@ -598,7 +728,7 @@ function SortIndicator({ active, direction }: { active: boolean; direction: "asc
   );
 }
 
-function extractCarriers(records: RenewalView[]): string[] {
+function extractCarriers(records: RenewalRecord[]): string[] {
   const seen = new Set<string>();
   for (const record of records) {
     if (!seen.has(record.carrier)) {
@@ -610,14 +740,30 @@ function extractCarriers(records: RenewalView[]): string[] {
 
 const RENEWAL_WINDOWS: RenewalWindowDays[] = [30, 60, 90];
 
-function defaultReminderDate() {
+function defaultReminderDate(): string {
   const date = new Date();
   date.setDate(date.getDate() + 7);
-  const pad = (value: number) => String(value).padStart(2, "0");
+  // Format to YYYY-MM-DD for the date input
   const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function formatRenewalDate(renewalDateISO: string, locale: string, options: FormatDateOptions): string {
+  try {
+    return formatDate(renewalDateISO, { locale, ...options });
+  } catch {
+    return "--";
+  }
+}
+
+function formatRenewalPremium(premium: Money, locale: string): string {
+  return formatMoney(premium, {
+    locale,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
 }
 
 

@@ -1,46 +1,38 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatDate, formatMoney } from "@/lib/format";
 import { useUI } from "@/lib/ui/state";
-
-// PolicyView type from state (matches the view selector output)
-type PolicyView = {
-  plan: string;
-  premium: number;
-  deductible: number;
-  riders: string[];
-  network?: "basic" | "preferred" | "concierge";
-  service?: "standard" | "enhanced" | "white-glove";
-};
+import { type Case, type Money, type Policy, type Proposal, type ProposalSelectedPlan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CheckCircle2 } from "lucide-react";
-import { useState, useCallback } from "react";
 
-type PlanSummary = {
-  policy: PolicyView;
+const PROPOSAL_PREFIX = "workspace.proposal.";
+
+interface PlanSummary {
+  policy: Policy;
   score: number | null;
   rationale: string;
   benefits: string[];
-};
-
-const PROPOSAL_PREFIX = "workspace.proposal.";
+}
 
 export default function Proposal() {
   const t = useTranslations("workspace.proposal");
   const tComparisonCards = useTranslations("workspace.comparisons.cards");
   const locale = useLocale();
 
-  const brief = useUI((state) => state.brief);
+  const brief = useUI<Case["brief"]>((state) => state.brief);
   const brokerProfile = useUI((state) => state.proposalBrokerProfile);
-  const selectedPlans = useUI((state) => state.proposalSelectedPlans);
-  const disclosuresKeys = useUI((state) => state.proposalDisclosuresKeys);
-  const mathCheck = useUI((state) => state.proposalMathCheck);
-  const policies = useUI((state) => state.selectPoliciesView());
+  const selectedPlans = useUI<ProposalSelectedPlan[]>((state) => state.proposalSelectedPlans);
+  const disclosuresKeys = useUI<Proposal["disclosuresKeys"]>((state) => state.proposalDisclosuresKeys);
+  const mathCheck = useUI<Proposal["mathCheck"]>((state) => state.proposalMathCheck);
+  const policies = useUI<Policy[]>((state) => state.policies);
+  const policyLookup = useMemo(() => new Map(policies.map((policy) => [policy.id, policy])), [policies]);
   const comparisonScores = useUI((state) => state.comparisonScores);
   const loading = useUI((state) => state.proposalLoading);
   const shareUrl = useUI((state) => state.proposalShareUrl);
@@ -71,16 +63,6 @@ export default function Proposal() {
     return new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(dateValue);
   }, [generatedOn, locale]);
 
-  const currencyFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(locale, {
-        style: "currency",
-        currency: "USD",
-        maximumFractionDigits: 0,
-      }),
-    [locale]
-  );
-
   const scoreFormatter = useMemo(
     () =>
       new Intl.NumberFormat(locale, {
@@ -93,7 +75,7 @@ export default function Proposal() {
   const planSummaries = useMemo<PlanSummary[]>(() => {
     return selectedPlans
       .map((selection) => {
-        const policy = policies.find((candidate) => candidate.plan === selection.planId);
+        const policy = policyLookup.get(selection.planId);
         if (!policy) return null;
 
         const matchingScore = comparisonScores.find((score) => score.plan === policy.plan)?.total;
@@ -108,15 +90,27 @@ export default function Proposal() {
 
         const rationaleKey = normalizeKey(selection.rationaleKey);
 
+        const transformedPolicy: Policy = {
+          ...policy,
+          premium: {
+            amountMinor: (policy.premium as unknown as number) * 100,
+            currency: "USD",
+          },
+          deductible: {
+            amountMinor: (policy.deductible as unknown as number) * 100,
+            currency: "USD",
+          },
+        };
+
         return {
-          policy,
+          policy: transformedPolicy,
           score: Number.isFinite(computedScore) ? computedScore : null,
           rationale: rationaleKey ? t(rationaleKey) : t("selectedPlans.defaultRationale"),
           benefits: Array.from(benefits).slice(0, 5),
         } satisfies PlanSummary;
       })
       .filter(Boolean) as PlanSummary[];
-  }, [comparisonScores, policies, selectedPlans, t, tComparisonCards]);
+  }, [comparisonScores, policyLookup, selectedPlans, t, tComparisonCards]);
 
   const summaryDetails = useMemo(() => {
     if (!planSummaries.length) return null;
@@ -135,26 +129,22 @@ export default function Proposal() {
       if (serviceLabel) serviceLabels.add(serviceLabel);
     });
 
-    const minPremium = Math.min(...premiums);
-    const maxPremium = Math.max(...premiums);
-    const avgDeductible = deductibles.reduce((total, value) => total + value, 0) / deductibles.length;
-
     const riders = Array.from(riderFrequency.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([name]) => name)
       .slice(0, 4);
 
+    const premiumRange = formatMoneyRange(premiums, locale);
+    const averageDeductible = formatMoneyAverage(deductibles, locale);
+
     return {
-      premiumRange:
-        minPremium === maxPremium
-          ? currencyFormatter.format(minPremium)
-          : `${currencyFormatter.format(minPremium)} – ${currencyFormatter.format(maxPremium)}`,
-      averageDeductible: currencyFormatter.format(Math.round(avgDeductible)),
+      premiumRange: premiumRange ?? "—",
+      averageDeductible: averageDeductible ?? "—",
       riders: riders.length ? riders.join(", ") : t("summary.ridersFallback"),
       networks: networkLabels.size ? Array.from(networkLabels).join(" • ") : t("summary.networkFallback"),
       services: serviceLabels.size ? Array.from(serviceLabels).join(" • ") : t("summary.serviceFallback"),
     } as const;
-  }, [currencyFormatter, planSummaries, t, tComparisonCards]);
+  }, [locale, planSummaries, t, tComparisonCards]);
 
   const normalizedDisclosures = disclosuresKeys
     .map((key) => normalizeKey(key))
@@ -278,13 +268,13 @@ export default function Proposal() {
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                           <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("plans.premiumLabel")}</dt>
                           <dd className="min-w-0 text-right font-semibold text-foreground/90 break-words">
-                            {currencyFormatter.format(plan.policy.premium)}
+                            {formatMoney(plan.policy.premium, { locale })}
                           </dd>
                         </div>
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                           <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("plans.deductibleLabel")}</dt>
                           <dd className="min-w-0 text-right font-semibold text-foreground/90 break-words">
-                            {currencyFormatter.format(plan.policy.deductible)}
+                            {formatMoney(plan.policy.deductible, { locale })}
                           </dd>
                         </div>
                         <div className="flex flex-col gap-1">
@@ -445,6 +435,65 @@ function formatLines(value?: string) {
     .map((item) => item.trim())
     .filter(Boolean)
     .join(", ");
+}
+
+function formatMoneyRange(values: Money[], locale: string): string | null {
+  const filtered = values.filter((value): value is Money => Boolean(value) && Number.isFinite(value.amountMinor));
+  if (!filtered.length) {
+    return null;
+  }
+
+  const groups = new Map<Money["currency"], Money[]>();
+  for (const money of filtered) {
+    const existing = groups.get(money.currency);
+    if (existing) {
+      existing.push(money);
+    } else {
+      groups.set(money.currency, [money]);
+    }
+  }
+
+  if (groups.size === 1) {
+    const [group] = groups.values();
+    if (!group) return null;
+    const sorted = [...group].sort((a, b) => a.amountMinor - b.amountMinor);
+    const min = sorted[0];
+    const max = sorted[sorted.length - 1];
+    if (!min || !max) {
+      return null;
+    }
+    const minFormatted = formatMoney(min, { locale });
+    if (min.amountMinor === max.amountMinor) {
+      return minFormatted;
+    }
+    const maxFormatted = formatMoney(max, { locale });
+    return `${minFormatted} – ${maxFormatted}`;
+  }
+
+  return filtered
+    .map((money) => formatMoney(money, { locale }))
+    .join(" / ");
+}
+
+function formatMoneyAverage(values: Money[], locale: string): string | null {
+  const filtered = values.filter((value): value is Money => Boolean(value) && Number.isFinite(value.amountMinor));
+  if (!filtered.length) {
+    return null;
+  }
+
+  const first = filtered[0];
+  if (!first) {
+    return null;
+  }
+  const currency = first.currency;
+  if (filtered.some((money) => money.currency !== currency)) {
+    return null;
+  }
+
+  const totalMinor = filtered.reduce((sum, money) => sum + money.amountMinor, 0);
+  const averageMinor = Math.round(totalMinor / filtered.length);
+  const averageMoney: Money = { amountMinor: averageMinor, currency };
+  return formatMoney(averageMoney, { locale });
 }
 
 function getInitials(text: string) {

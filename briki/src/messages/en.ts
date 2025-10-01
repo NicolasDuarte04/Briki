@@ -4,9 +4,21 @@ const en = {
     invalidDate: "Enter a valid date.",
     currency: "Enter a valid amount.",
     nonNegative: "Must be non-negative.",
+    minValue: "Must be at least {min}.",
     invalidUnion: "Choose a valid option.",
     badReference: "Reference not found.",
     nonEmptyArray: "Add at least one item.",
+  },
+  models: {
+    product: "Product",
+    policy: "Policy",
+    rider: "Rider",
+    pricingBand: "Pricing Band",
+    eligibility: "Eligibility",
+    provenance: "Provenance",
+    case: "Case",
+    proposal: "Proposal",
+    renewal: "Renewal",
   },
   data: {
     loadFailed: "Failed to load data.",
@@ -62,6 +74,60 @@ const en = {
       toggle: "Switch language to {language}",
       english: "English",
       spanish: "Spanish",
+    },
+  },
+  auth: {
+    nav: {
+      login: "Login",
+      profile: "Profile",
+      signOut: "Sign out",
+    },
+  },
+  profile: {
+    title: "Profile",
+    name: {
+      label: "Name",
+      help: "How your name appears across the app.",
+    },
+    locale: {
+      label: "Language",
+      help: "Choose your preferred language.",
+      options: {
+        en: "English",
+        es: "Spanish",
+      },
+    },
+    save: "Save changes",
+    toast: {
+      saved: "Profile updated.",
+    },
+  },
+  onboarding: {
+    title: "Welcome to Briki",
+    steps: {
+      basic: {
+        title: "Your basics",
+        nameLabel: "Your name",
+        namePlaceholder: "Enter your name",
+      },
+      role: {
+        title: "Your work",
+        roleLabel: "Role",
+        companyLabel: "Company",
+      },
+      locale: {
+        title: "Language",
+        localeLabel: "Preferred language",
+        options: {
+          en: "English",
+          es: "Spanish",
+        },
+      },
+    },
+    actions: {
+      back: "Back",
+      next: "Next",
+      finish: "Finish",
     },
   },
   topbar: {
@@ -584,5 +650,4 @@ const en = {
 } as const;
 
 export default en;
-
 

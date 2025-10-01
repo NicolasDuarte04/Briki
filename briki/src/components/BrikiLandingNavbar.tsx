@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
+import { signIn } from "next-auth/react";
 import {
   Navbar,
   NavBody,
@@ -51,20 +51,18 @@ export default function BrikiLandingNavbar() {
   }, []);
 
   return (
-  <Navbar className="sticky top-0 z-50 min-h-fit bg-transparent border-0 navbar-transparent">
+  <Navbar className="min-h-fit bg-transparent border-0 navbar-transparent">
       {/* Desktop Navigation */}
-      <NavBody className="h-full px-4 md:px-6 gap-6 !bg-transparent !border-0">
+      <NavBody className="h-full px-4 md:px-6 gap-6">
         <div className="relative z-50 flex w-full items-center justify-between">
           <BrikiLogo />
-          <NavItems 
-            items={navItems} 
-            itemClassName="text-sm px-2 py-1"
-          />
+          <NavItems items={navItems} />
           <div className="relative z-50 flex items-center">
             <Button 
               variant="ghost" 
               size="sm" 
               className="h-8 px-4 text-sm"
+              onClick={() => signIn("google")}
             >
               {t("login")}
             </Button>
@@ -96,7 +94,11 @@ export default function BrikiLandingNavbar() {
               </a>
             ))}
             <div className="flex w-full flex-col gap-2 pt-4">
-              <Button variant="ghost" className="w-full justify-start text-lg">
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start text-lg"
+                onClick={() => signIn("google")}
+              >
                 {t("login")}
               </Button>
             </div>

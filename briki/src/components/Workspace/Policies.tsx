@@ -29,39 +29,26 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUI } from "@/lib/ui/state";
-
-// PolicyView type from state (matches the view selector output)
-type PolicyView = {
-  plan: string;
-  premium: number;
-  deductible: number;
-  riders: string[];
-  network?: "basic" | "preferred" | "concierge";
-  service?: "standard" | "enhanced" | "white-glove";
-};
+import { formatMoney as formatMoneyValue, getMoneyAmountMajor, createMoneyFromMajor } from "@/lib/format";
+import { type CurrencyCode, type Money, type Policy, type PolicyView } from "@/lib/types";
 import {
   ColumnDef,
   ColumnFiltersState,
   ColumnPinningState,
   FilterFn,
+  SortingFn,
   SortingState,
-  type Column,
-  type Table as TanTable,
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
   getSortedRowModel,
   useReactTable,
+  type Column,
+  type Table as TanTable,
 } from "@tanstack/react-table";
+import { useLocale, useTranslations } from "next-intl";
 
-import { useTranslations } from "next-intl";
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
+const DEFAULT_CURRENCY: CurrencyCode = "USD";
 
 type NumberRange = {
   min?: number;
@@ -77,6 +64,62 @@ type ColumnMenuLabels = {
   reorderAria: string;
   reorderTitle: string;
 };
+
+function formatCurrencyFromMajor(value: number, currency: CurrencyCode, locale: string): string {
+  const money = createMoneyFromMajor(value, currency);
+  return formatMoneyValue(money, { locale, minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function formatRangeSummary(range: NumberRange, currency: CurrencyCode, locale: string): string {
+  const hasMin = typeof range.min === "number" && Number.isFinite(range.min);
+  const hasMax = typeof range.max === "number" && Number.isFinite(range.max);
+  if (!hasMin && !hasMax) {
+    return "";
+  }
+  const minValue = hasMin ? range.min! : undefined;
+  const maxValue = hasMax ? range.max! : undefined;
+  const minLabel = minValue !== undefined ? formatCurrencyFromMajor(minValue, currency, locale) : "";
+  const maxLabel = maxValue !== undefined ? formatCurrencyFromMajor(maxValue, currency, locale) : "";
+  if (hasMin && hasMax) {
+    return `: ${minLabel}–${maxLabel}`;
+  }
+  return `: ${hasMin ? minLabel : maxLabel}`;
+}
+
+function isNumberRange(value: unknown): value is NumberRange {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  const min = candidate.min;
+  const max = candidate.max;
+  return (typeof min === "number" && Number.isFinite(min)) || (typeof max === "number" && Number.isFinite(max));
+}
+
+function sanitizeNumberRange(range: NumberRange | undefined): NumberRange | undefined {
+  if (!range) {
+    return undefined;
+  }
+  const sanitized: NumberRange = {};
+  if (typeof range.min === "number" && Number.isFinite(range.min)) {
+    sanitized.min = range.min;
+  }
+  if (typeof range.max === "number" && Number.isFinite(range.max)) {
+    sanitized.max = range.max;
+  }
+  if (sanitized.min === undefined && sanitized.max === undefined) {
+    return undefined;
+  }
+  return sanitized;
+}
+
+function isMoney(value: unknown): value is Money {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const candidate = value as Partial<Money>;
+  return typeof candidate.amountMinor === "number" && Number.isFinite(candidate.amountMinor) && typeof candidate.currency === "string";
+}
 
 function useDebouncedCallback<T extends unknown[]>(cb: (...args: T) => void, delay: number) {
   const timeoutRef = React.useRef<number | undefined>(undefined);
@@ -102,12 +145,13 @@ const planFilter: FilterFn<PolicyView> = (row, columnId, filterValue) => {
   return text.toLowerCase().includes(filterValue.toLowerCase());
 };
 
-const numberRangeFilter: FilterFn<PolicyView> = (row, columnId, filterValue) => {
-  if (!filterValue || typeof filterValue !== "object") return true;
-  const value = Number(row.getValue<number>(columnId));
-  const { min, max } = filterValue as NumberRange;
-  const minOk = typeof min !== "number" ? true : value >= min;
-  const maxOk = typeof max !== "number" ? true : value <= max;
+const moneyRangeFilter: FilterFn<PolicyView> = (row, columnId, filterValue) => {
+  if (!isNumberRange(filterValue)) {
+    return true;
+  }
+  const amount = row.getValue<number>(columnId);
+  const minOk = filterValue.min === undefined || amount >= filterValue.min;
+  const maxOk = filterValue.max === undefined || amount <= filterValue.max;
   return minOk && maxOk;
 };
 
@@ -118,12 +162,19 @@ const ridersAnyFilter: FilterFn<PolicyView> = (row, columnId, filterValue) => {
   return selected.some((r) => riders.includes(r));
 };
 
+const moneySortingFn: SortingFn<PolicyView> = (rowA, rowB, columnId) => {
+  const amountA = rowA.getValue<number>(columnId);
+  const amountB = rowB.getValue<number>(columnId);
+  return amountA - amountB;
+};
+
 export default function Policies() {
-  const policies = useUI((s) => s.selectPoliciesView());
+  const rows = useUI((s) => s.selectPoliciesView());
   const policiesLoading = useUI((s) => s.policiesLoading);
   const policiesLoaded = useUI((s) => s.policiesLoaded);
   const fetchPolicies = useUI((s) => s.fetchPolicies);
   const t = useTranslations("workspace.policies");
+  const locale = useLocale();
 
   React.useEffect(() => {
     void fetchPolicies();
@@ -135,13 +186,20 @@ export default function Policies() {
         <CardTitle>{t("title")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <PoliciesTable rows={policies} loading={policiesLoading} loaded={policiesLoaded} />
+        <PoliciesTable rows={rows} loading={policiesLoading} loaded={policiesLoaded} locale={locale} />
       </CardContent>
     </Card>
   );
 }
 
-function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading: boolean; loaded: boolean }) {
+interface PoliciesTableProps {
+  rows: PolicyView[];
+  loading: boolean;
+  loaded: boolean;
+  locale: string;
+}
+
+function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnPinning, setColumnPinning] = React.useState<ColumnPinningState>({ left: [], right: [] });
@@ -210,6 +268,8 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
     [reorderableIds, setColumnOrder, columnMenuLabels]
   );
 
+  const currency = React.useMemo(() => rows[0]?.currency ?? DEFAULT_CURRENCY, [rows]);
+
   const columns = React.useMemo<ColumnDef<PolicyView>[]>(
     () => [
       {
@@ -222,8 +282,8 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
       },
       {
         accessorKey: "premium",
-        filterFn: numberRangeFilter,
-        sortingFn: "basic",
+        filterFn: moneyRangeFilter,
+        sortingFn: moneySortingFn,
         header: ({ column }) => (
           <HeaderWithPinMenu
             column={column}
@@ -233,12 +293,14 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
             labels={columnMenuLabels}
           />
         ),
-        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.original.premium)}</div>,
+        cell: ({ row }) => (
+          <div className="text-right tabular-nums">{formatCurrencyFromMajor(row.original.premium, currency, locale)}</div>
+        ),
       },
       {
         accessorKey: "deductible",
-        filterFn: numberRangeFilter,
-        sortingFn: "basic",
+        filterFn: moneyRangeFilter,
+        sortingFn: moneySortingFn,
         header: ({ column }) => (
           <HeaderWithPinMenu
             column={column}
@@ -248,7 +310,9 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
             labels={columnMenuLabels}
           />
         ),
-        cell: ({ row }) => <div className="text-right tabular-nums">{formatCurrency(row.original.deductible)}</div>,
+        cell: ({ row }) => (
+          <div className="text-right tabular-nums">{formatCurrencyFromMajor(row.original.deductible, currency, locale)}</div>
+        ),
       },
       {
         accessorKey: "riders",
@@ -311,7 +375,7 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
         ),
       },
     ],
-    [t, getHeaderDnDProps, columnMenuLabels]
+    [t, getHeaderDnDProps, columnMenuLabels, locale]
   );
 
   const table = useReactTable({
@@ -341,9 +405,11 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
     return Array.from(s).sort((a, b) => a.localeCompare(b));
   }, [rows]);
 
-  const premiumRange = (premiumCol?.getFilterValue() as NumberRange | undefined) || {};
-  const deductibleRange = (deductibleCol?.getFilterValue() as NumberRange | undefined) || {};
-  const selectedRiders = (ridersCol?.getFilterValue() as string[] | undefined) || [];
+  const premiumRange = sanitizeNumberRange(premiumCol?.getFilterValue() as NumberRange | undefined) ?? {};
+  const deductibleRange = sanitizeNumberRange(deductibleCol?.getFilterValue() as NumberRange | undefined) ?? {};
+  const selectedRiders = Array.isArray(ridersCol?.getFilterValue())
+    ? (ridersCol?.getFilterValue() as string[])
+    : [];
 
   const debouncedSetPlan = useDebouncedCallback((value: string | undefined) => {
     const v = value && value.trim().length ? value : undefined;
@@ -353,11 +419,12 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
   const debouncedSetNumberRange = useDebouncedCallback(
     (colId: "premium" | "deductible", range: NumberRange | undefined) => {
       const col = colId === "premium" ? premiumCol : deductibleCol;
-      if (!range || (typeof range.min !== "number" && typeof range.max !== "number")) {
+      const sanitized = sanitizeNumberRange(range);
+      if (!sanitized) {
         col?.setFilterValue(undefined);
         return;
       }
-      col?.setFilterValue(range);
+      col?.setFilterValue(sanitized);
     },
     250
   );
@@ -384,13 +451,7 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm">
               {t("filters.premium.label")}
-              {typeof premiumRange.min === "number" || typeof premiumRange.max === "number"
-                ? `: ${
-                    typeof premiumRange.min === "number" ? formatCurrency(premiumRange.min) : ""
-                  }${typeof premiumRange.min === "number" || typeof premiumRange.max === "number" ? "–" : ""}${
-                    typeof premiumRange.max === "number" ? formatCurrency(premiumRange.max) : ""
-                  }`
-                : ""}
+              {formatRangeSummary(premiumRange, currency, locale)}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-64">
@@ -399,30 +460,40 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
                 type="number"
                 inputMode="numeric"
                 placeholder={t("filters.common.min")}
-                defaultValue={typeof premiumRange.min === "number" ? premiumRange.min : ""}
+                defaultValue={premiumRange.min ?? ""}
                 onChange={(e) => {
                   const v = e.target.value.trim();
-                  const min = v === "" ? undefined : Number(v);
-                  const next: NumberRange | undefined =
-                    typeof min !== "number" && typeof premiumRange.max !== "number"
-                      ? undefined
-                      : { min, max: premiumRange.max };
-                  debouncedSetNumberRange("premium", next);
+                  const minValue = v === "" ? undefined : Number(v);
+                  const hasMin = typeof minValue === "number" && Number.isFinite(minValue);
+                  const hasMax = typeof premiumRange.max === "number" && Number.isFinite(premiumRange.max);
+                  if (!hasMin && !hasMax) {
+                    debouncedSetNumberRange("premium", undefined);
+                  } else {
+                    const next: NumberRange = {};
+                    if (hasMin) next.min = minValue;
+                    if (hasMax && premiumRange.max !== undefined) next.max = premiumRange.max;
+                    debouncedSetNumberRange("premium", next);
+                  }
                 }}
               />
               <Input
                 type="number"
                 inputMode="numeric"
                 placeholder={t("filters.common.max")}
-                defaultValue={typeof premiumRange.max === "number" ? premiumRange.max : ""}
+                defaultValue={premiumRange.max ?? ""}
                 onChange={(e) => {
                   const v = e.target.value.trim();
-                  const max = v === "" ? undefined : Number(v);
-                  const next: NumberRange | undefined =
-                    typeof premiumRange.min !== "number" && typeof max !== "number"
-                      ? undefined
-                      : { min: premiumRange.min, max };
-                  debouncedSetNumberRange("premium", next);
+                  const maxValue = v === "" ? undefined : Number(v);
+                  const hasMin = typeof premiumRange.min === "number" && Number.isFinite(premiumRange.min);
+                  const hasMax = typeof maxValue === "number" && Number.isFinite(maxValue);
+                  if (!hasMin && !hasMax) {
+                    debouncedSetNumberRange("premium", undefined);
+                  } else {
+                    const next: NumberRange = {};
+                    if (hasMin && premiumRange.min !== undefined) next.min = premiumRange.min;
+                    if (hasMax) next.max = maxValue;
+                    debouncedSetNumberRange("premium", next);
+                  }
                 }}
               />
             </div>
@@ -433,13 +504,7 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm">
               {t("filters.deductible.label")}
-              {typeof deductibleRange.min === "number" || typeof deductibleRange.max === "number"
-                ? `: ${
-                    typeof deductibleRange.min === "number" ? formatCurrency(deductibleRange.min) : ""
-                  }${typeof deductibleRange.min === "number" || typeof deductibleRange.max === "number" ? "–" : ""}${
-                    typeof deductibleRange.max === "number" ? formatCurrency(deductibleRange.max) : ""
-                  }`
-                : ""}
+              {formatRangeSummary(deductibleRange, currency, locale)}
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-64">
@@ -448,30 +513,40 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
                 type="number"
                 inputMode="numeric"
                 placeholder={t("filters.common.min")}
-                defaultValue={typeof deductibleRange.min === "number" ? deductibleRange.min : ""}
+                defaultValue={deductibleRange.min ?? ""}
                 onChange={(e) => {
                   const v = e.target.value.trim();
-                  const min = v === "" ? undefined : Number(v);
-                  const next: NumberRange | undefined =
-                    typeof min !== "number" && typeof deductibleRange.max !== "number"
-                      ? undefined
-                      : { min, max: deductibleRange.max };
-                  debouncedSetNumberRange("deductible", next);
+                  const minValue = v === "" ? undefined : Number(v);
+                  const hasMin = typeof minValue === "number" && Number.isFinite(minValue);
+                  const hasMax = typeof deductibleRange.max === "number" && Number.isFinite(deductibleRange.max);
+                  if (!hasMin && !hasMax) {
+                    debouncedSetNumberRange("deductible", undefined);
+                  } else {
+                    const next: NumberRange = {};
+                    if (hasMin) next.min = minValue;
+                    if (hasMax && deductibleRange.max !== undefined) next.max = deductibleRange.max;
+                    debouncedSetNumberRange("deductible", next);
+                  }
                 }}
               />
               <Input
                 type="number"
                 inputMode="numeric"
                 placeholder={t("filters.common.max")}
-                defaultValue={typeof deductibleRange.max === "number" ? deductibleRange.max : ""}
+                defaultValue={deductibleRange.max ?? ""}
                 onChange={(e) => {
                   const v = e.target.value.trim();
-                  const max = v === "" ? undefined : Number(v);
-                  const next: NumberRange | undefined =
-                    typeof deductibleRange.min !== "number" && typeof max !== "number"
-                      ? undefined
-                      : { min: deductibleRange.min, max };
-                  debouncedSetNumberRange("deductible", next);
+                  const maxValue = v === "" ? undefined : Number(v);
+                  const hasMin = typeof deductibleRange.min === "number" && Number.isFinite(deductibleRange.min);
+                  const hasMax = typeof maxValue === "number" && Number.isFinite(maxValue);
+                  if (!hasMin && !hasMax) {
+                    debouncedSetNumberRange("deductible", undefined);
+                  } else {
+                    const next: NumberRange = {};
+                    if (hasMin && deductibleRange.min !== undefined) next.min = deductibleRange.min;
+                    if (hasMax) next.max = maxValue;
+                    debouncedSetNumberRange("deductible", next);
+                  }
                 }}
               />
             </div>
@@ -522,10 +597,9 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header: any) => {
-                  const pinned = getPinnedStyles(header.column as Column<any, any>, table as unknown as TanTable<any>, true);
-                  const widthPx: number | undefined =
-                    typeof header.getSize === "function" ? header.getSize() : header.column?.getSize?.() ?? undefined;
+                {headerGroup.headers.map((header) => {
+                  const pinned = getPinnedStyles(header.column as Column<PolicyView, unknown>, table, true);
+                  const widthPx: number | undefined = header.getSize?.() ?? header.column.getSize?.();
                   const style: React.CSSProperties = { ...pinned.style, width: widthPx, minWidth: widthPx };
                   const widthClass = header.column.id === "plan" ? "w-[40%]" : "";
                   return (
@@ -533,12 +607,12 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
                       {header.isPlaceholder
                         ? null
                         : flexRender(header.column.columnDef.header, header.getContext())}
-                      {header.column?.getCanResize?.() && (
+                      {header.column.getCanResize?.() && (
                         <div
                           onMouseDown={header.getResizeHandler?.()}
                           onTouchStart={header.getResizeHandler?.()}
                           className={`absolute right-0 top-0 h-full w-1.5 cursor-col-resize select-none touch-none ${
-                            header.column?.getIsResizing?.() ? "bg-primary/30" : "bg-transparent"
+                            header.column.getIsResizing?.() ? "bg-primary/30" : "bg-transparent"
                           }`}
                           aria-label="Resize column"
                         />
@@ -552,10 +626,10 @@ function PoliciesTable({ rows, loading, loaded }: { rows: PolicyView[]; loading:
           <TableBody>
             {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="group">
-                  {row.getVisibleCells().map((cell: any) => {
-                    const pinned = getPinnedStyles(cell.column as Column<any, any>, table as unknown as TanTable<any>, false);
-                    const widthPx: number | undefined = cell.column?.getSize?.() ?? undefined;
+                <TableRow key={row.id} className="group" tabIndex={0}>
+                  {row.getVisibleCells().map((cell) => {
+                    const pinned = getPinnedStyles(cell.column as Column<PolicyView, unknown>, table, false);
+                    const widthPx: number | undefined = cell.column.getSize?.();
                     const style: React.CSSProperties = { ...pinned.style, width: widthPx, minWidth: widthPx };
                     const extra = cell.column.id === "plan" ? "font-medium" : "";
                     return (
@@ -648,7 +722,7 @@ function PoliciesLoadingSkeleton() {
   );
 }
 
-function HeaderWithPinMenu({ column, title, align, dragProps, labels }: { column: Column<any, any>; title: string; align?: "left" | "right"; dragProps?: React.HTMLAttributes<HTMLSpanElement>; labels: ColumnMenuLabels }) {
+function HeaderWithPinMenu({ column, title, align, dragProps, labels }: { column: Column<PolicyView, unknown>; title: string; align?: "left" | "right"; dragProps?: React.HTMLAttributes<HTMLSpanElement> | undefined; labels: ColumnMenuLabels }) {
   const pin = column.getIsPinned();
   const value = pin ?? "none";
   return (
@@ -698,23 +772,25 @@ function HeaderWithPinMenu({ column, title, align, dragProps, labels }: { column
   );
 }
 
-function getPinnedStyles(column: Column<any, any>, table: TanTable<any>, isHeader: boolean) {
+type PinnedStylesResult = { className: string; style: React.CSSProperties };
+
+function getPinnedStyles(column: Column<PolicyView, unknown>, table: TanTable<PolicyView>, isHeader: boolean): PinnedStylesResult {
   const isPinned = column.getIsPinned();
-  const base: { className: string; style: React.CSSProperties } = { className: "", style: {} };
+  const base: PinnedStylesResult = { className: "", style: {} };
   if (!isPinned) return base;
 
-  const leftColumns = (table as any).getLeftLeafColumns?.() ?? [];
-  const rightColumns = (table as any).getRightLeafColumns?.() ?? [];
+  const leftColumns = table.getLeftLeafColumns?.() ?? [];
+  const rightColumns = table.getRightLeafColumns?.() ?? [];
 
   if (isPinned === "left") {
-    const idx = leftColumns.findIndex((c: any) => c.id === (column as any).id);
-    const offset = leftColumns.slice(0, idx).reduce((acc: number, c: any) => acc + (c.getSize?.() ?? 0), 0);
-    return { className: "sticky-col sticky-left", style: { ["--pin-left" as any]: `${offset}px` } };
+    const idx = leftColumns.findIndex((c) => c.id === column.id);
+    const offset = leftColumns.slice(0, idx).reduce((acc, c) => acc + (c.getSize?.() ?? 0), 0);
+    return { className: "sticky-col sticky-left", style: { ["--pin-left" as keyof React.CSSProperties]: `${offset}px` } };
   }
   if (isPinned === "right") {
-    const idx = rightColumns.findIndex((c: any) => c.id === (column as any).id);
-    const offset = rightColumns.slice(idx + 1).reduce((acc: number, c: any) => acc + (c.getSize?.() ?? 0), 0);
-    return { className: "sticky-col sticky-right", style: { ["--pin-right" as any]: `${offset}px` } };
+    const idx = rightColumns.findIndex((c) => c.id === column.id);
+    const offset = rightColumns.slice(idx + 1).reduce((acc, c) => acc + (c.getSize?.() ?? 0), 0);
+    return { className: "sticky-col sticky-right", style: { ["--pin-right" as keyof React.CSSProperties]: `${offset}px` } };
   }
   return base;
 }

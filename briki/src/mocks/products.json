@@ -1,0 +1,136 @@
+[
+  {
+    "id": "prod_salud_individual_01",
+    "name": "Salud Total Individual Plus",
+    "code": "SAL-IND-PLUS",
+    "carrierId": "carrier.sura",
+    "description": "Cobertura médica integral para profesionales independientes con acceso a red preferencial y telemedicina.",
+    "coverageKind": "individual",
+    "availableRiderIds": [
+      "rdr_virtual_care",
+      "rdr_wellness_reset"
+    ],
+    "basePremiumRange": {
+      "min": {
+        "amountMinor": 1850000,
+        "currency": "COP"
+      },
+      "max": {
+        "amountMinor": 2650000,
+        "currency": "COP"
+      }
+    },
+    "isActive": true,
+    "createdAt": "2024-11-01T08:15:00-05:00",
+    "updatedAt": "2025-02-10T09:45:00-05:00"
+  },
+  {
+    "id": "prod_harmonia_familia_mx",
+    "name": "Harmonia Familiar MX",
+    "code": "HFMX-2025",
+    "carrierId": "carrier.axa_colpatria",
+    "description": "Plan familiar con cobertura en red privada nacional, asistencia pediátrica y apoyo psicológico.",
+    "coverageKind": "family",
+    "availableRiderIds": [
+      "rdr_dental_implants"
+    ],
+    "basePremiumRange": {
+      "min": {
+        "amountMinor": 980000,
+        "currency": "MXN"
+      },
+      "max": {
+        "amountMinor": 1460000,
+        "currency": "MXN"
+      }
+    },
+    "isActive": true,
+    "createdAt": "2025-01-05T09:20:00-06:00",
+    "updatedAt": "2025-03-12T11:05:00-06:00"
+  },
+  {
+    "id": "prod_escudo_pyme_col",
+    "name": "Escudo Pyme Salud",
+    "code": "ESC-PYME-24",
+    "carrierId": "carrier.sanitas",
+    "description": "Plan colectivo modular para pymes con cobertura regional y gestión digital de empleados.",
+    "coverageKind": "group",
+    "availableRiderIds": [],
+    "isActive": true,
+    "createdAt": "2024-08-12T11:30:00-05:00",
+    "updatedAt": "2024-12-01T14:20:00-05:00"
+  },
+  {
+    "id": "prod_globalcare_enterprise",
+    "name": "GlobalCare Enterprise Shield",
+    "code": "GCE-ENT-500",
+    "carrierId": "carrier.mapfre",
+    "description": "Enterprise health benefits con concierge onboarding, auditoría de cumplimiento y telemedicina 24/7.",
+    "coverageKind": "enterprise",
+    "availableRiderIds": [
+      "rdr_travel_globalassist",
+      "rdr_cyber_familyshield"
+    ],
+    "basePremiumRange": {
+      "min": {
+        "amountMinor": 4500000,
+        "currency": "USD"
+      },
+      "max": {
+        "amountMinor": 6200000,
+        "currency": "USD"
+      }
+    },
+    "isActive": true,
+    "createdAt": "2024-05-20T09:00:00+01:00",
+    "updatedAt": "2025-02-28T16:45:00+01:00"
+  },
+  {
+    "id": "prod_viva_salud_lite",
+    "name": "Viva Tu Salud Lite",
+    "code": "VTS-LITE-2023",
+    "carrierId": "carrier.coomeva",
+    "description": "Plan individual económico para estudiantes y freelancers, con consultas virtuales incluidas.",
+    "coverageKind": "individual",
+    "availableRiderIds": [],
+    "basePremiumRange": {
+      "min": {
+        "amountMinor": 520000,
+        "currency": "COP"
+      },
+      "max": {
+        "amountMinor": 780000,
+        "currency": "COP"
+      }
+    },
+    "isActive": false,
+    "createdAt": "2023-06-15T07:50:00-05:00",
+    "updatedAt": "2024-04-10T10:05:00-05:00"
+  },
+  {
+    "id": "prod_flex_familia_latam",
+    "name": "Flex Familia Latam",
+    "code": "FFL-2025",
+    "carrierId": "carrier.metlife",
+    "description": "Cobertura flexible para familias con dependientes en varios países de Latinoamérica, con red internacional.",
+    "coverageKind": "family",
+    "availableRiderIds": [
+      "rdr_dental_implants",
+      "rdr_vision_focus"
+    ],
+    "basePremiumRange": {
+      "min": {
+        "amountMinor": 1250000,
+        "currency": "USD"
+      },
+      "max": {
+        "amountMinor": 1750000,
+        "currency": "USD"
+      }
+    },
+    "isActive": true,
+    "createdAt": "2024-10-02T13:10:00-04:00",
+    "updatedAt": "2025-03-15T10:30:00-04:00"
+  }
+]
+

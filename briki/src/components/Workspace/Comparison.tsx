@@ -10,35 +10,22 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
+import { formatMoney } from "@/lib/format";
+import { comparisonMetrics, useUI } from "@/lib/ui/state";
 import {
-  comparisonMetrics,
-  useUI,
+  type ComparisonMetric,
   type ComparisonPlaybook,
   type ComparisonWeights,
-  type ComparisonMetric,
-  type UIState,
-} from "@/lib/ui/state";
-
-// PolicyView type from state (matches the view selector output)
-type PolicyView = {
-  plan: string;
-  premium: number;
-  deductible: number;
-  riders: string[];
-  network?: "basic" | "preferred" | "concierge";
-  service?: "standard" | "enhanced" | "white-glove";
-};
+  type PolicyComparisonScore,
+  type PolicyView,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { shallow } from "zustand/shallow";
 
-const WEIGHT_KEYS = ["premium", "deductible", "riders", "network", "service"] as const;
-type WeightKey = (typeof WEIGHT_KEYS)[number];
 
-type PolicyWithScore = {
+interface PolicySummary {
   policy: PolicyView;
-  score: number;
-  breakdown: Record<ComparisonMetric, number>;
-};
+  score: PolicyComparisonScore;
+}
 
 const PLAYBOOK_KEYS: ComparisonPlaybook[] = ["sme", "hnwi", "auto", "travel"];
 
@@ -65,9 +52,21 @@ const STATUS_INDICATOR_CLASSES: Record<AttributeStatus, string> = {
 export default function Comparison() {
   const t = useTranslations("workspace.comparisons");
   // Use separate selectors to avoid object recreation and improve performance
-  const policies = useUI((state) => state.selectPoliciesView());
+  // Get selector function to avoid infinite loops
+  const selectPoliciesView = useUI((state) => state.selectPoliciesView);
+  const policies = useMemo(() => selectPoliciesView(), [selectPoliciesView]);
+  const fetchPolicies = useUI((state) => state.fetchPolicies);
+  const fetchProducts = useUI((state) => state.fetchProducts);
+  const fetchRiders = useUI((state) => state.fetchRiders);
+  const fetchPricingBands = useUI((state) => state.fetchPricingBands);
   const policiesLoading = useUI((state) => state.policiesLoading);
   const policiesLoaded = useUI((state) => state.policiesLoaded);
+  const productsLoading = useUI((state) => state.productsLoading);
+  const productsLoaded = useUI((state) => state.productsLoaded);
+  const ridersLoading = useUI((state) => state.ridersLoading);
+  const ridersLoaded = useUI((state) => state.ridersLoaded);
+  const pricingBandsLoading = useUI((state) => state.pricingBandsLoading);
+  const pricingBandsLoaded = useUI((state) => state.pricingBandsLoaded);
   const comparisonScores = useUI((state) => state.comparisonScores);
   const comparisonPlaybook = useUI((state) => state.comparisonPlaybook);
   const comparisonWeights = useUI((state) => state.comparisonWeights);
@@ -76,6 +75,13 @@ export default function Comparison() {
   const resetComparisonWeights = useUI((state) => state.resetComparisonWeights);
 
   const locale = useLocale();
+
+  useEffect(() => {
+    void fetchPolicies();
+    void fetchProducts();
+    void fetchRiders();
+    void fetchPricingBands();
+  }, [fetchPolicies, fetchProducts, fetchRiders, fetchPricingBands]);
 
   const playbookOptions = useMemo(() =>
     PLAYBOOK_KEYS.map((key) => ({
@@ -98,7 +104,7 @@ export default function Comparison() {
   }, [comparisonWeights]);
 
   const commitWeight = useCallback(
-    (key: WeightKey, value: number) => {
+    (key: ComparisonMetric, value: number) => {
       if (lastCommittedWeightsRef.current[key] === value) {
         return;
       }
@@ -115,7 +121,7 @@ export default function Comparison() {
 
   // Update local weights immediately for smooth UI
   const handleWeightChange = useCallback(
-    (key: WeightKey, value: number) => {
+    (key: ComparisonMetric, value: number) => {
       setLocalWeights((prev) => {
         if (prev[key] === value) {
           return prev;
@@ -136,46 +142,36 @@ export default function Comparison() {
   }, []);
 
   const handleInteractionEnd = useCallback(
-    (key: WeightKey, value: number) => {
+    (key: ComparisonMetric, value: number) => {
       pointerActiveRef.current = false;
       commitWeight(key, value);
     },
     [commitWeight]
   );
 
-  const currencyFormatter = useMemo(() =>
-    new Intl.NumberFormat(locale, {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }), [locale]);
+  const policiesByPlan = useMemo(() => new Map(policies.map((policy) => [policy.plan, policy])), [policies]);
 
-  const formatCurrency = useCallback((value: number) => currencyFormatter.format(value), [currencyFormatter]);
-
-  const policySummaries = useMemo<PolicyWithScore[]>(() =>
+  const policySummaries = useMemo<PolicySummary[]>(() =>
     comparisonScores
       .map((score) => {
-        const policy = policies.find((candidate) => candidate.plan === score.plan);
+        const policy = policiesByPlan.get(score.plan);
         if (!policy) {
           return undefined;
         }
-        return {
-          policy,
-          score: score.total,
-          breakdown: score.breakdown,
-        } satisfies PolicyWithScore;
+        return { policy, score } satisfies PolicySummary;
       })
-      .filter((value): value is PolicyWithScore => Boolean(value))
-      .sort((a, b) => b.score - a.score), [comparisonScores, policies]);
+      .filter((value): value is PolicySummary => Boolean(value))
+      .sort((a, b) => b.score.total - a.score.total), [comparisonScores, policiesByPlan]);
 
   const attributeStatuses = useMemo<AttributeStatusMap>(() =>
     computeAttributeStatuses(policySummaries, localWeights), [localWeights, policySummaries]);
 
-  const showLoading = policiesLoading;
-  const showEmpty = !policiesLoading && policiesLoaded && policySummaries.length === 0;
+  const dataReady = policiesLoaded && productsLoaded && ridersLoaded && pricingBandsLoaded;
+  const showLoading = !dataReady || policiesLoading || productsLoading || ridersLoading || pricingBandsLoading;
+  const showEmpty = dataReady && policySummaries.length === 0;
 
   const totalWeight = useMemo(
-    () => WEIGHT_KEYS.reduce((sum, metric) => sum + (localWeights[metric] ?? 0), 0),
+    () => comparisonMetrics.reduce((sum, metric) => sum + (localWeights[metric] ?? 0), 0),
     [localWeights]
   );
 
@@ -204,7 +200,7 @@ export default function Comparison() {
             </span>
           </header>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {WEIGHT_KEYS.map((metric) => {
+            {comparisonMetrics.map((metric) => {
               const titleId = `comparison-weight-${metric}-label`;
               const sliderId = `comparison-weight-${metric}-slider`;
               return (
@@ -228,11 +224,19 @@ export default function Comparison() {
                     max={100}
                     min={0}
                     step={1}
-                    onChange={(e) => handleWeightChange(metric, Number(e.target.value))}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      handleWeightChange(metric, getSliderValue(e.currentTarget))
+                    }
                     onPointerDown={handleInteractionStart}
-                    onPointerUp={(e) => handleInteractionEnd(metric, Number(e.currentTarget.value))}
-                    onPointerCancel={(e) => handleInteractionEnd(metric, Number(e.currentTarget.value))}
-                    onBlur={(e) => handleInteractionEnd(metric, Number(e.currentTarget.value))}
+                    onPointerUp={(e: React.PointerEvent<HTMLInputElement>) =>
+                      handleInteractionEnd(metric, getSliderValue(e.currentTarget))
+                    }
+                    onPointerCancel={(e: React.PointerEvent<HTMLInputElement>) =>
+                      handleInteractionEnd(metric, getSliderValue(e.currentTarget))
+                    }
+                    onBlur={(e: React.FocusEvent<HTMLInputElement>) =>
+                      handleInteractionEnd(metric, getSliderValue(e.currentTarget))
+                    }
                     aria-labelledby={titleId}
                     aria-valuenow={localWeights[metric]}
                     aria-valuetext={t("weights.valueText", { value: localWeights[metric] })}
@@ -269,16 +273,13 @@ export default function Comparison() {
               aria-label={t("cards.ariaLabel")}
               className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
             >
-              {policySummaries.map(({ policy, score, breakdown }, index) => {
+              {policySummaries.map(({ policy, score }, index) => {
                 const headingId = `comparison-card-${index}-title`;
-                const scoreText = score.toFixed(1);
+                const scoreText = score.total.toFixed(1);
                 const networkKey = policy.network ?? "unknown";
                 const serviceKey = policy.service ?? "unknown";
                 const networkLabel = t(`cards.networkLevels.${networkKey}`);
                 const serviceLabel = t(`cards.serviceLevels.${serviceKey}`);
-                const networkMeta = t("cards.labels.network", { value: networkLabel });
-                const serviceMeta = t("cards.labels.service", { value: serviceLabel });
-                const metaLine = t("cards.metaLine", { network: networkMeta, service: serviceMeta });
 
                 return (
                   <article key={policy.plan} role="listitem" aria-labelledby={headingId}>
@@ -313,7 +314,10 @@ export default function Comparison() {
                             plan={policy.plan}
                             metric="premium"
                             label={t("cards.premiumLabel")}
-                            value={formatCurrency(policy.premium)}
+                            value={formatMoney(
+                              { amountMinor: Math.round(policy.premium * 100), currency: policy.currency },
+                              { locale, maximumFractionDigits: 0 }
+                            )}
                             statuses={attributeStatuses}
                             indicatorAria={t("cards.indicators.premium")}
                           />
@@ -321,7 +325,10 @@ export default function Comparison() {
                             plan={policy.plan}
                             metric="deductible"
                             label={t("cards.deductibleLabel")}
-                            value={formatCurrency(policy.deductible)}
+                            value={formatMoney(
+                              { amountMinor: Math.round(policy.deductible * 100), currency: policy.currency },
+                              { locale, maximumFractionDigits: 0 }
+                            )}
                             statuses={attributeStatuses}
                             indicatorAria={t("cards.indicators.deductible")}
                           />
@@ -567,7 +574,7 @@ function MetricRow({ plan, metric, label, value, statuses, indicatorAria }: Metr
 }
 
 function computeAttributeStatuses(
-  summaries: PolicyWithScore[],
+  summaries: PolicySummary[],
   weights: ComparisonWeights
 ): AttributeStatusMap {
   if (!summaries.length) {
@@ -589,7 +596,7 @@ function computeAttributeStatuses(
       continue;
     }
 
-    const values = summaries.map((summary) => summary.breakdown[metric] ?? 0);
+    const values = summaries.map((summary) => summary.score.breakdown[metric] ?? 0);
     const max = Math.max(...values);
     const min = Math.min(...values);
     const spread = max - min;
@@ -603,8 +610,13 @@ function computeAttributeStatuses(
 
     const tolerance = Math.max(MIN_STATUS_TOLERANCE, spread * 0.1);
 
-    values.forEach((value, index) => {
-      const summary = summaries[index];
+    summaries.forEach((summary, index) => {
+      const value = values[index];
+      if (value === undefined) {
+        statusMap[summary.policy.plan]![metric] = "neutral";
+        return;
+      }
+      
       const closeToMax = Math.abs(value - max) <= tolerance;
       const closeToMin = Math.abs(value - min) <= tolerance;
 
@@ -620,5 +632,7 @@ function computeAttributeStatuses(
 
   return statusMap;
 }
+
+const getSliderValue = (input: HTMLInputElement): number => Number.parseInt(input.value, 10);
 
 

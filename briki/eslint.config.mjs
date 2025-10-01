@@ -20,6 +20,27 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    files: ["**/*.{ts,tsx}", "**/*.mts", "**/*.cts"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          args: "none",
+          ignoreRestSiblings: true,
+        },
+      ],
+      "@typescript-eslint/explicit-function-return-type": [
+        "warn",
+        {
+          allowExpressions: true,
+          allowTypedFunctionExpressions: true,
+          allowHigherOrderFunctions: true,
+        },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

@@ -1,0 +1,77 @@
+[
+  {
+    "id": "proposal-demo-001",
+    "caseId": "case-demo-001",
+    "broker": {
+      "name": "Camila Duarte",
+      "agency": "Andes Advisory Group",
+      "email": "camila@andesadvisory.com",
+      "phone": "+57 320 123 4567",
+      "brandColor": "#0F766E"
+    },
+    "brief": {
+      "businessType": "Tech startup",
+      "employees": 45,
+      "coverage": "Comprehensive health",
+      "freeText": "Needs scalable coverage for remote team"
+    },
+    "selectedPlans": [
+      {
+        "planId": "pol_salud_total_individual_2025",
+        "rationaleKey": "proposal.demo.affordability"
+      },
+      {
+        "planId": "pol_harmonia_familiar_2025",
+        "rationaleKey": "proposal.demo.benefitBalance"
+      }
+    ],
+    "disclosuresKeys": [
+      "proposal.disclosures.healthcareRegulations",
+      "proposal.disclosures.underwriting"
+    ],
+    "mathCheck": {
+      "passed": true,
+      "messageKey": "proposal.mathCheck.passed"
+    },
+    "shareUrl": "https://briki.app/share/proposals/proposal-demo-001",
+    "generatedOn": "2025-02-26T09:45:00.000Z"
+  },
+  {
+    "id": "proposal-demo-002",
+    "caseId": "case-demo-001",
+    "broker": {
+      "name": "Camila Duarte",
+      "agency": "Andes Advisory Group",
+      "email": "camila@andesadvisory.com",
+      "phone": "+57 320 123 4567",
+      "brandColor": "#0F766E"
+    },
+    "brief": {
+      "businessType": "Tech startup",
+      "employees": 45,
+      "coverage": "Comprehensive health",
+      "freeText": "Considers concierge coverage for leadership"
+    },
+    "selectedPlans": [
+      {
+        "planId": "pol_globalcare_enterprise_shield",
+        "rationaleKey": "proposal.demo.conciergeCare"
+      },
+      {
+        "planId": "pol_salud_total_individual_high_deductible",
+        "rationaleKey": "proposal.demo.remoteSupport"
+      }
+    ],
+    "disclosuresKeys": [
+      "proposal.disclosures.healthcareRegulations",
+      "proposal.disclosures.taxImplications",
+      "proposal.disclosures.internationalCoverage"
+    ],
+    "mathCheck": {
+      "passed": false,
+      "messageKey": "proposal.mathCheck.requiresReview"
+    },
+    "shareUrl": "https://briki.app/share/proposals/proposal-demo-002",
+    "generatedOn": "2025-02-27T12:20:00.000Z"
+  }
+]

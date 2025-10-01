@@ -26,7 +26,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const startSourcing = useUI((state) => state.startSourcing);
   const sourcingTranslations = useTranslations("sourcing.status");
   const chatTranslations = useTranslations("chat");
-  const composer = useTranslations("composer");
+  // const composer = useTranslations("composer");
   const initialSystem = useMemo(() => {
     const parts: string[] = [];
     if (brief.businessType) parts.push(`Business: ${brief.businessType}`);
@@ -277,7 +277,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
     // Font loading events (helps when web fonts swap in)
     let removeFontsListeners: (() => void) | undefined;
-    const fonts: any = (document as any).fonts;
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
     if (fonts && typeof fonts.addEventListener === "function") {
       const onFontsDone = () => scheduleAdjust();
       fonts.addEventListener("loadingdone", onFontsDone);
@@ -286,8 +286,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         fonts.removeEventListener("loadingdone", onFontsDone);
         fonts.removeEventListener("loadingerror", onFontsDone);
       };
-    } else if (fonts && typeof (fonts as any).ready?.then === "function") {
-      (fonts as any).ready.then(() => scheduleAdjust());
+    } else if (fonts && fonts.ready && typeof fonts.ready.then === "function") {
+      fonts.ready.then(() => scheduleAdjust());
     }
 
     return () => {
@@ -302,19 +302,38 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   }, [isNearBottom, scrollToBottom, messages]);
 
   useEffect(() => {
-    // Refresh seeded messages when brief changes
+    // Only update messages if seeded conversation has actually changed
     setMessages((prev) => {
       if (!prev.length) return seededConversation;
+      
+      // Check if the seeded messages are already up to date
+      const systemSeed = seededConversation[0];
+      const seededUser = seededConversation[1];
+      const seededAssistant = seededConversation[2];
+      
+      const systemMatches = prev[0]?.role === "system" && 
+        prev[0]?.content === systemSeed?.content;
+      const userMatches = prev[1]?.isSeeded && 
+        prev[1]?.content === seededUser?.content;
+      const assistantIndex = seededUser ? 2 : 1;
+      const assistantMatches = prev[assistantIndex]?.isSeeded && 
+        prev[assistantIndex]?.content === seededAssistant?.content &&
+        prev[assistantIndex]?.agent?.label === seededAssistant?.agent?.label;
+      
+      // If all seeded messages match, no update needed
+      if (systemMatches && userMatches && assistantMatches) {
+        return prev;
+      }
+      
+      // Otherwise, update the seeded messages
       const next = [...prev];
 
-      const systemSeed = seededConversation[0];
       if (!next[0] || next[0].role !== "system") {
         next.unshift(systemSeed);
       } else if (systemSeed && next[0].content !== systemSeed.content) {
         next[0] = { ...next[0], content: systemSeed.content, isSeeded: systemSeed.isSeeded };
       }
 
-      const seededUser = seededConversation[1];
       if (seededUser) {
         if (!next[1] || !next[1].isSeeded) {
           next.splice(1, 0, seededUser);
@@ -323,9 +342,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         }
       }
 
-      const seededAssistant = seededConversation[2];
       if (seededAssistant) {
-        const assistantIndex = seededUser ? 2 : 1;
         if (!next[assistantIndex] || !next[assistantIndex].isSeeded) {
           next.splice(assistantIndex, 0, seededAssistant);
         } else if (

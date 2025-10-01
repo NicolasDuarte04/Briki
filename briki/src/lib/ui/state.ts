@@ -2,19 +2,22 @@ import { getTranslations } from "next-intl/server";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 
-import type { ZodError } from "zod";
-
 import { complianceChecklistItems, complianceJurisdictions, type JurisdictionCode } from "../compliance";
 import {
   type BrokerProfile,
+  type Case,
   type CaseBrief,
   type ComparisonMetric,
   type ComparisonPlaybook,
   type ComparisonWeights,
-  type Money,
+  type Eligibility,
   type NetworkLevel,
   type Policy,
   type PolicyComparisonScore,
+  type PolicyView,
+  type PricingBand,
+  type Product,
+  type Provenance,
   type ProposalMathCheck,
   type ProposalSelectedPlan,
   type RenewalRecord,
@@ -24,21 +27,51 @@ import {
   type RenewalsSorting,
   type RenewalsSortBy,
   type RenewalsSortDir,
+  type RenewalView,
   type RenewalWindowDays,
+  type Rider,
   type ServiceLevel,
   type UIStep,
 } from "../types";
-import { PolicySchema, RenewalRecordSchema } from "../validation";
+import {
+  loadCases,
+  loadEligibilities,
+  loadPolicies,
+  loadPricingBands,
+  loadProducts,
+  loadProvenance,
+  loadRenewals,
+  loadRiders,
+} from "../fx";
 import { sendViaEmail, sendViaWhatsApp } from "../share";
+// Local helper to convert policies into view objects consumed by components
+const policyToView = (policy: Policy): PolicyView => {
+  const { id, plan, riders, network, service, premium, deductible } = policy;
+  return {
+    id,
+    plan,
+    riders,
+    premium: premium.amountMinor / 100,
+    deductible: deductible.amountMinor / 100,
+    currency: premium.currency,
+    ...(network && { network }),
+    ...(service && { service }),
+  };
+};
 
 export type {
   BrokerProfile,
+  Case,
   CaseBrief,
   ComparisonMetric,
   ComparisonPlaybook,
   ComparisonWeights,
+  Eligibility,
   Policy,
   PolicyComparisonScore,
+  PricingBand,
+  Product,
+  Provenance,
   ProposalMathCheck,
   ProposalSelectedPlan,
   RenewalRecord,
@@ -47,6 +80,7 @@ export type {
   RenewalsFilters,
   RenewalsSorting,
   RenewalWindowDays,
+  Rider,
   UIStep,
 } from "../types";
 
@@ -76,71 +110,9 @@ interface RenewalsAuditEvent {
   payload?: Record<string, unknown>;
 }
 
-interface RenewalSeed extends Omit<RenewalRecord, "status"> {
-  status?: RenewalStatus;
-}
-
 const RENEWALS_REFERENCE_DATE_ISO = "2025-03-01T00:00:00.000Z";
 const RENEWALS_REFERENCE_DATE = new Date(RENEWALS_REFERENCE_DATE_ISO);
 const RENEWAL_WINDOWS: RenewalWindowDays[] = [30, 60, 90];
-
-const renewalSeeds: readonly RenewalSeed[] = [
-  {
-    id: "ren-001",
-    carrier: "Andes Mutual",
-    plan: "Andes Health Core",
-    renewalDateISO: "2025-02-10T00:00:00.000Z",
-    premium: createMoney(1825),
-    reminderSet: false,
-  },
-  {
-    id: "ren-002",
-    carrier: "SierraCare",
-    plan: "Sierra Plus",
-    renewalDateISO: "2025-03-10T00:00:00.000Z",
-    premium: createMoney(2140),
-    reminderSet: true,
-  },
-  {
-    id: "ren-003",
-    carrier: "Pacifica",
-    plan: "Pacifica Growth",
-    renewalDateISO: "2025-04-05T00:00:00.000Z",
-    premium: createMoney(1975),
-    reminderSet: false,
-  },
-  {
-    id: "ren-004",
-    carrier: "Brisa Salud",
-    plan: "Brisa Integral",
-    renewalDateISO: "2025-03-25T00:00:00.000Z",
-    premium: createMoney(2380),
-    reminderSet: false,
-  },
-  {
-    id: "ren-005",
-    carrier: "Cordillera",
-    plan: "Cordillera Shield",
-    renewalDateISO: "2025-01-20T00:00:00.000Z",
-    premium: createMoney(1680),
-    reminderSet: true,
-  },
-  {
-    id: "ren-006",
-    carrier: "Altiplano",
-    plan: "Altiplano Elite",
-    renewalDateISO: "2025-04-20T00:00:00.000Z",
-    premium: createMoney(2890),
-    reminderSet: false,
-  },
-];
-
-const seededRenewalsSource = renewalSeeds.map((seed) => ({
-  ...seed,
-  status: seed.status ?? deriveRenewalStatus(seed.renewalDateISO, RENEWALS_REFERENCE_DATE),
-}));
-
-const seededRenewals = parseRenewals(seededRenewalsSource, "seededRenewals");
 
 const defaultRenewalsFilters: RenewalsFilters = {
   windowDays: 90,
@@ -153,10 +125,10 @@ const defaultRenewalsSorting: RenewalsSorting = {
   sortDir: "desc",
 };
 
-const renewalStatusChipMap: Record<RenewalStatus, RenewalStatusChipProps> = {
-  ok: { label: "Activa", tone: "neutral" },
-  dueSoon: { label: "Pronto", tone: "warning" },
-  overdue: { label: "Vencida", tone: "critical" },
+const renewalStatusMetaMap: Record<RenewalStatus, RenewalStatusMeta> = {
+  ok: { status: "ok", tone: "neutral" },
+  dueSoon: { status: "dueSoon", tone: "warning" },
+  overdue: { status: "overdue", tone: "critical" },
 };
 
 type ComplianceJurisdiction = JurisdictionCode;
@@ -196,126 +168,12 @@ export const comparisonMetrics: readonly ComparisonMetric[] = ["premium", "deduc
 
 const defaultComparisonWeights: ComparisonWeights = { ...playbookPresets.sme };
 
-// Helper function to create Money objects (assuming USD)
-function createMoney(amountMajor: number, currency: 'USD' | 'COP' | 'MXN' | 'EUR' = 'USD'): Money {
-  return {
-    amountMinor: Math.round(amountMajor * 100),
-    currency,
-  };
-}
-
-// Helper function to convert Money to major units for view
-function moneyToMajor(money: Money): number {
-  return money.amountMinor / 100;
-}
-
-// Local type for view representation of a policy (internal to this file only)
-type PolicyView = {
-  plan: string;
-  premium: number;
-  deductible: number;
-  riders: string[];
-  network?: NetworkLevel;
-  service?: ServiceLevel;
-};
-
-// Helper to convert Policy to PolicyView
-function policyToView(policy: Policy): PolicyView {
-  return {
-    plan: policy.plan,
-    premium: moneyToMajor(policy.premium),
-    deductible: moneyToMajor(policy.deductible),
-    riders: policy.riders,
-    network: policy.network,
-    service: policy.service,
-  };
-}
-
-// Helper to convert RenewalRecord to view format
-type RenewalView = Omit<RenewalRecord, 'premium'> & { premium: number };
-
-function logValidationWarning(context: string, error: ZodError): void {
-  const detailKeys: string[] = [];
-  if (error.issues.some((issue) => issue.code === "invalid_union")) {
-    detailKeys.push("validation.invalidUnion");
-  }
-  // eslint-disable-next-line no-console
-  console.warn(`[ui-state:${context}]`, {
-    messageKey: "data.malformed",
-    detailKeys,
-    fallbackApplied: true,
-    issues: error.issues.map((issue) => ({
-      code: issue.code,
-      path: issue.path,
-    })),
-  });
-}
-
-function parsePolicies(input: unknown, context: string): Policy[] {
-  const result = PolicySchema.array().safeParse(input);
-  if (result.success) {
-    return result.data;
-  }
-  logValidationWarning(context, result.error);
-  return [];
-}
-
-function parseRenewals(input: unknown, context: string): RenewalRecord[] {
-  const result = RenewalRecordSchema.array().safeParse(input);
-  if (result.success) {
-    return result.data;
-  }
-  logValidationWarning(context, result.error);
-  return [];
-}
-
 function renewalToView(renewal: RenewalRecord): RenewalView {
   return {
     ...renewal,
-    premium: moneyToMajor(renewal.premium),
+    premium: renewal.premium.amountMinor / 100,
   };
 }
-
-const seededPoliciesSource = [
-  {
-    id: 'seed-starter',
-    plan: "Starter",
-    premium: createMoney(1200),
-    deductible: createMoney(5000),
-    riders: ["Cyber", "Dental"],
-    network: "basic",
-    service: "standard",
-  },
-  {
-    id: 'seed-growth',
-    plan: "Growth",
-    premium: createMoney(1850),
-    deductible: createMoney(3000),
-    riders: ["Vision", "Wellness"],
-    network: "preferred",
-    service: "enhanced",
-  },
-  {
-    id: 'seed-premium',
-    plan: "Premium",
-    premium: createMoney(2450),
-    deductible: createMoney(1500),
-    riders: ["Cyber", "Telemedicine", "Maternity"],
-    network: "preferred",
-    service: "white-glove",
-  },
-  {
-    id: 'seed-enterprise',
-    plan: "Enterprise",
-    premium: createMoney(3200),
-    deductible: createMoney(1000),
-    riders: ["Executive Physical", "Global Travel"],
-    network: "concierge",
-    service: "white-glove",
-  },
-];
-
-const seededPolicies = parsePolicies(seededPoliciesSource, "seededPolicies");
 
 const defaultBrokerProfile: BrokerProfile = {
   name: "Camila Duarte",
@@ -323,19 +181,11 @@ const defaultBrokerProfile: BrokerProfile = {
   email: "camila@andesadvisory.com",
   phone: "+57 320 123 4567",
   brandColor: "#0F766E",
-  logoUrl: undefined,
 };
 
-const defaultProposalSelectedPlans: ProposalSelectedPlan[] = seededPolicies.slice(0, 3).map((policy) => ({
-  planId: policy.plan,
-  rationaleKey: "selectedPlans.defaultRationale",
-}));
+const defaultProposalSelectedPlans: ProposalSelectedPlan[] = [];
 
-const defaultProposalDisclosuresKeys = [
-  "disclosures.items.0",
-  "disclosures.items.1",
-  "disclosures.items.2",
-];
+const defaultProposalDisclosuresKeys: string[] = [];
 
 const defaultProposalMathCheck: ProposalMathCheck = {
   passed: true,
@@ -343,7 +193,7 @@ const defaultProposalMathCheck: ProposalMathCheck = {
 };
 
 const DEFAULT_PROPOSAL_SHARE_URL = "https://briki.app/share/demo-proposal";
-const DEFAULT_FOLLOWUP_CADENCE_DAYS = [2, 5] as const;
+const DEFAULT_FOLLOWUP_CADENCE_DAYS: ReadonlyArray<number> = [2, 5];
 const HEX_COLOR_REGEX = /^#(?:[0-9a-fA-F]{3}){1,2}$/;
 
 function asTrimmedString(value: unknown): string | undefined {
@@ -360,14 +210,28 @@ function sanitizeBrandColor(value: string | undefined, fallback: string): string
 function sanitizeBrokerProfile(current: BrokerProfile, updates?: Partial<BrokerProfile>): BrokerProfile {
   const base = current ?? defaultBrokerProfile;
 
-  return {
+  const result: BrokerProfile = {
     name: asTrimmedString(updates?.name) ?? base.name ?? defaultBrokerProfile.name,
     agency: asTrimmedString(updates?.agency) ?? base.agency ?? defaultBrokerProfile.agency,
-    email: asTrimmedString(updates?.email) ?? base.email,
-    phone: asTrimmedString(updates?.phone) ?? base.phone,
     brandColor: sanitizeBrandColor(asTrimmedString(updates?.brandColor), base.brandColor ?? defaultBrokerProfile.brandColor),
-    logoUrl: asTrimmedString(updates?.logoUrl) ?? base.logoUrl,
   };
+  
+  const email = asTrimmedString(updates?.email) ?? base.email;
+  if (email !== undefined) {
+    result.email = email;
+  }
+  
+  const phone = asTrimmedString(updates?.phone) ?? base.phone;
+  if (phone !== undefined) {
+    result.phone = phone;
+  }
+  
+  const logoUrl = asTrimmedString(updates?.logoUrl) ?? base.logoUrl;
+  if (logoUrl !== undefined) {
+    result.logoUrl = logoUrl;
+  }
+  
+  return result;
 }
 
 function sanitizeSelectedPlans(plans: ProposalSelectedPlan[] | undefined): ProposalSelectedPlan[] {
@@ -645,10 +509,17 @@ function logRenewalsEventInternal(
     type,
     sequence,
     ts: Date.now(),
-    payload,
   };
+  if (payload !== undefined) {
+    event.payload = payload;
+  }
   const renewalsAuditLog = [...state.renewalsAuditLog, event];
   return { renewalsAuditLog, renewalsSequence: sequence };
+}
+
+export interface RenewalStatusMeta {
+  status: RenewalStatus;
+  tone: RenewalStatusChipProps["tone"];
 }
 
 export interface UIState {
@@ -675,12 +546,36 @@ export interface UIState {
   proposalShareUrl: string;
   proposalLoading: boolean;
   proposalGeneratedOn: string | null;
+  products: Product[];
+  productsLoading: boolean;
+  productsLoaded: boolean;
+  riders: Rider[];
+  ridersLoading: boolean;
+  ridersLoaded: boolean;
+  pricingBands: PricingBand[];
+  pricingBandsLoading: boolean;
+  pricingBandsLoaded: boolean;
+  eligibilities: Eligibility[];
+  eligibilitiesLoading: boolean;
+  eligibilitiesLoaded: boolean;
+  provenance: Provenance[];
+  provenanceLoading: boolean;
+  provenanceLoaded: boolean;
+  cases: Case[];
+  casesLoading: boolean;
+  casesLoaded: boolean;
   renewals: RenewalRecord[];
+  renewalsLoading: boolean;
+  renewalsLoaded: boolean;
   renewalsFilters: RenewalsFilters;
   renewalsSorting: RenewalsSorting;
   renewalsAuditLog: RenewalsAuditEvent[];
   renewalsSequence: number;
   renewalsViewLogged: boolean;
+  // Cache properties (internal use)
+  _cachedPoliciesView?: PolicyView[];
+  _cachedRenewalsView?: RenewalView[];
+  _cachedFilteredRenewalsView?: RenewalView[];
   setStep: (step: UIStep) => void;
   toggleRight: () => void;
   openCompliance: (jurisdiction: ComplianceJurisdiction) => void;
@@ -702,6 +597,12 @@ export interface UIState {
   followupCadenceLabel: () => string;
   setPolicies: (policies: Policy[]) => void;
   fetchPolicies: () => Promise<void>;
+  fetchProducts: () => Promise<void>;
+  fetchRiders: () => Promise<void>;
+  fetchPricingBands: () => Promise<void>;
+  fetchEligibilities: () => Promise<void>;
+  fetchProvenance: () => Promise<void>;
+  fetchCases: () => Promise<void>;
   setComparisonWeights: (weights: Partial<ComparisonWeights>) => void;
   resetComparisonWeights: () => void;
   setComparisonPlaybook: (playbook: ComparisonPlaybook) => void;
@@ -725,12 +626,15 @@ export interface UIState {
   getProposalData: () => ProposalData;
   setRenewalsFilters: (filters: Partial<RenewalsFilters>) => void;
   setRenewalsSorting: (sorting: Partial<RenewalsSorting>) => void;
+  setRenewals: (renewals: RenewalRecord[]) => void;
+  fetchRenewals: () => Promise<void>;
   setReminder: (id: string, reminderSet: boolean) => void;
   logRenewalsEvent: (type: RenewalsEventType, payload?: Record<string, unknown>) => void;
   selectFilteredSortedRenewals: () => RenewalRecord[];
   selectWindowCounts: () => Record<RenewalWindowDays, number>;
   isReminderSet: (id: string) => boolean;
-  getRenewalStatusChip: (status: RenewalStatus) => RenewalStatusChipProps;
+  // Returns tone and status only; components must translate labels client-side.
+  getRenewalStatusChip: (status: RenewalStatus) => RenewalStatusMeta;
   selectPoliciesView: () => PolicyView[];
   selectPolicyView: (policyId: string) => PolicyView | undefined;
   selectRenewalsView: () => RenewalView[];
@@ -768,7 +672,27 @@ export const useUI = create<UIState>()(
       proposalShareUrl: DEFAULT_PROPOSAL_SHARE_URL,
       proposalLoading: false,
       proposalGeneratedOn: null,
-      renewals: seededRenewals,
+      products: [],
+      productsLoading: false,
+      productsLoaded: false,
+      riders: [],
+      ridersLoading: false,
+      ridersLoaded: false,
+      pricingBands: [],
+      pricingBandsLoading: false,
+      pricingBandsLoaded: false,
+      eligibilities: [],
+      eligibilitiesLoading: false,
+      eligibilitiesLoaded: false,
+      provenance: [],
+      provenanceLoading: false,
+      provenanceLoaded: false,
+      cases: [],
+      casesLoading: false,
+      casesLoaded: false,
+      renewals: [],
+      renewalsLoading: false,
+      renewalsLoaded: false,
       renewalsFilters: defaultRenewalsFilters,
       renewalsSorting: defaultRenewalsSorting,
       renewalsAuditLog: [],
@@ -893,29 +817,44 @@ export const useUI = create<UIState>()(
         return items.every((item) => Boolean(checked[item]));
       },
       logComplianceSendAttempt: (payload) =>
-        set((state) => ({
-          complianceAuditLog: appendComplianceEvent(state.complianceAuditLog, {
+        set((state) => {
+          const event: ComplianceAuditEvent = {
             type: "SendAttempt",
             ts: Date.now(),
-            payload,
-          }),
-        })),
+          };
+          if (payload !== undefined) {
+            event.payload = payload;
+          }
+          return {
+            complianceAuditLog: appendComplianceEvent(state.complianceAuditLog, event),
+          };
+        }),
       logComplianceSendBlocked: (payload) =>
-        set((state) => ({
-          complianceAuditLog: appendComplianceEvent(state.complianceAuditLog, {
+        set((state) => {
+          const event: ComplianceAuditEvent = {
             type: "SendBlocked",
             ts: Date.now(),
-            payload,
-          }),
-        })),
+          };
+          if (payload !== undefined) {
+            event.payload = payload;
+          }
+          return {
+            complianceAuditLog: appendComplianceEvent(state.complianceAuditLog, event),
+          };
+        }),
       logComplianceSendSuccess: (payload) =>
-        set((state) => ({
-          complianceAuditLog: appendComplianceEvent(state.complianceAuditLog, {
+        set((state) => {
+          const event: ComplianceAuditEvent = {
             type: "SendSuccess",
             ts: Date.now(),
-            payload,
-          }),
-        })),
+          };
+          if (payload !== undefined) {
+            event.payload = payload;
+          }
+          return {
+            complianceAuditLog: appendComplianceEvent(state.complianceAuditLog, event),
+          };
+        }),
       primaryAction: () => {
         // For now just log the current step as requested
         // eslint-disable-next-line no-console
@@ -961,15 +900,13 @@ export const useUI = create<UIState>()(
         }),
       followupCadenceLabel: () => formatFollowupCadence(get().followupCadenceDays),
       setPolicies: (policies) =>
-        set((state) => {
-          const validated = parsePolicies(policies, "setPolicies");
-          return {
-            policies: validated,
-            policiesLoaded: true,
-            policiesLoading: false,
-            comparisonScores: computeComparisonScores(validated, state.comparisonWeights),
-          };
-        }),
+        set((state) => ({
+          policies,
+          policiesLoaded: true,
+          policiesLoading: false,
+          comparisonScores: computeComparisonScores(policies, state.comparisonWeights),
+          // Clear cache when policies change
+        })),
       fetchPolicies: async () => {
         const { policiesLoading, policiesLoaded } = get();
         if (policiesLoading || policiesLoaded) {
@@ -977,10 +914,94 @@ export const useUI = create<UIState>()(
         }
         set(() => ({ policiesLoading: true }));
         try {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          get().setPolicies(seededPolicies);
+          const policies = await loadPolicies();
+          get().setPolicies(policies);
         } catch (error) {
           set(() => ({ policiesLoading: false }));
+          throw error;
+        }
+      },
+      fetchProducts: async () => {
+        const { productsLoading, productsLoaded } = get();
+        if (productsLoading || productsLoaded) {
+          return;
+        }
+        set(() => ({ productsLoading: true } satisfies Partial<UIState>));
+        try {
+          const products = await loadProducts();
+          set(() => ({ products, productsLoaded: true, productsLoading: false } satisfies Partial<UIState>));
+        } catch (error) {
+          set(() => ({ products: [], productsLoaded: false, productsLoading: false } satisfies Partial<UIState>));
+          throw error;
+        }
+      },
+      fetchRiders: async () => {
+        const { ridersLoading, ridersLoaded } = get();
+        if (ridersLoading || ridersLoaded) {
+          return;
+        }
+        set(() => ({ ridersLoading: true } satisfies Partial<UIState>));
+        try {
+          const riders = await loadRiders();
+          set(() => ({ riders, ridersLoaded: true, ridersLoading: false } satisfies Partial<UIState>));
+        } catch (error) {
+          set(() => ({ riders: [], ridersLoaded: false, ridersLoading: false } satisfies Partial<UIState>));
+          throw error;
+        }
+      },
+      fetchPricingBands: async () => {
+        const { pricingBandsLoading, pricingBandsLoaded } = get();
+        if (pricingBandsLoading || pricingBandsLoaded) {
+          return;
+        }
+        set(() => ({ pricingBandsLoading: true } satisfies Partial<UIState>));
+        try {
+          const pricingBands = await loadPricingBands();
+          set(() => ({ pricingBands, pricingBandsLoaded: true, pricingBandsLoading: false } satisfies Partial<UIState>));
+        } catch (error) {
+          set(() => ({ pricingBands: [], pricingBandsLoaded: false, pricingBandsLoading: false } satisfies Partial<UIState>));
+          throw error;
+        }
+      },
+      fetchEligibilities: async () => {
+        const { eligibilitiesLoading, eligibilitiesLoaded } = get();
+        if (eligibilitiesLoading || eligibilitiesLoaded) {
+          return;
+        }
+        set(() => ({ eligibilitiesLoading: true } satisfies Partial<UIState>));
+        try {
+          const eligibilities = await loadEligibilities();
+          set(() => ({ eligibilities, eligibilitiesLoaded: true, eligibilitiesLoading: false } satisfies Partial<UIState>));
+        } catch (error) {
+          set(() => ({ eligibilities: [], eligibilitiesLoaded: false, eligibilitiesLoading: false } satisfies Partial<UIState>));
+          throw error;
+        }
+      },
+      fetchProvenance: async () => {
+        const { provenanceLoading, provenanceLoaded } = get();
+        if (provenanceLoading || provenanceLoaded) {
+          return;
+        }
+        set(() => ({ provenanceLoading: true } satisfies Partial<UIState>));
+        try {
+          const provenance = await loadProvenance();
+          set(() => ({ provenance, provenanceLoaded: true, provenanceLoading: false } satisfies Partial<UIState>));
+        } catch (error) {
+          set(() => ({ provenance: [], provenanceLoaded: false, provenanceLoading: false } satisfies Partial<UIState>));
+          throw error;
+        }
+      },
+      fetchCases: async () => {
+        const { casesLoading, casesLoaded } = get();
+        if (casesLoading || casesLoaded) {
+          return;
+        }
+        set(() => ({ casesLoading: true } satisfies Partial<UIState>));
+        try {
+          const cases = await loadCases();
+          set(() => ({ cases, casesLoaded: true, casesLoading: false } satisfies Partial<UIState>));
+        } catch (error) {
+          set(() => ({ cases: [], casesLoaded: false, casesLoading: false } satisfies Partial<UIState>));
           throw error;
         }
       },
@@ -1039,6 +1060,31 @@ export const useUI = create<UIState>()(
         shareUrl: get().proposalShareUrl,
         generatedOn: get().proposalGeneratedOn,
       }),
+      setRenewals: (renewals) =>
+        set(() => ({
+          renewals,
+          renewalsLoaded: true,
+          renewalsLoading: false,
+          // Clear caches when renewals change
+        })),
+      fetchRenewals: async () => {
+        const { renewalsLoading, renewalsLoaded } = get();
+        if (renewalsLoading || renewalsLoaded) {
+          return;
+        }
+        set(() => ({ renewalsLoading: true }));
+        try {
+          const renewals = await loadRenewals();
+          const withStatus = renewals.map((renewal) => ({
+            ...renewal,
+            status: renewal.status ?? deriveRenewalStatus(renewal.renewalDateISO),
+          }));
+          get().setRenewals(withStatus);
+        } catch (error) {
+          set(() => ({ renewalsLoading: false }));
+          throw error;
+        }
+      },
       setRenewalsFilters: (filters) =>
         set((state) => {
           const nextFilters = sanitizeRenewalsFilters({ ...state.renewalsFilters, ...filters });
@@ -1048,7 +1094,8 @@ export const useUI = create<UIState>()(
           return {
             renewalsFilters: nextFilters,
             ...logRenewalsEventInternal(state, "FilterChange", { filters: nextFilters }),
-          } satisfies Partial<UIState>;
+            // Clear filtered view cache when filters change
+          };
         }),
       setRenewalsSorting: (sorting) =>
         set((state) => {
@@ -1059,7 +1106,8 @@ export const useUI = create<UIState>()(
           return {
             renewalsSorting: nextSorting,
             ...logRenewalsEventInternal(state, "SortChange", { sorting: nextSorting }),
-          } satisfies Partial<UIState>;
+            // Clear filtered view cache when sorting changes
+          };
         }),
       setReminder: (id, reminderSet) =>
         set((state) => {
@@ -1072,7 +1120,8 @@ export const useUI = create<UIState>()(
           return {
             renewals: nextRenewals,
             ...logRenewalsEventInternal(state, "ReminderSet", { id, reminderSet: Boolean(reminderSet) }),
-          } satisfies Partial<UIState>;
+            // Clear caches when renewals change
+          };
         }),
       logRenewalsEvent: (type, payload) =>
         set((state) => {
@@ -1087,25 +1136,56 @@ export const useUI = create<UIState>()(
           }
           return logRenewalsEventInternal(state, type, payload);
         }),
-      selectFilteredSortedRenewals: () => {
-        const state = get();
-        return computeFilteredSortedRenewals(state);
-      },
-      selectWindowCounts: () => {
-        const state = get();
-        return computeRenewalWindowCounts(state);
-      },
+      selectFilteredSortedRenewals: () => computeFilteredSortedRenewals(get()),
+      selectWindowCounts: () => computeRenewalWindowCounts(get()),
       isReminderSet: (id) => get().renewals.some((renewal) => renewal.id === id && renewal.reminderSet),
-      getRenewalStatusChip: (status) => renewalStatusChipMap[status] ?? renewalStatusChipMap.ok,
-      selectPoliciesView: () => get().policies.map(policyToView),
+      getRenewalStatusChip: (status) => renewalStatusMetaMap[status] ?? renewalStatusMetaMap.ok,
+      selectPoliciesView: () => {
+        const state = get();
+        if (!state._cachedPoliciesView) {
+          const nextView = state.policies.map(policyToView);
+          set((current) => {
+            if (current._cachedPoliciesView === nextView) {
+              return {};
+            }
+            return { _cachedPoliciesView: nextView } satisfies Partial<UIState>;
+          });
+          return get()._cachedPoliciesView ?? nextView;
+        }
+        return state._cachedPoliciesView;
+      },
       selectPolicyView: (policyId) => {
         const policy = get().policies.find((p) => p.id === policyId);
         return policy ? policyToView(policy) : undefined;
       },
-      selectRenewalsView: () => get().renewals.map(renewalToView),
+      selectRenewalsView: () => {
+        const state = get();
+        if (!state._cachedRenewalsView) {
+          const nextView = state.renewals.map(renewalToView);
+          set((current) => {
+            if (current._cachedRenewalsView === nextView) {
+              return {};
+            }
+            return { _cachedRenewalsView: nextView } satisfies Partial<UIState>;
+          });
+          return get()._cachedRenewalsView ?? nextView;
+        }
+        return state._cachedRenewalsView;
+      },
       selectFilteredSortedRenewalsView: () => {
-        const filtered = get().selectFilteredSortedRenewals();
-        return filtered.map(renewalToView);
+        const state = get();
+        if (!state._cachedFilteredRenewalsView) {
+          const filtered = computeFilteredSortedRenewals(state);
+          const nextView = filtered.map(renewalToView);
+          set((current) => {
+            if (current._cachedFilteredRenewalsView === nextView) {
+              return {};
+            }
+            return { _cachedFilteredRenewalsView: nextView } satisfies Partial<UIState>;
+          });
+          return get()._cachedFilteredRenewalsView ?? nextView;
+        }
+        return state._cachedFilteredRenewalsView;
       },
     }),
     { name: "ui-store" }
@@ -1133,11 +1213,13 @@ function safeNumber(value: unknown): number {
 
 function computeRange(values: number[]) {
   const finite = values.filter((v) => Number.isFinite(v));
-  if (!finite.length) return { min: 0, max: 0 } as const;
+  if (finite.length === 0) {
+    return { min: 0, max: 0 };
+  }
   return {
     min: Math.min(...finite),
     max: Math.max(...finite),
-  } as const;
+  };
 }
 
 function normalizeLowerIsBetter(value: number, range: { min: number; max: number }) {
@@ -1170,8 +1252,8 @@ function computeComparisonScores(policies: Policy[], weights: ComparisonWeights)
       }, {} as Record<ComparisonMetric, number>)
     : fallbackEqualWeights();
 
-  const premiumValues = policies.map((policy) => safeNumber(moneyToMajor(policy.premium)));
-  const deductibleValues = policies.map((policy) => safeNumber(moneyToMajor(policy.deductible)));
+  const premiumValues = policies.map((policy) => safeNumber(policy.premium.amountMinor / 100));
+  const deductibleValues = policies.map((policy) => safeNumber(policy.deductible.amountMinor / 100));
   const riderCounts = policies.map((policy) => safeNumber(policy.riders?.length ?? 0));
   const networkScores = policies.map((policy) => mapNetwork(policy.network));
   const serviceScores = policies.map((policy) => mapService(policy.service));
@@ -1182,11 +1264,11 @@ function computeComparisonScores(policies: Policy[], weights: ComparisonWeights)
 
   return policies.map((policy, index) => {
     const breakdown: Record<ComparisonMetric, number> = {
-      premium: normalizeLowerIsBetter(premiumValues[index], premiumRange),
-      deductible: normalizeLowerIsBetter(deductibleValues[index], deductibleRange),
-      riders: normalizeHigherIsBetter(riderCounts[index], ridersRange),
-      network: networkScores[index],
-      service: serviceScores[index],
+      premium: normalizeLowerIsBetter(premiumValues[index] ?? 0, premiumRange),
+      deductible: normalizeLowerIsBetter(deductibleValues[index] ?? 0, deductibleRange),
+      riders: normalizeHigherIsBetter(riderCounts[index] ?? 0, ridersRange),
+      network: networkScores[index] ?? 0.5,
+      service: serviceScores[index] ?? 0.55,
     };
 
     const total = comparisonMetrics.reduce((sum, metric) => sum + breakdown[metric] * normalizedWeights[metric], 0) * 100;

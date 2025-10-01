@@ -38,7 +38,7 @@ export default function Landing({ className }: { className?: string }) {
       
       {/* Content overlay */}
       <motion.section
-        className={cn("landing-overlay w-full grid place-items-center px-4 pt-32", className)}
+        className={cn("landing-overlay w-full grid place-items-center px-4 pt-24", className)}
         initial={{ opacity: 1 }}
         animate={{ opacity: isLeaving ? 0 : 1 }}
         transition={{ duration: 0.15, ease: "easeOut" }}
@@ -62,7 +62,7 @@ export default function Landing({ className }: { className?: string }) {
                 {t("hero.brand")}
               </span>
             </h1>
-            <p className="text-neutral-200 text-lg sm:text-xl md:text-2xl max-w-3xl mx-auto mb-10 leading-relaxed font-medium">
+            <p className="text-neutral-600 text-lg sm:text-xl md:text-2xl max-w-3xl mx-auto mb-10 leading-relaxed font-medium">
               {t("subtitle")}
             </p>
             <Button
@@ -84,7 +84,7 @@ export default function Landing({ className }: { className?: string }) {
             {/* Video Title */}
             <div className="relative mb-8">
               <h2 className="text-3xl font-semibold text-white mb-3">{t("hero.video.title")}</h2>
-              <p className="text-neutral-200 text-lg">{t("hero.video.description")}</p>
+              <p className="text-neutral-400 text-lg">{t("hero.video.description")}</p>
             </div>
 
             {/* Video Container */}
@@ -107,21 +107,21 @@ export default function Landing({ className }: { className?: string }) {
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#38BDF8] to-[#0EA5E9] flex items-center justify-center text-white">1</div>
                 <div>
                   <h3 className="text-white font-medium">{t("hero.features.smartConversations.title")}</h3>
-                  <p className="text-neutral-300 text-sm">{t("hero.features.smartConversations.description")}</p>
+                  <p className="text-neutral-400 text-sm">{t("hero.features.smartConversations.description")}</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#38BDF8] to-[#0EA5E9] flex items-center justify-center text-white">2</div>
                 <div>
                   <h3 className="text-white font-medium">{t("hero.features.realTimeAnalysis.title")}</h3>
-                  <p className="text-neutral-300 text-sm">{t("hero.features.realTimeAnalysis.description")}</p>
+                  <p className="text-neutral-400 text-sm">{t("hero.features.realTimeAnalysis.description")}</p>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#38BDF8] to-[#0EA5E9] flex items-center justify-center text-white">3</div>
                 <div>
                   <h3 className="text-white font-medium">{t("hero.features.seamlessIntegration.title")}</h3>
-                  <p className="text-neutral-300 text-sm">{t("hero.features.seamlessIntegration.description")}</p>
+                  <p className="text-neutral-400 text-sm">{t("hero.features.seamlessIntegration.description")}</p>
                 </div>
               </div>
             </div>

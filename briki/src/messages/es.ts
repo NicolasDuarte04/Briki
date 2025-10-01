@@ -4,9 +4,21 @@ const es = {
     invalidDate: "Ingresa una fecha válida.",
     currency: "Ingresa un monto válido.",
     nonNegative: "Debe ser no negativo.",
+    minValue: "Debe ser al menos {min}.",
     invalidUnion: "Elige una opción válida.",
     badReference: "No se encontró la referencia.",
     nonEmptyArray: "Agrega al menos un elemento.",
+  },
+  models: {
+    product: "Producto",
+    policy: "Póliza",
+    rider: "Cobertura adicional",
+    pricingBand: "Banda de precios",
+    eligibility: "Elegibilidad",
+    provenance: "Procedencia",
+    case: "Caso",
+    proposal: "Propuesta",
+    renewal: "Renovación",
   },
   data: {
     loadFailed: "No se pudieron cargar los datos.",
@@ -62,6 +74,60 @@ const es = {
       toggle: "Cambiar idioma a {language}",
       english: "Inglés",
       spanish: "Español",
+    },
+  },
+  auth: {
+    nav: {
+      login: "Iniciar sesión",
+      profile: "Perfil",
+      signOut: "Cerrar sesión",
+    },
+  },
+  profile: {
+    title: "Perfil",
+    name: {
+      label: "Nombre",
+      help: "Cómo aparece tu nombre en la app.",
+    },
+    locale: {
+      label: "Idioma",
+      help: "Elige tu idioma preferido.",
+      options: {
+        en: "Inglés",
+        es: "Español",
+      },
+    },
+    save: "Guardar cambios",
+    toast: {
+      saved: "Perfil actualizado.",
+    },
+  },
+  onboarding: {
+    title: "Bienvenido a Briki",
+    steps: {
+      basic: {
+        title: "Tus datos básicos",
+        nameLabel: "Tu nombre",
+        namePlaceholder: "Ingresa tu nombre",
+      },
+      role: {
+        title: "Tu trabajo",
+        roleLabel: "Cargo",
+        companyLabel: "Empresa",
+      },
+      locale: {
+        title: "Idioma",
+        localeLabel: "Idioma preferido",
+        options: {
+          en: "Inglés",
+          es: "Español",
+        },
+      },
+    },
+    actions: {
+      back: "Atrás",
+      next: "Siguiente",
+      finish: "Finalizar",
     },
   },
   topbar: {
@@ -353,6 +419,25 @@ const es = {
         copySuccess: "Enlace copiado al portapapeles.",
         copyError: "No pudimos copiar el enlace. Intenta de nuevo.",
       },
+      benefits: {
+        title: "Por qué estos planes",
+        subtitle: "Puntos clave para guiar tu presentación.",
+        items: {
+          planHighlights: "Los destacados del plan se alinean con las prioridades del cliente.",
+          employeeExperience: "La experiencia del empleado se mantiene simple en todas las opciones.",
+          supportCommitment: "Briki brinda acompañamiento de implementación y soporte continuo.",
+        },
+      },
+      loading: {
+        ariaLabel: "Cargando propuesta",
+        title: "Preparando tu propuesta",
+        description: "Estamos finalizando los resúmenes de planes y divulgaciones.",
+      },
+      empty: {
+        title: "Aún no hay datos de propuesta",
+        description: "Cuando termine la obtención, verás aquí el avance de tu propuesta.",
+        hint: "Ve a la pestaña de comparaciones para elegir planes primero.",
+      },
       actions: {
         exportPdf: "Exportar PDF",
         copyLink: "Copiar enlace",
@@ -565,5 +650,4 @@ const es = {
 } as const;
 
 export default es;
-
 

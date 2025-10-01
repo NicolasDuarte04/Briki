@@ -589,6 +589,22 @@ export interface PolicyComparisonScore {
 export type ComparisonMetric = 'premium' | 'deductible' | 'riders' | 'network' | 'service';
 
 /**
+ * Lightweight view model for policies used in the UI layer
+ */
+export type PolicyView = Pick<Policy, "id" | "plan" | "riders" | "network" | "service"> & {
+  premium: number;
+  deductible: number;
+  currency: CurrencyCode;
+};
+
+/**
+ * Lightweight view model for renewals used in the UI layer
+ */
+export interface RenewalView extends Omit<RenewalRecord, "premium"> {
+  premium: number;
+}
+
+/**
  * Renewal filters
  */
 export interface RenewalsFilters {

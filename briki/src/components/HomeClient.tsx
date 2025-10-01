@@ -1,6 +1,6 @@
 "use client";
 
-import TopBar from "@/components/TopBar";
+import { useEffect, useRef } from "react";
 import Canvas from "@/components/Canvas";
 import Hotkeys from "@/components/Hotkeys";
 import Landing from "@/components/Landing";
@@ -9,19 +9,32 @@ import { useUI, type UIStep } from "@/lib/ui/state";
 import { motion, AnimatePresence } from "framer-motion";
 import BrikiSidebarLayout from "@/components/BrikiSidebarLayout";
 import SidebarNav from "@/components/SidebarNav";
-import BrikiLandingNavbar from "@/components/BrikiLandingNavbar";
 import WorkspaceTabs from "@/components/Workspace/Tabs";
 import CaseBrief from "@/components/Workspace/CaseBrief";
 import SourcingProgressWidget from "@/components/Sourcing/SourcingProgressWidget";
-import { Button } from "@/components/ui/button";
 import HotkeysGuide from "@/components/HotkeysGuide";
 import dynamic from "next/dynamic";
-import ComplianceGate from "@/components/Workspace/ComplianceGate";
+import { ComplianceGate } from "@/components/Workspace/ComplianceGate";
+import BrikiLandingNavbar from "@/components/BrikiLandingNavbar";
 
 const ConversationPane = dynamic(() => import("@/components/Chat/ConversationPane"), { ssr: false });
 
-export default function Home() {
+export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
+  const initializedRef = useRef(false);
   const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing } = useUI();
+  const currentStep = initializedRef.current ? step : initialStep;
+
+  useEffect(() => {
+    if (initializedRef.current) {
+      return;
+    }
+
+    if (initialStep && step !== initialStep) {
+      setStep(initialStep);
+    }
+
+    initializedRef.current = true;
+  }, [initialStep, setStep, step]);
 
   const steps: UIStep[] = [
     "landing",
@@ -36,7 +49,6 @@ export default function Home() {
 
   return (
     <div className="h-dvh min-h-0 w-full flex flex-col overflow-hidden">
-      {step !== "landing" && <TopBar className="shrink-0" />}
       <Hotkeys
         primaryAction={primaryAction}
         onToggleRightPanel={toggleRight}
@@ -47,7 +59,7 @@ export default function Home() {
       />
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <AnimatePresence mode="wait">
-          {step === "landing" ? (
+          {currentStep === "landing" ? (
             <motion.div
               key="landing"
               initial={{ opacity: 0 }}
@@ -76,14 +88,14 @@ export default function Home() {
                   rightOpen={rightOpen}
                   isSourcing={isSourcing}
                   left={
-                    step === "conversation" || step === "compliance" ? (
+                    currentStep === "conversation" || currentStep === "compliance" ? (
                       <ConversationPane />
                     ) : (
-                      <div className="flex h-full flex-col justify-start">Current step: {step}</div>
+                      <div className="flex h-full flex-col justify-start">Current step: {currentStep}</div>
                     )
                   }
                   right={(() => {
-                    if (step === "conversation") {
+                    if (currentStep === "conversation") {
                       return isSourcing ? (
                         <div className="flex h-full min-h-0 flex-col gap-4">
                           <SourcingProgressWidget compact onStop={stopSourcing} />
@@ -98,7 +110,7 @@ export default function Home() {
                       );
                     }
 
-                    if (step === "compliance") {
+                    if (currentStep === "compliance") {
                       return (
                         <div className="flex h-full flex-col">
                           <ComplianceGate />
@@ -106,7 +118,7 @@ export default function Home() {
                       );
                     }
 
-                    return <div className="flex h-full flex-col">Workspace for step: {step}</div>;
+                    return <div className="flex h-full flex-col">Workspace for step: {currentStep}</div>;
                   })()}
                 />
               </BrikiSidebarLayout>
@@ -115,8 +127,7 @@ export default function Home() {
           )}
         </AnimatePresence>
       </div>
-      
-      {/* Hotkey Guide Button - Bottom Left */}
+
       <div className="fixed bottom-4 left-4 z-50">
         <HotkeysGuide />
       </div>

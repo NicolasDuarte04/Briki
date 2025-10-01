@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslations } from "next-intl";
 import { useUI } from "@/lib/ui/state";
-import ComplianceGate from "./ComplianceGate";
+import { ComplianceGate } from "./ComplianceGate";
 import CaseBrief from "./CaseBrief";
 import Policies from "./Policies";
 import Comparison from "./Comparison";
@@ -44,7 +44,7 @@ export function WorkspaceTabs() {
         <div className="sticky top-0 z-40 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-b">
           <TabsList className="w-full justify-start gap-2" role="tablist" aria-label={t("ariaLabel")}>
             {(Object.keys(tabLabels) as WorkspaceTab[]).map((tab) => (
-              <TabsTrigger key={tab} value={tab} aria-label={tabLabels[tab]}>
+              <TabsTrigger key={tab} value={tab}>
                 {tabLabels[tab]}
               </TabsTrigger>
             ))}

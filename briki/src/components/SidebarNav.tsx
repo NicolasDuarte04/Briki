@@ -1,9 +1,9 @@
 "use client";
 
 import { SidebarLink } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
+import { useUI } from "@/lib/ui/state";
 
 const links = [
   { label: "Saved Analyses", href: "#" },
@@ -14,11 +14,18 @@ const links = [
 ];
 
 export default function SidebarNav() {
+  const { setStep } = useUI();
+
+  const handleLogoClick = () => {
+    setStep("landing");
+  };
+
   return (
     <div className="flex h-full flex-col justify-between">
       <div>
         <Link
           href="/"
+          onClick={handleLogoClick}
           aria-label="Home"
           className="group flex items-center rounded-md py-2 pr-2 pl-0 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
@@ -37,7 +44,6 @@ export default function SidebarNav() {
           {links.map((link) => (
             <SidebarLink key={link.label} link={link} />
           ))}
-          <SidebarLink link={{ label: "Logout", href: "#" }} />
         </div>
       </div>
       <div />

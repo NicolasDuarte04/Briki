@@ -1,0 +1,131 @@
+[
+  {
+    "id": "ren-100",
+    "carrier": "Andes Mutual",
+    "plan": "Andes Health Core",
+    "renewalDateISO": "2025-02-10T00:00:00-05:00",
+    "premium": {
+      "amountMinor": 182500,
+      "currency": "COP"
+    },
+    "status": "dueSoon",
+    "reminderSet": false,
+    "policyId": "pol-1001"
+  },
+  {
+    "id": "ren-101",
+    "carrier": "SierraCare",
+    "plan": "Sierra Plus",
+    "renewalDateISO": "2025-03-10T00:00:00-05:00",
+    "premium": {
+      "amountMinor": 214000,
+      "currency": "COP"
+    },
+    "status": "dueSoon",
+    "reminderSet": true,
+    "policyId": "pol-1027"
+  },
+  {
+    "id": "ren-102",
+    "carrier": "Pacifica",
+    "plan": "Pacifica Growth",
+    "renewalDateISO": "2025-04-05T00:00:00-05:00",
+    "premium": {
+      "amountMinor": 197500,
+      "currency": "COP"
+    },
+    "status": "ok",
+    "reminderSet": false,
+    "policyId": "pol-1045"
+  },
+  {
+    "id": "ren-103",
+    "carrier": "Brisa Salud",
+    "plan": "Brisa Integral",
+    "renewalDateISO": "2025-03-25T00:00:00-05:00",
+    "premium": {
+      "amountMinor": 238000,
+      "currency": "COP"
+    },
+    "status": "ok",
+    "reminderSet": false,
+    "policyId": "pol-1072"
+  },
+  {
+    "id": "ren-104",
+    "carrier": "Cordillera",
+    "plan": "Cordillera Shield",
+    "renewalDateISO": "2025-01-20T00:00:00-05:00",
+    "premium": {
+      "amountMinor": 168000,
+      "currency": "COP"
+    },
+    "status": "overdue",
+    "reminderSet": true,
+    "policyId": "pol-1088"
+  },
+  {
+    "id": "ren-105",
+    "carrier": "Altiplano",
+    "plan": "Altiplano Elite",
+    "renewalDateISO": "2025-04-20T00:00:00-05:00",
+    "premium": {
+      "amountMinor": 289000,
+      "currency": "COP"
+    },
+    "status": "ok",
+    "reminderSet": false,
+    "policyId": "pol-1103"
+  },
+  {
+    "id": "ren-106",
+    "carrier": "SabanaCare",
+    "plan": "Sabana Plus",
+    "renewalDateISO": "2025-02-25T00:00:00-05:00",
+    "premium": {
+      "amountMinor": 205500,
+      "currency": "COP"
+    },
+    "status": "dueSoon",
+    "reminderSet": false
+  },
+  {
+    "id": "ren-107",
+    "carrier": "Orinoco Life",
+    "plan": "Orinoco Vital",
+    "renewalDateISO": "2024-12-30T00:00:00-05:00",
+    "premium": {
+      "amountMinor": 176500,
+      "currency": "COP"
+    },
+    "status": "overdue",
+    "reminderSet": true,
+    "policyId": "pol-1120"
+  },
+  {
+    "id": "ren-108",
+    "carrier": "Nevado Salud",
+    "plan": "Nevado Platinum",
+    "renewalDateISO": "2025-05-15T00:00:00-05:00",
+    "premium": {
+      "amountMinor": 312500,
+      "currency": "COP"
+    },
+    "status": "ok",
+    "reminderSet": false,
+    "policyId": "pol-1135"
+  },
+  {
+    "id": "ren-109",
+    "carrier": "MetroVida",
+    "plan": "MetroVida Empresarial",
+    "renewalDateISO": "2025-02-05T00:00:00-05:00",
+    "premium": {
+      "amountMinor": 198750,
+      "currency": "COP"
+    },
+    "status": "dueSoon",
+    "reminderSet": true,
+    "policyId": "pol-1149"
+  }
+]

@@ -7,11 +7,44 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import ComplianceModal from "./ComplianceModal";
-import { useUI, type ProposalData } from "@/lib/ui/state";
+import { useUI } from "@/lib/ui/state";
 import { toast } from "sonner";
 
 import { sendViaEmail, sendViaWhatsApp } from "@/lib/share";
-import { type ShareChannel, type SharePayload } from "@/lib/types";
+import {
+  type AuditEntry,
+  type Case,
+  type Playbook,
+  type ShareChannel,
+  type SharePayload,
+  type AuditEventType,
+  type JurisdictionCode,
+} from "@/lib/types";
+
+const SHARE_AUDIT_EVENT_TYPES = {
+  attempt: "SendAttempt",
+  blocked: "SendBlocked",
+  success: "SendSuccess",
+} as const satisfies Record<
+  "attempt" | "blocked" | "success",
+  Extract<AuditEventType, "SendAttempt" | "SendBlocked" | "SendSuccess">
+>;
+
+type ShareAuditEventKey = keyof typeof SHARE_AUDIT_EVENT_TYPES;
+type ShareAuditEventType = (typeof SHARE_AUDIT_EVENT_TYPES)[ShareAuditEventKey];
+
+const SHARE_AUDIT_MESSAGE_KEYS: Record<ShareAuditEventType, ShareAuditEventKey> = {
+  [SHARE_AUDIT_EVENT_TYPES.attempt]: "attempt",
+  [SHARE_AUDIT_EVENT_TYPES.blocked]: "blocked",
+  [SHARE_AUDIT_EVENT_TYPES.success]: "success",
+} as const;
+
+type ShareAuditPayload = NonNullable<AuditEntry["payload"]> & {
+  channel: ShareChannel;
+  jurisdiction: JurisdictionCode;
+  caseId: Case["id"];
+  playbookType: Playbook["type"];
+};
 
 export function ComplianceGate() {
   const [sendingChannel, setSendingChannel] = useState<ShareChannel | null>(null);
@@ -24,6 +57,7 @@ export function ComplianceGate() {
   const logComplianceSendAttempt = useUI((state) => state.logComplianceSendAttempt);
   const logComplianceSendBlocked = useUI((state) => state.logComplianceSendBlocked);
   const logComplianceSendSuccess = useUI((state) => state.logComplianceSendSuccess);
+  const comparisonPlaybook = useUI((state) => state.comparisonPlaybook);
   const getProposalData = useUI((state) => state.getProposalData);
 
   const passed = useMemo(() => isCompliancePassed(complianceJurisdiction), [complianceJurisdiction, isCompliancePassed]);
@@ -62,38 +96,34 @@ export function ComplianceGate() {
       };
 
       const channelLabel = sendTranslations(channel);
-
-      logComplianceSendAttempt({
+      const shareAuditPayload: ShareAuditPayload = {
         channel: payload.channel,
-        jurisdiction: payload.jurisdiction,
-      });
-      toast.message(auditTranslations("attempt", { channel: channelLabel }));
+        jurisdiction: complianceJurisdiction,
+        caseId: payload.proposal.caseId,
+        playbookType: comparisonPlaybook,
+      };
+      const showAuditMessage = (event: ShareAuditEventType) => {
+        toast.message(auditTranslations(SHARE_AUDIT_MESSAGE_KEYS[event], { channel: channelLabel }));
+      };
+
+      logComplianceSendAttempt(shareAuditPayload);
+      showAuditMessage(SHARE_AUDIT_EVENT_TYPES.attempt);
 
       if (!passed) {
-        logComplianceSendBlocked({
-          channel: payload.channel,
-          jurisdiction: payload.jurisdiction,
-        });
+        logComplianceSendBlocked(shareAuditPayload);
         toast.error(sendTranslations("blockedToast"));
-        toast.message(auditTranslations("blocked", { channel: channelLabel }));
+        showAuditMessage(SHARE_AUDIT_EVENT_TYPES.blocked);
         openCompliance(complianceJurisdiction);
         return;
       }
 
       try {
         setSendingChannel(channel);
-        if (channel === "whatsapp") {
-          await sendViaWhatsApp(payload);
-        } else {
-          await sendViaEmail(payload);
-        }
-        logComplianceSendSuccess({
-          channel: payload.channel,
-          jurisdiction: payload.jurisdiction,
-        });
+        await executeShare(channel, payload);
+        logComplianceSendSuccess(shareAuditPayload);
         closeCompliance();
         toast.success(sendTranslations("successToast"));
-        toast.message(auditTranslations("success", { channel: channelLabel }));
+        showAuditMessage(SHARE_AUDIT_EVENT_TYPES.success);
       } finally {
         setSendingChannel(null);
       }
@@ -108,6 +138,7 @@ export function ComplianceGate() {
       logComplianceSendBlocked,
       logComplianceSendSuccess,
       openCompliance,
+      comparisonPlaybook,
       passed,
       sendTranslations,
     ]
@@ -185,5 +216,18 @@ export function ComplianceGate() {
   );
 }
 
-export default ComplianceGate;
+async function executeShare(channel: ShareChannel, payload: SharePayload) {
+  switch (channel) {
+    case "whatsapp":
+      return sendViaWhatsApp(payload);
+    case "email":
+      return sendViaEmail(payload);
+    default:
+      return assertUnreachable(channel);
+  }
+}
+
+function assertUnreachable(value: never): never {
+  throw new Error(`Unhandled share channel: ${value as string}`);
+}
 
