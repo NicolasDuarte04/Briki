@@ -2,14 +2,40 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
+import { Pool } from "pg";
+import { PrismaPg } from "@prisma/adapter-pg";
 
+// Use a global object to cache the Prisma Client and the connection pool
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
+  pool?: Pool;
 };
 
-const prisma = globalForPrisma.prisma ?? new PrismaClient();
+// Determine if we are in an edge environment
+const isEdge = process.env.NEXT_RUNTIME === "edge";
 
-if (!globalForPrisma.prisma) {
+// Create a connection pool if it doesn't exist
+if (!globalForPrisma.pool) {
+  // Use the direct URL to bypass the connection pooler, which might have a stale schema cache
+  const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL;
+  
+  globalForPrisma.pool = new Pool({
+    connectionString: connectionString,
+    // Edge environments might require SSL
+    ssl: isEdge ? { rejectUnauthorized: false } : undefined,
+  });
+}
+const pool = globalForPrisma.pool;
+const adapter = new PrismaPg(pool);
+
+// Instantiate Prisma Client, using the adapter for edge environments
+const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    adapter,
+  });
+
+if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
@@ -51,23 +77,58 @@ export const {
       clientSecret: googleClientSecret,
     }),
   ],
+  events: {
+    async signIn({ user }) {
+      // Ensure a Profile exists for newly created users
+      if (!user?.id) return;
+      try {
+        await prisma.profile.upsert({
+          where: { userId: user.id },
+          update: {},
+          create: {
+            userId: user.id,
+            name: user.name ?? undefined,
+            // locale defaults to "en" via schema default
+            onboardingCompleted: false,
+          },
+        });
+      } catch (error) {
+        console.warn("Profile upsert during signIn failed:", error);
+      }
+    },
+  },
   callbacks: {
-    async jwt({ token, user, trigger }) {
-      // Initial sign in
+    async signIn({ user, account, profile }) {
+      // Allow the sign in to proceed
+      return true;
+    },
+    async redirect({ url, baseUrl }) {
+      // After sign-in, always redirect to home
+      // The home page will check onboarding status and redirect if needed
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      return baseUrl;
+    },
+    async jwt({ token, user }) {
+      // Ensure the token has the user id on initial sign-in
       if (user) {
         token.id = user.id;
       }
 
-      // Fetch profile data on every token refresh
+      // Fetch fresh profile data to keep onboarding flag current
       if (token.id) {
-        const profile = await prisma.profile.findUnique({
-          where: { userId: token.id as string },
-          select: { id: true, onboardingCompleted: true },
-        });
-
-        if (profile) {
-          token.profileId = profile.id;
-          token.onboardingCompleted = profile.onboardingCompleted;
+        try {
+          const profile = await prisma.profile.findUnique({
+            where: { userId: token.id as string },
+            select: { id: true, onboardingCompleted: true },
+          });
+          if (profile) {
+            token.profileId = profile.id;
+            token.onboardingCompleted = profile.onboardingCompleted;
+          }
+        } catch (error) {
+          // Non-fatal; leave token as-is
         }
       }
 

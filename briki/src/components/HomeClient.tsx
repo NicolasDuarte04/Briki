@@ -66,13 +66,9 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="landing-scroll relative flex-1 min-h-screen overflow-auto"
+              className="landing-scroll relative flex-1 overflow-auto"
             >
-              <BrikiLandingNavbar />
               <Landing />
-              <div className="relative z-10 bg-background shrink-0">
-                <FooterNav />
-              </div>
             </motion.div>
           ) : (
             <motion.div

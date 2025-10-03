@@ -39,7 +39,7 @@ export function ProvenanceChip({
       tabIndex={tabIndex ?? 0}
       aria-label={ariaLabel ?? `${provenance} source`}
       className={cn(
-        "inline-flex min-h-6 min-w-0 items-center gap-1 rounded-full border-none px-2 py-[3px] text-[10px] font-medium uppercase tracking-wide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "inline-flex min-h-6 min-w-0 items-center gap-1 rounded-full border-none px-2 py-[3px] text-[12px] font-medium uppercase tracking-wide focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         indicatorStyles[normalized] ?? "",
         className,
       )}

@@ -68,7 +68,7 @@ export const Message = forwardRef<HTMLDivElement, MessageProps>(function Message
             <div className="flex flex-col gap-1 min-w-0">
               <span className="text-sm leading-relaxed break-words">{content}</span>
               {timestamp && isGroupEnd && (
-                <span className="text-[10px] leading-none opacity-70 self-end mt-1">{timestamp}</span>
+                <span className="text-[12px] leading-none text-foreground/70 self-end mt-1">{timestamp}</span>
               )}
             </div>
           </div>
@@ -89,7 +89,7 @@ export const Message = forwardRef<HTMLDivElement, MessageProps>(function Message
         />
       ) : (
         <div className="max-w-full">
-          <div className="inline-flex w-full items-start gap-2 rounded-lg border border-border/70 bg-muted/40 px-4 py-2 text-xs leading-relaxed text-muted-foreground/90">
+          <div className="inline-flex w-full items-start gap-2 rounded-lg border border-border/70 bg-muted/40 px-4 py-2 text-xs leading-relaxed text-foreground/80">
             <span className="sr-only">System note:</span>
             <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-muted-foreground/80" aria-hidden />
             <div className="flex flex-col gap-1 min-w-0 flex-1">
@@ -102,7 +102,7 @@ export const Message = forwardRef<HTMLDivElement, MessageProps>(function Message
                 {content}
               </div>
               {timestamp && isGroupEnd && (
-                <span className="text-[10px] leading-none text-muted-foreground/60 self-end mt-1">{timestamp}</span>
+                <span className="text-[12px] leading-none text-foreground/70 self-end mt-1">{timestamp}</span>
               )}
             </div>
           </div>

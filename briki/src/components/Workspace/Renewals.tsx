@@ -203,7 +203,7 @@ export default function Renewals() {
                     )}
                   >
                     {tMeta(`${window}`)}
-                    <span className="ml-1 rounded-full bg-muted/70 px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground">
+                    <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[12px] leading-none text-foreground/80">
                       {windowCounts[window] ?? 0}
                     </span>
                   </Badge>

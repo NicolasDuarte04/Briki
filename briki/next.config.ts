@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
       // Ensure proper chunk naming
       config.output.chunkFilename = 'static/chunks/[name].[contenthash].js';
     }
+    config.resolve.alias['pg-native'] = false
     return config;
   },
   // Disable strict mode to prevent double renders in development

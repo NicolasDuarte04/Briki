@@ -63,7 +63,7 @@
   --secondary: 210 40% 96%;
   --secondary-foreground: 222 47% 11%;
   --muted: 210 40% 96%;
-  --muted-foreground: 215 25% 27%;
+  --muted-foreground: 215 16% 40%; /* Updated from 215 16% 47% for better contrast */
   --accent: 210 40% 96%;
   --accent-foreground: 222 47% 12%;
   --destructive: 0 84% 60%;
@@ -92,6 +92,15 @@
   --chart-5: 0 84% 60%;
 
   --shadow-edge: rgba(2, 8, 23, 0.08);
+  
+  /* Briki landing design tokens */
+  --briki-text: #0F172A;
+  --briki-text-muted: #475569;
+  --briki-surface: #FFFFFF;
+  --briki-surface-alt: #F8FAFC;
+  --briki-border: #E2E8F0;
+  --briki-primary: #2563EB;
+  --briki-primary-dark: #1E40AF;
 }
 
 .dark {
@@ -154,12 +163,16 @@
   html {
     font-synthesis-weight: none;
     font-synthesis-style: none;
+    scroll-behavior: smooth;
   }
 
   body {
     @apply text-foreground bg-background font-sans;
     min-height: 100dvh;
     width: 100%;
+  }
+  
+  body:not(:has(.landing-scroll)) {
     overflow: hidden;
   }
 

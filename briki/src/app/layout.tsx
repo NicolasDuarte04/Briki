@@ -6,6 +6,7 @@ import I18nProvider from "@/components/I18nProvider";
 import { Toaster } from "sonner";
 import DevAxeClient from "@/components/DevAxeClient";
 import AuthProvider from "@/components/AuthProvider";
+import { OnboardingCheck } from "@/components/OnboardingCheck";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,7 +14,7 @@ const geistSans = Geist({
   display: "swap",
   preload: true,
   adjustFontFallback: true,
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  weight: ["400", "600", "700"],
 });
 
 const geistMono = Geist_Mono({
@@ -22,7 +23,7 @@ const geistMono = Geist_Mono({
   display: "swap",
   preload: true,
   adjustFontFallback: true,
-  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  weight: ["400", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -42,6 +43,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <I18nProvider>
+            <OnboardingCheck />
             <main className="flex-1 flex flex-col min-h-0">
               {children}
             </main>

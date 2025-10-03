@@ -114,18 +114,6 @@ function setDocumentSplitRatio(ratio: number) {
   );
 }
 
-function getInitialSplitRatio() {
-  if (typeof window === "undefined" || typeof document === "undefined") {
-    return DEFAULT_RATIO;
-  }
-
-  const storedRatio = readStoredSplitRatio();
-  if (storedRatio !== null) {
-    return storedRatio;
-  }
-
-  return DEFAULT_RATIO;
-}
 
 function clampRatioValue(ratio: number) {
   if (Number.isNaN(ratio)) return DEFAULT_RATIO;
@@ -148,10 +136,11 @@ export function Canvas({
   const showRight = rightOpen || isSourcing;
   const innerPadding = "px-4 pb-8 pt-6 sm:px-6";
   
-  // Initialize with a safe default for SSR; will be replaced by stored value on mount without flicker
-  const [splitRatio, setSplitRatio] = useState(getInitialSplitRatio);
+  // Initialize with DEFAULT_RATIO for consistent SSR/CSR hydration
+  const [splitRatio, setSplitRatio] = useState(DEFAULT_RATIO);
   const [isDragging, setIsDragging] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef({ startX: 0, startRatio: DEFAULT_RATIO });
@@ -172,8 +161,10 @@ export function Canvas({
 
   // Keep CSS variable in sync with React state
   useIsomorphicLayoutEffect(() => {
-    setDocumentSplitRatio(splitRatio);
-  }, [splitRatio]);
+    if (isHydrated) {
+      setDocumentSplitRatio(splitRatio);
+    }
+  }, [splitRatio, isHydrated]);
   
   // Persist ratio to localStorage
   const persistRatio = useCallback((ratio: number) => {
@@ -185,11 +176,13 @@ export function Canvas({
     setDocumentSplitRatio(ratio);
   }, []);
   
-  useIsomorphicLayoutEffect(() => {
+  // Load stored ratio after hydration to avoid mismatch
+  useEffect(() => {
     const stored = readStoredSplitRatio();
     if (stored !== null) {
       setSplitRatio(stored);
     }
+    setIsHydrated(true);
   }, []);
 
   // Handle pointer events for dragging
@@ -287,11 +280,6 @@ export function Canvas({
       setSplitRatio(clamped);
     }
   }, [splitRatio, clampRatio]);
-  
-  // Calculate aria values for accessibility
-  const ariaValueNow = Math.round(splitRatio * 100);
-  const ariaValueMin = Math.round(MIN_RATIO * 100);
-  const ariaValueMax = Math.round(MAX_RATIO * 100);
 
   // Stack vertically on small screens
   if (isSmallScreen) {
@@ -313,21 +301,29 @@ export function Canvas({
     );
   }
 
+  // Use DEFAULT_RATIO for initial render, actual ratio after hydration
+  const effectiveRatio = isHydrated ? splitRatio : DEFAULT_RATIO;
+  
+  // Calculate aria values for accessibility
+  const ariaValueNow = Math.round(effectiveRatio * 100);
+  const ariaValueMin = Math.round(MIN_RATIO * 100);
+  const ariaValueMax = Math.round(MAX_RATIO * 100);
+
   const containerStyle: CSSProperties | undefined = showRight
     ? (
         {
-          [CSS_VAR_NAME]: `${splitRatio * 100}%`,
-          [CSS_RATIO_VAR_NAME]: splitRatio,
+          [CSS_VAR_NAME]: `${effectiveRatio * 100}%`,
+          [CSS_RATIO_VAR_NAME]: effectiveRatio,
         } as React.CSSProperties
       )
     : undefined;
 
   const leftPanelStyle: CSSProperties | undefined = showRight
-    ? { flexBasis: `${splitRatio * 100}%`, flexGrow: 0, flexShrink: 1 }
+    ? { flexBasis: `${effectiveRatio * 100}%`, flexGrow: 0, flexShrink: 1 }
     : undefined;
 
   const rightPanelStyle: CSSProperties | undefined = showRight
-    ? { flexBasis: `${(1 - splitRatio) * 100}%`, flexGrow: 0, flexShrink: 1 }
+    ? { flexBasis: `${(1 - effectiveRatio) * 100}%`, flexGrow: 0, flexShrink: 1 }
     : undefined;
 
   return (
