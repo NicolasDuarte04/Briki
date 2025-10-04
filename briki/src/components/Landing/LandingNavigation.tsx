@@ -9,13 +9,18 @@ export function LandingNavigation() {
   const [isDetached, setIsDetached] = useState(false);
 
   useEffect(() => {
+    const scrollContainer = document.querySelector('.landing-scroll');
+    if (!scrollContainer) return;
+
     const handleScroll = () => {
-      const heroHeight = window.innerHeight * 0.9;
-      setIsDetached(window.scrollY > heroHeight);
+      const heroHeight = scrollContainer.clientHeight * 0.9;
+      setIsDetached(scrollContainer.scrollTop > heroHeight);
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    scrollContainer.addEventListener('scroll', handleScroll);
+    handleScroll(); // Check initial state on mount
+
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
   }, []);
 
   const navLinks = [
