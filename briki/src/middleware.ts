@@ -1,42 +1,59 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
-  // Create response to potentially modify
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   });
 
-  // Determine session presence strictly from cookies (no network calls)
-  const accessCookie = request.cookies.get('sb-access-token') ?? request.cookies.get('sb:token');
-  const refreshCookie = request.cookies.get('sb-refresh-token') ?? request.cookies.get('sb:refresh-token');
-  const hasSession = Boolean(accessCookie?.value || refreshCookie?.value || request.cookies.getAll().some(({ name, value }) => (
-    (name.startsWith('sb-') || name.startsWith('sb:')) &&
-    (name.includes('access') || name.includes('refresh')) &&
-    Boolean(value)
-  )));
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({ name, value, ...options });
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          });
+          response.cookies.set({ name, value, ...options });
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({ name, value: '', ...options });
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          });
+          response.cookies.set({ name, value: '', ...options });
+        },
+      },
+    }
+  );
 
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   const { pathname } = request.nextUrl;
 
-  // Define public routes that do not require authentication
-  const publicRoutes = ['/login', '/register', '/auth/verify', '/auth/callback'];
+  // App routes that require authentication
+  const appRoutes = ['/profile']; // Add other app routes here as needed
 
-  // Check if the current route is public
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+  // Check if the current path is an app route that needs protection
+  const isAppRoute = appRoutes.some(route => pathname.startsWith(route));
 
-  // If there is no session and the route is not public, redirect to login
-  if (!hasSession && !isPublicRoute) {
-    const redirectUrl = new URL('/login', request.url);
-    redirectUrl.searchParams.set("from", pathname);
-    return NextResponse.redirect(redirectUrl);
+  if (!isAppRoute) {
+    return response;
   }
 
-  // If there is a session and the user tries to access login, register, or landing page, redirect them away
-  if (hasSession && (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/register'))) {
-    // Redirect authenticated users to their profile
-    return NextResponse.redirect(new URL('/profile', request.url));
+  // If it's a protected app route, check for a session
+  if (!session) {
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('next', pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return response;
@@ -44,7 +61,17 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Exclude Next internals, favicon, static assets, and brand images
-    "/((?!api|_next/static|_next/image|favicon.ico|brand/.*|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|css|js|woff|woff2|ttf|eot)).*)",
+    /*
+     * Match all request paths except for the ones starting with:
+     * - api (API routes)
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - brand/ (brand assets)
+     * - / (the root path)
+     *
+     * Also, exclude paths with file extensions like .png, .jpg, etc.
+     */
+    "/((?!api|_next/static|_next/image|favicon.ico|brand/.*|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|css|js|woff|woff2|ttf|eot)|^/$).*)",
   ],
 };

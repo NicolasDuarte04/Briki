@@ -3,7 +3,6 @@
 import { useState } from "react";
 import type { FormEvent, JSX } from "react";
 import Link from "next/link";
-import { isRedirectError } from "next/dist/client/components/redirect";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,50 +59,47 @@ export default function RegisterForm(): JSX.Element {
     setServerError(null);
     setServerFieldErrors({});
 
-    // If valid, proceed with submission
-    if (!emailError && !passwordError) {
-      setIsLoading(true);
-      
-      try {
-        const formData = new FormData();
-        formData.append('email', email);
-        formData.append('password', password);
-        
-        const result = await signup(formData);
+    // Re-validate on client before submitting
+    const currentEmailError = validateEmail(email);
+    const currentPasswordError = validatePassword(password);
+    if (currentEmailError || currentPasswordError) {
+      // This is a failsafe; button should be disabled, but good practice.
+      return;
+    }
 
-        if (result && !result.success) {
-          const fieldErrors: FieldErrors = {};
-          const normalized = result.error.toLowerCase();
+    setIsLoading(true);
 
-          if (normalized.includes('already') || normalized.includes('exists')) {
-            fieldErrors.email = 'That email is already registered';
-          } else if (normalized.includes('weak') || normalized.includes('password must')) {
-            fieldErrors.password = 'Password is too weak';
-          } else if (normalized.includes('email') && normalized.includes('required')) {
-            fieldErrors.email = 'Email address is required';
-          } else if (normalized.includes('password') && normalized.includes('required')) {
-            fieldErrors.password = 'Password is required';
-          }
+    const formData = new FormData();
+    formData.append("email", email);
+    formData.append("password", password);
 
-          if (Object.keys(fieldErrors).length > 0) {
-            setServerFieldErrors(fieldErrors);
-            setServerError(null);
-          } else {
-            setServerError(result.error);
-          }
+    const result = await signup(formData);
 
-          setIsLoading(false);
-        }
-        // If successful, the server action will redirect to profile
-      } catch (error) {
-        if (error && isRedirectError(error)) {
-          throw error;
-        }
+    if (result && !result.success) {
+      const fieldErrors: FieldErrors = {};
+      const normalizedError = result.error.toLowerCase();
 
-        setServerError('An unexpected error occurred. Please try again.');
-        setIsLoading(false);
+      if (
+        normalizedError.includes("already registered") ||
+        normalizedError.includes("exists")
+      ) {
+        fieldErrors.email = "That email is already registered.";
+      } else if (
+        normalizedError.includes("weak") ||
+        normalizedError.includes("characters")
+      ) {
+        fieldErrors.password = "Password is too weak. Please use at least 8 characters.";
+      } else {
+        setServerError(result.error);
+      }
+
+      if (Object.keys(fieldErrors).length > 0) {
+        setServerFieldErrors(fieldErrors);
       }
     }
+    // On success, the server action handles the redirect.
+    // We only need to reset loading state if the component is still mounted.
+    setIsLoading(false);
   };
 
   return (
@@ -193,14 +189,14 @@ export default function RegisterForm(): JSX.Element {
           By selecting &ldquo;Create account&rdquo;, I agree to the{" "}
           <Link
             href="/privacy"
-            className="text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             Privacy Policy
           </Link>{" "}
           and{" "}
           <Link
             href="/terms"
-            className="text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             Terms of Use
           </Link>
@@ -213,7 +209,7 @@ export default function RegisterForm(): JSX.Element {
         <span className="text-muted-foreground">Already have an account? </span>
         <Link
           href="/login"
-          className="text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           Sign in
         </Link>

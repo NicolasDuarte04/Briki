@@ -24,10 +24,8 @@ export async function signup(formData: FormData): Promise<ActionResult> {
     // Sign up the user with email redirect
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
-      password,
-      options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/auth/callback`
-      }
+      password
+      // emailRedirectTo is not needed since email confirmation is disabled
     })
 
     if (authError) {
@@ -41,29 +39,24 @@ export async function signup(formData: FormData): Promise<ActionResult> {
       return { success: false, error: authError.message }
     }
 
-    if (!authData.user) {
-      return { success: false, error: 'Failed to create account' }
+    // If signup is successful and email confirmation is disabled,
+    // a user and session object will be returned.
+    if (!authData.user || !authData.session) {
+      return { success: false, error: 'Failed to create an account. Please try again.' }
     }
 
-    // Check if session exists (email confirmations are off)
-    if (authData.session) {
-      // Create profile using Prisma upsert for robustness
-      await prisma.profile.upsert({
-        where: { id: authData.user.id },
-        update: {},
-        create: { 
-          id: authData.user.id, 
-          name: null
-        },
-      })
+    // Create profile using Prisma upsert for robustness
+    await prisma.profile.upsert({
+      where: { id: authData.user.id },
+      update: {},
+      create: {
+        id: authData.user.id,
+        name: null
+      }
+    })
 
-      // Redirect to profile
-      redirect('/profile')
-    } else {
-      // No session means email confirmations are on
-      // Redirect to verify page
-      redirect(`/auth/verify?email=${encodeURIComponent(email)}`)
-    }
+    // Redirect to onboarding
+    redirect('/onboarding')
   } catch (error) {
     // If the error is a redirect error, re-throw it so Next.js can handle it
     if (error && typeof error === 'object' && 'digest' in error && error.digest?.toString().startsWith('NEXT_REDIRECT')) {
@@ -78,6 +71,7 @@ export async function signup(formData: FormData): Promise<ActionResult> {
 export async function login(formData: FormData): Promise<ActionResult> {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  const next = formData.get('next') as string | null
 
   // Basic validation
   if (!email || !password) {
@@ -109,18 +103,22 @@ export async function login(formData: FormData): Promise<ActionResult> {
     const profile = await prisma.profile.upsert({
       where: { id: authData.user.id },
       update: {},
-      create: { 
-        id: authData.user.id, 
+      create: {
+        id: authData.user.id,
         name: null
-      },
+      }
     })
 
-    // Check onboarding status and redirect accordingly
-    if (profile.onboardingCompleted) {
-      redirect('/profile')
-    } else {
-      redirect('/onboarding')
+    // Validate the next path. It must be a relative path.
+    const isValidNextPath = next && next.startsWith('/') && !next.startsWith('//')
+
+    if (isValidNextPath) {
+      redirect(next)
     }
+
+    // After a successful login, always redirect to the landing page.
+    redirect('/')
+
   } catch (error) {
     // If the error is a redirect error, re-throw it so Next.js can handle it
     if (error && typeof error === 'object' && 'digest' in error && error.digest?.toString().startsWith('NEXT_REDIRECT')) {

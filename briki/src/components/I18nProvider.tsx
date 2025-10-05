@@ -1,53 +1,27 @@
-"use client";
+'use client'
 
-import { createContext, useContext, useMemo, useState } from "react";
-import { NextIntlClientProvider } from "next-intl";
-import en from "@/messages/en";
-import es from "@/messages/es";
+import { NextIntlClientProvider } from 'next-intl'
 
-type SupportedLocale = "en" | "es";
-
-interface LocaleContextValue {
-  locale: SupportedLocale;
-  setLocale: (loc: SupportedLocale) => void;
-  toggleLocale: () => void;
-}
-
-const LocaleContext = createContext<LocaleContextValue | undefined>(undefined);
-
-export function useAppLocale(): LocaleContextValue {
-  const ctx = useContext(LocaleContext);
-  if (!ctx) {
-    throw new Error("useAppLocale must be used within I18nProvider");
-  }
-  return ctx;
+type I18nProviderProps = {
+  children: React.ReactNode
+  locale: string
+  messages: any // More specific type can be used if you have generated types
 }
 
 export default function I18nProvider({
   children,
-}: {
-  children: React.ReactNode;
-}) {
-  const [locale, setLocale] = useState<SupportedLocale>("en");
-
-  const messages = useMemo(() => (locale === "en" ? en : es), [locale]);
-
-  const value = useMemo(
-    () => ({
-      locale,
-      setLocale,
-      toggleLocale: () => setLocale((prev) => (prev === "en" ? "es" : "en")),
-    }),
-    [locale]
-  );
-
+  locale,
+  messages,
+}: I18nProviderProps) {
   return (
-    <LocaleContext.Provider value={value}>
-      <NextIntlClientProvider locale={locale} messages={messages} timeZone="UTC">
-        {children}
-      </NextIntlClientProvider>
-    </LocaleContext.Provider>
-  );
+    <NextIntlClientProvider
+      locale={locale}
+      messages={messages}
+      timeZone="UTC" // You can make this dynamic if needed
+    >
+      {children}
+    </NextIntlClientProvider>
+  )
 }
 
 

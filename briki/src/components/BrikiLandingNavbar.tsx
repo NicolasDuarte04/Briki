@@ -13,6 +13,8 @@ import {
   MobileNavMenu,
   MobileNavToggle,
 } from "@/components/ui/resizable-navbar";
+import { createBrowserSupabase } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 const navItems = [
   { name: "Features", link: "#features" },
@@ -41,17 +43,45 @@ export default function BrikiLandingNavbar() {
   const t = useTranslations("nav");
   const [isOpen, setIsOpen] = useState(false);
   const [activeHash, setActiveHash] = useState<string>("");
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    console.log("[Briki Nav] useEffect triggered.");
+    const supabase = createBrowserSupabase();
+    
+    const checkUser = async () => {
+      console.log("[Briki Nav] Checking user session...");
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error("[Briki Nav] Error fetching user:", error);
+      }
+      console.log("[Briki Nav] User object received:", data.user);
+      setUser(data.user);
+    };
+    checkUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("[Briki Nav] Auth state changed:", event);
+      setUser(session?.user ?? null);
+    });
+
     if (typeof window === "undefined") return;
     const update = () => setActiveHash(window.location.hash || "");
     update();
     window.addEventListener("hashchange", update);
-    return () => window.removeEventListener("hashchange", update);
+    
+    return () => {
+      window.removeEventListener("hashchange", update);
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   const promptSupabaseLogin = () => {
     window.location.href = '/login';
+  };
+
+  const goToApp = () => {
+    window.location.href = '/profile'; // Or wherever your main app page is
   };
 
   return (
@@ -62,14 +92,25 @@ export default function BrikiLandingNavbar() {
           <BrikiLogo />
           <NavItems items={navItems} />
           <div className="relative z-50 flex items-center">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-8 px-4 text-sm"
-              onClick={promptSupabaseLogin}
-            >
-              {t("login")}
-            </Button>
+            {user ? (
+              <Button 
+                variant="default" 
+                size="sm" 
+                className="h-8 px-4 text-sm"
+                onClick={goToApp}
+              >
+                Go to App
+              </Button>
+            ) : (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 px-4 text-sm"
+                onClick={promptSupabaseLogin}
+              >
+                {t("login")}
+              </Button>
+            )}
           </div>
         </div>
       </NavBody>
@@ -98,13 +139,23 @@ export default function BrikiLandingNavbar() {
               </a>
             ))}
             <div className="flex w-full flex-col gap-2 pt-4">
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start text-lg"
-                onClick={promptSupabaseLogin}
-              >
-                {t("login")}
-              </Button>
+              {user ? (
+                <Button 
+                  variant="default" 
+                  className="w-full justify-start text-lg"
+                  onClick={goToApp}
+                >
+                  Go to App
+                </Button>
+              ) : (
+                <Button 
+                  variant="ghost" 
+                  className="w-full justify-start text-lg"
+                  onClick={promptSupabaseLogin}
+                >
+                  {t("login")}
+                </Button>
+              )}
             </div>
           </div>
         </MobileNavMenu>

@@ -4,11 +4,21 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import Link from 'next/link';
+import { createBrowserSupabase } from '@/lib/supabase/client';
+import type { User } from '@supabase/supabase-js';
 
 export function LandingNavigation() {
   const [isDetached, setIsDetached] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    const supabase = createBrowserSupabase();
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
+    };
+    checkUser();
+
     const scrollContainer = document.querySelector('.landing-scroll');
     if (!scrollContainer) return;
 
@@ -28,6 +38,38 @@ export function LandingNavigation() {
     { label: 'Demo', href: '#demo' },
     { label: 'Pricing', href: '#pricing' },
   ];
+
+  const AuthButton = ({ detached }: { detached: boolean }) => {
+    if (user) {
+      return (
+        <Link href="/profile">
+          <Button
+            className={detached
+              ? "rounded-full px-4 py-1 h-8 text-sm"
+              : "rounded-full px-4 py-1 h-8 text-sm bg-white/10 text-white hover:bg-white/20 border border-white/20"
+            }
+            style={detached ? { backgroundColor: 'var(--briki-primary)' } : {}}
+          >
+            Go to App
+          </Button>
+        </Link>
+      );
+    }
+
+    return (
+      <Link href="/login">
+        <Button
+          className={detached
+            ? "rounded-full px-4 py-1 h-8 text-sm"
+            : "rounded-full px-4 py-1 h-8 text-sm bg-white/10 text-white hover:bg-white/20 border border-white/20"
+          }
+          style={detached ? { backgroundColor: 'var(--briki-primary)' } : {}}
+        >
+          Start
+        </Button>
+      </Link>
+    );
+  };
 
   if (isDetached) {
     return (
@@ -55,14 +97,7 @@ export function LandingNavigation() {
               </a>
             ))}
           </div>
-          <Link href="/login">
-            <Button
-              className="rounded-full px-4 py-1 h-8 text-sm"
-              style={{ backgroundColor: 'var(--briki-primary)' }}
-            >
-              Start
-            </Button>
-          </Link>
+          <AuthButton detached={true} />
         </div>
       </nav>
     );
@@ -94,13 +129,7 @@ export function LandingNavigation() {
                 {link.label}
               </a>
             ))}
-            <Link href="/login">
-              <Button
-                className="rounded-full px-4 py-1 h-8 text-sm bg-white/10 text-white hover:bg-white/20 border border-white/20"
-              >
-                Start
-              </Button>
-            </Link>
+            <AuthButton detached={false} />
           </div>
         </div>
       </div>

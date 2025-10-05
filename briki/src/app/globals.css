@@ -66,7 +66,7 @@
   --muted-foreground: 215 16% 40%; /* Updated from 215 16% 47% for better contrast */
   --accent: 210 40% 96%;
   --accent-foreground: 222 47% 12%;
-  --destructive: 0 84% 60%;
+  --destructive: 0 84% 50%;
   --destructive-foreground: 0 0% 100%;
   --success: 160 84% 39%;
   --success-foreground: 0 0% 100%;

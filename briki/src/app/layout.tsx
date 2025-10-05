@@ -6,6 +6,7 @@ import I18nProvider from "@/components/I18nProvider";
 import { Toaster } from "sonner";
 import DevAxeClient from "@/components/DevAxeClient";
 import AuthProvider from "@/components/AuthProvider";
+import { getMessages, getLocale } from 'next-intl/server';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,18 +31,21 @@ export const metadata: Metadata = {
   description: "Agentic workspace",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang={locale} className={`${geistSans.variable} ${geistMono.variable}`}>
       <body
         className="antialiased min-h-screen flex flex-col"
       >
         <AuthProvider>
-          <I18nProvider>
+          <I18nProvider locale={locale} messages={messages}>
             <main className="flex-1 flex flex-col min-h-0">
               {children}
             </main>

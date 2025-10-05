@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, useEffect } from "react";
 import Link from "next/link";
-import { isRedirectError } from "next/dist/client/components/redirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +17,19 @@ export default function LoginForm() {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [nextUrl, setNextUrl] = useState<string | null>(null);
+
+  // Read the 'next' query parameter on mount
+  useEffect(() => {
+    // Check if we're in the browser environment
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get('next');
+      if (next) {
+        setNextUrl(next);
+      }
+    }
+  }, []);
 
   // Validation functions
   const validateEmail = (value: string): string | null => {
@@ -55,16 +67,21 @@ export default function LoginForm() {
         const formData = new FormData(e.currentTarget);
         const result = await login(formData);
 
-        if (!result.success) {
+        if (result && !result.success) {
           setServerError(result.error);
-          setIsLoading(false);
         }
-      } catch (error) {
-        if (error && isRedirectError(error)) {
-          throw error;
+        // On successful login, the server action will redirect, so no client-side navigation is needed.
+      } catch (error: any) {
+        // Next.js throws a NEXT_REDIRECT error when a server action redirects.
+        // We need to catch this specific error and do nothing, allowing the redirect to happen.
+        if (error.digest?.startsWith('NEXT_REDIRECT')) {
+          // This is an expected error during redirection, so we can safely ignore it.
+          return;
         }
 
+        // This will catch any unexpected errors from the action
         setServerError("An unexpected error occurred. Please try again.");
+      } finally {
         setIsLoading(false);
       }
     }
@@ -72,12 +89,18 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-[440px] space-y-6">
+      {/* Hidden field for next URL */}
+      {nextUrl && (
+        <input type="hidden" name="next" value={nextUrl} />
+      )}
+      
       <div className="space-y-8">
         {/* Email Field */}
         <div className="space-y-2">
           <Label htmlFor="email">Email address</Label>
           <Input
             id="email"
+            name="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -100,6 +123,7 @@ export default function LoginForm() {
           <div className="relative">
             <Input
               id="password"
+              name="password"
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -168,14 +192,14 @@ export default function LoginForm() {
       <div className="flex items-center justify-center gap-3 text-sm">
         <a
           href="/forgot-password"
-          className="text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           Forgot password
         </a>
         <span className="text-muted-foreground">|</span>
         <Link
           href="/register"
-          className="text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           Create account
         </Link>

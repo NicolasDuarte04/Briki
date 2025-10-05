@@ -27,7 +27,7 @@ export default async function ProfilePage() {
   });
 
   const initialName = user?.profile?.name ?? "";
-  const initialLocale = (user?.profile?.locale ?? "en") as LocaleValue;
+  const initialLocale = (user?.profile?.locale ?? "en") as "en" | "es";
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-8">
