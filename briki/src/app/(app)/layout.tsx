@@ -10,24 +10,28 @@ type AppLayoutProps = {
 export default async function AppLayout({ children }: AppLayoutProps) {
   const supabase = await createServerSupabase()
 
+  // Use getUser() for secure authentication check
   const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession()
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
 
-  if (sessionError || !session) {
+  if (userError || !user) {
     redirect('/login')
   }
 
+  // Fetch profile by user id - single query
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('onboarding_completed')
-    .eq('id', session.user.id)
+    .eq('id', user.id)
     .single()
 
-  if (profileError || !profile?.onboarding_completed) {
+  // Redirect to onboarding if profile doesn't exist or onboarding is incomplete
+  if (profileError || !profile || profile.onboarding_completed !== true) {
     redirect('/onboarding')
   }
 
+  // Render protected content - no client-side flashing
   return <>{children}</>
 }

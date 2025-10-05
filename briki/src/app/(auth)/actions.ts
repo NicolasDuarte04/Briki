@@ -20,10 +20,13 @@ export async function signup(formData: FormData): Promise<ActionResult> {
   const supabase = await createServerSupabase()
 
   try {
-    // Sign up the user
+    // Sign up the user with email redirect
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/auth/callback`
+      }
     })
 
     if (authError) {
@@ -41,11 +44,40 @@ export async function signup(formData: FormData): Promise<ActionResult> {
       return { success: false, error: 'Failed to create account' }
     }
 
-    // The user's profile is now automatically created by a database trigger
-    // so we can remove the manual profile creation from the signup function.
+    // Check if session exists (email confirmations are off)
+    if (authData.session) {
+      // Create profile manually since confirmations are off
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          name: authData.user.email?.split('@')[0],
+          onboarding_completed: false
+        })
 
-    // Since onboarding_completed is false by default, redirect to onboarding
-    redirect('/onboarding')
+      if (profileError) {
+        console.error('Profile creation error:', profileError)
+        // Continue anyway - profile might exist from trigger
+      }
+
+      // Fetch the user's profile to check onboarding status
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', authData.user.id)
+        .single()
+
+      // Redirect based on onboarding status
+      if (profile?.onboarding_completed) {
+        redirect('/app')
+      } else {
+        redirect('/onboarding')
+      }
+    } else {
+      // No session means email confirmations are on
+      // Redirect to verify page
+      redirect(`/auth/verify?email=${encodeURIComponent(email)}`)
+    }
   } catch (error) {
     // If the error is a redirect error, re-throw it so Next.js can handle it
     if (error && typeof error === 'object' && 'digest' in error && error.digest?.toString().startsWith('NEXT_REDIRECT')) {

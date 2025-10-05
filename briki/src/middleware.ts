@@ -41,26 +41,24 @@ export async function middleware(request: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
-  const pathname = request.nextUrl.pathname;
+  const { pathname } = request.nextUrl;
 
-  // Define protected routes (routes under (app) group)
-  const isProtectedRoute = pathname.startsWith("/onboarding") || 
-                          pathname.startsWith("/profile");
+  // Define public routes that do not require authentication
+  const publicRoutes = ['/login', '/register', '/auth/verify', '/auth/callback'];
 
-  // Define auth routes that should be accessible without authentication
-  const isAuthRoute = pathname.startsWith("/login") || 
-                     pathname.startsWith("/register");
+  // Check if the current route is public
+  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
-  // If no session and trying to access protected route, redirect to login
-  if (!session && isProtectedRoute) {
-    const redirectUrl = new URL("/login", request.url);
+  // If there is no session and the route is not public, redirect to login
+  if (!session && !isPublicRoute) {
+    const redirectUrl = new URL('/login', request.url);
     redirectUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If session exists and trying to access auth routes, redirect to profile
-  if (session && isAuthRoute) {
-    return NextResponse.redirect(new URL("/profile", request.url));
+  // If there is a session and the user tries to access login or register, redirect them away
+  if (session && (pathname.startsWith('/login') || pathname.startsWith('/register'))) {
+    return NextResponse.redirect(new URL('/profile', request.url));
   }
 
   return response;
