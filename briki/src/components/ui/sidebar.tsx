@@ -63,17 +63,31 @@ export const Sidebar = ({
   animate?: boolean;
 }) => {
   return (
-    <SidebarProvider open={open} setOpen={setOpen} animate={animate}>
+    <SidebarProvider
+      {...(open !== undefined ? { open } : {})}
+      {...(setOpen !== undefined ? { setOpen } : {})}
+      {...(animate !== undefined ? { animate } : {})}
+    >
       {children}
     </SidebarProvider>
   );
 };
 
-export const SidebarBody = (props: React.ComponentProps<typeof motion.div>) => {
+type SidebarBodyProps = Omit<React.ComponentProps<typeof motion.div>, "children"> & {
+  children: React.ReactNode;
+};
+
+export const SidebarBody = ({
+  children,
+  className,
+  ...rest
+}: SidebarBodyProps) => {
   return (
     <>
-      <DesktopSidebar {...props} />
-      <MobileSidebar {...(props as React.ComponentProps<"div">)} />
+      <DesktopSidebar className={className} {...rest}>
+        {children}
+      </DesktopSidebar>
+      <MobileSidebar className={className}>{children}</MobileSidebar>
     </>
   );
 };

@@ -12,6 +12,7 @@ export function Composer({ className, onSend, placeholder }: { className?: strin
   const [value, setValue] = useState("");
   const [showHelper, setShowHelper] = useState(false);
   const helperTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const { setStep, setBrief } = useUI();
   const composer = useTranslations("composer");
 
@@ -71,6 +72,17 @@ export function Composer({ className, onSend, placeholder }: { className?: strin
     goConversation();
   }
 
+  useEffect(() => {
+    const node = textareaRef.current;
+    if (!node) {
+      return;
+    }
+    node.style.height = "auto";
+    const maxHeight = 220;
+    const nextHeight = Math.min(node.scrollHeight, maxHeight);
+    node.style.height = `${nextHeight}px`;
+  }, [value]);
+
   return (
     <form
       onSubmit={onSubmit}
@@ -85,9 +97,8 @@ export function Composer({ className, onSend, placeholder }: { className?: strin
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
         <div className="flex min-w-0 flex-col">
           <Textarea
+            ref={textareaRef}
             rows={1}
-            autoResize
-            maxAutoResizeHeight={220}
             placeholder={placeholder ?? composer("placeholder")}
             value={value}
             onChange={(e) => {
@@ -144,5 +155,4 @@ export function Composer({ className, onSend, placeholder }: { className?: strin
 }
 
 export default Composer;
-
 

@@ -82,9 +82,9 @@ export const Message = forwardRef<HTMLDivElement, MessageProps>(function Message
             isGroupEnd && "rounded-bl-2xl",
             !isGroupEnd && "rounded-bl-md"
           )}
-          title={agent?.label}
-          tagLabel={agent?.tag}
-          timestamp={timestamp}
+          {...(agent?.label ? { title: agent.label } : {})}
+          {...(agent?.tag ? { tagLabel: agent.tag } : {})}
+          {...(timestamp ? { timestamp } : {})}
           body={<div className="break-words">{content}</div>}
         />
       ) : (
@@ -114,5 +114,4 @@ export const Message = forwardRef<HTMLDivElement, MessageProps>(function Message
 
 
 export default Message;
-
 

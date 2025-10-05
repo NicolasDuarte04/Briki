@@ -87,7 +87,7 @@ export const {
           update: {},
           create: {
             userId: user.id,
-            name: user.name ?? undefined,
+            name: user.name ?? null,
             // locale defaults to "en" via schema default
             onboardingCompleted: false,
           },

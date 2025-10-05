@@ -9,7 +9,7 @@ type TabsContextValue = {
   readonly baseId: string
   readonly getTriggerId: (value: string) => string
   readonly getContentId: (value: string) => string
-  readonly activeValue?: string
+  readonly activeValue: string | undefined
 }
 
 const TabsContext = React.createContext<TabsContextValue | null>(null)
@@ -47,7 +47,12 @@ const Tabs = React.forwardRef<
 >(({ className, id: idProp, value: valueProp, defaultValue, onValueChange, orientation, ...props }, ref) => {
   const reactId = React.useId()
   const resourceIdSegment = React.useMemo(
-    () => createValueSegment({ base: "tabs", value: idProp, fallback: reactId }),
+    () =>
+      createValueSegment({
+        base: "tabs",
+        ...(idProp ? { value: idProp } : {}),
+        fallback: reactId,
+      }),
     [idProp, reactId]
   )
   const baseId = React.useMemo(() => `tabs-${resourceIdSegment}`, [resourceIdSegment])
@@ -98,10 +103,10 @@ const Tabs = React.forwardRef<
         data-slot="tabs"
         className={cn("flex min-h-0 flex-col gap-2", className)}
         id={idProp ?? baseId}
-        value={valueProp}
-        defaultValue={defaultValue}
+        {...(valueProp !== undefined ? { value: valueProp } : {})}
+        {...(defaultValue !== undefined ? { defaultValue } : {})}
         onValueChange={handleValueChange}
-        orientation={orientation}
+        {...(orientation ? { orientation } : {})}
         {...props}
       />
     </TabsContext.Provider>
@@ -112,25 +117,25 @@ Tabs.displayName = TabsPrimitive.Root.displayName ?? "Tabs"
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, role, orientation, ...props }, ref) => {
+>(({ className, role, ...props }, ref) => {
   const context = useTabsContext()
   const ariaLabelledBy = props["aria-labelledby"]
   const finalAriaLabel =
     typeof ariaLabelledBy === "string"
       ? ariaLabelledBy
       : context?.baseId
+  const ariaOrientation = props["aria-orientation"] ?? "horizontal"
   return (
     <TabsPrimitive.List
       ref={ref}
       data-slot="tabs-list"
       role={role ?? "tablist"}
-      aria-orientation={orientation ?? props["aria-orientation"] ?? "horizontal"}
+      aria-orientation={ariaOrientation}
       aria-labelledby={finalAriaLabel}
       className={cn(
         "inline-flex h-9 items-center justify-center gap-1 rounded-lg border border-border/60 bg-muted/80 p-1 text-muted-foreground",
         className
       )}
-      orientation={orientation}
       {...props}
     />
   )
@@ -154,16 +159,18 @@ const TabsTrigger = React.forwardRef<
         ? context.activeValue === value
         : undefined
 
+  const resolvedTabIndex = disabled ? -1 : tabIndex
+
   return (
     <TabsPrimitive.Trigger
       ref={ref}
       data-slot="tabs-trigger"
       role="tab"
       id={triggerId}
-      aria-controls={contentId}
-      aria-selected={isSelected}
+      {...(contentId ? { "aria-controls": contentId } : {})}
+      {...(isSelected !== undefined ? { "aria-selected": isSelected } : {})}
       disabled={disabled}
-      tabIndex={disabled ? -1 : tabIndex}
+      {...(resolvedTabIndex !== undefined ? { tabIndex: resolvedTabIndex } : {})}
       className={cn(
         "relative inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-3 text-sm font-medium text-muted-foreground outline-none transition-[color,box-shadow] focus-visible:z-10 focus-visible:border-border/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-border data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm after:absolute after:inset-x-3 after:-bottom-[5px] after:h-0.5 after:rounded-full after:bg-transparent after:transition-colors data-[state=active]:after:bg-primary sm:h-9",
         className
@@ -210,7 +217,7 @@ const TabsContent = React.forwardRef<
       hidden={finalHidden}
       className={cn("min-h-0 flex-1 outline-none", className)}
       value={value}
-      forceMount={forceMount}
+      {...(forceMount !== undefined ? { forceMount } : {})}
       {...rest}
     />
   )

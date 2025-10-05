@@ -83,6 +83,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const hasMountedRef = useRef(false);
   const [showJumpToNewest, setShowJumpToNewest] = useState(false);
   const pendingRafRef = useRef<number | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const sourcingStatusCopy = useMemo(() => {
     const rawMicroSteps = sourcingTranslations.raw("microSteps");
@@ -328,10 +329,18 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       // Otherwise, update the seeded messages
       const next = [...prev];
 
-      if (!next[0] || next[0].role !== "system") {
-        next.unshift(systemSeed);
-      } else if (systemSeed && next[0].content !== systemSeed.content) {
-        next[0] = { ...next[0], content: systemSeed.content, isSeeded: systemSeed.isSeeded };
+      if (systemSeed) {
+        if (!next[0] || next[0].role !== "system") {
+          next.unshift(systemSeed);
+        } else if (next[0].content !== systemSeed.content) {
+          const updatedSystem: ChatMessage = { ...next[0], content: systemSeed.content };
+          if (systemSeed.isSeeded !== undefined) {
+            updatedSystem.isSeeded = systemSeed.isSeeded;
+          } else {
+            delete updatedSystem.isSeeded;
+          }
+          next[0] = updatedSystem;
+        }
       }
 
       if (seededUser) {
@@ -343,24 +352,41 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       }
 
       if (seededAssistant) {
-        if (!next[assistantIndex] || !next[assistantIndex].isSeeded) {
+        const assistantMessage = next[assistantIndex];
+        if (!assistantMessage || !assistantMessage.isSeeded) {
           next.splice(assistantIndex, 0, seededAssistant);
         } else if (
-          next[assistantIndex].content !== seededAssistant.content ||
-          next[assistantIndex].agent?.label !== seededAssistant.agent?.label ||
-          next[assistantIndex].agent?.tag !== seededAssistant.agent?.tag
+          assistantMessage.content !== seededAssistant.content ||
+          assistantMessage.agent?.label !== seededAssistant.agent?.label ||
+          assistantMessage.agent?.tag !== seededAssistant.agent?.tag
         ) {
-          next[assistantIndex] = {
-            ...next[assistantIndex],
+          const updatedAssistant: ChatMessage = {
+            ...assistantMessage,
             content: seededAssistant.content,
-            agent: seededAssistant.agent,
           };
+          if (seededAssistant.agent !== undefined) {
+            updatedAssistant.agent = seededAssistant.agent;
+          } else {
+            delete updatedAssistant.agent;
+          }
+          next[assistantIndex] = updatedAssistant;
         }
       }
 
       return next;
     });
   }, [seededConversation]);
+
+  useEffect(() => {
+    const node = composerRef.current;
+    if (!node) {
+      return;
+    }
+    node.style.height = "auto";
+    const maxHeight = 220;
+    const nextHeight = Math.min(node.scrollHeight, maxHeight);
+    node.style.height = `${nextHeight}px`;
+  }, [value]);
 
   function sendMessage() {
     const trimmed = value.trim();
@@ -418,7 +444,12 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
               const nextMessage = messages[idx + 1];
               const isGroupStart = !prevMessage || prevMessage.role !== m.role;
               const isGroupEnd = !nextMessage || nextMessage.role !== m.role;
-              
+              const messageTabIndex = isLast ? -1 : undefined;
+              const displayTimestamp = new Date().toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit",
+              });
+
               return (
                 <div
                   key={m.id ?? idx}
@@ -435,12 +466,12 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
                     <Message
                       role={m.role}
                       content={m.content}
-                      agent={m.agent}
+                      {...(m.agent ? { agent: m.agent } : {})}
                       ref={isLast ? lastMessageRef : undefined}
-                      tabIndex={isLast ? -1 : undefined}
+                      {...(messageTabIndex !== undefined ? { tabIndex: messageTabIndex } : {})}
                       isGroupStart={isGroupStart}
                       isGroupEnd={isGroupEnd}
-                      timestamp={new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      timestamp={displayTimestamp}
                     />
                   </div>
                 </div>
@@ -452,7 +483,9 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
                   <Message
                     role="assistant"
                     content={chatTranslations("typing")}
-                    agent={{ label: chatTranslations("agents.sourcing") }}
+                    {...{
+                      agent: { label: chatTranslations("agents.sourcing") },
+                    }}
                     isTyping
                   />
                 </div>
@@ -491,9 +524,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           )}
         >
           <Textarea
+            ref={composerRef}
             rows={1}
-            autoResize
-            maxAutoResizeHeight={220}
             placeholder={chatTranslations("placeholder")}
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -620,5 +652,3 @@ function SourcingStatusMessage({
     </div>
   );
 }
-
-

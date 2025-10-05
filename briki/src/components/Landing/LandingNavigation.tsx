@@ -54,7 +54,7 @@ export function LandingNavigation() {
               </a>
             ))}
           </div>
-          <Link href="/onboarding">
+          <Link href="/login">
             <Button
               className="rounded-full px-4 py-1 h-8 text-sm"
               style={{ backgroundColor: 'var(--briki-primary)' }}
@@ -92,7 +92,7 @@ export function LandingNavigation() {
                 {link.label}
               </a>
             ))}
-            <Link href="/onboarding">
+            <Link href="/login">
               <Button
                 className="rounded-full px-4 py-1 h-8 text-sm bg-white/10 text-white hover:bg-white/20 border border-white/20"
               >

@@ -1,10 +1,25 @@
 /**
  * Briki Domain Model Type Definitions
- * 
+ *
  * This file contains the authoritative domain model surface for Phase 2.
  * All domain entities are defined here with strict typing, no any types,
  * explicit unions, ISO dates, and consistent money representation.
  */
+
+import type {
+  BrokerProfileParsed,
+  CaseParsed,
+  EligibilityParsed,
+  PolicyParsed,
+  PricingBandParsed,
+  ProductParsed,
+  ProposalMathCheckParsed,
+  ProposalParsed,
+  ProposalSelectedPlanParsed,
+  ProvenanceParsed,
+  RiderParsed,
+  RenewalRecordParsed,
+} from "./validation";
 
 // ============================================================================
 // Currency & Money Types
@@ -129,35 +144,7 @@ export type UIStep =
 /**
  * Represents a product offered by a carrier
  */
-export interface Product {
-  /** Unique identifier */
-  id: string;
-  /** Product name */
-  name: string;
-  /** Product code/SKU */
-  code: string;
-  /** Carrier identifier */
-  carrierId: string;
-  /** Product description */
-  description?: string;
-  /** Coverage type */
-  coverageKind: CoverageKind;
-  /** Available riders for this product */
-  availableRiderIds: string[];
-  /** Base premium range */
-  basePremiumRange?: {
-    min: Money;
-    max: Money;
-  };
-  /** Product metadata */
-  metadata?: Record<string, unknown>;
-  /** Active status */
-  isActive: boolean;
-  /** Creation date in ISO format */
-  createdAt: string;
-  /** Last update date in ISO format */
-  updatedAt: string;
-}
+export type Product = ProductParsed;
 
 /**
  * Represents an insurance carrier
@@ -208,109 +195,22 @@ export interface Clause {
 /**
  * Represents an optional rider/add-on
  */
-export interface Rider {
-  /** Unique identifier */
-  id: string;
-  /** Rider name */
-  name: string;
-  /** Rider code */
-  code: string;
-  /** Rider type */
-  type: RiderType;
-  /** Description */
-  description?: string;
-  /** Premium adjustment */
-  premiumAdjustment: Money;
-  /** Coverage details */
-  coverageDetails?: Record<string, unknown>;
-  /** Compatible product IDs */
-  compatibleProductIds: string[];
-  /** Active status */
-  isActive: boolean;
-}
+export type Rider = RiderParsed;
 
 /**
  * Represents pricing bands for products
  */
-export interface PricingBand {
-  /** Unique identifier */
-  id: string;
-  /** Band name */
-  name: string;
-  /** Band type */
-  type: PricingBandType;
-  /** Product ID this band applies to */
-  productId: string;
-  /** Employee count range */
-  employeeRange?: {
-    min: number;
-    max?: number;
-  };
-  /** Age range */
-  ageRange?: {
-    min: number;
-    max: number;
-  };
-  /** Base premium */
-  basePremium: Money;
-  /** Deductible options */
-  deductibleOptions: Money[];
-  /** Discount percentage (0-100) */
-  discountPercentage?: number;
-  /** Effective date range */
-  effectiveDateRange: {
-    start: string; // ISO date
-    end?: string; // ISO date, optional for open-ended
-  };
-}
+export type PricingBand = PricingBandParsed;
 
 /**
  * Represents eligibility criteria
  */
-export interface Eligibility {
-  /** Unique identifier */
-  id: string;
-  /** Product ID */
-  productId: string;
-  /** Minimum employee count */
-  minEmployees?: number;
-  /** Maximum employee count */
-  maxEmployees?: number;
-  /** Required business types */
-  requiredBusinessTypes?: string[];
-  /** Excluded business types */
-  excludedBusinessTypes?: string[];
-  /** Geographic restrictions */
-  geographicRestrictions?: {
-    jurisdictions: JurisdictionCode[];
-    cities?: string[];
-    regions?: string[];
-  };
-  /** Other criteria */
-  customCriteria?: Record<string, unknown>;
-}
+export type Eligibility = EligibilityParsed;
 
 /**
  * Represents data provenance/source tracking
  */
-export interface Provenance {
-  /** Unique identifier */
-  id: string;
-  /** Entity type this provenance refers to */
-  entityType: 'product' | 'policy' | 'quote' | 'carrier' | 'rider';
-  /** Entity ID */
-  entityId: string;
-  /** Source system/API */
-  source: string;
-  /** Source timestamp in ISO format */
-  sourceTimestamp: string;
-  /** Import timestamp in ISO format */
-  importTimestamp: string;
-  /** Source metadata */
-  sourceMetadata?: Record<string, unknown>;
-  /** Data quality score (0-100) */
-  qualityScore?: number;
-}
+export type Provenance = ProvenanceParsed;
 
 // ============================================================================
 // App Layer Entities
@@ -319,35 +219,7 @@ export interface Provenance {
 /**
  * Represents a customer case/inquiry
  */
-export interface Case {
-  /** Unique identifier */
-  id: string;
-  /** Case reference number */
-  referenceNumber: string;
-  /** Case brief information */
-  brief: CaseBrief;
-  /** Broker profile handling the case */
-  brokerId?: string;
-  /** Customer information */
-  customer?: {
-    name?: string;
-    email?: string;
-    phone?: string;
-    companyName?: string;
-  };
-  /** Case status */
-  status: 'new' | 'in_progress' | 'quoted' | 'closed' | 'won' | 'lost';
-  /** Source channel */
-  channel: Channel;
-  /** Associated policy IDs */
-  policyIds: string[];
-  /** Associated quote IDs */
-  quoteIds: string[];
-  /** Creation date in ISO format */
-  createdAt: string;
-  /** Last update date in ISO format */
-  updatedAt: string;
-}
+export type Case = CaseParsed;
 
 /**
  * Represents a case brief
@@ -390,122 +262,32 @@ export interface Artifact {
 /**
  * Represents a policy
  */
-export interface Policy {
-  /** Unique identifier */
-  id: string;
-  /** Policy plan name */
-  plan: string;
-  /** Policy number */
-  policyNumber?: string;
-  /** Product ID */
-  productId?: string;
-  /** Carrier ID */
-  carrierId?: string;
-  /** Premium amount */
-  premium: Money;
-  /** Deductible amount */
-  deductible: Money;
-  /** Selected rider IDs */
-  riders: string[];
-  /** Network level */
-  network?: NetworkLevel;
-  /** Service level */
-  service?: ServiceLevel;
-  /** Policy status */
-  status?: PolicyStatus;
-  /** Effective date in ISO format */
-  effectiveDate?: string;
-  /** Expiration date in ISO format */
-  expirationDate?: string;
-  /** Renewal date in ISO format */
-  renewalDate?: string;
-}
+export type Policy = PolicyParsed;
 
 /**
  * Represents a policy proposal
  */
-export interface Proposal {
-  /** Unique identifier */
-  id: string;
-  /** Associated case ID */
-  caseId: string;
-  /** Broker profile */
-  broker: BrokerProfile;
-  /** Case brief */
-  brief: CaseBrief;
-  /** Selected plans */
-  selectedPlans: ProposalSelectedPlan[];
-  /** Disclosure keys */
-  disclosuresKeys: string[];
-  /** Math check validation */
-  mathCheck: ProposalMathCheck;
-  /** Share URL */
-  shareUrl: string;
-  /** Generation date in ISO format */
-  generatedOn: string;
-  /** Proposal metadata */
-  metadata?: Record<string, unknown>;
-}
+export type Proposal = ProposalParsed;
 
 /**
  * Represents a selected plan in a proposal
  */
-export interface ProposalSelectedPlan {
-  /** Plan/Policy ID */
-  planId: string;
-  /** Rationale key for i18n */
-  rationaleKey?: string;
-}
+export type ProposalSelectedPlan = ProposalSelectedPlanParsed;
 
 /**
  * Represents proposal math validation
  */
-export interface ProposalMathCheck {
-  /** Validation passed */
-  passed: boolean;
-  /** Message key for i18n */
-  messageKey: string;
-}
+export type ProposalMathCheck = ProposalMathCheckParsed;
 
 /**
  * Represents a broker profile
  */
-export interface BrokerProfile {
-  /** Broker name */
-  name: string;
-  /** Agency name */
-  agency: string;
-  /** Email address */
-  email?: string;
-  /** Phone number */
-  phone?: string;
-  /** Brand color in hex format */
-  brandColor: string;
-  /** Logo URL */
-  logoUrl?: string;
-}
+export type BrokerProfile = BrokerProfileParsed;
 
 /**
  * Represents a renewal record
  */
-export interface RenewalRecord {
-  /** Unique identifier */
-  id: string;
-  /** Carrier name */
-  carrier: string;
-  /** Plan name */
-  plan: string;
-  /** Renewal date in ISO format */
-  renewalDateISO: string;
-  /** Premium amount */
-  premium: Money;
-  /** Renewal status */
-  status: RenewalStatus;
-  /** Reminder set flag */
-  reminderSet: boolean;
-  /** Associated policy ID */
-  policyId?: string;
-}
+export type RenewalRecord = RenewalRecordParsed;
 
 /**
  * Represents a comparison playbook configuration

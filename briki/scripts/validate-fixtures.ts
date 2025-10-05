@@ -10,7 +10,7 @@ import {
   loadProvenance,
   loadRenewals,
   loadRiders,
-} from "../src/lib/fx.ts";
+} from "../src/lib/fx";
 import {
   CaseSchema,
   EligibilitySchema,
@@ -21,8 +21,8 @@ import {
   ProvenanceSchema,
   RenewalRecordSchema,
   RiderSchema,
-} from "../src/lib/validation.ts";
-import type { PolicyParsed } from "../src/lib/validation.ts";
+} from "../src/lib/validation";
+import type { PolicyParsed } from "../src/lib/validation";
 
 process.env.NEXT_PUBLIC_USE_MOCKS = "true";
 
@@ -545,7 +545,9 @@ async function main(): Promise<void> {
           missingDetails.push(`${recordId}:invalid-array`);
           continue;
         }
-        const stringValues = value.filter((item): item is string => typeof item === "string" && item.trim());
+        const stringValues = value.filter(
+          (item): item is string => typeof item === "string" && item.trim().length > 0
+        );
         totalRefs += stringValues.length;
         for (const ref of stringValues) {
           if (entityData[rel.target]?.ids.has(ref)) {
@@ -688,12 +690,15 @@ async function main(): Promise<void> {
   });
 
   const columnWidths = header.map((column, index) =>
-    Math.max(column.length, ...rows.map((row) => row[index].length))
+    rows.reduce((width, row) => Math.max(width, (row[index] ?? "").length), column.length)
   );
 
   const formatRow = (row: string[]): string =>
     row
-      .map((cell, index) => cell.padEnd(columnWidths[index], " "))
+      .map((cell, index) => {
+        const width = columnWidths[index] ?? header[index]?.length ?? cell.length;
+        return cell.padEnd(width, " ");
+      })
       .join(" | ");
 
   console.log("\nSummary");
