@@ -2,6 +2,7 @@ import { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 
 import { createServerSupabase } from '@/lib/supabase/server'
+import { prisma } from '@/lib/prisma'
 
 type AppLayoutProps = {
   children: ReactNode
@@ -20,15 +21,13 @@ export default async function AppLayout({ children }: AppLayoutProps) {
     redirect('/login')
   }
 
-  // Fetch profile by user id - single query
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('onboarding_completed')
-    .eq('id', user.id)
-    .single()
+  // Fetch exactly one profile row (SSR) to determine onboarding status
+  const profile = await prisma.profile.findUnique({
+    where: { id: user.id },
+    select: { onboardingCompleted: true },
+  })
 
-  // Redirect to onboarding if profile doesn't exist or onboarding is incomplete
-  if (profileError || !profile || profile.onboarding_completed !== true) {
+  if (!profile || !profile.onboardingCompleted) {
     redirect('/onboarding')
   }
 

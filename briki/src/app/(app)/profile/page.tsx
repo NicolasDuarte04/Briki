@@ -23,11 +23,11 @@ export default async function ProfilePage() {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { name: true, profile: { select: { name: true, locale: true } } },
+    select: { profile: { select: { name: true } } },
   });
 
-  const initialName = user?.profile?.name ?? user?.name ?? "";
-  const initialLocale: LocaleValue = user?.profile?.locale === "es" ? "es" : "en";
+  const initialName = user?.profile?.name ?? "";
+  const initialLocale: LocaleValue = "en"; // Default since locale is not stored in profile yet
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-8">
@@ -158,4 +158,3 @@ function ProfileForm({ initialName, initialLocale }: { initialName: string; init
     </Section>
   );
 }
-

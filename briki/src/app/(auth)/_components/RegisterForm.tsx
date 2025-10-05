@@ -94,7 +94,7 @@ export default function RegisterForm(): JSX.Element {
 
           setIsLoading(false);
         }
-        // If successful, the server action will redirect to onboarding
+        // If successful, the server action will redirect to profile
       } catch (error) {
         if (error && isRedirectError(error)) {
           throw error;

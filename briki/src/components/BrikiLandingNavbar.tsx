@@ -50,7 +50,7 @@ export default function BrikiLandingNavbar() {
   }, []);
 
   const promptSupabaseLogin = () => {
-    console.warn("Supabase login flow not yet wired. Replace this handler with Supabase auth.");
+    window.location.href = '/login';
   };
 
   return (

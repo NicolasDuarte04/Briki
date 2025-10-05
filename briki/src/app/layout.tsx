@@ -6,7 +6,6 @@ import I18nProvider from "@/components/I18nProvider";
 import { Toaster } from "sonner";
 import DevAxeClient from "@/components/DevAxeClient";
 import AuthProvider from "@/components/AuthProvider";
-import { OnboardingCheck } from "@/components/OnboardingCheck";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,7 +42,6 @@ export default function RootLayout({
       >
         <AuthProvider>
           <I18nProvider>
-            <OnboardingCheck />
             <main className="flex-1 flex flex-col min-h-0">
               {children}
             </main>

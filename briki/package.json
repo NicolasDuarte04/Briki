@@ -12,6 +12,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
+    "prisma:gen": "prisma generate",
     "prisma:generate": "prisma generate",
     "postinstall": "prisma generate",
     "validate:fixtures": "tsx scripts/validate-fixtures.ts",

@@ -4,7 +4,7 @@ import { createServerSupabase } from '@/lib/supabase/server'
 export async function GET(req: NextRequest) {
   const requestUrl = new URL(req.url)
   const code = requestUrl.searchParams.get('code')
-  const next = requestUrl.searchParams.get('next') ?? '/onboarding'
+  const next = requestUrl.searchParams.get('next') ?? '/profile'
 
   if (code) {
     const supabase = await createServerSupabase()
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
         // Check if profile exists
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('onboarding_completed')
+          .select('id')
           .eq('id', user.id)
           .single()
         
@@ -30,24 +30,16 @@ export async function GET(req: NextRequest) {
             .from('profiles')
             .insert({
               id: user.id,
-              name: user.email?.split('@')[0],
-              onboarding_completed: false
+              name: user.email?.split('@')[0]
             })
           
           if (insertError) {
             console.error('Profile creation error:', insertError)
           }
-          
-          // Redirect to onboarding
-          return NextResponse.redirect(new URL('/onboarding', requestUrl.origin))
         }
         
-        // Redirect based on onboarding status
-        if (profile?.onboarding_completed) {
-          return NextResponse.redirect(new URL('/app', requestUrl.origin))
-        } else {
-          return NextResponse.redirect(new URL('/onboarding', requestUrl.origin))
-        }
+        // Redirect to profile
+        return NextResponse.redirect(new URL('/profile', requestUrl.origin))
       }
     }
   }

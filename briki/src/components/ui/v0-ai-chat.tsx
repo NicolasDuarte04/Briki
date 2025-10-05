@@ -4,7 +4,6 @@ import { useEffect, useRef, useCallback } from "react";
 import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { useUI } from "@/lib/ui/state";
 import {
     ImageIcon,
     FileUp,
@@ -74,18 +73,21 @@ function useAutoResizeTextarea({
 
 export function VercelV0Chat() {
     const [value, setValue] = useState("");
-    const { startSourcing } = useUI();
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 60,
         maxHeight: 200,
     });
 
+    const handleSubmit = () => {
+        // Redirect to login page for unauthenticated users
+        window.location.href = '/login';
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             if (value.trim()) {
-                setValue("");
-                adjustHeight(true);
+                handleSubmit();
             }
         }
     };
@@ -136,6 +138,7 @@ export function VercelV0Chat() {
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
+                            onClick={handleSubmit}
                             className={cn(
                                 "px-1.5 py-1.5 rounded-lg text-sm transition-colors border border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800 flex items-center justify-between gap-1",
                                 value.trim()
@@ -181,10 +184,9 @@ interface ActionButtonProps {
 }
 
 function ActionButton({ icon, label }: ActionButtonProps) {
-    const { startSourcing } = useUI();
-    
     const handleClick = () => {
-        startSourcing();
+        // Redirect to login page for unauthenticated users
+        window.location.href = '/login';
     };
 
     return (

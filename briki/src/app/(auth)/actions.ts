@@ -51,8 +51,7 @@ export async function signup(formData: FormData): Promise<ActionResult> {
         .from('profiles')
         .insert({
           id: authData.user.id,
-          name: authData.user.email?.split('@')[0],
-          onboarding_completed: false
+          name: authData.user.email?.split('@')[0]
         })
 
       if (profileError) {
@@ -60,19 +59,8 @@ export async function signup(formData: FormData): Promise<ActionResult> {
         // Continue anyway - profile might exist from trigger
       }
 
-      // Fetch the user's profile to check onboarding status
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('onboarding_completed')
-        .eq('id', authData.user.id)
-        .single()
-
-      // Redirect based on onboarding status
-      if (profile?.onboarding_completed) {
-        redirect('/app')
-      } else {
-        redirect('/onboarding')
-      }
+      // Redirect to profile
+      redirect('/profile')
     } else {
       // No session means email confirmations are on
       // Redirect to verify page
@@ -119,28 +107,8 @@ export async function login(formData: FormData): Promise<ActionResult> {
       return { success: false, error: 'Failed to sign in' }
     }
 
-    // Fetch the user's profile to check onboarding status
-    // This is done server-side outside of middleware (Node.js only)
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('onboarding_completed')
-      .eq('id', authData.user.id)
-      .single()
-
-    if (profileError) {
-      console.error('Profile fetch error:', profileError)
-      // If profile doesn't exist or error, redirect to onboarding to be safe
-      redirect('/onboarding')
-    }
-
-    // Redirect based on onboarding status
-    if (profile?.onboarding_completed) {
-      // Redirect to app home (adjust path as needed)
-      redirect('/app')
-    } else {
-      // Redirect to onboarding
-      redirect('/onboarding')
-    }
+    // Redirect to profile page
+    redirect('/profile')
   } catch (error) {
     // If the error is a redirect error, re-throw it so Next.js can handle it
     if (error && typeof error === 'object' && 'digest' in error && error.digest?.toString().startsWith('NEXT_REDIRECT')) {

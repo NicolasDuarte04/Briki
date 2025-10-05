@@ -71,14 +71,11 @@ export async function updateProfile(
 
     const { name, locale } = parsed.data
 
-    await prisma.$transaction([
-      prisma.user.update({ where: { id: userId }, data: { name } }),
-      prisma.profile.upsert({
-        where: { userId },
-        update: { name, locale },
-        create: { userId, name, locale },
-      }),
-    ])
+    await prisma.profile.upsert({
+      where: { id: userId },
+      update: { name },
+      create: { id: userId, name },
+    })
 
     return { status: 'success' }
   } catch (error) {

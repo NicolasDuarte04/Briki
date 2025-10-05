@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       // Check if profile exists
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('id, onboarding_completed')
+        .select('id')
         .eq('id', sessionData.user.id)
         .single()
 
@@ -36,7 +36,6 @@ export async function GET(request: NextRequest) {
             .insert({
               id: sessionData.user.id,
               email: sessionData.user.email,
-              onboarding_completed: false,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             })
@@ -45,9 +44,6 @@ export async function GET(request: NextRequest) {
             console.error('Failed to create profile:', insertError)
             // Continue anyway - profile creation might be handled by a trigger
           }
-
-          // Redirect to onboarding for new profiles
-          return NextResponse.redirect(new URL('/onboarding', requestUrl.origin))
         } else {
           // Other profile fetch errors
           console.error('Profile fetch error:', profileError)
@@ -55,14 +51,8 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Redirect based on onboarding status
-      if (profile?.onboarding_completed) {
-        // User has completed onboarding, redirect to app
-        return NextResponse.redirect(new URL('/app', requestUrl.origin))
-      } else {
-        // User hasn't completed onboarding
-        return NextResponse.redirect(new URL('/onboarding', requestUrl.origin))
-      }
+      // Redirect to profile
+      return NextResponse.redirect(new URL('/profile', requestUrl.origin))
 
     } catch (error) {
       console.error('Auth callback error:', error)

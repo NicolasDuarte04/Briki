@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 export async function middleware(request: NextRequest) {
   // Create response to potentially modify
@@ -10,36 +9,14 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // Create Supabase client with cookie handling
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: Array<{ name: string; value: string; options?: CookieOptions }>) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set({ name, value, ...options });
-            response.cookies.set({ name, value, ...options });
-          });
-        },
-      },
-      auth: {
-        // Edge runtime compatible settings
-        flowType: "pkce",
-        detectSessionInUrl: false,
-        persistSession: true,
-        autoRefreshToken: true,
-      },
-    }
-  );
-
-  // Get the session from cookies only - no DB calls
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // Determine session presence strictly from cookies (no network calls)
+  const accessCookie = request.cookies.get('sb-access-token') ?? request.cookies.get('sb:token');
+  const refreshCookie = request.cookies.get('sb-refresh-token') ?? request.cookies.get('sb:refresh-token');
+  const hasSession = Boolean(accessCookie?.value || refreshCookie?.value || request.cookies.getAll().some(({ name, value }) => (
+    (name.startsWith('sb-') || name.startsWith('sb:')) &&
+    (name.includes('access') || name.includes('refresh')) &&
+    Boolean(value)
+  )));
 
   const { pathname } = request.nextUrl;
 
@@ -50,14 +27,15 @@ export async function middleware(request: NextRequest) {
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
   // If there is no session and the route is not public, redirect to login
-  if (!session && !isPublicRoute) {
+  if (!hasSession && !isPublicRoute) {
     const redirectUrl = new URL('/login', request.url);
     redirectUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If there is a session and the user tries to access login or register, redirect them away
-  if (session && (pathname.startsWith('/login') || pathname.startsWith('/register'))) {
+  // If there is a session and the user tries to access login, register, or landing page, redirect them away
+  if (hasSession && (pathname === '/' || pathname.startsWith('/login') || pathname.startsWith('/register'))) {
+    // Redirect authenticated users to their profile
     return NextResponse.redirect(new URL('/profile', request.url));
   }
 
