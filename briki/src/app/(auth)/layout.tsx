@@ -26,7 +26,8 @@ export default function AuthLayout({
           <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-600">
             <Image
               src="/brand/briki-logo-2.png"
-              alt="Briki"
+              alt=""
+              aria-hidden="true"
               width={24}
               height={24}
               className="h-6 w-6"

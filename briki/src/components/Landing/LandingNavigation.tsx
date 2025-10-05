@@ -36,7 +36,8 @@ export function LandingNavigation() {
           <Link href="/" className="flex items-center gap-2">
             <Image 
               src="/brand/briki-logo-2.png" 
-              alt="Briki" 
+              alt="" 
+              aria-hidden="true"
               width={24} 
               height={24} 
             />
@@ -74,7 +75,8 @@ export function LandingNavigation() {
           <Link href="/" className="flex items-center gap-2">
             <Image 
               src="/brand/briki-logo-2.png" 
-              alt="Briki" 
+              alt="" 
+              aria-hidden="true"
               width={24} 
               height={24} 
               className="opacity-90"

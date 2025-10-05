@@ -266,7 +266,8 @@ export const NavbarLogo = () => {
     >
       <img
         src="/brand/briki-logo-2.png"
-        alt="Briki logo"
+        alt=""
+        aria-hidden="true"
         width={30}
         height={30}
       />

@@ -8,6 +8,7 @@ datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  schemas   = ["auth", "public"]
 }
 
 model User {
@@ -16,18 +17,21 @@ model User {
   profile Profile?
 
   @@map("users")
+  @@schema("auth")
 }
 
 model Profile {
   id                  String   @id @db.Uuid
   name                String?  @map("display_name")
   onboardingCompleted Boolean  @default(false) @map("onboarding_completed")
+  locale              String   @default("en")
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [id], references: [id], onDelete: Cascade)
 
   @@map("profiles")
+  @@schema("public")
 }
 
 

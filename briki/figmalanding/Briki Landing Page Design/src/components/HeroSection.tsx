@@ -27,7 +27,8 @@ export function HeroSection() {
         <div className="mb-12 flex flex-col items-center gap-4">
           <img 
             src={brikiLogo} 
-            alt="Briki" 
+            alt="" 
+            aria-hidden="true"
             className="w-20 h-20 opacity-90"
           />
           <h1

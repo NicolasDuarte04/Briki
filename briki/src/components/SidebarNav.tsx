@@ -32,7 +32,8 @@ export default function SidebarNav() {
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-sidebar-border bg-white text-sm shadow-sm transition-colors group-hover:border-sidebar-ring group-focus-visible:border-sidebar-ring dark:bg-neutral-900">
             <Image
               src="/brand/briki-logo-2.png"
-              alt="Briki logo"
+              alt=""
+              aria-hidden="true"
               width={24}
               height={24}
               className="h-6 w-6"

@@ -28,7 +28,8 @@ export function LandingHero() {
         <div className="mb-12 flex items-center justify-center gap-6">
           <Image 
             src="/brand/briki-logo-2.png" 
-            alt="Briki" 
+            alt="" 
+            aria-hidden="true"
             width={80}
             height={80}
             className="opacity-90"

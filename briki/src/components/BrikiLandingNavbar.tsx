@@ -24,7 +24,8 @@ const BrikiLogo = () => (
   <a href="#" className="relative z-20 flex items-center rounded-md focus-visible:outline-none focus-visible:ring-ring focus-visible:ring-[3px] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent">
     <Image
       src="/brand/briki-logo-2.png"
-      alt="Briki Logo"
+      alt=""
+      aria-hidden="true"
       width={20}
       height={20}
       className="w-5 h-5 relative z-10"

@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
 import type { AuthError } from '@supabase/supabase-js'
+import { prisma } from '@/lib/prisma'
 
 export type ActionResult<T = void> = 
   | { success: true; data?: T }
@@ -46,18 +47,15 @@ export async function signup(formData: FormData): Promise<ActionResult> {
 
     // Check if session exists (email confirmations are off)
     if (authData.session) {
-      // Create profile manually since confirmations are off
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: authData.user.id,
-          name: authData.user.email?.split('@')[0]
-        })
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError)
-        // Continue anyway - profile might exist from trigger
-      }
+      // Create profile using Prisma upsert for robustness
+      await prisma.profile.upsert({
+        where: { id: authData.user.id },
+        update: {},
+        create: { 
+          id: authData.user.id, 
+          name: null
+        },
+      })
 
       // Redirect to profile
       redirect('/profile')
@@ -107,8 +105,22 @@ export async function login(formData: FormData): Promise<ActionResult> {
       return { success: false, error: 'Failed to sign in' }
     }
 
-    // Redirect to profile page
-    redirect('/profile')
+    // Backfill profile if missing (idempotent)
+    const profile = await prisma.profile.upsert({
+      where: { id: authData.user.id },
+      update: {},
+      create: { 
+        id: authData.user.id, 
+        name: null
+      },
+    })
+
+    // Check onboarding status and redirect accordingly
+    if (profile.onboardingCompleted) {
+      redirect('/profile')
+    } else {
+      redirect('/onboarding')
+    }
   } catch (error) {
     // If the error is a redirect error, re-throw it so Next.js can handle it
     if (error && typeof error === 'object' && 'digest' in error && error.digest?.toString().startsWith('NEXT_REDIRECT')) {

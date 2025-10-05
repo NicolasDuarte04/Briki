@@ -28,7 +28,7 @@ export function Navigation() {
       <nav className="fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300">
         <div className="bg-white rounded-full px-6 py-2.5 shadow-[0_4px_16px_rgba(15,23,42,0.1)] flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <img src={typeof brikiLogo === 'string' ? brikiLogo : (brikiLogo as any).src} alt="Briki" className="w-6 h-6" />
+            <img src={typeof brikiLogo === 'string' ? brikiLogo : (brikiLogo as any).src} alt="" aria-hidden="true" className="w-6 h-6" />
             <span className="text-sm" style={{ color: 'var(--briki-text)', fontWeight: '500' }}>briki</span>
           </div>
           <div className="flex items-center gap-6">
@@ -59,7 +59,7 @@ export function Navigation() {
       <div className="max-w-screen-2xl mx-auto px-8">
         <div className="rounded-2xl bg-white/5 backdrop-blur-md px-6 py-3 flex items-center justify-between mt-6 border border-white/10">
           <div className="flex items-center gap-2">
-            <img src={typeof brikiLogo === 'string' ? brikiLogo : (brikiLogo as any).src} alt="Briki" className="w-6 h-6 opacity-90" />
+            <img src={typeof brikiLogo === 'string' ? brikiLogo : (brikiLogo as any).src} alt="" aria-hidden="true" className="w-6 h-6 opacity-90" />
             <span className="text-sm text-white" style={{ fontWeight: '500' }}>briki</span>
           </div>
           <div className="flex items-center gap-8">

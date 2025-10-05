@@ -73,8 +73,8 @@ export async function updateProfile(
 
     await prisma.profile.upsert({
       where: { id: userId },
-      update: { name },
-      create: { id: userId, name },
+      update: { name, locale },
+      create: { id: userId, name, locale },
     })
 
     return { status: 'success' }
