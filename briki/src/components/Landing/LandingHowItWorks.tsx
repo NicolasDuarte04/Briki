@@ -43,7 +43,7 @@ export function LandingHowItWorks() {
                     <Icon className="w-6 h-6" style={{ color: 'var(--briki-text)' }} />
                   </div>
                 </div>
-                <h3
+                <h2
                   className="mb-4"
                   style={{
                     fontSize: '1.5rem',
@@ -53,7 +53,7 @@ export function LandingHowItWorks() {
                   }}
                 >
                   {step.title}
-                </h3>
+                </h2>
                 <ul className="space-y-2">
                   {step.bullets.map((bullet, bulletIndex) => (
                     <li

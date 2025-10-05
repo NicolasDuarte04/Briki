@@ -1,18 +1,26 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
+import type { FormEvent, JSX } from "react";
+import Link from "next/link";
+import { isRedirectError } from "next/dist/client/components/redirect";
+import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
-import Link from "next/link";
+import { signup } from "../actions";
 
-export default function RegisterForm() {
+type FieldErrors = Partial<Record<"email" | "password", string>>;
+
+export default function RegisterForm(): JSX.Element {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState({ email: false, password: false });
   const [submitted, setSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [serverFieldErrors, setServerFieldErrors] = useState<FieldErrors>({});
 
   // Validation functions
   const validateEmail = (value: string): string | null => {
@@ -30,26 +38,83 @@ export default function RegisterForm() {
   };
 
   // Get current errors
-  const emailError = validateEmail(email);
-  const passwordError = validatePassword(password);
+  const emailError = serverFieldErrors.email ?? validateEmail(email);
+  const passwordError = serverFieldErrors.password ?? validatePassword(password);
 
-  // Show error only if submitted OR (touched AND invalid)
-  const showEmailError = emailError && (submitted || touched.email);
-  const showPasswordError = passwordError && (submitted || touched.password);
+  // Show error only if submitted OR (touched AND invalid) OR server flagged
+  const showEmailError = Boolean(emailError) && (submitted || touched.email || Boolean(serverFieldErrors.email));
+  const showPasswordError = Boolean(passwordError) && (submitted || touched.password || Boolean(serverFieldErrors.password));
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const clearServerFieldError = (field: keyof FieldErrors): void => {
+    setServerFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitted(true);
+    setServerError(null);
+    setServerFieldErrors({});
 
     // If valid, proceed with submission
     if (!emailError && !passwordError) {
-      // TODO: Implement actual registration logic
-      console.log("Registration submitted", { email, password });
+      setIsLoading(true);
+      
+      try {
+        const formData = new FormData();
+        formData.append('email', email);
+        formData.append('password', password);
+        
+        const result = await signup(formData);
+
+        if (result && !result.success) {
+          const fieldErrors: FieldErrors = {};
+          const normalized = result.error.toLowerCase();
+
+          if (normalized.includes('already') || normalized.includes('exists')) {
+            fieldErrors.email = 'That email is already registered';
+          } else if (normalized.includes('weak') || normalized.includes('password must')) {
+            fieldErrors.password = 'Password is too weak';
+          } else if (normalized.includes('email') && normalized.includes('required')) {
+            fieldErrors.email = 'Email address is required';
+          } else if (normalized.includes('password') && normalized.includes('required')) {
+            fieldErrors.password = 'Password is required';
+          }
+
+          if (Object.keys(fieldErrors).length > 0) {
+            setServerFieldErrors(fieldErrors);
+            setServerError(null);
+          } else {
+            setServerError(result.error);
+          }
+
+          setIsLoading(false);
+        }
+        // If successful, the server action will redirect to onboarding
+      } catch (error) {
+        if (error && isRedirectError(error)) {
+          throw error;
+        }
+
+        setServerError('An unexpected error occurred. Please try again.');
+        setIsLoading(false);
+      }
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-[440px] space-y-8">
+      {/* Server Error */}
+      {serverError && (
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          {serverError}
+        </div>
+      )}
+      
       <div className="space-y-6">
         {/* Email Field */}
         <div className="space-y-2">
@@ -58,11 +123,15 @@ export default function RegisterForm() {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              clearServerFieldError('email');
+              setEmail(e.target.value);
+            }}
             onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
             aria-invalid={showEmailError ? "true" : "false"}
             aria-describedby={showEmailError ? "email-error" : undefined}
             className="h-11"
+            disabled={isLoading}
           />
           {showEmailError && (
             <p id="email-error" className="text-sm text-destructive">
@@ -79,19 +148,24 @@ export default function RegisterForm() {
               id="password"
               type={showPassword ? "text" : "password"}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                clearServerFieldError('password');
+                setPassword(e.target.value);
+              }}
               onBlur={() => {
                 setTouched((prev) => ({ ...prev, password: true }));
               }}
               aria-invalid={showPasswordError ? "true" : "false"}
               aria-describedby={showPasswordError ? "password-error" : undefined}
               className="h-11 pr-11"
+              disabled={isLoading}
             />
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-0 top-0 h-11 w-11 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute right-0 top-0 h-11 w-11 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               aria-label={showPassword ? "Hide password" : "Show password"}
+              disabled={isLoading}
             >
               {showPassword ? (
                 <EyeOff className="size-4" />
@@ -110,8 +184,8 @@ export default function RegisterForm() {
 
       {/* Primary Action */}
       <div className="space-y-4">
-        <Button type="submit" className="w-full h-11">
-          Create account
+        <Button type="submit" className="w-full h-11" disabled={isLoading}>
+          {isLoading ? 'Creating account...' : 'Create account'}
         </Button>
 
         {/* Policy Line */}

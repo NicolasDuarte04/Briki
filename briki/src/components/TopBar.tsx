@@ -1,13 +1,11 @@
 "use client";
 
-import { signIn, signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-
 import { useMemo } from "react";
 
 import { useAppLocale } from "@/components/I18nProvider";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,41 +15,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
+// TODO: Reintroduce authenticated account state via Supabase once available.
 export function TopBar({ className }: { className?: string }) {
   const { locale, toggleLocale } = useAppLocale();
   const tLocale = useTranslations("nav.locale");
   const tAuthNav = useTranslations("auth.nav");
   const tTopbar = useTranslations("topbar");
-  const { data: session, status } = useSession();
 
   const nextLanguageLabel = locale === "en" ? tLocale("spanish") : tLocale("english");
 
-  const avatarInitials = useMemo(() => {
-    const userName = session?.user?.name;
-
-    if (userName) {
-      const initials = userName
-        .split(" ")
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((segment) => segment[0]?.toUpperCase() ?? "")
-        .join("");
-
-      if (initials) {
-        return initials;
-      }
-    }
-
-    return tTopbar("accountInitials");
-  }, [session?.user?.name, tTopbar]);
+  const avatarInitials = useMemo(() => tTopbar("accountInitials"), [tTopbar]);
 
   const handleSignOut = () => {
-    void signOut();
+    console.warn("Supabase sign-out not yet implemented.");
   };
 
   const handleSignIn = () => {
-    void signIn('google', { callbackUrl: '/' });
+    console.warn("Supabase sign-in not yet implemented.");
   };
+
+  const isAuthenticated = false;
 
   return (
     <header
@@ -92,7 +75,7 @@ export function TopBar({ className }: { className?: string }) {
           >
             {locale.toUpperCase()}
           </Button>
-          {status === "authenticated" && session?.user ? (
+          {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -106,12 +89,6 @@ export function TopBar({ className }: { className?: string }) {
                   aria-haspopup="menu"
                 >
                   <Avatar className="size-9">
-                    {session.user.image ? (
-                      <AvatarImage
-                        alt={session.user.name ?? tTopbar("accountMenuTitle")}
-                        src={session.user.image}
-                      />
-                    ) : null}
                     <AvatarFallback className="bg-accent text-sm font-semibold text-foreground">
                       {avatarInitials}
                     </AvatarFallback>
@@ -135,24 +112,6 @@ export function TopBar({ className }: { className?: string }) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : status === "loading" ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="rounded-full"
-              aria-label={tTopbar("accountMenuAria")}
-              title={tTopbar("accountMenuTitle")}
-              data-print="hide"
-              disabled
-            >
-              <Avatar className="size-9">
-                <AvatarFallback className="bg-accent text-sm font-semibold text-foreground">
-                  {tTopbar("accountInitials")}
-                </AvatarFallback>
-              </Avatar>
-              <span className="sr-only">{tTopbar("accountMenuAria")}</span>
-            </Button>
           ) : (
             <Button
               type="button"
@@ -173,4 +132,3 @@ export function TopBar({ className }: { className?: string }) {
 }
 
 export default TopBar;
-

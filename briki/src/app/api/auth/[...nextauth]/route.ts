@@ -1,4 +1,7 @@
-export { GET, POST } from "@/../auth";
+// deprecated
 
-// Force Node.js runtime (not Edge) for NextAuth compatibility
-export const runtime = "nodejs";
+export async function GET() {
+  return new Response("Not Found", { status: 404 });
+}
+
+export const POST = GET;

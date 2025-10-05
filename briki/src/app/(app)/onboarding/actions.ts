@@ -1,72 +1,35 @@
-"use server";
+'use server'
 
-import { z } from "zod";
-import { PrismaClient } from "@prisma/client";
-import { auth } from "@/../auth";
-import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { redirect } from 'next/navigation'
 
-type SupportedLocale = "en" | "es";
+import { createServerSupabase } from '@/lib/supabase/server'
 
-// Server Action: validates payload, upserts Profile, marks onboardingCompleted, redirects to "/"
-export async function completeOnboardingAction(formData: FormData) {
-  const Schema = z.object({
-    name: z.string().min(1, "Name is required"),
-    role: z.string().optional(),
-    company: z.string().optional(),
-    locale: z.union([z.literal("en"), z.literal("es")]).default("en"),
-  });
+export async function completeOnboarding() {
+  const supabase = createServerSupabase()
 
-  const raw = {
-    name: (formData.get("name") ?? "").toString(),
-    role: formData.get("role")?.toString(),
-    company: formData.get("company")?.toString(),
-    locale: (formData.get("locale") ?? "en").toString() as SupportedLocale,
-  };
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
 
-  const payload = Schema.parse(raw);
-
-  // Session
-  const session = await auth();
-  if (!session?.user) {
-    redirect("/");
+  if (userError || !user) {
+    console.error('completeOnboarding: failed to load authenticated user', userError)
+    redirect('/login')
   }
 
-  // Prisma (global cached)
-  const globalForPrisma = globalThis as unknown as { prisma?: InstanceType<typeof PrismaClient> };
-  const prisma = globalForPrisma.prisma ?? new PrismaClient();
-  if (!globalForPrisma.prisma) globalForPrisma.prisma = prisma;
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ onboarding_completed: true })
+    .eq('id', user.id)
 
-  const userId = (session!.user as { id?: string }).id;
-
-  // Fallback: if no id on session, try by email
-  let resolvedUserId: string | null = userId ?? null;
-  if (!resolvedUserId && session!.user?.email) {
-    const user = await prisma.user.findUnique({ where: { email: session!.user.email } });
-    resolvedUserId = user?.id ?? null;
+  if (updateError) {
+    console.error('completeOnboarding: failed to mark onboarding complete', updateError)
+    throw new Error('Unable to complete onboarding at this time.')
   }
 
-  if (!resolvedUserId) {
-    redirect("/");
-  }
+  redirect('/app')
+}
 
-  await prisma.profile.upsert({
-    where: { userId: resolvedUserId! },
-    update: {
-      name: payload.name,
-      locale: payload.locale,
-      onboardingCompleted: true,
-    },
-    create: {
-      userId: resolvedUserId!,
-      name: payload.name,
-      locale: payload.locale,
-      onboardingCompleted: true,
-    },
-  });
-
-  // Revalidate the home page to force a fresh data fetch
-  revalidatePath("/");
-  
-  redirect("/");
+export async function completeOnboardingAction(_formData: FormData) {
+  await completeOnboarding()
 }

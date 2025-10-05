@@ -1,100 +1,15 @@
-// Session helper (works with current NextAuth setup while keeping TS strict)
-async function getSessionUnsafe(): Promise<any | null> {
-  try {
-    const mod = (await import("next-auth")) as unknown as { getServerSession?: () => Promise<any> };
-    if (typeof mod.getServerSession === "function") {
-      return await mod.getServerSession();
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
-import { PrismaClient } from "@prisma/client";
-import { z } from "zod";
 import { Suspense } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { prisma } from "@/lib/prisma";
 
-// Prisma singleton (avoids multiple clients in dev)
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-const prisma = globalForPrisma.prisma ?? new PrismaClient();
-if (!globalForPrisma.prisma) {
-  globalForPrisma.prisma = prisma;
-}
-
-const LocaleSchema = z.enum(["en", "es"] as const);
-const ProfileInputSchema = z
-  .object({
-    name: z.string().trim().min(1),
-    locale: LocaleSchema,
-  })
-  .strict();
-
-type ValidationKey = "required" | "invalidUnion";
-type FormErrors = Partial<Record<"name" | "locale", ValidationKey>>;
-type FormState = {
-  status?: "success" | "error";
-  errors?: FormErrors;
-  values?: { name: string; locale: z.infer<typeof LocaleSchema> };
-  formError?: "unauthorized" | "unknown";
-};
-
-export async function updateProfile(prevState: FormState, formData: FormData): Promise<FormState> {
-  "use server";
-
-  try {
-    const session = await getSessionUnsafe();
-    const userId = (session?.user as { id?: string } | undefined)?.id;
-    if (!userId) {
-      return { status: "error", formError: "unauthorized" };
-    }
-
-    const rawName = formData.get("name");
-    const rawLocale = formData.get("locale");
-
-    const candidate = {
-      name: typeof rawName === "string" ? rawName : "",
-      locale: typeof rawLocale === "string" ? rawLocale : "",
-    };
-
-    const parsed = ProfileInputSchema.safeParse(candidate);
-    if (!parsed.success) {
-      const errors: FormErrors = {};
-      for (const issue of parsed.error.issues) {
-        const field = issue.path[0];
-        if (field === "name") {
-          errors.name = "required";
-        }
-        if (field === "locale") {
-          errors.locale = "invalidUnion";
-        }
-      }
-      return { status: "error", errors, values: { name: candidate.name, locale: (candidate.locale === "es" ? "es" : "en") } };
-    }
-
-    const { name, locale } = parsed.data;
-
-    await prisma.$transaction([
-      prisma.user.update({ where: { id: userId }, data: { name } }),
-      prisma.profile.upsert({
-        where: { userId },
-        update: { name, locale },
-        create: { userId, name, locale },
-      }),
-    ]);
-
-    return { status: "success" };
-  } catch {
-    return { status: "error", formError: "unknown" };
-  }
-}
+import { updateProfile, getCurrentUserId, type FormState } from "./actions";
+import { type LocaleValue } from "./schema";
 
 export default async function ProfilePage() {
-  const session = await getSessionUnsafe();
-  const userId = (session?.user as { id?: string } | undefined)?.id;
+  const userId = await getCurrentUserId();
 
   // If not authenticated, render a minimal message (no client routing changes)
   if (!userId) {
@@ -112,7 +27,7 @@ export default async function ProfilePage() {
   });
 
   const initialName = user?.profile?.name ?? user?.name ?? "";
-  const initialLocale = (user?.profile?.locale ?? "en") as z.infer<typeof LocaleSchema>;
+  const initialLocale: LocaleValue = user?.profile?.locale === "es" ? "es" : "en";
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-8">
@@ -179,7 +94,7 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-function ProfileForm({ initialName, initialLocale }: { initialName: string; initialLocale: z.infer<typeof LocaleSchema> }) {
+function ProfileForm({ initialName, initialLocale }: { initialName: string; initialLocale: LocaleValue }) {
   "use client";
   const { useFormState } = require("react-dom");
   const { useEffect } = require("react");
@@ -243,5 +158,4 @@ function ProfileForm({ initialName, initialLocale }: { initialName: string; init
     </Section>
   );
 }
-
 

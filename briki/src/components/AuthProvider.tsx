@@ -1,11 +1,8 @@
 "use client";
 
-import { SessionProvider } from "next-auth/react";
+import type { ReactNode } from "react";
 
-export default function AuthProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return <SessionProvider>{children}</SessionProvider>;
+// TODO: Replace this provider with Supabase session context once available.
+export default function AuthProvider({ children }: { children: ReactNode }) {
+  return <>{children}</>;
 }
