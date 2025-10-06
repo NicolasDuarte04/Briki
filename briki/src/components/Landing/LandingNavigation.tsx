@@ -42,7 +42,7 @@ export function LandingNavigation() {
   const AuthButton = ({ detached }: { detached: boolean }) => {
     if (user) {
       return (
-        <Link href="/profile">
+        <Link href="/login">
           <Button
             className={detached
               ? "rounded-full px-4 py-1 h-8 text-sm"
@@ -50,7 +50,7 @@ export function LandingNavigation() {
             }
             style={detached ? { backgroundColor: 'var(--briki-primary)' } : {}}
           >
-            Go to App
+            Start
           </Button>
         </Link>
       );
