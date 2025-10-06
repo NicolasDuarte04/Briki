@@ -38,7 +38,7 @@ export function LandingFooter() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-16">
           {footerColumns.map((column, index) => (
             <div key={index}>
-              <h2
+              <div
                 className="mb-6"
                 style={{
                   fontSize: '0.875rem',
@@ -49,7 +49,7 @@ export function LandingFooter() {
                 }}
               >
                 {column.title}
-              </h2>
+              </div>
               <ul className="space-y-4">
                 {column.links.map((link, linkIndex) => (
                   <li key={linkIndex}>

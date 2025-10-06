@@ -41,22 +41,28 @@ export async function signup(formData: FormData): Promise<ActionResult> {
 
     // If signup is successful and email confirmation is disabled,
     // a user and session object will be returned.
-    if (!authData.user || !authData.session) {
+    if (!authData.user) {
       return { success: false, error: 'Failed to create an account. Please try again.' }
     }
 
-    // Create profile using Prisma upsert for robustness
+    // If no session, email confirmation is enabled - redirect to verify page
+    if (!authData.session) {
+      redirect('/auth/verify')
+    }
+
+    // Create profile using Prisma upsert for robustness (idempotent)
     await prisma.profile.upsert({
       where: { id: authData.user.id },
       update: {},
       create: {
         id: authData.user.id,
-        name: null
+        name: null,
+        locale: 'en'
       }
     })
 
-    // Redirect to onboarding
-    redirect('/onboarding')
+    // Redirect to landing page (shows authenticated navbar)
+    redirect('/')
   } catch (error) {
     // If the error is a redirect error, re-throw it so Next.js can handle it
     if (error && typeof error === 'object' && 'digest' in error && error.digest?.toString().startsWith('NEXT_REDIRECT')) {
@@ -100,12 +106,13 @@ export async function login(formData: FormData): Promise<ActionResult> {
     }
 
     // Backfill profile if missing (idempotent)
-    const profile = await prisma.profile.upsert({
+    await prisma.profile.upsert({
       where: { id: authData.user.id },
       update: {},
       create: {
         id: authData.user.id,
-        name: null
+        name: null,
+        locale: 'en'
       }
     })
 
@@ -149,4 +156,62 @@ export async function signInWithOAuth(provider: 'google') {
   }
 
   return { success: false, error: 'Failed to get OAuth URL' }
+}
+
+export async function signOut(): Promise<ActionResult> {
+  const supabase = await createServerSupabase()
+
+  try {
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      console.error('Supabase signOut error:', error)
+      return { success: false, error: error.message }
+    }
+
+    // Clear any cached data before redirecting
+    const { revalidatePath } = await import('next/cache')
+    revalidatePath('/', 'layout')
+
+    redirect('/')
+  } catch (error) {
+    // If the error is a redirect error, re-throw it so Next.js can handle it
+    if (error && typeof error === 'object' && 'digest' in error && error.digest?.toString().startsWith('NEXT_REDIRECT')) {
+      throw error
+    }
+
+    console.error('Sign out error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
+}
+
+export async function requestPasswordReset(formData?: FormData): Promise<ActionResult> {
+  const supabase = await createServerSupabase()
+
+  try {
+    // Get the current user session
+    const { data: { user }, error: sessionError } = await supabase.auth.getUser()
+
+    if (sessionError || !user) {
+      return { success: false, error: 'Not authenticated' }
+    }
+
+    // Send password reset email
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      user.email!,
+      {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/auth/reset`
+      }
+    )
+
+    if (resetError) {
+      console.error('Password reset error:', resetError)
+      return { success: false, error: resetError.message }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Unexpected password reset error:', error)
+    return { success: false, error: 'An unexpected error occurred' }
+  }
 }

@@ -4,6 +4,7 @@ export function LandingSocialProof() {
   return (
     <section className="py-24 px-8" style={{ backgroundColor: 'var(--briki-surface-alt)' }}>
       <div className="max-w-6xl mx-auto text-center">
+        <h2 className="sr-only">Social Proof</h2>
         <p
           className="mb-16"
           style={{

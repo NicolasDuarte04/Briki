@@ -14,6 +14,9 @@ import {
     Paperclip,
     PlusIcon,
 } from "lucide-react";
+import { createBrowserSupabase } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
+import { useUI } from "@/lib/ui/state";
 
 interface UseAutoResizeTextareaProps {
     minHeight: number;
@@ -73,14 +76,44 @@ function useAutoResizeTextarea({
 
 export function VercelV0Chat() {
     const [value, setValue] = useState("");
+    const [user, setUser] = useState<User | null>(null);
+    const { setStep, setBrief } = useUI();
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 60,
         maxHeight: 200,
     });
 
+    useEffect(() => {
+        const supabase = createBrowserSupabase();
+        const checkUser = async () => {
+            const { data } = await supabase.auth.getUser();
+            console.log('[VercelV0Chat] User loaded:', data.user ? 'Authenticated' : 'Not authenticated');
+            setUser(data.user);
+        };
+        checkUser();
+
+        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+            console.log('[VercelV0Chat] Auth state changed:', _event);
+            setUser(session?.user ?? null);
+        });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
+    }, []);
+
     const handleSubmit = () => {
-        // Redirect to login page for unauthenticated users
-        window.location.href = '/login';
+        // Check if user is authenticated
+        if (!user) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        // For authenticated users, go to conversation
+        if (value.trim()) {
+            setBrief({ freeText: value.trim() });
+        }
+        setStep("conversation");
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -164,14 +197,20 @@ export function VercelV0Chat() {
                 <ActionButton
                     icon={<FileUp className="w-4 h-4" />}
                     label="Upload PDF"
+                    user={user}
+                    onAuthenticatedClick={() => setStep("conversation")}
                 />
                 <ActionButton
                     icon={<ImageIcon className="w-4 h-4" />}
                     label="Import WhatsApp chat"
+                    user={user}
+                    onAuthenticatedClick={() => setStep("conversation")}
                 />
                 <ActionButton
                     icon={<MonitorIcon className="w-4 h-4" />}
                     label="Connect carriers"
+                    user={user}
+                    onAuthenticatedClick={() => setStep("conversation")}
                 />
             </div>
         </div>
@@ -181,12 +220,24 @@ export function VercelV0Chat() {
 interface ActionButtonProps {
     icon: React.ReactNode;
     label: string;
+    user: User | null;
+    onAuthenticatedClick: () => void;
 }
 
-function ActionButton({ icon, label }: ActionButtonProps) {
+function ActionButton({ icon, label, user, onAuthenticatedClick }: ActionButtonProps) {
     const handleClick = () => {
-        // Redirect to login page for unauthenticated users
-        window.location.href = '/login';
+        console.log('[ActionButton] Clicked:', label, 'User:', user ? 'Authenticated' : 'Not authenticated');
+        
+        // Check if user is authenticated
+        if (!user) {
+            console.log('[ActionButton] Redirecting to login');
+            window.location.href = '/login';
+            return;
+        }
+        
+        // For authenticated users, call the authenticated click handler
+        console.log('[ActionButton] User authenticated, going to conversation');
+        onAuthenticatedClick();
     };
 
     return (

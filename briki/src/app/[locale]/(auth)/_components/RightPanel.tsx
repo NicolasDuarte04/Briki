@@ -48,7 +48,7 @@ const slides: Slide[] = [
       <div className="space-y-4">
         <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-4 py-3">
           <span className="text-sm font-medium text-slate-700">Coverage</span>
-          <span className="text-sm font-semibold text-emerald-600">Complete</span>
+          <span className="text-sm font-semibold text-emerald-700">Complete</span>
         </div>
         <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
           <span className="text-sm font-medium text-slate-700">Confidence</span>

@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
 
@@ -41,46 +42,74 @@ export async function updateProfile(
     const rawName = formData.get('name')
     const rawLocale = formData.get('locale')
 
-    const candidate = {
-      name: typeof rawName === 'string' ? rawName : '',
-      locale: typeof rawLocale === 'string' ? rawLocale : '',
-    }
-
-    const parsed = ProfileInputSchema.safeParse(candidate)
-
-    if (!parsed.success) {
-      const errors: FormErrors = {}
-
-      for (const issue of parsed.error.issues) {
-        const field = issue.path[0]
-
-        if (field === 'name') {
-          errors.name = 'required'
-        }
-        if (field === 'locale') {
-          errors.locale = 'invalidUnion'
-        }
-      }
-
+    // Parse name (required, trimmed)
+    const name = typeof rawName === 'string' ? rawName.trim() : ''
+    
+    if (!name) {
       return {
         status: 'error',
-        errors,
-        values: { name: candidate.name, locale: coerceLocale(candidate.locale) },
+        errors: { name: 'required' },
+        values: { name: '', locale: coerceLocale(rawLocale) },
       }
     }
 
-    const { name, locale } = parsed.data
+    // Parse locale (optional)
+    const locale = typeof rawLocale === 'string' && (rawLocale === 'en' || rawLocale === 'es')
+      ? rawLocale
+      : undefined
+
+    // Build update/create data conditionally
+    const updateData: { name: string; locale?: string } = { name }
+    const createData: { id: string; name: string; locale?: string } = { id: userId, name }
+    
+    if (locale) {
+      updateData.locale = locale
+      createData.locale = locale
+    }
 
     await prisma.profile.upsert({
       where: { id: userId },
-      update: { name, locale },
-      create: { id: userId, name, locale },
+      update: updateData,
+      create: createData,
     })
+
+    // Revalidate profile route to refresh UI
+    const profileLocale = locale ?? 'en'
+    revalidatePath(`/${profileLocale}/profile`)
 
     return { status: 'success' }
   } catch (error) {
     console.error('Update profile error:', error)
     return { status: 'error', formError: 'unknown' }
+  }
+}
+
+export async function requestPasswordReset(
+  _prevState: { status?: 'success' | 'error' } | null,
+  formData: FormData
+): Promise<{ status: 'success' | 'error' }> {
+  try {
+    const email = formData.get('email')
+
+    if (!email || typeof email !== 'string') {
+      return { status: 'error' }
+    }
+
+    const supabase = await createServerSupabase()
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?next=/profile`,
+    })
+
+    if (error) {
+      console.error('Password reset error:', error)
+      return { status: 'error' }
+    }
+
+    return { status: 'success' }
+  } catch (error) {
+    console.error('Password reset error:', error)
+    return { status: 'error' }
   }
 }
 

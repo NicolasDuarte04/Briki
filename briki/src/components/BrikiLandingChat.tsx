@@ -5,6 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/lib/ui/state";
 import { useTranslations } from "next-intl";
+import { createBrowserSupabase } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 export interface BrikiLandingChatRef {
   focusChat: () => void;
@@ -19,6 +21,26 @@ const BrikiLandingChat = forwardRef<BrikiLandingChatRef, { className?: string }>
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showHelper, setShowHelper] = useState(false);
   const helperTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabase();
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getUser();
+      console.log('[BrikiLandingChat] User loaded:', data.user ? 'Authenticated' : 'Not authenticated');
+      setUser(data.user);
+    };
+    checkUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('[BrikiLandingChat] Auth state changed:', _event);
+      setUser(session?.user ?? null);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
 
   useImperativeHandle(ref, () => ({
     focusChat: () => {
@@ -32,9 +54,33 @@ const BrikiLandingChat = forwardRef<BrikiLandingChatRef, { className?: string }>
 
   function goConversation() {
     const text = value.trim();
+    
+    // Check if user is authenticated
+    if (!user) {
+      window.location.href = '/login';
+      return;
+    }
+    
     if (!text) return;
     setBrief({ freeText: text });
     setValue("");
+    setStep("conversation");
+  }
+
+  function handleActionClick() {
+    console.log('[BrikiLandingChat] Action clicked, User:', user ? 'Authenticated' : 'Not authenticated');
+    
+    // Check if user is authenticated
+    if (!user) {
+      console.log('[BrikiLandingChat] Redirecting to login');
+      window.location.href = '/login';
+      return;
+    }
+
+    console.log('[BrikiLandingChat] User authenticated, going to conversation');
+    if (value.trim()) {
+      setBrief({ freeText: value });
+    }
     setStep("conversation");
   }
 
@@ -106,36 +152,21 @@ const BrikiLandingChat = forwardRef<BrikiLandingChatRef, { className?: string }>
             <div className="flex flex-wrap items-center gap-2 min-w-0">
               <button
                 type="button"
-                onClick={() => {
-                  if (value.trim()) {
-                    setBrief({ freeText: value });
-                  }
-                  setStep("conversation");
-                }}
+                onClick={handleActionClick}
                 className="flex w-auto h-10 items-center rounded-full px-3 text-sm font-medium border border-white/20 text-white hover:bg-white/10 hover:border-white/40 transition-all focus:outline-none focus:ring-2 focus:ring-white/20 min-w-[112px] max-w-full overflow-hidden"
               >
                 <span className="truncate min-w-0 flex-1">{t("landing.cta.whatsapp")}</span>
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (value.trim()) {
-                    setBrief({ freeText: value });
-                  }
-                  setStep("conversation");
-                }}
+                onClick={handleActionClick}
                 className="flex w-auto h-10 items-center rounded-full px-3 text-sm font-medium border border-white/20 text-white hover:bg-white/10 hover:border-white/40 transition-all focus:outline-none focus:ring-2 focus:ring-white/20 min-w-[112px] max-w-full overflow-hidden"
               >
                 <span className="truncate min-w-0 flex-1">{t("landing.cta.upload")}</span>
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  if (value.trim()) {
-                    setBrief({ freeText: value });
-                  }
-                  setStep("conversation");
-                }}
+                onClick={handleActionClick}
                 className="flex w-auto h-10 items-center rounded-full px-3 text-sm font-medium border border-white/20 text-white hover:bg-white/10 hover:border-white/40 transition-all focus:outline-none focus:ring-2 focus:ring-white/20 min-w-[112px] max-w-full overflow-hidden"
               >
                 <span className="truncate min-w-0 flex-1">{t("landing.cta.carriers")}</span>

@@ -63,27 +63,14 @@ export default function LoginForm() {
     if (!emailError && !passwordError) {
       setIsLoading(true);
 
-      try {
-        const formData = new FormData(e.currentTarget);
-        const result = await login(formData);
+      const formData = new FormData(e.currentTarget);
+      const result = await login(formData);
 
-        if (result && !result.success) {
-          setServerError(result.error);
-        }
-        // On successful login, the server action will redirect, so no client-side navigation is needed.
-      } catch (error: any) {
-        // Next.js throws a NEXT_REDIRECT error when a server action redirects.
-        // We need to catch this specific error and do nothing, allowing the redirect to happen.
-        if (error.digest?.startsWith('NEXT_REDIRECT')) {
-          // This is an expected error during redirection, so we can safely ignore it.
-          return;
-        }
-
-        // This will catch any unexpected errors from the action
-        setServerError("An unexpected error occurred. Please try again.");
-      } finally {
+      if (result && !result.success) {
+        setServerError(result.error);
         setIsLoading(false);
       }
+      // On success, the server action redirects automatically
     }
   };
 

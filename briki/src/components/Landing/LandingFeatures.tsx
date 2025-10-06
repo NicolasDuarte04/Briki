@@ -23,6 +23,7 @@ export function LandingFeatures() {
   return (
     <section className="py-32 px-8" style={{ backgroundColor: 'var(--briki-surface)' }}>
       <div className="max-w-6xl mx-auto">
+        <h2 className="sr-only">Features</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {features.map((feature, index) => {
             const Icon = feature.icon;
@@ -43,7 +44,7 @@ export function LandingFeatures() {
                     <Icon className="w-6 h-6" style={{ color: 'var(--briki-primary)' }} />
                   </div>
                 </div>
-                <h2
+                <h3
                   className="mb-4"
                   style={{
                     fontSize: '1.5rem',
@@ -53,7 +54,7 @@ export function LandingFeatures() {
                   }}
                 >
                   {feature.title}
-                </h2>
+                </h3>
                 <ul className="space-y-2">
                   {feature.bullets.map((bullet, bulletIndex) => (
                     <li

@@ -2,14 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import Image from 'next/image';
 import Link from 'next/link';
 import { createBrowserSupabase } from '@/lib/supabase/client';
-import type { User } from '@supabase/supabase-js';
+import { signOut } from '@/app/[locale]/(auth)/actions';
+import { useLocale } from 'next-intl';
+import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 export function LandingNavigation() {
   const [isDetached, setIsDetached] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const locale = useLocale();
 
   useEffect(() => {
     const supabase = createBrowserSupabase();
@@ -19,8 +29,17 @@ export function LandingNavigation() {
     };
     checkUser();
 
+    // Listen for auth changes
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+      setUser(session?.user ?? null);
+    });
+
     const scrollContainer = document.querySelector('.landing-scroll');
-    if (!scrollContainer) return;
+    if (!scrollContainer) {
+      return () => {
+        authListener.subscription.unsubscribe();
+      };
+    }
 
     const handleScroll = () => {
       const heroHeight = scrollContainer.clientHeight * 0.9;
@@ -30,7 +49,10 @@ export function LandingNavigation() {
     scrollContainer.addEventListener('scroll', handleScroll);
     handleScroll(); // Check initial state on mount
 
-    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    return () => {
+      scrollContainer.removeEventListener('scroll', handleScroll);
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   const navLinks = [
@@ -39,20 +61,75 @@ export function LandingNavigation() {
     { label: 'Pricing', href: '#pricing' },
   ];
 
+  const getUserInitials = () => {
+    if (user?.user_metadata?.display_name) {
+      return user.user_metadata.display_name
+        .split(' ')
+        .map((n: string) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    }
+    if (user?.email) {
+      return user.email.slice(0, 2).toUpperCase();
+    }
+    return 'U';
+  };
+
+  const getUserDisplay = () => {
+    return user?.user_metadata?.display_name || user?.email || 'User';
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      // The redirect will happen in the server action
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Force a page reload as fallback
+      window.location.href = '/';
+    }
+  };
+
   const AuthButton = ({ detached }: { detached: boolean }) => {
     if (user) {
       return (
-        <Link href="/login">
-          <Button
-            className={detached
-              ? "rounded-full px-4 py-1 h-8 text-sm"
-              : "rounded-full px-4 py-1 h-8 text-sm bg-white/10 text-white hover:bg-white/20 border border-white/20"
-            }
-            style={detached ? { backgroundColor: 'var(--briki-primary)' } : {}}
-          >
-            Start
-          </Button>
-        </Link>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              className={detached
+                ? "rounded-full h-8 px-3 text-sm gap-2 hover:bg-gray-100"
+                : "rounded-full h-8 px-3 text-sm bg-white/10 text-white hover:bg-white/20 border border-white/20 gap-2"
+              }
+              style={detached ? { color: 'var(--briki-text)' } : {}}
+            >
+              <Avatar className="w-5 h-5">
+                <AvatarFallback className={detached ? "text-xs bg-gray-200" : "text-xs bg-white/20"}>
+                  {getUserInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="max-w-[120px] truncate">
+                {getUserDisplay()}
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem asChild>
+              <Link href={`/${locale}/profile`} className="w-full cursor-pointer">
+                Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                handleSignOut();
+              }}
+            >
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       );
     }
 

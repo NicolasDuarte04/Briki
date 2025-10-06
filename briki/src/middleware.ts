@@ -11,7 +11,41 @@ const intlMiddleware = createMiddleware({
 
 export async function middleware(request: NextRequest) {
   const response = intlMiddleware(request);
+  const { pathname } = request.nextUrl;
 
+  // Strip locale prefix if present to check the actual path
+  const pathWithoutLocale = pathname.replace(/^\/(es|en)/, '') || '/';
+
+  // Public paths that are always accessible
+  const publicPaths = [
+    '/',
+    '/login',
+    '/register',
+    '/auth/verify',
+    '/auth/callback',
+    '/auth/error',
+  ];
+
+  // Check if the path is explicitly public
+  const isPublicPath = publicPaths.some(
+    (path) => pathWithoutLocale === path || pathWithoutLocale.startsWith(path + '/')
+  );
+
+  // If it's a public path, allow access
+  if (isPublicPath) {
+    return response;
+  }
+
+  // Check if the path targets a protected scope (e.g., /(app))
+  // Protected routes are those under /profile or other app routes
+  const isProtectedRoute = /^\/(profile|workspace|settings)/.test(pathWithoutLocale);
+
+  // If not a protected route, allow access
+  if (!isProtectedRoute) {
+    return response;
+  }
+
+  // For protected routes, check for session using SSR helper (no DB query)
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -33,19 +67,8 @@ export async function middleware(request: NextRequest) {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  const { pathname } = request.nextUrl;
 
-  // App routes that require authentication
-  const appRoutes = ['/profile']; // Add other app routes here as needed
-
-  // Check if the current path is an app route that needs protection
-  const isAppRoute = appRoutes.some((route) => pathname.startsWith(route));
-
-  if (!isAppRoute) {
-    return response;
-  }
-
-  // If it's a protected app route, check for a session
+  // If no session, redirect to login with next parameter
   if (!session) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname);

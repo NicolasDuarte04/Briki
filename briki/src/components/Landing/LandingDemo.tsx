@@ -5,6 +5,7 @@ export function LandingDemo() {
   return (
     <section id="demo" className="py-32 px-8" style={{ backgroundColor: 'var(--briki-surface-alt)' }}>
       <div className="max-w-5xl mx-auto">
+        <h2 className="sr-only">Demo</h2>
         <Card
           className="rounded-[20px] border shadow-[0_10px_30px_rgba(15,23,42,0.06)] overflow-hidden"
           style={{
