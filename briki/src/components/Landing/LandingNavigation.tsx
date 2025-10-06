@@ -19,6 +19,8 @@ import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 export function LandingNavigation() {
   const [isDetached, setIsDetached] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
   const locale = useLocale();
 
   useEffect(() => {
@@ -26,12 +28,36 @@ export function LandingNavigation() {
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUser(data.user);
+      
+      // Fetch profile name from database if user exists
+      if (data.user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', data.user.id)
+          .single();
+        
+        setProfileName(profileData?.display_name ?? null);
+      }
     };
     checkUser();
 
     // Listen for auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null);
+      
+      // Fetch profile name when user signs in
+      if (session?.user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', session.user.id)
+          .single();
+        
+        setProfileName(profileData?.display_name ?? null);
+      } else {
+        setProfileName(null);
+      }
     });
 
     const scrollContainer = document.querySelector('.landing-scroll');
@@ -44,6 +70,12 @@ export function LandingNavigation() {
     const handleScroll = () => {
       const heroHeight = scrollContainer.clientHeight * 0.9;
       setIsDetached(scrollContainer.scrollTop > heroHeight);
+      
+      // Calculate scroll progress
+      const scrollTop = scrollContainer.scrollTop;
+      const scrollHeight = scrollContainer.scrollHeight - scrollContainer.clientHeight;
+      const progress = (scrollTop / scrollHeight) * 100;
+      setScrollProgress(Math.min(progress, 100));
     };
 
     scrollContainer.addEventListener('scroll', handleScroll);
@@ -62,8 +94,8 @@ export function LandingNavigation() {
   ];
 
   const getUserInitials = () => {
-    if (user?.user_metadata?.display_name) {
-      return user.user_metadata.display_name
+    if (profileName) {
+      return profileName
         .split(' ')
         .map((n: string) => n[0])
         .join('')
@@ -77,7 +109,7 @@ export function LandingNavigation() {
   };
 
   const getUserDisplay = () => {
-    return user?.user_metadata?.display_name || user?.email || 'User';
+    return profileName || user?.email || 'User';
   };
 
   const handleSignOut = async () => {
@@ -150,7 +182,19 @@ export function LandingNavigation() {
 
   if (isDetached) {
     return (
-      <nav className="fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300">
+      <>
+        {/* Scroll Progress Bar */}
+        <div className="fixed top-0 left-0 right-0 h-1 bg-transparent z-[100] pointer-events-none">
+          <div 
+            className="h-full origin-left"
+            style={{
+              transform: `scaleX(${scrollProgress / 100})`,
+              background: 'linear-gradient(90deg, #0EA5E9 0%, #06B6D4 100%)',
+              willChange: 'transform'
+            }}
+          />
+        </div>
+        <nav className="fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300">
         <div className="bg-white rounded-full px-6 py-2.5 shadow-[0_4px_16px_rgba(15,23,42,0.1)] flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2">
             <Image 
@@ -177,11 +221,24 @@ export function LandingNavigation() {
           <AuthButton detached={true} />
         </div>
       </nav>
+      </>
     );
   }
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
+    <>
+      {/* Scroll Progress Bar */}
+      <div className="fixed top-0 left-0 right-0 h-1 bg-transparent z-[100] pointer-events-none">
+        <div 
+          className="h-full origin-left"
+          style={{
+            transform: `scaleX(${scrollProgress / 100})`,
+            background: 'linear-gradient(90deg, #0EA5E9 0%, #06B6D4 100%)',
+            willChange: 'transform'
+          }}
+        />
+      </div>
+      <nav className="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
       <div className="max-w-screen-2xl mx-auto px-8">
         <div className="rounded-2xl bg-white/5 backdrop-blur-md px-6 py-3 flex items-center justify-between mt-6 border border-white/10">
           <Link href="/" className="flex items-center gap-2">
@@ -211,6 +268,7 @@ export function LandingNavigation() {
         </div>
       </div>
     </nav>
+    </>
   );
 }
 
