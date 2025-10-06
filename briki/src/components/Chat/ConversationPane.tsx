@@ -9,6 +9,8 @@ import { SendHorizonal, ArrowDown } from "lucide-react";
 import Message, { type MessageRole, type MessageAgentMeta } from "@/components/Chat/Message";
 import { useTranslations } from "next-intl";
 import { ProvenanceChip, type ProvenanceTag } from "@/components/Sourcing/ProvenanceChip";
+// Removemos el import que no funciona en el browser
+// import { processChatMessage } from "@/lib/database";
 
 interface ChatMessage {
   id?: string;
@@ -70,7 +72,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     ];
   }, [brief, chatTranslations, initialSystem]);
 
-  const [messages, setMessages] = useState<ChatMessage[]>(() => seededConversation);
+  // Empezar con chat vacío para que funcione nuestra función real
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [value, setValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const trimmed = value.trim();
@@ -302,6 +305,9 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     };
   }, [isNearBottom, scrollToBottom, messages]);
 
+  // COMENTADO: useEffect que fuerza seeded conversation
+  // Para permitir que nuestro agente real funcione
+  /*
   useEffect(() => {
     // Only update messages if seeded conversation has actually changed
     setMessages((prev) => {
@@ -376,6 +382,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       return next;
     });
   }, [seededConversation]);
+  */
 
   useEffect(() => {
     const node = composerRef.current;
@@ -388,7 +395,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     node.style.height = `${nextHeight}px`;
   }, [value]);
 
-  function sendMessage() {
+  async function sendMessage() {
     const trimmed = value.trim();
     if (!trimmed) return;
     const container = scrollContainerRef.current;
@@ -400,18 +407,50 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     setValue("");
     setIsTyping(true);
 
-    setTimeout(() => {
+    try {
+      // 🎉 ¡Llamada a nuestra API en lugar de función directa!
+      const response = await fetch('/api/chat/process-message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: trimmed,
+          userId: 'anonymous' // TODO: usar usuario real
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      
       const assistantResponse: ChatMessage = {
         role: "assistant",
-        content: "Thanks! I’ll hand this to the sourcing flow so you can pick a direction.",
+        content: result.response,
         agent: { label: chatTranslations("agents.sourcing") },
       };
       setMessages((prev) => [...prev, assistantResponse]);
       setIsTyping(false);
+      
+      // Log del caso creado (para debug)
+      console.log(`✅ Caso creado: ${result.caseId}`);
+      
       if (!isSourcing) {
         startSourcing();
       }
-    }, 1200);
+    } catch (error) {
+      console.error('Error processing message:', error);
+      // Fallback response en caso de error
+      const errorResponse: ChatMessage = {
+        role: "assistant",
+        content: "Disculpa, hubo un problema procesando tu mensaje. ¿Puedes intentar de nuevo?",
+        agent: { label: chatTranslations("agents.sourcing") },
+      };
+      setMessages((prev) => [...prev, errorResponse]);
+      setIsTyping(false);
+    }
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
