@@ -1,12 +1,16 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import createMiddleware from 'next-intl/middleware';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
+
+const intlMiddleware = createMiddleware({
+  locales: ['en', 'es'],
+  defaultLocale: 'es',
+  localePrefix: 'as-needed',
+  localeDetection: true,
+});
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
+  const response = intlMiddleware(request);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,17 +21,9 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value;
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options });
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          });
           response.cookies.set({ name, value, ...options });
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options });
-          response = NextResponse.next({
-            request: { headers: request.headers },
-          });
           response.cookies.set({ name, value: '', ...options });
         },
       },
@@ -43,7 +39,7 @@ export async function middleware(request: NextRequest) {
   const appRoutes = ['/profile']; // Add other app routes here as needed
 
   // Check if the current path is an app route that needs protection
-  const isAppRoute = appRoutes.some(route => pathname.startsWith(route));
+  const isAppRoute = appRoutes.some((route) => pathname.startsWith(route));
 
   if (!isAppRoute) {
     return response;
@@ -61,17 +57,8 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - brand/ (brand assets)
-     * - / (the root path)
-     *
-     * Also, exclude paths with file extensions like .png, .jpg, etc.
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico|brand/.*|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|json|css|js|woff|woff2|ttf|eot)|^/$).*)",
+    '/',
+    '/(es|en)/:path*',
+    '/((?!_next/static|_next/image|favicon.ico|brand/|api/|.*\\..*).*)',
   ],
 };

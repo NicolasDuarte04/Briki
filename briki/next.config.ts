@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
+const withNextIntl = require("next-intl/plugin")(
+  './src/i18n/request.ts'
+);
+
 const nextConfig: NextConfig = {
   turbopack: {
     // Ensure Turbopack (when enabled) resolves the project root to this app
@@ -25,4 +29,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

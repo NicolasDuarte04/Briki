@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import brikiLogo from 'figma:asset/452b00b73abde39fe8972bb259849a447bd2e084.png';
 
