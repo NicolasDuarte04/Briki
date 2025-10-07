@@ -212,18 +212,31 @@ export async function getCaseWithArtifacts(caseId: string): Promise<CaseWithArti
  * Processes a chat message and creates case, artifacts, and audit logs
  * @param userMessage - The user's message content
  * @param userId - Optional user ID for tracking
+ * @param existingBrief - Optional existing brief from the UI state
  * @returns Promise<{caseId: string, response: string}> - Created case ID and agent response
  */
-export async function processChatMessage(userMessage: string, userId?: string) {
+export async function processChatMessage(userMessage: string, userId?: string, existingBrief?: any) {
   try {
     console.log('🔄 Procesando mensaje:', userMessage);
+    console.log('📋 Brief existente:', existingBrief);
     
-    // 1. Crear el caso basado en el mensaje del usuario
+    // Combinar el brief existente con el nuevo mensaje
     const brief: CaseBrief = {
       freeText: userMessage
     };
     
-    console.log('📝 Brief creado:', brief);
+    // Si hay un brief existente, usar esos datos como base
+    if (existingBrief) {
+      if (existingBrief.businessType) brief.businessType = existingBrief.businessType;
+      if (existingBrief.employees) brief.employees = existingBrief.employees;
+      if (existingBrief.coverage) brief.coverage = existingBrief.coverage;
+      // Si ya había un freeText previo, combinarlo
+      if (existingBrief.freeText) {
+        brief.freeText = `${existingBrief.freeText} | Usuario pregunta: ${userMessage}`;
+      }
+    }
+    
+    console.log('📝 Brief combinado:', brief);
     
     const newCase = await createCase({
       brief,
@@ -234,8 +247,8 @@ export async function processChatMessage(userMessage: string, userId?: string) {
     
     console.log('✅ Caso creado:', newCase.id);
 
-    // 4. Generar respuesta del agente (simplificada)
-    const agentResponse = `Perfecto, he recibido tu consulta sobre: "${userMessage}". He creado el caso ${newCase.id} y comenzaré a buscar las mejores opciones para ti.`;
+    // Generar respuesta contextual que combine ambos
+    const agentResponse = generateContextualResponse(userMessage, existingBrief);
 
     console.log('🤖 Respuesta generada:', agentResponse);
 
@@ -247,6 +260,24 @@ export async function processChatMessage(userMessage: string, userId?: string) {
   } catch (error) {
     console.error('❌ Error procesando mensaje:', error);
     throw new DatabaseError(`Failed to process chat message: ${error}`);
+  }
+}
+
+/**
+ * Genera una respuesta contextual basada en el mensaje y el brief existente
+ */
+function generateContextualResponse(userMessage: string, existingBrief?: any): string {
+  const hasExistingContext = existingBrief && (existingBrief.businessType || existingBrief.employees || existingBrief.coverage);
+  
+  if (hasExistingContext) {
+    // Si hay contexto previo, hacer referencia a él
+    const businessInfo = existingBrief.businessType ? `tu ${existingBrief.businessType}` : 'tu negocio';
+    const employeeInfo = existingBrief.employees ? `con ${existingBrief.employees} empleados` : '';
+    
+    return `Perfecto, entiendo tu consulta sobre ${businessInfo} ${employeeInfo}. Basándome en la información que ya tenía y tu nueva pregunta: "${userMessage}", he creado un caso para buscar las mejores opciones de seguros que se adapten a tus necesidades específicas.`;
+  } else {
+    // Si no hay contexto previo, respuesta estándar
+    return `Gracias por tu consulta: "${userMessage}". He registrado tu caso y comenzaré a buscar las mejores opciones de seguros para ti.`;
   }
 }
 

@@ -1,13 +1,40 @@
 'use client';
 
+import { useState } from 'react';
 import { Wrench, Upload, Paperclip, Sparkles } from 'lucide-react';
 import { useUI } from '@/lib/ui/state';
 
 export function LandingChatInput() {
-  const { setStep } = useUI();
+  const { setStep, setInitialMessage, setBrief } = useUI();
+  const [message, setMessage] = useState('');
+  
+  // Debug: verificar el estado de Zustand
+  console.log('🔍 LandingChatInput: Estado de Zustand:', { setStep, setInitialMessage, setBrief });
 
   const handleWhatsAppImport = () => {
     setStep('conversation');
+  };
+
+  const handleSendMessage = () => {
+    if (message.trim()) {
+      console.log('🚀 LandingChatInput: Enviando mensaje:', message.trim());
+      console.log('🚀 LandingChatInput: setInitialMessage function:', setInitialMessage);
+      
+      // Actualizar tanto initialMessage como brief.freeText
+      setInitialMessage(message.trim());
+      setBrief({ freeText: message.trim() });
+      
+      console.log('🚀 LandingChatInput: SetInitialMessage y setBrief llamados');
+      setStep('conversation');
+      console.log('🚀 LandingChatInput: SetStep llamado');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
 
   return (
@@ -19,6 +46,9 @@ export function LandingChatInput() {
         {/* Input Area */}
         <div className="px-8 pt-8 pb-6">
           <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Describe your client or drop a policy PDF..."
             aria-label="Describe your client or drop a policy PDF"
             className="w-full bg-transparent text-white placeholder:text-gray-400 resize-none outline-none"
@@ -51,6 +81,7 @@ export function LandingChatInput() {
               <Paperclip className="w-5 h-5" />
             </button>
             <button
+              onClick={handleSendMessage}
               className="p-2.5 rounded-lg transition-colors"
               style={{ backgroundColor: 'var(--briki-primary)' }}
               aria-label="Generate with AI"

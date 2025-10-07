@@ -81,7 +81,7 @@ export default function CaseBrief() {
           </CardHeader>
           <CardContent>
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
-              {brief.freeText?.trim() ? brief.freeText.trim() : placeholder}
+              {brief.freeText?.trim() && brief.freeText !== "Por definir..." ? brief.freeText.trim() : placeholder}
             </p>
           </CardContent>
         </Card>

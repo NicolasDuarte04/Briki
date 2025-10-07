@@ -3,7 +3,7 @@ import { processChatMessage } from '@/lib/database';
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, userId } = await request.json();
+    const { message, userId, brief } = await request.json();
     
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -13,8 +13,9 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('🔄 API: Procesando mensaje:', message);
+    console.log('📋 API: Brief recibido:', brief);
     
-    const result = await processChatMessage(message, userId);
+    const result = await processChatMessage(message, userId, brief);
     
     console.log('✅ API: Mensaje procesado exitosamente');
     

@@ -1,6 +1,6 @@
 'use client';
 
-import { VercelV0Chat } from '@/components/ui/v0-ai-chat';
+import { LandingChatInput } from './LandingChatInput';
 import Image from 'next/image';
 
 export function LandingHero() {
@@ -58,7 +58,7 @@ export function LandingHero() {
           The AI insurance co-pilot. Close deals faster.
         </p>
         
-        <VercelV0Chat />
+        <LandingChatInput />
       </div>
       
       {/* Navigation sentinel */}
