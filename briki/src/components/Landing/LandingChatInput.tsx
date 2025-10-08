@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Wrench, Upload, Paperclip, Sparkles, FileText, X } from 'lucide-react';
+import { Upload, Paperclip, Sparkles, FileText, X, ArrowUpIcon, FileUp, ImageIcon, MonitorIcon } from 'lucide-react';
 import { useUI } from '@/lib/ui/state';
 
 export function LandingChatInput() {
@@ -33,7 +33,7 @@ export function LandingChatInput() {
       // Crear mensaje combinado
       let fullMessage = message.trim();
       if (uploadedFile) {
-        fullMessage += `\n\n📄 DOCUMENTO PDF ADJUNTO: ${uploadedFile.name}\n${uploadedFile.text}`;
+        fullMessage += `\n\n📄 DOCUMENTO PDF ADJUNTO: 🟢 ${uploadedFile.name} 🟢\n`;
       }
       
       // Actualizar tanto initialMessage como brief.freeText
@@ -116,24 +116,22 @@ export function LandingChatInput() {
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div
-        className="rounded-3xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-gray-800"
-      >
-        {/* Input Area */}
-        <div className="px-8 pt-8 pb-6">
+    <div className="w-full">
+      <div className="relative bg-neutral-900 rounded-xl border border-neutral-800">
+        <div className="overflow-y-auto">
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Describe your client or drop a policy PDF..."
             aria-label="Describe your client or drop a policy PDF"
-            className="w-full bg-transparent text-white placeholder:text-gray-400 resize-none outline-none text-subhead min-h-[100px]"
+            className="w-full px-5 py-4 resize-none bg-transparent border-none text-white text-lg focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-neutral-500 placeholder:text-lg min-h-[90px]"
+            style={{ overflow: "hidden" }}
           />
           
-          {/* 📄 Indicador de PDF subido */}
+          {/* 📄 Indicador de PDF subido - MANTENEMOS NUESTRA LÓGICA */}
           {uploadedFile && (
-            <div className="mt-4 p-3 rounded-lg bg-white/10 border border-white/20 flex items-center justify-between">
+            <div className="mx-5 mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-green-500/20">
                   <FileText className="w-4 h-4 text-green-400" />
@@ -142,14 +140,14 @@ export function LandingChatInput() {
                   <div className="text-white text-sm font-medium">
                     {uploadedFile.name}
                   </div>
-                  <div className="text-gray-400 text-xs">
+                  <div className="text-neutral-400 text-xs">
                     {Math.round(uploadedFile.size / 1024)} KB • {uploadedFile.pages} páginas • Listo para enviar
                   </div>
                 </div>
               </div>
               <button
                 onClick={handleRemoveFile}
-                className="p-1 rounded-full hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+                className="p-1 rounded-full hover:bg-neutral-800 transition-colors text-neutral-400 hover:text-white"
                 aria-label="Remover archivo"
               >
                 <X className="w-4 h-4" />
@@ -158,63 +156,75 @@ export function LandingChatInput() {
           )}
         </div>
 
-        {/* Toolbar */}
-        <div className="px-8 py-5 border-t border-gray-700/50 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-white text-sm">
-              <Wrench className="w-4 h-4" />
-              Tools
-            </button>
-            <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-white text-sm">
-              <Upload className="w-4 h-4" />
-              Import
+        <div className="flex items-center justify-between p-4 border-t border-neutral-800">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="Attach"
+              className="group p-2 hover:bg-neutral-800 rounded-lg transition-colors flex items-center gap-1"
+            >
+              <Paperclip className="w-4 h-4 text-white" />
+              <span className="text-xs text-zinc-400 hidden group-hover:inline transition-opacity">
+                Attach
+              </span>
             </button>
           </div>
-
-          <div className="flex items-center gap-3">
-            <button 
-              className="p-2 rounded-lg hover:bg-white/5 transition-colors text-gray-400 hover:text-white"
-              aria-label="Attach file"
-            >
-              <Paperclip className="w-5 h-5" />
-            </button>
+          <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleSendMessage}
               disabled={!message.trim() && !uploadedFile}
-              className={`p-2.5 rounded-lg transition-colors bg-[var(--briki-primary)] hover:opacity-90 ${
-                uploadedFile ? 'ring-2 ring-green-400/50' : ''
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
-              aria-label={uploadedFile ? "Generate with AI (PDF attached)" : "Generate with AI"}
-              title={uploadedFile ? `PDF ${uploadedFile.name} listo para enviar` : "Generate with AI"}
+              className={`px-3 py-2 rounded-lg text-sm transition-colors border border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800 flex items-center justify-between gap-1 ${
+                (message.trim() || uploadedFile)
+                  ? "bg-white text-black"
+                  : "text-zinc-400 cursor-not-allowed"
+              } ${uploadedFile ? 'ring-2 ring-green-400/50' : ''}`}
             >
-              <Sparkles className="w-5 h-5 text-white" />
+              <ArrowUpIcon
+                className={`w-4 h-4 ${
+                  (message.trim() || uploadedFile)
+                    ? "text-black"
+                    : "text-zinc-400"
+                }`}
+              />
+              <span className="sr-only">Send</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Helper chips */}
-      <div className="flex items-center gap-4 mt-6 justify-center">
-        <button 
+      <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
+        <button
+          type="button"
           onClick={handleUploadClick}
           disabled={isUploading}
-          className={`px-5 py-2.5 rounded-full backdrop-blur-sm text-sm transition-colors disabled:opacity-50 ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-full border border-neutral-800 text-xs transition-colors ${
             uploadedFile 
-              ? 'bg-green-500/20 text-green-400 border border-green-400/30' 
-              : 'bg-white/10 text-white hover:bg-white/20'
-          }`}
+              ? 'bg-green-500/20 text-green-400 border-green-400/30' 
+              : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white'
+          } ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          {isUploading ? 'Subiendo...' : uploadedFile ? '✅ PDF cargado' : 'Upload PDF'}
+          <FileUp className="w-4 h-4" />
+          <span>{isUploading ? 'Subiendo...' : uploadedFile ? '✅ PDF cargado' : 'Upload PDF'}</span>
         </button>
-        <button 
+        <button
+          type="button"
           onClick={handleWhatsAppImport}
-          className="px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-sm text-white text-sm hover:bg-white/20 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 rounded-full border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
         >
-          Import WhatsApp chat
+          <ImageIcon className="w-4 h-4" />
+          <span className="text-xs">Import WhatsApp chat</span>
+        </button>
+        <button
+          type="button"
+          className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 rounded-full border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
+        >
+          <MonitorIcon className="w-4 h-4" />
+          <span className="text-xs">Connect carriers</span>
         </button>
       </div>
 
-      {/* Input de archivo oculto */}
+      {/* Input de archivo oculto - MANTENEMOS NUESTRA LÓGICA */}
       <input
         type="file"
         ref={fileInputRef}
