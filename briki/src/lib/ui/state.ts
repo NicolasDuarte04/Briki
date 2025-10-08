@@ -44,6 +44,7 @@ import {
   loadRiders,
 } from "../fx";
 import { sendViaEmail, sendViaWhatsApp } from "../share";
+
 // Local helper to convert policies into view objects consumed by components
 const policyToView = (policy: Policy): PolicyView => {
   const { id, plan, riders, network, service, premium, deductible } = policy;
@@ -523,6 +524,7 @@ export interface RenewalStatusMeta {
 }
 
 export interface UIState {
+  initialMessage?: string;
   step: UIStep;
   isSourcing: boolean;
   rightOpen: boolean;
@@ -572,6 +574,12 @@ export interface UIState {
   renewalsAuditLog: RenewalsAuditEvent[];
   renewalsSequence: number;
   renewalsViewLogged: boolean;
+  // Cache properties (internal use)
+  _cachedPoliciesView?: PolicyView[];
+  _cachedRenewalsView?: RenewalView[];
+  _cachedFilteredRenewalsView?: RenewalView[];
+  setInitialMessage: (message: string) => void;
+  clearInitialMessage: () => void;
   setStep: (step: UIStep) => void;
   toggleRight: () => void;
   openCompliance: (jurisdiction: ComplianceJurisdiction) => void;
@@ -640,6 +648,7 @@ export interface UIState {
 export const useUI = create<UIState>()(
   devtools(
     (set, get) => ({
+      initialMessage: undefined,
       step: "landing",
       isSourcing: false,
       rightOpen: true,
@@ -650,10 +659,10 @@ export const useUI = create<UIState>()(
       followupCadenceDays: [...DEFAULT_FOLLOWUP_CADENCE_DAYS],
       followupAuditLog: [],
       brief: {
-        businessType: "Tech startup in Bogotá",
-        employees: 12,
-        coverage: "Health, Cyber",
-        freeText: "Early-stage team. Needs streamlined onboarding and basic compliance.",
+        businessType: "Por definir...",
+        employees: 0,
+        coverage: "Por definir...",
+        freeText: "Por definir...",
       },
       policies: [],
       policiesLoading: false,
@@ -694,6 +703,8 @@ export const useUI = create<UIState>()(
       renewalsAuditLog: [],
       renewalsSequence: 0,
       renewalsViewLogged: false,
+      setInitialMessage: (message: string) => set({ initialMessage: message }),  // ✅ Implementación
+      clearInitialMessage: () => set({ initialMessage: "" }),                  // ✅ Implementación simple
       setStep: (step) =>
         set((state) => {
           if (state.isSourcing && step !== "conversation") {

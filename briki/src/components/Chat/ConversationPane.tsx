@@ -26,53 +26,13 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const brief = useUI((state) => state.brief);
   const isSourcing = useUI((state) => state.isSourcing);
   const startSourcing = useUI((state) => state.startSourcing);
+  const initialMessage = useUI((state) => state.initialMessage);
+  const clearInitialMessage = useUI((state) => state.clearInitialMessage);
+  
   const sourcingTranslations = useTranslations("sourcing.status");
   const chatTranslations = useTranslations("chat");
-  // const composer = useTranslations("composer");
-  const initialSystem = useMemo(() => {
-    const parts: string[] = [];
-    if (brief.businessType) parts.push(`Business: ${brief.businessType}`);
-    if (brief.employees) parts.push(`Employees: ${brief.employees}`);
-    if (brief.coverage) parts.push(`Coverage: ${brief.coverage}`);
-    if (brief.freeText) parts.push(`Notes: ${brief.freeText}`);
-    return parts.length
-      ? `I captured your brief. ${parts.join(" · ")}`
-      : "Tell me about your client or paste details to get started.";
-  }, [brief]);
 
-  const seededConversation = useMemo<ChatMessage[]>(() => {
-    const { businessType, employees, coverage, freeText } = brief;
-    const coverageText = formatCoverage(coverage);
-    const businessText = businessType ?? "our client";
-    const locationHint = hasBogota(businessType) ? "" : " in Bogotá";
-    const intro = `Hey Briki, I’m prepping quotes for ${businessText}${locationHint}.`;
-    const headcount = employees
-      ? `We’re ${employees} people and need ${coverageText || "coverage options"} without slowing onboarding.`
-      : `We need ${coverageText || "coverage options"} without slowing onboarding.`;
-    const briefNotes = freeText ? ` The brief notes: ${freeText}` : "";
-
-    const assistantCoverageFocus = coverageText || "coverage";
-    const assistantTeamFocus = employees ? `${employees}-person tech team` : "team";
-    const assistantLocation = hasBogota(businessType) ? "Bogotá" : "your market";
-    const assistantMessage = `Got it. I’ll spin up sourcing for ${assistantCoverageFocus} that fits a ${assistantTeamFocus} in ${assistantLocation}. Want me to queue the compliance checklist once appetite comes back?`;
-
-        return [
-      { role: "system", content: initialSystem, isSeeded: true },
-      {
-        role: "user",
-        content: `${intro} ${headcount}${briefNotes}`.trim(),
-        isSeeded: true,
-      },
-      {
-        role: "assistant",
-        content: assistantMessage,
-            agent: { label: chatTranslations("agents.sourcing"), tag: chatTranslations("agent.prompt.label") },
-        isSeeded: true,
-      },
-    ];
-  }, [brief, chatTranslations, initialSystem]);
-
-  // Empezar con chat vacío para que funcione nuestra función real
+  // Chat state - comenzar vacío para agente real
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [value, setValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -305,85 +265,6 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     };
   }, [isNearBottom, scrollToBottom, messages]);
 
-  // COMENTADO: useEffect que fuerza seeded conversation
-  // Para permitir que nuestro agente real funcione
-  /*
-  useEffect(() => {
-    // Only update messages if seeded conversation has actually changed
-    setMessages((prev) => {
-      if (!prev.length) return seededConversation;
-      
-      // Check if the seeded messages are already up to date
-      const systemSeed = seededConversation[0];
-      const seededUser = seededConversation[1];
-      const seededAssistant = seededConversation[2];
-      
-      const systemMatches = prev[0]?.role === "system" && 
-        prev[0]?.content === systemSeed?.content;
-      const userMatches = prev[1]?.isSeeded && 
-        prev[1]?.content === seededUser?.content;
-      const assistantIndex = seededUser ? 2 : 1;
-      const assistantMatches = prev[assistantIndex]?.isSeeded && 
-        prev[assistantIndex]?.content === seededAssistant?.content &&
-        prev[assistantIndex]?.agent?.label === seededAssistant?.agent?.label;
-      
-      // If all seeded messages match, no update needed
-      if (systemMatches && userMatches && assistantMatches) {
-        return prev;
-      }
-      
-      // Otherwise, update the seeded messages
-      const next = [...prev];
-
-      if (systemSeed) {
-        if (!next[0] || next[0].role !== "system") {
-          next.unshift(systemSeed);
-        } else if (next[0].content !== systemSeed.content) {
-          const updatedSystem: ChatMessage = { ...next[0], content: systemSeed.content };
-          if (systemSeed.isSeeded !== undefined) {
-            updatedSystem.isSeeded = systemSeed.isSeeded;
-          } else {
-            delete updatedSystem.isSeeded;
-          }
-          next[0] = updatedSystem;
-        }
-      }
-
-      if (seededUser) {
-        if (!next[1] || !next[1].isSeeded) {
-          next.splice(1, 0, seededUser);
-        } else if (next[1].content !== seededUser.content) {
-          next[1] = { ...next[1], content: seededUser.content };
-        }
-      }
-
-      if (seededAssistant) {
-        const assistantMessage = next[assistantIndex];
-        if (!assistantMessage || !assistantMessage.isSeeded) {
-          next.splice(assistantIndex, 0, seededAssistant);
-        } else if (
-          assistantMessage.content !== seededAssistant.content ||
-          assistantMessage.agent?.label !== seededAssistant.agent?.label ||
-          assistantMessage.agent?.tag !== seededAssistant.agent?.tag
-        ) {
-          const updatedAssistant: ChatMessage = {
-            ...assistantMessage,
-            content: seededAssistant.content,
-          };
-          if (seededAssistant.agent !== undefined) {
-            updatedAssistant.agent = seededAssistant.agent;
-          } else {
-            delete updatedAssistant.agent;
-          }
-          next[assistantIndex] = updatedAssistant;
-        }
-      }
-
-      return next;
-    });
-  }, [seededConversation]);
-  */
-
   useEffect(() => {
     const node = composerRef.current;
     if (!node) {
@@ -395,8 +276,16 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     node.style.height = `${nextHeight}px`;
   }, [value]);
 
-  async function sendMessage() {
-    const trimmed = value.trim();
+  useEffect(() => {
+    if (initialMessage && initialMessage.trim() && initialMessage !== "") {
+      // Simular que el usuario envió el mensaje automáticamente
+      sendMessage(initialMessage.trim());
+      clearInitialMessage();
+    }
+  }, [initialMessage]);
+
+  async function sendMessage(messageText?: string) {
+    const trimmed = messageText ? messageText.trim() : value.trim();
     if (!trimmed) return;
     const container = scrollContainerRef.current;
     const nearBottom = container ? isNearBottom(container) : true;
@@ -404,11 +293,11 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     
     const newUserMessage: ChatMessage = { role: "user", content: trimmed };
     setMessages((prev) => [...prev, newUserMessage]);
-    setValue("");
+    // Solo limpiar el input si no viene de parámetro
+    if (!messageText) setValue("");
     setIsTyping(true);
 
     try {
-      // 🎉 ¡Llamada a nuestra API en lugar de función directa!
       const response = await fetch('/api/chat/process-message', {
         method: 'POST',
         headers: {
@@ -416,7 +305,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         },
         body: JSON.stringify({
           message: trimmed,
-          userId: 'anonymous' // TODO: usar usuario real
+          userId: 'anonymous', // TODO: usar usuario real
+          brief: brief
         })
       });
       
@@ -433,9 +323,6 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       };
       setMessages((prev) => [...prev, assistantResponse]);
       setIsTyping(false);
-      
-      // Log del caso creado (para debug)
-      console.log(`✅ Caso creado: ${result.caseId}`);
       
       if (!isSourcing) {
         startSourcing();
@@ -604,28 +491,6 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 };
 
 export default ConversationPane;
-
-function formatCoverage(coverage?: string) {
-  if (!coverage) return "";
-  const parts = coverage
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => part.toLowerCase());
-  if (!parts.length) return "";
-  if (parts.length === 1) return `${parts[0]} coverage`;
-  const last = parts.pop();
-  return `${parts.join(", ")} and ${last} coverage`;
-}
-
-function hasBogota(text?: string) {
-  if (!text) return false;
-  const normalized = text
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-  return normalized.includes("bogota");
-}
 
 interface SourcingStatusMessageProps {
   body: string;

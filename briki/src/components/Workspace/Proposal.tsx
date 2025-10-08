@@ -192,7 +192,7 @@ export default function Proposal() {
                   <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("briefCard.fields.lines")}</dt>
                   <dd className="font-medium leading-snug break-words">{formatLines(brief.coverage)}</dd>
                 </div>
-                {brief.freeText ? (
+                {brief.freeText?.trim() && brief.freeText !== "Por definir..." ? (
                   <div className="grid gap-1">
                     <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("briefCard.notesLabel")}</dt>
                     <dd className="leading-snug break-words text-muted-foreground/90">{brief.freeText}</dd>
