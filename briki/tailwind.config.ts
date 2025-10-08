@@ -11,6 +11,36 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontSize: {
+        "display-xl": [
+          "clamp(2.5rem,5vw,3.5rem)",
+          { lineHeight: "1.1", letterSpacing: "-0.015em", fontWeight: "700" }
+        ],
+        headline: [
+          "clamp(1.5rem,2.5vw,2.25rem)",
+          { lineHeight: "1.2", letterSpacing: "-0.015em", fontWeight: "600" }
+        ],
+        subhead: [
+          "clamp(1rem,1.5vw,1.125rem)",
+          { lineHeight: "1.65", letterSpacing: "-0.01em", fontWeight: "400" }
+        ],
+        body: [
+          "1rem",
+          { lineHeight: "1.7", letterSpacing: "0", fontWeight: "400" }
+        ],
+      },
+      fontWeight: {
+        regular: "400",
+        medium: "500",
+        semibold: "600",
+        bold: "700",
+        extrabold: "800",
+      },
+      maxWidth: {
+        prose: "65ch",
+        "prose-narrow": "55ch",
+        "prose-wide": "75ch",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -51,7 +81,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: [
-          "var(--font-geist-sans)",
+          "var(--font-inter)",
           "system-ui",
           "-apple-system",
           "Segoe UI",

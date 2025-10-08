@@ -1,40 +1,46 @@
-"use client";
-
 import Link from "next/link";
-import { useTranslations } from "next-intl";
-import { useMemo } from "react";
+import { getTranslations } from "next-intl/server";
 
-import { useAppLocale } from "@/components/I18nProvider";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { createServerSupabase } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import { TopBarClient } from "./TopBarClient";
 
-// TODO: Reintroduce authenticated account state via Supabase once available.
-export function TopBar({ className }: { className?: string }) {
-  const { locale, toggleLocale } = useAppLocale();
-  const tLocale = useTranslations("nav.locale");
-  const tAuthNav = useTranslations("auth.nav");
-  const tTopbar = useTranslations("topbar");
+interface TopBarProps {
+  className?: string;
+  locale: string;
+}
 
-  const nextLanguageLabel = locale === "en" ? tLocale("spanish") : tLocale("english");
+export async function TopBar({ className, locale }: TopBarProps) {
+  const tTopbar = await getTranslations("topbar");
+  
+  // Check authentication status on the server
+  const supabase = await createServerSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  const isAuthenticated = !!user;
 
-  const avatarInitials = useMemo(() => tTopbar("accountInitials"), [tTopbar]);
+  // Get user display info from profile if available
+  let userDisplayName = user?.email || "";
+  
+  if (user) {
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('name')
+      .eq('id', user.id)
+      .single();
+    
+    if (profileData?.name) {
+      userDisplayName = profileData.name;
+    }
+  }
 
-  const handleSignOut = () => {
-    console.warn("Supabase sign-out not yet implemented.");
-  };
-
-  const handleSignIn = () => {
-    console.warn("Supabase sign-in not yet implemented.");
-  };
-
-  const isAuthenticated = false;
+  const userInitials = userDisplayName
+    ? userDisplayName
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "U";
 
   return (
     <header
@@ -62,70 +68,11 @@ export function TopBar({ className }: { className?: string }) {
             <span>{tTopbar("brandName")}</span>
           </Link>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={toggleLocale}
-            aria-label={tLocale("toggle", { language: nextLanguageLabel })}
-            title={tLocale("toggle", { language: nextLanguageLabel })}
-            className="h-8 px-2"
-            data-print="hide"
-          >
-            {locale.toUpperCase()}
-          </Button>
-          {isAuthenticated ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full"
-                  aria-label={tTopbar("accountMenuAria")}
-                  title={tTopbar("accountMenuTitle")}
-                  data-print="hide"
-                  aria-haspopup="menu"
-                >
-                  <Avatar className="size-9">
-                    <AvatarFallback className="bg-accent text-sm font-semibold text-foreground">
-                      {avatarInitials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="sr-only">{tTopbar("accountMenuAria")}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="w-full">
-                    {tAuthNav("profile")}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    handleSignOut();
-                  }}
-                >
-                  {tAuthNav("signOut")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleSignIn}
-              className="text-sm font-semibold"
-              data-print="hide"
-              aria-label={tAuthNav("login")}
-            >
-              {tAuthNav("login")}
-            </Button>
-          )}
-        </div>
+        <TopBarClient 
+          locale={locale}
+          isAuthenticated={isAuthenticated}
+          userInitials={userInitials}
+        />
       </div>
     </header>
   );

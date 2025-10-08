@@ -1,11 +1,28 @@
 import { createServerClient, type SupabaseClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-// --- TEMPORARY FIX ---
-// Forcibly override the Supabase credentials to bypass environment variable issues.
-const SUPABASE_URL = "https://vkzukorwsllzhpnzdmlo.supabase.co"
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrenVrb3J3c2xsemhwbnpkbWxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyNDY0MjEsImV4cCI6MjA3NDgyMjQyMX0.k7nTHMvqxsdb0r1-VOr912FHq-pHAXKzTkMtdR36jvw"
+// Retrieve Supabase credentials from environment variables
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+// Development-time assertions to ensure environment variables are configured
+if (process.env.NODE_ENV === 'development') {
+  if (!SUPABASE_URL) {
+    throw new Error(
+      'Missing NEXT_PUBLIC_SUPABASE_URL environment variable. Please configure it in .env.local'
+    )
+  }
+  if (!SUPABASE_ANON_KEY) {
+    throw new Error(
+      'Missing NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable. Please configure it in .env.local'
+    )
+  }
+}
+
+// Runtime validation for production
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  throw new Error('Supabase environment variables are not configured')
+}
 
 export async function createServerSupabase(): Promise<SupabaseClient> {
   const cookieStore = await cookies()

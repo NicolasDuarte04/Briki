@@ -16,7 +16,8 @@
     "prisma:generate": "prisma generate",
     "postinstall": "prisma generate",
     "validate:fixtures": "tsx scripts/validate-fixtures.ts",
-    "validate:i18n": "tsx scripts/validate-i18n.ts"
+    "validate:i18n": "tsx scripts/validate-i18n.ts",
+    "validate:metadata": "tsx scripts/validate-metadata.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",

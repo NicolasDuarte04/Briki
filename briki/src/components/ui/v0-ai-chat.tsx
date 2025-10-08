@@ -17,6 +17,7 @@ import {
 import { createBrowserSupabase } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useUI } from "@/lib/ui/state";
+import { trackEvent } from "@/lib/analytics";
 
 interface UseAutoResizeTextareaProps {
     minHeight: number;
@@ -79,7 +80,7 @@ export function VercelV0Chat() {
     const [user, setUser] = useState<User | null>(null);
     const { setStep, setBrief } = useUI();
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-        minHeight: 60,
+        minHeight: 90,
         maxHeight: 200,
     });
 
@@ -87,13 +88,11 @@ export function VercelV0Chat() {
         const supabase = createBrowserSupabase();
         const checkUser = async () => {
             const { data } = await supabase.auth.getUser();
-            console.log('[VercelV0Chat] User loaded:', data.user ? 'Authenticated' : 'Not authenticated');
             setUser(data.user);
         };
         checkUser();
 
         const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-            console.log('[VercelV0Chat] Auth state changed:', _event);
             setUser(session?.user ?? null);
         });
 
@@ -113,6 +112,7 @@ export function VercelV0Chat() {
         if (value.trim()) {
             setBrief({ freeText: value.trim() });
         }
+        trackEvent("hero_chat_start", { hasText: Boolean(value.trim()) });
         setStep("conversation");
     };
 
@@ -130,6 +130,7 @@ export function VercelV0Chat() {
             <div className="relative bg-neutral-900 rounded-xl border border-neutral-800">
                 <div className="overflow-y-auto">
                     <Textarea
+                        id="hero-chat-input"
                         ref={textareaRef}
                         value={value}
                         onChange={(e) => {
@@ -138,16 +139,17 @@ export function VercelV0Chat() {
                         }}
                         onKeyDown={handleKeyDown}
                         placeholder="Describe your client or drop a policy PDF..."
+                        aria-label="Describe your client or drop a policy PDF"
                         className={cn(
-                            "w-full px-4 py-3",
+                            "w-full px-5 py-4",
                             "resize-none",
                             "bg-transparent",
                             "border-none",
-                            "text-white text-base",
+                            "text-white text-lg",
                             "focus:outline-none",
                             "focus-visible:ring-0 focus-visible:ring-offset-0",
-                            "placeholder:text-neutral-500 placeholder:text-base",
-                            "min-h-[60px]"
+                            "placeholder:text-neutral-500 placeholder:text-lg",
+                            "min-h-[90px]"
                         )}
                         style={{
                             overflow: "hidden",
@@ -155,7 +157,7 @@ export function VercelV0Chat() {
                     />
                 </div>
 
-                <div className="flex items-center justify-between p-3 border-t border-neutral-800">
+                <div className="flex items-center justify-between p-4 border-t border-neutral-800">
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
@@ -172,11 +174,12 @@ export function VercelV0Chat() {
                         <button
                             type="button"
                             onClick={handleSubmit}
+                            disabled={!value.trim()}
                             className={cn(
-                                "px-1.5 py-1.5 rounded-lg text-sm transition-colors border border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800 flex items-center justify-between gap-1",
+                                "px-3 py-2 rounded-lg text-sm transition-colors border border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800 flex items-center justify-between gap-1",
                                 value.trim()
                                     ? "bg-white text-black"
-                                    : "text-zinc-400"
+                                    : "text-zinc-400 cursor-not-allowed"
                             )}
                         >
                             <ArrowUpIcon
@@ -226,17 +229,13 @@ interface ActionButtonProps {
 
 function ActionButton({ icon, label, user, onAuthenticatedClick }: ActionButtonProps) {
     const handleClick = () => {
-        console.log('[ActionButton] Clicked:', label, 'User:', user ? 'Authenticated' : 'Not authenticated');
-        
         // Check if user is authenticated
         if (!user) {
-            console.log('[ActionButton] Redirecting to login');
             window.location.href = '/login';
             return;
         }
         
         // For authenticated users, call the authenticated click handler
-        console.log('[ActionButton] User authenticated, going to conversation');
         onAuthenticatedClick();
     };
 

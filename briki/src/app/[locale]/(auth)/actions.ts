@@ -61,6 +61,10 @@ export async function signup(formData: FormData): Promise<ActionResult> {
       }
     })
 
+    // Clear any cached data before redirecting
+    const { revalidatePath } = await import('next/cache')
+    revalidatePath('/', 'layout')
+
     // Redirect to landing page (shows authenticated navbar)
     redirect('/')
   } catch (error) {
@@ -115,6 +119,10 @@ export async function login(formData: FormData): Promise<ActionResult> {
         locale: 'en'
       }
     })
+
+    // Clear any cached data before redirecting
+    const { revalidatePath } = await import('next/cache')
+    revalidatePath('/', 'layout')
 
     // Validate the next path. It must be a relative path.
     const isValidNextPath = next && next.startsWith('/') && !next.startsWith('//')
@@ -185,33 +193,45 @@ export async function signOut(): Promise<ActionResult> {
   }
 }
 
-export async function requestPasswordReset(formData?: FormData): Promise<ActionResult> {
+export async function updatePassword(formData: FormData): Promise<{ ok: boolean; error?: string }> {
+  const password = formData.get('password') as string
+  const locale = formData.get('locale') as string || 'en'
+
+  // Basic validation
+  if (!password) {
+    return { ok: false, error: 'Password is required' }
+  }
+
+  if (password.length < 6) {
+    return { ok: false, error: 'Password must be at least 6 characters' }
+  }
+
   const supabase = await createServerSupabase()
 
   try {
-    // Get the current user session
-    const { data: { user }, error: sessionError } = await supabase.auth.getUser()
+    // Update the user's password
+    const { error } = await supabase.auth.updateUser({
+      password
+    })
 
-    if (sessionError || !user) {
-      return { success: false, error: 'Not authenticated' }
+    if (error) {
+      console.error('Password update error:', error)
+      return { ok: false, error: error.message }
     }
 
-    // Send password reset email
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      user.email!,
-      {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/auth/reset`
-      }
-    )
+    // Clear any cached data before redirecting
+    const { revalidatePath } = await import('next/cache')
+    revalidatePath('/', 'layout')
 
-    if (resetError) {
-      console.error('Password reset error:', resetError)
-      return { success: false, error: resetError.message }
-    }
-
-    return { success: true }
+    // Redirect to the landing page with the user's locale
+    redirect(`/${locale}`)
   } catch (error) {
-    console.error('Unexpected password reset error:', error)
-    return { success: false, error: 'An unexpected error occurred' }
+    // If the error is a redirect error, re-throw it so Next.js can handle it
+    if (error && typeof error === 'object' && 'digest' in error && error.digest?.toString().startsWith('NEXT_REDIRECT')) {
+      throw error
+    }
+
+    console.error('Update password error:', error)
+    return { ok: false, error: 'An unexpected error occurred' }
   }
 }

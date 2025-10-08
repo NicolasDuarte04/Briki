@@ -1,40 +1,18 @@
-import { Play } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { VideoPlayer } from "@/components/ui/video-thumbnail-player";
 
 export function LandingDemo() {
   return (
-    <section id="demo" className="py-32 px-8" style={{ backgroundColor: 'var(--briki-surface-alt)' }}>
+    <section id="demo" className="py-32 px-6 sm:px-8 bg-[var(--briki-surface-alt)]">
       <div className="max-w-5xl mx-auto">
         <h2 className="sr-only">Demo</h2>
-        <Card
-          className="rounded-[20px] border shadow-[0_10px_30px_rgba(15,23,42,0.06)] overflow-hidden"
-          style={{
-            borderColor: 'var(--briki-border)',
-            backgroundColor: 'var(--briki-surface)',
-          }}
-        >
-          <div className="relative aspect-video bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center group cursor-pointer">
-            <div
-              className="w-20 h-20 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform"
-              style={{ backgroundColor: 'var(--briki-primary)' }}
-            >
-              <Play className="w-8 h-8 text-white fill-white ml-1" />
-            </div>
-          </div>
-          <div className="p-8 text-center">
-            <p
-              style={{
-                fontSize: '1rem',
-                lineHeight: '1.6',
-                color: 'var(--briki-text-muted)',
-              }}
-            >
-              2-min demo: from raw policy to proposal
-            </p>
-          </div>
-        </Card>
+        <VideoPlayer
+          thumbnailUrl="https://images.unsplash.com/photo-1593642532454-e138e28a63f4?q=80&w=2069&auto=format&fit=crop"
+          videoUrl="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1"
+          title="See Briki in Action"
+          description="2-min demo: from raw policy to proposal"
+          className="rounded-xl"
+        />
       </div>
     </section>
   );
 }
-

@@ -24,6 +24,7 @@ export async function middleware(request: NextRequest) {
     '/auth/verify',
     '/auth/callback',
     '/auth/error',
+    '/auth/update-password',
   ];
 
   // Check if the path is explicitly public
@@ -65,11 +66,11 @@ export async function middleware(request: NextRequest) {
   );
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // If no session, redirect to login with next parameter
-  if (!session) {
+  // If no user, redirect to login with next parameter
+  if (!user) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('next', pathname);
     return NextResponse.redirect(loginUrl);

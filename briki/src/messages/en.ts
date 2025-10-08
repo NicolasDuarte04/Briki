@@ -30,6 +30,9 @@ const en = {
       logoAlt: "Briki logo",
       brand: "Briki",
       cta: "Start a conversation",
+      heading: "Your AI Insurance Agent",
+      subhead: "Briki gives brokers their time back. And their edge.",
+      primaryCta: "Try the demo",
       video: {
         title: "See Briki in action",
         description: "Watch how Briki transforms your workflow",
@@ -59,6 +62,48 @@ const en = {
       enter: "Enter",
     },
     emptyHelper: "Type something or choose a quick action.",
+    socialProof: {
+      tagline: "Trusted by brokers in Bogotá & CDMX",
+      badges: {
+        gsea: "GSEA 2025",
+        oracle: "Oracle for Startups",
+        encrypted: "Data Encrypted & Secure",
+        supabase: "Powered by Supabase",
+        vercel: "Hosted on Vercel",
+        openai: "Powered by OpenAI",
+        colombia: "Built in Colombia",
+      },
+    },
+    statsGrowth: {
+      title: "Clarity that compounds.",
+      description: "Briki turns policy PDFs into proposals and insights—so brokers make decisions faster.",
+      cta: {
+        primary: "Watch demo",
+        secondary: "See how it works",
+      },
+      primaryStat: {
+        value: "~2.5k",
+        label: "Hours saved this quarter",
+      },
+      stats: {
+        brokers: {
+          value: "40+",
+          label: "Active brokers",
+        },
+        policies: {
+          value: "1.2k+",
+          label: "Policies analyzed",
+        },
+        timeSaved: {
+          value: "~10h/wk",
+          label: "Time saved per broker",
+        },
+        integrations: {
+          value: "Multi",
+          label: "WhatsApp, PDFs, Carriers",
+        },
+      },
+    },
   },
   footer: {
     privacy: "Privacy Policy",

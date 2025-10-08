@@ -30,6 +30,9 @@ const es = {
       logoAlt: "Logotipo de Briki",
       brand: "Briki",
       cta: "Inicia una conversación",
+      heading: "Tu Agente de Seguros con IA",
+      subhead: "Briki les devuelve el tiempo a los corredores. Y su ventaja.",
+      primaryCta: "Probar la demo",
       video: {
         title: "Mira Briki en acción",
         description: "Mira cómo Briki transforma tu flujo de trabajo",
@@ -59,6 +62,48 @@ const es = {
       enter: "Entrar",
     },
     emptyHelper: "Escribe algo o elige una acción rápida.",
+    socialProof: {
+      tagline: "Confiado por corredores en Bogotá y CDMX",
+      badges: {
+        gsea: "GSEA 2025",
+        oracle: "Oracle para Startups",
+        encrypted: "Datos Encriptados y Seguros",
+        supabase: "Impulsado por Supabase",
+        vercel: "Alojado en Vercel",
+        openai: "Impulsado por OpenAI",
+        colombia: "Hecho en Colombia",
+      },
+    },
+    statsGrowth: {
+      title: "Claridad que se multiplica.",
+      description: "Briki convierte PDFs de pólizas en propuestas e insights—para que los corredores tomen decisiones más rápido.",
+      cta: {
+        primary: "Ver la demo",
+        secondary: "Ver cómo funciona",
+      },
+      primaryStat: {
+        value: "~2.5k",
+        label: "Horas ahorradas este trimestre",
+      },
+      stats: {
+        brokers: {
+          value: "40+",
+          label: "Corredores activos",
+        },
+        policies: {
+          value: "1.2k+",
+          label: "Pólizas analizadas",
+        },
+        timeSaved: {
+          value: "~10h/sem",
+          label: "Tiempo ahorrado por corredor",
+        },
+        integrations: {
+          value: "Multi",
+          label: "WhatsApp, PDFs, Aseguradoras",
+        },
+      },
+    },
   },
   footer: {
     privacy: "Política de Privacidad",

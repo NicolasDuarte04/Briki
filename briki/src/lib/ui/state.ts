@@ -572,10 +572,6 @@ export interface UIState {
   renewalsAuditLog: RenewalsAuditEvent[];
   renewalsSequence: number;
   renewalsViewLogged: boolean;
-  // Cache properties (internal use)
-  _cachedPoliciesView?: PolicyView[];
-  _cachedRenewalsView?: RenewalView[];
-  _cachedFilteredRenewalsView?: RenewalView[];
   setStep: (step: UIStep) => void;
   toggleRight: () => void;
   openCompliance: (jurisdiction: ComplianceJurisdiction) => void;
@@ -905,7 +901,6 @@ export const useUI = create<UIState>()(
           policiesLoaded: true,
           policiesLoading: false,
           comparisonScores: computeComparisonScores(policies, state.comparisonWeights),
-          // Clear cache when policies change
         })),
       fetchPolicies: async () => {
         const { policiesLoading, policiesLoaded } = get();
@@ -1065,7 +1060,6 @@ export const useUI = create<UIState>()(
           renewals,
           renewalsLoaded: true,
           renewalsLoading: false,
-          // Clear caches when renewals change
         })),
       fetchRenewals: async () => {
         const { renewalsLoading, renewalsLoaded } = get();
@@ -1094,7 +1088,6 @@ export const useUI = create<UIState>()(
           return {
             renewalsFilters: nextFilters,
             ...logRenewalsEventInternal(state, "FilterChange", { filters: nextFilters }),
-            // Clear filtered view cache when filters change
           };
         }),
       setRenewalsSorting: (sorting) =>
@@ -1106,7 +1099,6 @@ export const useUI = create<UIState>()(
           return {
             renewalsSorting: nextSorting,
             ...logRenewalsEventInternal(state, "SortChange", { sorting: nextSorting }),
-            // Clear filtered view cache when sorting changes
           };
         }),
       setReminder: (id, reminderSet) =>
@@ -1120,7 +1112,6 @@ export const useUI = create<UIState>()(
           return {
             renewals: nextRenewals,
             ...logRenewalsEventInternal(state, "ReminderSet", { id, reminderSet: Boolean(reminderSet) }),
-            // Clear caches when renewals change
           };
         }),
       logRenewalsEvent: (type, payload) =>
@@ -1142,17 +1133,7 @@ export const useUI = create<UIState>()(
       getRenewalStatusChip: (status) => renewalStatusMetaMap[status] ?? renewalStatusMetaMap.ok,
       selectPoliciesView: () => {
         const state = get();
-        if (!state._cachedPoliciesView) {
-          const nextView = state.policies.map(policyToView);
-          set((current) => {
-            if (current._cachedPoliciesView === nextView) {
-              return {};
-            }
-            return { _cachedPoliciesView: nextView } satisfies Partial<UIState>;
-          });
-          return get()._cachedPoliciesView ?? nextView;
-        }
-        return state._cachedPoliciesView;
+        return state.policies.map(policyToView);
       },
       selectPolicyView: (policyId) => {
         const policy = get().policies.find((p) => p.id === policyId);
@@ -1160,32 +1141,12 @@ export const useUI = create<UIState>()(
       },
       selectRenewalsView: () => {
         const state = get();
-        if (!state._cachedRenewalsView) {
-          const nextView = state.renewals.map(renewalToView);
-          set((current) => {
-            if (current._cachedRenewalsView === nextView) {
-              return {};
-            }
-            return { _cachedRenewalsView: nextView } satisfies Partial<UIState>;
-          });
-          return get()._cachedRenewalsView ?? nextView;
-        }
-        return state._cachedRenewalsView;
+        return state.renewals.map(renewalToView);
       },
       selectFilteredSortedRenewalsView: () => {
         const state = get();
-        if (!state._cachedFilteredRenewalsView) {
-          const filtered = computeFilteredSortedRenewals(state);
-          const nextView = filtered.map(renewalToView);
-          set((current) => {
-            if (current._cachedFilteredRenewalsView === nextView) {
-              return {};
-            }
-            return { _cachedFilteredRenewalsView: nextView } satisfies Partial<UIState>;
-          });
-          return get()._cachedFilteredRenewalsView ?? nextView;
-        }
-        return state._cachedFilteredRenewalsView;
+        const filtered = computeFilteredSortedRenewals(state);
+        return filtered.map(renewalToView);
       },
     }),
     { name: "ui-store" }

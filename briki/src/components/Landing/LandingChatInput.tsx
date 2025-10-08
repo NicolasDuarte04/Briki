@@ -13,20 +13,14 @@ export function LandingChatInput() {
   return (
     <div className="w-full max-w-2xl mx-auto">
       <div
-        className="rounded-3xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.3)]"
-        style={{ backgroundColor: '#1F2937' }}
+        className="rounded-3xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-gray-800"
       >
         {/* Input Area */}
         <div className="px-8 pt-8 pb-6">
           <textarea
             placeholder="Describe your client or drop a policy PDF..."
             aria-label="Describe your client or drop a policy PDF"
-            className="w-full bg-transparent text-white placeholder:text-gray-400 resize-none outline-none"
-            style={{
-              fontSize: '1.125rem',
-              lineHeight: '1.6',
-              minHeight: '100px',
-            }}
+            className="w-full bg-transparent text-white placeholder:text-gray-400 resize-none outline-none text-subhead min-h-[100px]"
           />
         </div>
 
@@ -51,8 +45,7 @@ export function LandingChatInput() {
               <Paperclip className="w-5 h-5" />
             </button>
             <button
-              className="p-2.5 rounded-lg transition-colors"
-              style={{ backgroundColor: 'var(--briki-primary)' }}
+              className="p-2.5 rounded-lg transition-colors bg-[var(--briki-primary)] hover:opacity-90"
               aria-label="Generate with AI"
             >
               <Sparkles className="w-5 h-5 text-white" />

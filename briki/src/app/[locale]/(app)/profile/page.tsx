@@ -21,20 +21,41 @@ export default async function ProfilePage() {
     where: { id: userId },
     select: { 
       email: true,
-      profile: { select: { name: true, locale: true } } 
+      profile: { 
+        select: { 
+          name: true, 
+          locale: true,
+          phone: true,
+          address: true,
+          notificationsProductUpdates: true,
+          notificationsPolicyAlerts: true
+        } 
+      } 
     },
   });
 
   const initialName = user?.profile?.name ?? "";
+  const initialPhone = user?.profile?.phone ?? "";
+  const initialAddress = user?.profile?.address ?? "";
   const locale = (user?.profile?.locale ?? "en") as "en" | "es";
   const email = user?.email ?? "";
+  const notificationsProductUpdates = user?.profile?.notificationsProductUpdates ?? false;
+  const notificationsPolicyAlerts = user?.profile?.notificationsPolicyAlerts ?? false;
 
   return (
     <div className="min-h-screen flex flex-col bg-neutral-50">
       <ProfileNav />
       <div className="mx-auto w-full max-w-4xl px-6 py-8">
         <Suspense>
-          <AccountSettings initialName={initialName} email={email} locale={locale} />
+          <AccountSettings 
+            initialName={initialName} 
+            initialPhone={initialPhone}
+            initialAddress={initialAddress}
+            email={email} 
+            locale={locale}
+            notificationsProductUpdates={notificationsProductUpdates}
+            notificationsPolicyAlerts={notificationsPolicyAlerts}
+          />
         </Suspense>
       </div>
     </div>

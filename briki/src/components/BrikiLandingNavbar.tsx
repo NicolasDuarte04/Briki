@@ -85,7 +85,7 @@ export default function BrikiLandingNavbar() {
   };
 
   return (
-    <Navbar className="min-h-fit bg-transparent border-0 navbar-transparent">
+    <Navbar className="min-h-fit bg-transparent border-0 navbar-transparent fixed top-0 left-0 right-0 z-50">
       {/* Desktop Navigation */}
       <NavBody className="h-full px-4 md:px-6 gap-6">
         <div className="relative z-50 flex w-full items-center justify-between">

@@ -1,0 +1,83 @@
+{
+  "name": "Briki - Tu Compañero de Seguros Inteligente",
+  "short_name": "Briki",
+  "description": "Briki te ayuda a entender, comparar y gestionar tus seguros de manera simple e inteligente.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "categories": [
+    "finance",
+    "business",
+    "productivity"
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Briki Dashboard"
+    },
+    {
+      "src": "/screenshots/mobile-1.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Briki Mobile View"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Chat",
+      "short_name": "Chat",
+      "description": "Start a conversation with Briki",
+      "url": "/chat",
+      "icons": [
+        {
+          "src": "/icons/chat-shortcut.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Policies",
+      "short_name": "Policies",
+      "description": "View your insurance policies",
+      "url": "/policies",
+      "icons": [
+        {
+          "src": "/icons/policies-shortcut.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}

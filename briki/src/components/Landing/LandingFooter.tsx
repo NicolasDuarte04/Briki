@@ -33,20 +33,13 @@ export function LandingFooter() {
   ];
 
   return (
-    <footer className="py-24 px-8 border-t" style={{ borderColor: 'var(--briki-border)', backgroundColor: 'var(--briki-surface)' }}>
+    <footer className="py-24 px-6 sm:px-8 border-t border-[var(--briki-border)] bg-[var(--briki-surface)]">
       <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-16">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-12 md:gap-16">
           {footerColumns.map((column, index) => (
             <div key={index}>
               <div
-                className="mb-6"
-                style={{
-                  fontSize: '0.875rem',
-                  fontWeight: '600',
-                  color: 'var(--briki-text)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                }}
+                className="mb-6 text-sm font-semibold text-[var(--briki-text)] uppercase tracking-wider font-smooth"
               >
                 {column.title}
               </div>
@@ -55,11 +48,7 @@ export function LandingFooter() {
                   <li key={linkIndex}>
                     <a
                       href={link.href}
-                      className="hover:opacity-70 transition-opacity"
-                      style={{
-                        fontSize: '0.875rem',
-                        color: 'var(--briki-text-muted)',
-                      }}
+                      className="hover:opacity-70 transition-opacity text-sm text-[var(--briki-text-muted)] font-regular font-smooth"
                     >
                       {link.label}
                     </a>
@@ -69,8 +58,8 @@ export function LandingFooter() {
             </div>
           ))}
         </div>
-        <div className="mt-16 pt-8 border-t text-center" style={{ borderColor: 'var(--briki-border)' }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--briki-text-muted)' }}>
+        <div className="mt-16 pt-8 border-t border-[var(--briki-border)] text-center">
+          <p className="text-sm text-[var(--briki-text-muted)] font-regular font-smooth">
             © 2025 Briki. All rights reserved.
           </p>
         </div>

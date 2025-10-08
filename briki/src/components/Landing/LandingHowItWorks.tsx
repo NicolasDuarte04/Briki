@@ -21,37 +21,30 @@ export function LandingHowItWorks() {
   ];
 
   return (
-    <section id="how" className="py-32 px-8" style={{ backgroundColor: 'var(--briki-surface)' }}>
+    <section id="how" className="py-32 px-6 sm:px-8 bg-[var(--briki-surface)]">
       <div className="max-w-6xl mx-auto">
-        <h2 className="sr-only">How it works</h2>
+        <h2
+          className="text-center mb-16 text-headline font-bold text-[var(--briki-text)] font-smooth"
+        >
+          How it works
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {steps.map((step, index) => {
             const Icon = step.icon;
             return (
               <Card
                 key={index}
-                className="p-8 rounded-[20px] border shadow-[0_10px_30px_rgba(15,23,42,0.06)]"
-                style={{
-                  borderColor: 'var(--briki-border)',
-                  backgroundColor: 'var(--briki-surface)',
-                }}
+                className="p-8 rounded-[20px] border border-[var(--briki-border)] bg-[var(--briki-surface)] shadow-[0_10px_30px_rgba(15,23,42,0.06)]"
               >
                 <div className="mb-6">
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center"
-                    style={{ backgroundColor: 'var(--briki-surface-alt)' }}
+                    className="w-12 h-12 rounded-xl flex items-center justify-center bg-[var(--briki-surface-alt)]"
                   >
-                    <Icon className="w-6 h-6" style={{ color: 'var(--briki-text)' }} />
+                    <Icon className="w-6 h-6 text-[var(--briki-text)]" />
                   </div>
                 </div>
                 <h3
-                  className="mb-4"
-                  style={{
-                    fontSize: '1.5rem',
-                    lineHeight: '1.25',
-                    fontWeight: '600',
-                    color: 'var(--briki-text)',
-                  }}
+                  className="mb-4 text-xl sm:text-2xl font-semibold text-[var(--briki-text)] tracking-tight font-smooth"
                 >
                   {step.title}
                 </h3>
@@ -59,11 +52,7 @@ export function LandingHowItWorks() {
                   {step.bullets.map((bullet, bulletIndex) => (
                     <li
                       key={bulletIndex}
-                      style={{
-                        fontSize: '1rem',
-                        lineHeight: '1.6',
-                        color: 'var(--briki-text-muted)',
-                      }}
+                      className="text-body text-[var(--briki-text-muted)] font-smooth"
                     >
                       • {bullet}
                     </li>
