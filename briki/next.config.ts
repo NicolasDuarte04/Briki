@@ -30,6 +30,16 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizeCss: true,
   },
+  // Redirect root to default locale
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/es',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default withNextIntl(nextConfig);
