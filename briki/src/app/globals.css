@@ -58,12 +58,12 @@
   --card-foreground: 222 47% 11%;
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
-  --primary: 200 98% 36%;
+  --primary: 200 95% 33%; /* WCAG AA compliant on light backgrounds */
   --primary-foreground: 0 0% 100%;
   --secondary: 210 40% 96%;
   --secondary-foreground: 222 47% 11%;
   --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 40%; /* Updated from 215 16% 47% for better contrast */
+  --muted-foreground: 215 16% 47%; /* Meets WCAG AA 4.5:1 contrast on white */
   --accent: 210 40% 96%;
   --accent-foreground: 222 47% 12%;
   --destructive: 0 84% 50%;
@@ -100,50 +100,8 @@
   --briki-surface-alt: #F8FAFC;
   --briki-border: #E2E8F0;
   --briki-primary: #2563EB;
-  --briki-primary-dark: #1E40AF;
 }
 
-.dark {
-  --background: 220 49% 8%;
-  --foreground: 220 13% 91%;
-  --card: 220 49% 8%;
-  --card-foreground: 220 13% 91%;
-  --popover: 220 49% 8%;
-  --popover-foreground: 220 13% 91%;
-  --primary: 198 93% 60%;
-  --primary-foreground: 220 60% 7%;
-  --secondary: 221 39% 11%;
-  --secondary-foreground: 220 13% 91%;
-  --muted: 221 39% 11%;
-  --muted-foreground: 215 20% 65%;
-  --accent: 221 39% 11%;
-  --accent-foreground: 220 13% 91%;
-  --destructive: 0 91% 71%;
-  --destructive-foreground: 220 43% 8%;
-  --success: 160 84% 39%;
-  --success-foreground: 210 20% 95%;
-  --warning: 38 92% 50%;
-  --warning-foreground: 24 100% 88%;
-  --border: 215 28% 17%;
-  --input: 215 28% 17%;
-  --ring: 224 76% 48%;
-
-  --sidebar: 220 49% 8%;
-  --sidebar-foreground: 220 13% 91%;
-  --sidebar-primary: 198 93% 60%;
-  --sidebar-primary-foreground: 220 60% 7%;
-  --sidebar-accent: 221 39% 11%;
-  --sidebar-accent-foreground: 220 13% 91%;
-  --sidebar-border: 215 28% 17%;
-  --sidebar-ring: 224 76% 48%;
-  --chart-1: 214 95% 68%;
-  --chart-2: 152 76% 47%;
-  --chart-3: 43 96% 56%;
-  --chart-4: 263 83% 73%;
-  --chart-5: 0 84% 64%;
-
-  --shadow-edge: rgba(0, 0, 0, 0.25);
-}
 
 @layer base {
   /* Reset defaults */
@@ -206,6 +164,11 @@
   /* Ensure landing page has no white background behind navbar */
   body:has(.landing-hero) {
     background: transparent;
+  }
+
+  /* Scroll-based background transition for landing page */
+  .landing-background-transition {
+    transition: background-color 1s ease-in-out;
   }
 
   /* App shell layout */
@@ -345,6 +308,41 @@
   }
   .text-briki-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] via-[#0EA5E9] to-[#0284C7];
+  }
+
+  /* Loading screen animations */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in-delay {
+    0% {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    50% {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.6s ease-out forwards;
+  }
+
+  .animate-fade-in-delay {
+    animation: fade-in-delay 0.8s ease-out forwards;
   }
   
   /* Ensure navbar is completely transparent */

@@ -90,7 +90,6 @@ export function Composer({ className, onSend, placeholder }: { className?: strin
         "rounded-2xl border border-border/50 bg-background/75 px-4 py-3 shadow-[0_24px_64px_-40px_rgba(15,23,42,0.6)] backdrop-blur-sm",
         "transition-colors duration-200",
         "focus-within:border-primary/40 focus-within:bg-background/90 focus-within:shadow-[0_28px_72px_-38px_rgba(15,23,42,0.55)]",
-        "dark:bg-neutral-950/80 dark:border-white/10",
         className
       )}
     >

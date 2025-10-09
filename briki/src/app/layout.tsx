@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
+import LoadingProvider from "@/components/LoadingProvider";
 
 const siteConfig = {
   name: "Briki",
-  title: "Briki - Tu Compañero de Seguros Inteligente",
+  title: "Briki - Insurance AI Agent",
   description: "Briki te ayuda a entender, comparar y gestionar tus seguros de manera simple e inteligente. Obtén asesoría personalizada, compara pólizas y toma decisiones informadas con inteligencia artificial.",
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://briki.com",
   ogImage: "/brand/briki-og-image.png", // 1200x630px recommended
@@ -64,9 +65,7 @@ export const metadata: Metadata = {
     apple: [
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
-    other: [
-      { rel: "mask-icon", url: "/safari-pinned-tab.svg" },
-    ],
+    shortcut: "/favicon.ico",
   },
   
   // Manifest
@@ -234,7 +233,9 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        {children}
+        <LoadingProvider>
+          {children}
+        </LoadingProvider>
       </body>
     </html>
   );

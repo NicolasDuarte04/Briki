@@ -47,11 +47,11 @@ export function LandingFeaturesGrid() {
                     </Card>
                     <Card className="group p-6 shadow-black/5 sm:col-span-2 sm:rounded-none sm:rounded-bl-xl md:p-12 transition-transform duration-300 ease-out hover:scale-[1.02]">
                         <p className="mx-auto mb-6 max-w-md text-balance text-center text-lg font-semibold sm:text-2xl">Open Briki anywhere — your broker Copilot.</p>
-                        <p className="mx-auto mb-12 max-w-md text-balance text-center text-sm text-muted-foreground">Use the same quick command (fn + K) to open Briki's AI workspace across proposals, chats, or policies.</p>
+                        <p className="mx-auto mb-12 max-w-md text-balance text-center text-sm text-muted-foreground">Use the same quick command (control + K) to open Briki's AI workspace across proposals, chats, or policies.</p>
 
                         <div className="flex justify-center gap-6">
                             <div className="inset-shadow-sm dark:inset-shadow-white/5 bg-muted/35 relative flex aspect-square size-16 items-center rounded-[7px] border p-3 shadow-lg ring dark:shadow-white/5 dark:ring-black">
-                                <span className="absolute right-2 top-1 block text-sm">fn</span>
+                                <span className="absolute right-2 top-1 block text-sm">ctrl</span>
                                 <BarChart className="mt-auto size-4" />
                             </div>
                             <div className="inset-shadow-sm dark:inset-shadow-white/5 bg-muted/35 flex aspect-square size-16 items-center justify-center rounded-[7px] border p-3 shadow-lg ring dark:shadow-white/5 dark:ring-black">

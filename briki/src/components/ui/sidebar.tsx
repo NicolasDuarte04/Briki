@@ -138,7 +138,7 @@ export const MobileSidebar = ({
             aria-label="Open sidebar menu"
             className="p-2 -m-2"
           >
-            <IconMenu2 className="text-neutral-800 dark:text-neutral-200" />
+            <IconMenu2 className="text-neutral-800" />
           </button>
         </div>
         <AnimatePresence>
@@ -157,7 +157,7 @@ export const MobileSidebar = ({
               )}
             >
               <button
-                className="absolute right-10 top-10 z-50 text-neutral-800 dark:text-neutral-200 p-2 -m-2"
+                className="absolute right-10 top-10 z-50 text-neutral-800 p-2 -m-2"
                 onClick={() => setOpen(!open)}
                 aria-label="Close sidebar menu"
               >

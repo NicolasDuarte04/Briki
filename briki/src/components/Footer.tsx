@@ -1,99 +1,142 @@
-"use client";
+'use client';
+import React from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
+import { InstagramIcon, LinkedinIcon, YoutubeIcon, MailIcon } from 'lucide-react';
+import Image from 'next/image';
 
-import { cn } from "@/lib/utils";
-import { useTranslations } from "next-intl";
-import { CircleQuestionMark } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+interface FooterLink {
+	title: string;
+	href: string;
+	icon?: React.ComponentType<{ className?: string }>;
+}
+
+interface FooterSection {
+	label: string;
+	links: FooterLink[];
+}
+
+const footerLinks: FooterSection[] = [
+	{
+		label: 'Product',
+		links: [
+			{ title: 'Features', href: '#features' },
+			{ title: 'Pricing', href: '#pricing' },
+			{ title: 'Demo', href: '#demo' },
+			{ title: 'Integration', href: '/' },
+		],
+	},
+	{
+		label: 'Company',
+		links: [
+			{ title: 'About Us', href: '/about' },
+			{ title: 'Careers', href: 'mailto:talent@brikiapp.com' },
+			{ title: 'Privacy Policy', href: '/privacy' },
+			{ title: 'Terms of Services', href: '/terms' },
+		],
+	},
+	{
+		label: 'Resources',
+		links: [
+			{ title: 'Help Center', href: '/help' },
+			{ title: 'Contact', href: 'mailto:contact@brikiapp.com' },
+			{ title: 'Blog', href: '/blog' },
+			{ title: 'Documentation', href: '/docs' },
+		],
+	},
+	{
+		label: 'Social Links',
+		links: [
+			{ title: 'LinkedIn', href: 'https://www.linkedin.com/company/brikiapp/', icon: LinkedinIcon },
+			{ title: 'Email', href: 'mailto:contact@brikiapp.com', icon: MailIcon },
+			{ title: 'Instagram', href: '#', icon: InstagramIcon },
+			{ title: 'YouTube', href: '#', icon: YoutubeIcon },
+		],
+	},
+];
 
 type FooterProps = {
-  className?: string;
+	className?: string;
 };
 
 export function Footer({ className }: FooterProps) {
-  const t = useTranslations("footer"); 
-  const currentYear = new Date().getFullYear();
+	return (
+		<footer className={`md:rounded-t-6xl relative w-full flex flex-col items-center justify-center rounded-t-4xl border-t bg-white px-6 py-12 lg:py-16 ${className || ''}`}>
+			<div className="bg-foreground/20 absolute top-0 right-1/2 left-1/2 h-px w-1/3 -translate-x-1/2 -translate-y-1/2 rounded-full blur" />
 
-  return (
-    <footer className={cn("w-full border-t bg-background", className)}>
-      <div className="mx-auto w-full max-w-6xl px-4 md:px-6 py-6 md:py-8">
-        <div className="flex flex-col items-center gap-6 text-center md:flex-row md:flex-wrap md:items-center md:justify-between md:text-left">
-          {/* Brand and Copyright */}
-          <div className="flex flex-col items-center gap-2 md:items-start md:text-left">
-            <div className="flex items-center gap-2">
-              <span
-                className="text-lg font-semibold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent select-none"
-                aria-label="Briki brand"
-              >
-                Briki
-              </span>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex items-center justify-center"
-                    aria-label="Learn more about Briki"
-                  >
-                    <CircleQuestionMark className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Briki helps streamline insurance processes for early-stage teams</p>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <span className="text-sm text-muted-foreground">
-              © {currentYear} Briki. {t("rights")}
-            </span>
-          </div>
+			<div className="grid w-full max-w-6xl mx-auto gap-8 xl:grid-cols-3 xl:gap-8">
+				<AnimatedContainer className="space-y-4">
+					<div className="flex items-center gap-2">
+						<Image
+							src="/brand/briki-logo-2.png"
+							alt="Briki logo"
+							width={32}
+							height={32}
+							className="w-8 h-8"
+							priority
+						/>
+						<span className="text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent select-none font-inter">
+							Briki
+						</span>
+					</div>
+					<p className="text-muted-foreground mt-8 text-sm md:mt-0">
+						© {new Date().getFullYear()} Briki. All rights reserved.
+					</p>
+				</AnimatedContainer>
 
-          {/* Contact Information - Stacked */}
-          <div className="flex flex-col items-center gap-4 text-sm md:items-end md:text-right">
-            <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
-              <svg 
-                className="w-4 h-4" 
-                fill="currentColor" 
-                viewBox="0 0 24 24" 
-                aria-hidden="true"
-              >
-                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-              </svg>
-              <a
-                href="https://www.linkedin.com/company/brikiapp/"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="Open Briki LinkedIn page"
-                className="text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                {t("linkedin")}
-              </a>
-            </div>
-            
-            <div className="text-muted-foreground">
-              <span className="font-medium">Get in contact:</span>{" "}
-              <a
-                href="mailto:contact@brikiapp.com"
-                aria-label="Email contact at Briki"
-                className="hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                contact@brikiapp.com
-              </a>
-            </div>
-            
-            <div className="text-muted-foreground">
-              <span className="font-medium">Work with us:</span>{" "}
-              <a
-                href="mailto:talent@brikiapp.com"
-                aria-label="Email talent at Briki"
-                className="hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                talent@brikiapp.com
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
+				<div className="mt-10 grid grid-cols-2 gap-8 md:grid-cols-4 xl:col-span-2 xl:mt-0">
+					{footerLinks.map((section, index) => (
+						<AnimatedContainer key={section.label} delay={0.1 + index * 0.1}>
+							<div className="mb-10 md:mb-0">
+								<h3 className="text-xs font-semibold text-foreground mb-4">{section.label}</h3>
+								<ul className="text-muted-foreground mt-4 space-y-2 text-sm">
+									{section.links.map((link) => (
+										<li key={link.title}>
+											<a
+												href={link.href}
+												className="hover:text-foreground inline-flex items-center transition-all duration-300"
+												target={link.href.startsWith('http') ? '_blank' : undefined}
+												rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+											>
+												{link.icon && <link.icon className="me-1 size-4" />}
+												{link.title}
+											</a>
+										</li>
+									))}
+								</ul>
+							</div>
+						</AnimatedContainer>
+					))}
+				</div>
+			</div>
+		</footer>
+	);
+}
+
+type ViewAnimationProps = {
+	delay?: number;
+	className?: ComponentProps<typeof motion.div>['className'];
+	children: ReactNode;
+};
+
+function AnimatedContainer({ className, delay = 0.1, children }: ViewAnimationProps) {
+	const shouldReduceMotion = useReducedMotion();
+
+	if (shouldReduceMotion) {
+		return <div className={className}>{children}</div>;
+	}
+
+	return (
+		<motion.div
+			initial={{ filter: 'blur(4px)', translateY: -8, opacity: 0 }}
+			whileInView={{ filter: 'blur(0px)', translateY: 0, opacity: 1 }}
+			viewport={{ once: true }}
+			transition={{ delay, duration: 0.8 }}
+			className={className}
+		>
+			{children}
+		</motion.div>
+	);
 }
 
 export default Footer;

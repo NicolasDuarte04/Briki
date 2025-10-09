@@ -45,7 +45,7 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
       aria-labelledby={headerId}
       tabIndex={0}
       className={cn(
-        "overflow-hidden rounded-2xl border border-border/70 bg-background/95 shadow-[0_18px_42px_-24px_rgba(15,23,42,0.35)] py-0 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-neutral-950 [&_[data-slot=card-header]]:px-5 [&_[data-slot=card-content]]:px-5 [&_[data-slot=card-footer]]:px-5 [&_[data-slot=card-header]]:gap-1.5 gap-0",
+        "overflow-hidden rounded-2xl border border-border/70 bg-background/95 shadow-[0_18px_42px_-24px_rgba(15,23,42,0.35)] py-0 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background [&_[data-slot=card-header]]:px-5 [&_[data-slot=card-content]]:px-5 [&_[data-slot=card-footer]]:px-5 [&_[data-slot=card-header]]:gap-1.5 gap-0",
         className
       )}
       {...rest}

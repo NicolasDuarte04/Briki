@@ -10,10 +10,15 @@ import { LandingStatsGrowth } from './Landing/LandingStatsGrowth';
 import { LandingSocialProof } from './Landing/LandingSocialProof';
 import { LandingCTA } from './Landing/LandingCTA';
 import { LandingFooter } from './Landing/LandingFooter';
+import { useScrollProgress } from '@/hooks/useScrollProgress';
 
 export default function Landing() {
+  const { hasScrolled80Percent } = useScrollProgress();
+
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen landing-background-transition ${
+      hasScrolled80Percent ? 'bg-white' : 'bg-transparent'
+    }`}>
       <LandingNavigation />
       <div id="main-content">
         <LandingHero />

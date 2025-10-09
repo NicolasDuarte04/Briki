@@ -13,6 +13,8 @@ import {
     ArrowUpIcon,
     Paperclip,
     PlusIcon,
+    FileText,
+    X,
 } from "lucide-react";
 import { createBrowserSupabase } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -83,6 +85,16 @@ export function VercelV0Chat() {
         minHeight: 90,
         maxHeight: 200,
     });
+    
+    // PDF upload state
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadedFile, setUploadedFile] = useState<{
+        name: string;
+        size: number;
+        text: string;
+        pages: number;
+    } | null>(null);
 
     useEffect(() => {
         const supabase = createBrowserSupabase();
@@ -101,6 +113,63 @@ export function VercelV0Chat() {
         };
     }, []);
 
+    // PDF upload handlers
+    const handleUploadClick = () => {
+        console.log('📁 Frontend: Abriendo selector de archivos...');
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        console.log('📄 Frontend: Archivo seleccionado:', file.name, file.type, file.size);
+        setIsUploading(true);
+
+        try {
+            const formData = new FormData();
+            formData.append('pdf', file);
+            console.log('📡 Frontend: FormData creado');
+
+            console.log('🚀 Frontend: Enviando a /api/upload/pdf...');
+            const response = await fetch('/api/upload/pdf', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            console.log('📡 Frontend: Respuesta recibida:', result);
+
+            if (result.success) {
+                setUploadedFile({
+                    name: result.metadata.name,
+                    size: result.metadata.size,
+                    text: result.text,
+                    pages: result.metadata.pages
+                });
+                
+                console.log('📖 Texto extraído:', result.text.substring(0, 200) + '...');
+                console.log('✅ Archivo guardado en estado para envío');
+            } else {
+                alert(`❌ Error: ${result.error}`);
+            }
+            
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error de conexión');
+        } finally {
+            setIsUploading(false);
+            event.target.value = '';
+        }
+    };
+
+    const handleRemoveFile = () => {
+        setUploadedFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
     const handleSubmit = () => {
         // Check if user is authenticated
         if (!user) {
@@ -109,10 +178,15 @@ export function VercelV0Chat() {
         }
         
         // For authenticated users, go to conversation
-        if (value.trim()) {
-            setBrief({ freeText: value.trim() });
+        let fullMessage = value.trim();
+        if (uploadedFile) {
+            fullMessage += `\n\n📄 DOCUMENTO PDF ADJUNTO: ${uploadedFile.name}\n`;
         }
-        trackEvent("hero_chat_start", { hasText: Boolean(value.trim()) });
+        
+        if (fullMessage) {
+            setBrief({ freeText: fullMessage });
+        }
+        trackEvent("hero_chat_start", { hasText: Boolean(value.trim()), hasPDF: Boolean(uploadedFile) });
         setStep("conversation");
     };
 
@@ -155,6 +229,32 @@ export function VercelV0Chat() {
                             overflow: "hidden",
                         }}
                     />
+                    
+                    {/* PDF upload indicator */}
+                    {uploadedFile && (
+                        <div className="mx-5 mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-green-500/20">
+                                    <FileText className="w-4 h-4 text-green-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-white text-sm font-medium">
+                                        {uploadedFile.name}
+                                    </div>
+                                    <div className="text-neutral-400 text-xs">
+                                        {Math.round(uploadedFile.size / 1024)} KB • {uploadedFile.pages} pages
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleRemoveFile}
+                                className="p-1 rounded-full hover:bg-neutral-800 transition-colors text-neutral-400 hover:text-white"
+                                aria-label="Remove file"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center justify-between p-4 border-t border-neutral-800">
@@ -174,10 +274,10 @@ export function VercelV0Chat() {
                         <button
                             type="button"
                             onClick={handleSubmit}
-                            disabled={!value.trim()}
+                            disabled={!value.trim() && !uploadedFile}
                             className={cn(
                                 "px-3 py-2 rounded-lg text-sm transition-colors border border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800 flex items-center justify-between gap-1",
-                                value.trim()
+                                (value.trim() || uploadedFile)
                                     ? "bg-white text-black"
                                     : "text-zinc-400 cursor-not-allowed"
                             )}
@@ -185,7 +285,7 @@ export function VercelV0Chat() {
                             <ArrowUpIcon
                                 className={cn(
                                     "w-4 h-4",
-                                    value.trim()
+                                    (value.trim() || uploadedFile)
                                         ? "text-black"
                                         : "text-zinc-400"
                                 )}
@@ -197,12 +297,23 @@ export function VercelV0Chat() {
             </div>
 
             <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
-                <ActionButton
-                    icon={<FileUp className="w-4 h-4" />}
-                    label="Upload PDF"
-                    user={user}
-                    onAuthenticatedClick={() => setStep("conversation")}
-                />
+                <button
+                    type="button"
+                    onClick={handleUploadClick}
+                    disabled={isUploading}
+                    className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-full border transition-colors",
+                        uploadedFile
+                            ? "bg-green-500/20 border-green-500/30 text-green-400"
+                            : "bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-400 hover:text-white",
+                        isUploading && "opacity-50 cursor-not-allowed"
+                    )}
+                >
+                    <FileUp className="w-4 h-4" />
+                    <span className="text-xs">
+                        {isUploading ? 'Uploading...' : uploadedFile ? '✓ PDF Loaded' : 'Upload PDF'}
+                    </span>
+                </button>
                 <ActionButton
                     icon={<ImageIcon className="w-4 h-4" />}
                     label="Import WhatsApp chat"
@@ -216,6 +327,15 @@ export function VercelV0Chat() {
                     onAuthenticatedClick={() => setStep("conversation")}
                 />
             </div>
+            
+            {/* Hidden file input */}
+            <input
+                type="file"
+                ref={fileInputRef}
+                accept=".pdf"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+            />
         </div>
     );
 }

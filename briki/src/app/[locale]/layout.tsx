@@ -20,7 +20,7 @@ export default async function LocaleLayout({
   return (
     <AuthProvider>
       <I18nProvider locale={locale} messages={messages}>
-        <main className="flex-1 flex flex-col min-h-0">
+        <main className="flex-1 flex flex-col min-h-0" role="main" aria-label="Contenido principal de la aplicación">
           {children}
         </main>
         <CommandPalette />

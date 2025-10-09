@@ -83,7 +83,6 @@ export function HotkeysGuide({ className, triggerClassName }: HotkeysGuideProps)
             "flex size-9 shrink-0 items-center justify-center rounded-full border border-border/60 bg-muted/40 text-muted-foreground transition-all",
             "hover:text-foreground",
             "focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            "dark:border-white/15 dark:bg-neutral-700",
             triggerClassName,
           )}
         >

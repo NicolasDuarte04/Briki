@@ -50,8 +50,10 @@ export function CommandPalette() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="p-0 shadow-lg overflow-hidden max-w-xl">
-        <DialogTitle className="sr-only">Command palette</DialogTitle>
-        <DialogDescription className="sr-only">Quickly jump to steps</DialogDescription>
+        <div style={{ position: 'absolute', width: '1px', height: '1px', padding: '0', margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: '0' }}>
+          <DialogTitle>Command palette</DialogTitle>
+          <DialogDescription>Quickly jump to steps</DialogDescription>
+        </div>
         <Command>
           <CommandInput placeholder="Go to step..." />
           <CommandList>
