@@ -29,12 +29,14 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
       return;
     }
 
-    if (initialStep && step !== initialStep) {
+    // Only set the step once on mount, without reading step from state
+    if (initialStep) {
       setStep(initialStep);
     }
 
     initializedRef.current = true;
-  }, [initialStep, setStep, step]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialStep, setStep]);
 
   const steps: UIStep[] = [
     "landing",

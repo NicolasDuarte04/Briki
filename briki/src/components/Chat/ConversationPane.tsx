@@ -276,15 +276,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     node.style.height = `${nextHeight}px`;
   }, [value]);
 
-  useEffect(() => {
-    if (initialMessage && initialMessage.trim() && initialMessage !== "") {
-      // Simular que el usuario envió el mensaje automáticamente
-      sendMessage(initialMessage.trim());
-      clearInitialMessage();
-    }
-  }, [initialMessage]);
-
-  async function sendMessage(messageText?: string) {
+  const sendMessage = useCallback(async (messageText?: string) => {
     const trimmed = messageText ? messageText.trim() : value.trim();
     if (!trimmed) return;
     const container = scrollContainerRef.current;
@@ -338,7 +330,15 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       setMessages((prev) => [...prev, errorResponse]);
       setIsTyping(false);
     }
-  }
+  }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value]);
+
+  useEffect(() => {
+    if (initialMessage && initialMessage.trim() && initialMessage !== "") {
+      // Simular que el usuario envió el mensaje automáticamente
+      sendMessage(initialMessage.trim());
+      clearInitialMessage();
+    }
+  }, [initialMessage, sendMessage, clearInitialMessage]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {

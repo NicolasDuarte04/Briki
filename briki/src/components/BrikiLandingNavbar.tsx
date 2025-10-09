@@ -128,7 +128,7 @@ export default function BrikiLandingNavbar() {
               <a
                 key={idx}
                 href={item.link}
-                className="w-full rounded-md px-4 py-2 text-lg text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-ring focus-visible:ring-[3px] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-neutral-950"
+                className="w-full rounded-md px-4 py-2 text-lg text-neutral-600 transition-colors hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-ring focus-visible:ring-[3px] focus-visible:ring-offset-2 focus-visible:ring-offset-white"
                 onClick={() => {
                   setIsOpen(false);
                   setActiveHash(item.link);

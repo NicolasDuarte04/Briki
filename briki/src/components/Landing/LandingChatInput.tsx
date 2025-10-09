@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Upload, Paperclip, Sparkles, FileText, X, ArrowUpIcon, FileUp, ImageIcon, MonitorIcon } from 'lucide-react';
+import { Upload, Paperclip, Sparkles, FileText, X } from 'lucide-react';
 import { useUI } from '@/lib/ui/state';
 
 export function LandingChatInput() {
@@ -131,9 +131,9 @@ export function LandingChatInput() {
             className="w-full bg-transparent text-white placeholder:text-gray-400 resize-none outline-none text-subhead min-h-[100px]"
           />
           
-          {/* 📄 Indicador de PDF subido - MANTENEMOS NUESTRA LÓGICA */}
+          {/* PDF upload indicator */}
           {uploadedFile && (
-            <div className="mx-5 mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between">
+            <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-green-500/20">
                   <FileText className="w-4 h-4 text-green-400" />
@@ -142,15 +142,15 @@ export function LandingChatInput() {
                   <div className="text-white text-sm font-medium">
                     {uploadedFile.name}
                   </div>
-                  <div className="text-neutral-400 text-xs">
-                    {Math.round(uploadedFile.size / 1024)} KB • {uploadedFile.pages} páginas • Listo para enviar
+                  <div className="text-gray-400 text-xs">
+                    {Math.round(uploadedFile.size / 1024)} KB • {uploadedFile.pages} pages
                   </div>
                 </div>
               </div>
               <button
                 onClick={handleRemoveFile}
-                className="p-1 rounded-full hover:bg-neutral-800 transition-colors text-neutral-400 hover:text-white"
-                aria-label="Remover archivo"
+                className="p-1 rounded-full hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
+                aria-label="Remove file"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -158,37 +158,65 @@ export function LandingChatInput() {
           )}
         </div>
 
-        <div className="flex items-center justify-between px-8 pb-8 pt-4">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
+        {/* Toolbar */}
+        <div className="px-8 py-5 border-t border-gray-700/50 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button 
               onClick={handleUploadClick}
               disabled={isUploading}
-              className="p-2.5 rounded-lg transition-colors bg-[var(--briki-primary)] hover:opacity-90"
-              aria-label="Upload PDF"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-white text-sm disabled:opacity-50"
             >
-              <Upload className="w-5 h-5 text-white" />
+              <Upload className="w-4 h-4" />
+              {isUploading ? 'Uploading...' : uploadedFile ? 'Change PDF' : 'Upload'}
+            </button>
+            <button 
+              onClick={handleWhatsAppImport}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-white text-sm"
+            >
+              <Upload className="w-4 h-4" />
+              Import
             </button>
           </div>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-3">
+            <button 
+              className="p-2 rounded-lg hover:bg-white/5 transition-colors text-gray-400 hover:text-white"
+              aria-label="Attach file"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
             <button
-              type="button"
               onClick={handleSendMessage}
               disabled={!message.trim() && !uploadedFile}
-              className={`p-2.5 rounded-lg transition-colors ${
-                (message.trim() || uploadedFile)
-                  ? "bg-white text-slate-900 hover:bg-slate-100"
-                  : "bg-gray-700 text-gray-500 cursor-not-allowed"
-              }`}
-              aria-label="Send message"
+              className="p-2.5 rounded-lg transition-colors bg-[var(--briki-primary)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Generate with AI"
             >
-              <Sparkles className="w-5 h-5" />
+              <Sparkles className="w-5 h-5 text-white" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Input de archivo oculto - MANTENEMOS NUESTRA LÓGICA */}
+      {/* Helper chips */}
+      <div className="flex items-center gap-4 mt-6 justify-center">
+        <button 
+          onClick={handleUploadClick}
+          disabled={isUploading}
+          className={`px-5 py-2.5 rounded-full backdrop-blur-sm text-white text-sm hover:bg-white/20 transition-colors ${
+            uploadedFile ? 'bg-green-500/20 border border-green-500/30' : 'bg-white/10'
+          } disabled:opacity-50`}
+        >
+          {uploadedFile ? '✓ PDF Loaded' : 'Upload PDF'}
+        </button>
+        <button 
+          onClick={handleWhatsAppImport}
+          className="px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-sm text-white text-sm hover:bg-white/20 transition-colors"
+        >
+          Import WhatsApp chat
+        </button>
+      </div>
+
+      {/* Hidden file input */}
       <input
         type="file"
         ref={fileInputRef}

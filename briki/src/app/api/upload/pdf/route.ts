@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Force Node.js runtime (required for Buffer and pdf2json)
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     console.log('📄 API: Endpoint ejecutándose...');

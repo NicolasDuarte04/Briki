@@ -566,7 +566,7 @@ function FollowupsBanner() {
   const tFollowups = useTranslations("workspace.followups");
   const [customDay, setCustomDay] = useState("");
 
-  const cadenceReadback = useMemo(() => followupCadenceLabel(), [followupCadenceLabel]);
+  const cadenceReadback = useMemo(() => followupCadenceLabel(), [followupCadenceLabel, followupCadenceDays]);
 
   const showCadenceToast = (previousLabel: string) => {
     const nextLabel = followupCadenceLabel();

@@ -28,7 +28,6 @@ const PopoverContent = React.forwardRef<
           "data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",
           "rounded-xl border bg-popover text-popover-foreground shadow-lg outline-none",
           "focus-visible:border-ring focus-visible:ring-ring/60 focus-visible:ring-[3px]",
-          "dark:border-border/80",
           "min-w-[220px] max-w-xs p-4",
           className
         )}

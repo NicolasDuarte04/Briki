@@ -912,6 +912,7 @@ export const useUI = create<UIState>()(
           policiesLoaded: true,
           policiesLoading: false,
           comparisonScores: computeComparisonScores(policies, state.comparisonWeights),
+          _cachedPoliciesView: policies.map(policyToView), // Update cache when policies change
         })),
       fetchPolicies: async () => {
         const { policiesLoading, policiesLoaded } = get();
@@ -1067,11 +1068,18 @@ export const useUI = create<UIState>()(
         generatedOn: get().proposalGeneratedOn,
       }),
       setRenewals: (renewals) =>
-        set(() => ({
-          renewals,
-          renewalsLoaded: true,
-          renewalsLoading: false,
-        })),
+        set((state) => {
+          const renewalsView = renewals.map(renewalToView);
+          const filtered = computeFilteredSortedRenewals({ ...state, renewals });
+          const filteredView = filtered.map(renewalToView);
+          return {
+            renewals,
+            renewalsLoaded: true,
+            renewalsLoading: false,
+            _cachedRenewalsView: renewalsView, // Update cache when renewals change
+            _cachedFilteredRenewalsView: filteredView, // Update filtered cache
+          };
+        }),
       fetchRenewals: async () => {
         const { renewalsLoading, renewalsLoaded } = get();
         if (renewalsLoading || renewalsLoaded) {
@@ -1096,8 +1104,12 @@ export const useUI = create<UIState>()(
           if (shallowEqualRenewalsFilters(state.renewalsFilters, nextFilters)) {
             return {};
           }
+          const nextState = { ...state, renewalsFilters: nextFilters };
+          const filtered = computeFilteredSortedRenewals(nextState);
+          const filteredView = filtered.map(renewalToView);
           return {
             renewalsFilters: nextFilters,
+            _cachedFilteredRenewalsView: filteredView, // Update filtered cache when filters change
             ...logRenewalsEventInternal(state, "FilterChange", { filters: nextFilters }),
           };
         }),
@@ -1107,8 +1119,12 @@ export const useUI = create<UIState>()(
           if (shallowEqualRenewalsSorting(state.renewalsSorting, nextSorting)) {
             return {};
           }
+          const nextState = { ...state, renewalsSorting: nextSorting };
+          const filtered = computeFilteredSortedRenewals(nextState);
+          const filteredView = filtered.map(renewalToView);
           return {
             renewalsSorting: nextSorting,
+            _cachedFilteredRenewalsView: filteredView, // Update filtered cache when sorting changes
             ...logRenewalsEventInternal(state, "SortChange", { sorting: nextSorting }),
           };
         }),
@@ -1120,8 +1136,14 @@ export const useUI = create<UIState>()(
           if (shallowEqualRenewals(state.renewals, nextRenewals)) {
             return {};
           }
+          const renewalsView = nextRenewals.map(renewalToView);
+          const nextState = { ...state, renewals: nextRenewals };
+          const filtered = computeFilteredSortedRenewals(nextState);
+          const filteredView = filtered.map(renewalToView);
           return {
             renewals: nextRenewals,
+            _cachedRenewalsView: renewalsView, // Update cache when renewals change
+            _cachedFilteredRenewalsView: filteredView, // Update filtered cache
             ...logRenewalsEventInternal(state, "ReminderSet", { id, reminderSet: Boolean(reminderSet) }),
           };
         }),
@@ -1144,7 +1166,13 @@ export const useUI = create<UIState>()(
       getRenewalStatusChip: (status) => renewalStatusMetaMap[status] ?? renewalStatusMetaMap.ok,
       selectPoliciesView: () => {
         const state = get();
-        return state.policies.map(policyToView);
+        // Return cached value if available to maintain referential stability
+        if (state._cachedPoliciesView !== undefined) {
+          return state._cachedPoliciesView;
+        }
+        // Compute the view (don't call set here - it would update during render!)
+        const view = state.policies.map(policyToView);
+        return view;
       },
       selectPolicyView: (policyId) => {
         const policy = get().policies.find((p) => p.id === policyId);
@@ -1152,12 +1180,24 @@ export const useUI = create<UIState>()(
       },
       selectRenewalsView: () => {
         const state = get();
-        return state.renewals.map(renewalToView);
+        // Return cached value if available to maintain referential stability
+        if (state._cachedRenewalsView !== undefined) {
+          return state._cachedRenewalsView;
+        }
+        // Compute the view (don't call set here - it would update during render!)
+        const view = state.renewals.map(renewalToView);
+        return view;
       },
       selectFilteredSortedRenewalsView: () => {
         const state = get();
+        // Return cached value if available to maintain referential stability
+        if (state._cachedFilteredRenewalsView !== undefined) {
+          return state._cachedFilteredRenewalsView;
+        }
+        // Compute the view (don't call set here - it would update during render!)
         const filtered = computeFilteredSortedRenewals(state);
-        return filtered.map(renewalToView);
+        const view = filtered.map(renewalToView);
+        return view;
       },
     }),
     { name: "ui-store" }
