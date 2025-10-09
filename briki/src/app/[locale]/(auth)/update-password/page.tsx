@@ -28,7 +28,7 @@ export default async function UpdatePasswordPage({ params }: PageProps) {
             Update your password
           </h1>
           <p className="mt-2 text-sm text-gray-600 text-center">
-            Please enter your new password below. Make sure it's at least 8 characters long and secure.
+            Please enter your new password below. Make sure it&apos;s at least 8 characters long and secure.
           </p>
         </div>
         

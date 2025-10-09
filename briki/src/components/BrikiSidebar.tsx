@@ -7,6 +7,7 @@ import {
   SidebarLink,
 } from "@/components/ui/sidebar";
 import { IconLogout } from "@tabler/icons-react";
+import Link from "next/link";
 
 export default function BrikiSidebarLayout({
   children,
@@ -28,11 +29,11 @@ export default function BrikiSidebarLayout({
       <Sidebar open={open} setOpen={setOpen} animate>
         <SidebarBody>
           <div className="flex h-full flex-col gap-2">
-            <a href="/" className="block py-2 select-none">
+            <Link href="/" className="block py-2 select-none">
               <span className="text-xl font-semibold text-briki-gradient leading-none">
                 Briki
               </span>
-            </a>
+            </Link>
 
             <nav className="flex flex-col gap-1">
               {navLinks.map((link) => (

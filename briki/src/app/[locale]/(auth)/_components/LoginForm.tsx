@@ -177,12 +177,12 @@ export default function LoginForm() {
 
       {/* Links */}
       <div className="flex items-center justify-center gap-3 text-sm">
-        <a
+        <Link
           href="/forgot-password"
           className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           Forgot password
-        </a>
+        </Link>
         <span className="text-muted-foreground">|</span>
         <Link
           href="/register"

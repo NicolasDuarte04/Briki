@@ -19,7 +19,7 @@ export default function VerifyPage() {
           </div>
           <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
           <CardDescription className="text-base">
-            We've sent a confirmation link to:
+            We&apos;ve sent a confirmation link to:
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -38,7 +38,7 @@ export default function VerifyPage() {
           </div>
           
           <p className="text-center text-xs text-gray-500">
-            Didn't receive an email? Check your spam folder or{' '}
+            Didn&apos;t receive an email? Check your spam folder or{' '}
             <Link href="/register" className="text-blue-600 hover:underline">
               try signing up again
             </Link>

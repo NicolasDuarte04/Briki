@@ -413,7 +413,7 @@ export function AccountSettings({
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h3 className="text-base font-semibold text-gray-900 mb-2">Password</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Reset your password by receiving a secure reset link via email. You'll be able to create a new password after clicking the link.
+              Reset your password by receiving a secure reset link via email. You&apos;ll be able to create a new password after clicking the link.
             </p>
             <Button 
               onClick={handlePasswordReset}

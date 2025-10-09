@@ -29,7 +29,7 @@ export function LandingFeaturesGrid() {
 
                     <Card className="group overflow-hidden shadow-zinc-950/5 sm:col-span-2 sm:rounded-none sm:rounded-tr-xl transition-transform duration-300 ease-out hover:scale-[1.02]">
                         <p className="mx-auto my-6 max-w-md text-balance px-6 text-center text-lg font-semibold sm:text-2xl md:p-6">Create your proposal with clarity.</p>
-                        <p className="mx-auto max-w-md text-balance px-6 text-center text-sm text-muted-foreground">Briki aligns insurers' coverages side by side so you can compare, adjust, and finalize in minutes.</p>
+                        <p className="mx-auto max-w-md text-balance px-6 text-center text-sm text-muted-foreground">Briki aligns insurers&apos; coverages side by side so you can compare, adjust, and finalize in minutes.</p>
 
                         <CardContent className="mt-auto h-fit">
                             <div className="relative mb-6 sm:mb-0">
@@ -47,7 +47,7 @@ export function LandingFeaturesGrid() {
                     </Card>
                     <Card className="group p-6 shadow-black/5 sm:col-span-2 sm:rounded-none sm:rounded-bl-xl md:p-12 transition-transform duration-300 ease-out hover:scale-[1.02]">
                         <p className="mx-auto mb-6 max-w-md text-balance text-center text-lg font-semibold sm:text-2xl">Open Briki anywhere — your broker Copilot.</p>
-                        <p className="mx-auto mb-12 max-w-md text-balance text-center text-sm text-muted-foreground">Use the same quick command (control + K) to open Briki's AI workspace across proposals, chats, or policies.</p>
+                        <p className="mx-auto mb-12 max-w-md text-balance text-center text-sm text-muted-foreground">Use the same quick command (control + K) to open Briki&apos;s AI workspace across proposals, chats, or policies.</p>
 
                         <div className="flex justify-center gap-6">
                             <div className="inset-shadow-sm dark:inset-shadow-white/5 bg-muted/35 relative flex aspect-square size-16 items-center rounded-[7px] border p-3 shadow-lg ring dark:shadow-white/5 dark:ring-black">

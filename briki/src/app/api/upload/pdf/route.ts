@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import PDFParser from 'pdf2json';
 
 // Force Node.js runtime (required for Buffer and pdf2json)
 export const runtime = 'nodejs';
@@ -40,7 +41,6 @@ export async function POST(request: NextRequest) {
 
     // Extraer texto con pdf2json
     console.log('📚 Iniciando extracción de texto...');
-    const PDFParser = require('pdf2json');
     
     const pdfData = await new Promise<{text: string, numpages: number}>((resolve, reject) => {
       const pdfParser = new PDFParser(null, 1);
