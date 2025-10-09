@@ -3,6 +3,7 @@
 import { LandingNavigation } from './Landing/LandingNavigation';
 import { LandingHero } from './Landing/LandingHero';
 import { LandingHowItWorks } from './Landing/LandingHowItWorks';
+import { LandingFeaturesGrid } from './Landing/LandingFeaturesGrid';
 import { LandingDemo } from './Landing/LandingDemo';
 import { LandingFeatures } from './Landing/LandingFeatures';
 import { LandingStatsGrowth } from './Landing/LandingStatsGrowth';
@@ -17,6 +18,7 @@ export default function Landing() {
       <div id="main-content">
         <LandingHero />
         <LandingHowItWorks />
+        <LandingFeaturesGrid />
         <LandingDemo />
         <LandingFeatures />
         <LandingStatsGrowth />
