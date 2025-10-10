@@ -13,8 +13,7 @@ import {
   MobileNavMenu,
   MobileNavToggle,
 } from "@/components/ui/resizable-navbar";
-import { createBrowserSupabase } from "@/lib/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import { useAuth } from "@/components/AuthProvider";
 
 const navItems = [
   { name: "Features", link: "#features" },
@@ -43,28 +42,16 @@ export default function BrikiLandingNavbar() {
   const t = useTranslations("nav");
   const [isOpen, setIsOpen] = useState(false);
   const [activeHash, setActiveHash] = useState<string>("");
-  const [user, setUser] = useState<User | null>(null);
+  const { user, status, ready } = useAuth();
+
+  // Close mobile nav when user signs out
+  useEffect(() => {
+    if (ready && status === 'unauthenticated') {
+      setIsOpen(false);
+    }
+  }, [status, ready]);
 
   useEffect(() => {
-    console.log("[Briki Nav] useEffect triggered.");
-    const supabase = createBrowserSupabase();
-    
-    const checkUser = async () => {
-      console.log("[Briki Nav] Checking user session...");
-      const { data, error } = await supabase.auth.getUser();
-      if (error) {
-        console.error("[Briki Nav] Error fetching user:", error);
-      }
-      console.log("[Briki Nav] User object received:", data.user);
-      setUser(data.user);
-    };
-    checkUser();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("[Briki Nav] Auth state changed:", event);
-      setUser(session?.user ?? null);
-    });
-
     if (typeof window === "undefined") return;
     const update = () => setActiveHash(window.location.hash || "");
     update();
@@ -72,7 +59,6 @@ export default function BrikiLandingNavbar() {
     
     return () => {
       window.removeEventListener("hashchange", update);
-      authListener.subscription.unsubscribe();
     };
   }, []);
 
@@ -92,7 +78,9 @@ export default function BrikiLandingNavbar() {
           <BrikiLogo />
           <NavItems items={navItems} />
           <div className="relative z-50 flex items-center">
-            {user ? (
+            {!ready || status === 'loading' ? (
+              <div className="h-8 w-[80px]" aria-live="polite" aria-busy="true" />
+            ) : user ? (
               <Button 
                 variant="default" 
                 size="sm" 
@@ -139,7 +127,9 @@ export default function BrikiLandingNavbar() {
               </a>
             ))}
             <div className="flex w-full flex-col gap-2 pt-4">
-              {user ? (
+              {!ready || status === 'loading' ? (
+                <div className="h-10 w-full" aria-live="polite" aria-busy="true" />
+              ) : user ? (
                 <Button 
                   variant="default" 
                   className="w-full justify-start text-lg"

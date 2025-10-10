@@ -14,26 +14,40 @@ import Link from 'next/link';
 import { createBrowserSupabase } from '@/lib/supabase/client';
 import { signOut } from '@/app/[locale]/(auth)/actions';
 import { useLocale } from 'next-intl';
-import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/components/AuthProvider';
 
 export function LandingNavigation() {
   const [isDetached, setIsDetached] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
   const [profileName, setProfileName] = useState<string | null>(null);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
   const locale = useLocale();
   const router = useRouter();
+  const { user, status, ready } = useAuth();
+
+  // Close dropdown and clear profile name when user signs out
+  useEffect(() => {
+    if (ready && status === 'unauthenticated') {
+      setDropdownOpen(false);
+      setProfileName(null);
+    }
+  }, [status, ready]);
 
   useEffect(() => {
+    // Only fetch profile data once auth provider is ready
+    if (!ready) {
+      return;
+    }
+
     const supabase = createBrowserSupabase();
 
-    const deriveMetadataName = (currentUser: User | null) => {
-      if (!currentUser?.user_metadata) {
+    const deriveMetadataName = () => {
+      if (!user?.user_metadata) {
         return null;
       }
 
-      const metadata = currentUser.user_metadata as {
+      const metadata = user.user_metadata as {
         full_name?: unknown;
         name?: unknown;
       };
@@ -46,8 +60,8 @@ export function LandingNavigation() {
       return raw?.trim() ? raw.trim() : null;
     };
 
-    const resolveProfileName = async (currentUser: User | null) => {
-      if (!currentUser) {
+    const resolveProfileName = async () => {
+      if (!user) {
         setProfileName(null);
         return;
       }
@@ -55,7 +69,7 @@ export function LandingNavigation() {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('display_name')
-        .eq('id', currentUser.id)
+        .eq('id', user.id)
         .maybeSingle();
 
       if (profileError) {
@@ -68,37 +82,17 @@ export function LandingNavigation() {
           : null;
 
       setProfileName(
-        dbName && dbName.length > 0 ? dbName : deriveMetadataName(currentUser)
+        dbName && dbName.length > 0 ? dbName : deriveMetadataName()
       );
     };
 
-    const checkUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      const currentUser = data.user ?? null;
-      setUser(currentUser);
-      await resolveProfileName(currentUser);
-    };
-    checkUser();
+    resolveProfileName();
+  }, [user, ready]);
 
-    // Listen for auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
-        const nextUser = session?.user ?? null;
-        setUser(nextUser);
-
-        await resolveProfileName(nextUser);
-
-        if (event === 'SIGNED_IN') {
-          router.refresh();
-        }
-      }
-    );
-
+  useEffect(() => {
     const scrollContainer = document.querySelector('.landing-scroll');
     if (!scrollContainer) {
-      return () => {
-        authListener.subscription.unsubscribe();
-      };
+      return;
     }
 
     const handleScroll = () => {
@@ -117,9 +111,8 @@ export function LandingNavigation() {
 
     return () => {
       scrollContainer.removeEventListener('scroll', handleScroll);
-      authListener.subscription.unsubscribe();
     };
-  }, [router]);
+  }, []);
 
   const navLinks = [
     { label: 'Features', href: '#how' },
@@ -149,6 +142,11 @@ export function LandingNavigation() {
   };
 
   const handleSignOut = async () => {
+    // Close dropdown immediately to prevent layout shift
+    setDropdownOpen(false);
+    // Clear profile name immediately for clean UI transition
+    setProfileName(null);
+    
     try {
       await signOut();
       // The redirect will happen in the server action
@@ -160,9 +158,25 @@ export function LandingNavigation() {
   };
 
   const AuthButton = ({ detached }: { detached: boolean }) => {
-    if (user) {
+    // Neutral loading state: reserve space but show nothing until auth is resolved
+    if (!ready || status === 'loading') {
       return (
-        <DropdownMenu>
+        <div 
+          className="rounded-full h-8 px-4 min-w-[80px]"
+          aria-live="polite"
+          aria-busy="true"
+          role="status"
+          aria-label="Loading authentication status"
+        >
+          {/* Intentionally empty: neutral state prevents UI flash */}
+        </div>
+      );
+    }
+
+    // Authenticated: show avatar and dropdown menu
+    if (status === 'authenticated' && user) {
+      return (
+        <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -170,6 +184,7 @@ export function LandingNavigation() {
                 ? "rounded-full h-8 px-3 text-sm gap-2 hover:bg-gray-100 text-[var(--briki-text)]"
                 : "rounded-full h-8 px-3 text-sm bg-white/8 text-slate-50 hover:bg-white/15 border border-white/15 gap-2"
               }
+              aria-label={`User menu for ${getUserDisplay()}`}
             >
               <Avatar className="w-5 h-5">
                 <AvatarFallback className={detached ? "text-xs bg-gray-200" : "text-xs bg-white/20"}>
@@ -200,6 +215,7 @@ export function LandingNavigation() {
       );
     }
 
+    // Unauthenticated: show CTA button
     return (
       <Link href="/login">
         <Button

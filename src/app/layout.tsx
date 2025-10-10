@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import LoadingProvider from "@/components/LoadingProvider";
+import AuthProvider from "@/components/AuthProvider";
 
 const siteConfig = {
   name: "Briki",
@@ -234,7 +235,9 @@ export default function RootLayout({
           Skip to main content
         </a>
         <LoadingProvider>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </LoadingProvider>
       </body>
     </html>

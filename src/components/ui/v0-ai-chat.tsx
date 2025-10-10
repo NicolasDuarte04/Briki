@@ -16,10 +16,10 @@ import {
     FileText,
     X,
 } from "lucide-react";
-import { createBrowserSupabase } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { useUI } from "@/lib/ui/state";
 import { trackEvent } from "@/lib/analytics";
+import { useAuth } from "@/components/AuthProvider";
 
 interface UseAutoResizeTextareaProps {
     minHeight: number;
@@ -79,7 +79,7 @@ function useAutoResizeTextarea({
 
 export function VercelV0Chat() {
     const [value, setValue] = useState("");
-    const [user, setUser] = useState<User | null>(null);
+    const { user } = useAuth();
     const { setStep, setBrief } = useUI();
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 90,
@@ -95,23 +95,6 @@ export function VercelV0Chat() {
         text: string;
         pages: number;
     } | null>(null);
-
-    useEffect(() => {
-        const supabase = createBrowserSupabase();
-        const checkUser = async () => {
-            const { data } = await supabase.auth.getUser();
-            setUser(data.user);
-        };
-        checkUser();
-
-        const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-        });
-
-        return () => {
-            authListener.subscription.unsubscribe();
-        };
-    }, []);
 
     // PDF upload handlers
     const handleUploadClick = () => {
