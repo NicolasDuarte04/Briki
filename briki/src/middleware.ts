@@ -1,6 +1,7 @@
 import createMiddleware from 'next-intl/middleware';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { env } from '@/lib/env';
 
 const intlMiddleware = createMiddleware({
   locales: ['en', 'es'],
@@ -48,8 +49,8 @@ export async function middleware(request: NextRequest) {
 
   // For protected routes, check for session using SSR helper (no DB query)
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    env.NEXT_PUBLIC_SUPABASE_URL,
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         get(name: string) {
