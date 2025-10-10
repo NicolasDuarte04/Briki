@@ -27,6 +27,26 @@ const VideoPlayer = React.forwardRef<HTMLDivElement, VideoPlayerProps>(
     // State to manage the visibility of the video modal
     const [isModalOpen, setIsModalOpen] = React.useState(false);
 
+    // Convert YouTube URL to embed format
+    const getEmbedUrl = (url: string) => {
+      // Handle youtu.be short URLs
+      const youtubeShortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]+)/);
+      if (youtubeShortMatch) {
+        return `https://www.youtube.com/embed/${youtubeShortMatch[1]}`;
+      }
+      
+      // Handle youtube.com/watch URLs
+      const youtubeWatchMatch = url.match(/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/);
+      if (youtubeWatchMatch) {
+        return `https://www.youtube.com/embed/${youtubeWatchMatch[1]}`;
+      }
+      
+      // If already an embed URL or other format, return as is
+      return url;
+    };
+
+    const embedUrl = React.useMemo(() => getEmbedUrl(videoUrl), [videoUrl]);
+
     // Effect to handle the 'Escape' key press for closing the modal
     React.useEffect(() => {
       const handleEsc = (event: KeyboardEvent) => {
@@ -110,7 +130,7 @@ const VideoPlayer = React.forwardRef<HTMLDivElement, VideoPlayerProps>(
             {/* Video Iframe */}
             <div className="w-full max-w-4xl aspect-video p-4">
                <iframe
-                    src={videoUrl}
+                    src={embedUrl}
                     title={title}
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

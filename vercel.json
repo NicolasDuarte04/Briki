@@ -1,7 +1,0 @@
-{
-  "buildCommand": "cd briki && pnpm install && pnpm build",
-  "outputDirectory": "briki/.next",
-  "installCommand": "cd briki && pnpm install",
-  "framework": "nextjs"
-}
-
