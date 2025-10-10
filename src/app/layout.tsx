@@ -3,6 +3,7 @@ import { Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import LoadingProvider from "@/components/LoadingProvider";
 import AuthProvider from "@/components/AuthProvider";
+import { Analytics } from "@vercel/analytics/next";
 
 const siteConfig = {
   name: "Briki",
@@ -239,6 +240,7 @@ export default function RootLayout({
             {children}
           </AuthProvider>
         </LoadingProvider>
+        <Analytics />
       </body>
     </html>
   );
