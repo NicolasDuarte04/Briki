@@ -1,23 +1,31 @@
 {
-  "extends": "./briki/tsconfig.json",
   "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "baseUrl": ".",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@/*": ["./briki/src/*"],
-      "react": ["./briki/node_modules/react"],
-      "react/*": ["./briki/node_modules/react/*"],
-      "react-dom": ["./briki/node_modules/react-dom"],
-      "react-dom/*": ["./briki/node_modules/react-dom/*"],
-      "react/jsx-runtime": ["./briki/node_modules/react/jsx-runtime"],
-      "react/jsx-dev-runtime": ["./briki/node_modules/react/jsx-dev-runtime"]
+      "@/*": ["./src/*"]
     }
   },
-  "include": [
-    "briki/next-env.d.ts",
-    "briki/**/*.ts",
-    "briki/**/*.tsx",
-    "briki/.next/types/**/*.ts"
-  ],
-  "exclude": ["node_modules", "briki/node_modules"]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", "figmalanding"]
 }
-
