@@ -49,6 +49,7 @@ model User {
   mfa_factors                 mfa_factors[]
   one_time_tokens             one_time_tokens[]
   sessions                    sessions[]
+  org_members                 org_members[]
   profile                     Profile?
 
   @@index([instance_id])
@@ -61,13 +62,13 @@ model Profile {
   id                          String   @id @db.Uuid
   name                        String?  @map("display_name")
   onboardingCompleted         Boolean  @default(false) @map("onboarding_completed")
-  phone                       String?  @db.Text
-  address                     String?  @db.Text
-  notificationsProductUpdates Boolean  @default(false) @map("notifications_product_updates")
-  notificationsPolicyAlerts   Boolean  @default(false) @map("notifications_policy_alerts")
   createdAt                   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   locale                      String   @default("en")
+  phone                       String?
+  address                     String?
+  notificationsProductUpdates Boolean  @default(false) @map("notifications_product_updates")
+  notificationsPolicyAlerts   Boolean  @default(false) @map("notifications_policy_alerts")
   user                        User     @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("profiles")
@@ -362,74 +363,6 @@ model sso_providers {
   @@schema("auth")
 }
 
-model Account {
-  id                String      @id
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-  User              public_User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-  @@schema("public")
-}
-
-model public_Profile {
-  id                  String      @id
-  userId              String      @unique
-  name                String?
-  locale              String      @default("en")
-  onboardingCompleted Boolean     @default(false)
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime
-  User                public_User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("Profile")
-  @@schema("public")
-}
-
-model Session {
-  id           String      @id
-  sessionToken String      @unique
-  userId       String
-  expires      DateTime
-  User         public_User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@schema("public")
-}
-
-model public_User {
-  id            String          @id
-  name          String?
-  email         String?         @unique
-  emailVerified DateTime?
-  image         String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime
-  Account       Account[]
-  Profile       public_Profile?
-  Session       Session[]
-
-  @@map("User")
-  @@schema("public")
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-  @@schema("public")
-}
-
 model Case {
   id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orgId        String?    @map("org_id") @db.Uuid
@@ -477,6 +410,60 @@ model AuditLog {
   case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@map("audit_log")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clients {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id        String        @db.Uuid
+  name_enc      Bytes
+  email_enc     Bytes?
+  phone_enc     Bytes?
+  address_enc   Bytes?
+  created_at    DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime?     @default(now()) @db.Timestamptz(6)
+  organizations organizations @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_clients_created_at")
+  @@index([org_id], map: "idx_clients_org_id")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model org_members {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id        String        @db.Uuid
+  user_id       String        @db.Uuid
+  role          String        @default("member")
+  created_at    DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime?     @default(now()) @db.Timestamptz(6)
+  organizations organizations @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users         User          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([org_id, user_id])
+  @@index([org_id], map: "idx_org_members_org_id")
+  @@index([role], map: "idx_org_members_role")
+  @@index([user_id], map: "idx_org_members_user_id")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model organizations {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  slug        String        @unique
+  settings    Json?         @default("{}")
+  created_at  DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime?     @default(now()) @db.Timestamptz(6)
+  clients     clients[]
+  org_members org_members[]
+
+  @@index([slug], map: "idx_organizations_slug")
   @@schema("public")
 }
 

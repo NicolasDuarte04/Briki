@@ -1,0 +1,569 @@
+================================================================================
+ÍNDICE MAESTRO DE DOCUMENTACIÓN - BRIKI
+================================================================================
+Proyecto: Briki - Sistema de Gestión de Pólizas de Seguros
+Fecha de compilación: 2025-10-11
+Desarrollador: Cursor AI Assistant + Equipo Briki
+================================================================================
+
+ESTRUCTURA DE DOCUMENTACIÓN
+============================
+
+Este índice proporciona una guía completa de toda la documentación técnica
+del proyecto Briki, organizada por tema y audiencia.
+
+================================================================================
+1. DOCUMENTOS CREADOS HOY (2025-10-11)
+================================================================================
+
+1.1. ARQUITECTURA DE BASE DE DATOS
+-----------------------------------
+
+📄 DATABASE_ARCHITECTURE_COMPLETE_2025-10-11.txt (PARTE 1)
+   Ubicación: /RAÍZ DEL PROYECTO
+   Audiencia: Desarrolladores Backend, DBAs, Arquitectos
+   Contenido:
+   - Resumen ejecutivo del día
+   - Arquitectura multi-tenant implementada
+   - Sistema de cifrado PII con pgcrypto
+   - Row Level Security (RLS) completo
+   - Storage buckets y políticas
+   - Funciones de utilidad
+   
+   Secciones: 1-5
+   Páginas: ~100
+   Última actualización: 2025-10-11 17:30
+
+📄 DATABASE_ARCHITECTURE_COMPLETE_2025-10-11_PART2.txt (PARTE 2)
+   Ubicación: /RAÍZ DEL PROYECTO
+   Audiencia: Desarrolladores Backend, DBAs, Arquitectos
+   Contenido:
+   - Tablas principales (especificación detallada)
+   - Relaciones y diagramas ER
+   - Funciones y triggers
+   - Índices de performance
+   - Migraciones aplicadas hoy
+   - Flujo de autenticación completo
+   - Guía de seguridad y cumplimiento
+   - Integración con el código
+   
+   Secciones: 6-13
+   Páginas: ~120
+   Última actualización: 2025-10-11 18:45
+
+---
+
+1.2. REFACTORIZACIÓN DE AUTENTICACIÓN
+--------------------------------------
+
+📄 IMPLEMENTATION_GUIDE_AUTH_REFACTOR.txt
+   Ubicación: /RAÍZ DEL PROYECTO
+   Audiencia: Todo el equipo de desarrollo
+   Contenido:
+   - Problema original (bug de registro)
+   - Solución implementada
+   - Archivos creados y modificados
+   - Migraciones de base de datos
+   - Guía de verificación paso a paso
+   - Guía de uso del sistema
+   - Troubleshooting completo
+   - Próximos pasos
+   
+   Páginas: ~50
+   Última actualización: 2025-10-11 17:45
+
+---
+
+1.3. ÍNDICE MAESTRO (ESTE ARCHIVO)
+-----------------------------------
+
+📄 DOCUMENTATION_INDEX.txt
+   Ubicación: /RAÍZ DEL PROYECTO
+   Audiencia: Todo el equipo
+   Contenido:
+   - Índice completo de documentación
+   - Guía de navegación
+   - Referencias rápidas
+   
+   Última actualización: 2025-10-11 18:50
+
+================================================================================
+2. MIGRACIONES DE BASE DE DATOS
+================================================================================
+
+Ubicación: /supabase/migrations/
+
+2.1. MULTI-TENANCY Y CIFRADO
+-----------------------------
+📄 20250107_organizations_and_multitenancy.sql
+   Fecha: 2025-10-11 10:00 AM
+   Estado: ✅ APLICADA
+   Contenido:
+   - Extensión pgcrypto
+   - Tabla organizations
+   - Tabla org_members
+   - Tabla clients (con cifrado PII)
+   - Funciones de cifrado/descifrado
+   - Triggers de updated_at
+   - Índices
+   - RLS básico
+
+2.2. MEJORAS A TABLAS EXISTENTES
+---------------------------------
+📄 20250107_improve_existing_tables.sql
+   Fecha: 2025-10-11 10:30 AM
+   Estado: ✅ APLICADA
+   Contenido:
+   - ALTER TABLE cases (campos multi-tenant)
+   - ALTER TABLE artifacts (campos de procesamiento)
+   - ALTER TABLE audit_log (trazabilidad)
+   - Índices adicionales
+   - Triggers automáticos
+   - Funciones de estadísticas
+
+2.3. RLS COMPLETO
+-----------------
+📄 20250107_complete_rls_implementation.sql
+   Fecha: 2025-10-11 11:00 AM
+   Estado: ✅ APLICADA
+   Contenido:
+   - Políticas RLS para todas las tablas
+   - Funciones de utilidad RLS
+   - Vista segura case_stats_view
+   - Triggers de auditoría
+
+2.4. STORAGE BUCKETS
+--------------------
+📄 20250107_storage_buckets_configuration.sql
+   Fecha: 2025-10-11 11:30 AM
+   Estado: ✅ APLICADA
+   Contenido:
+   - Buckets: artifacts, proposals, temp-processing
+   - Políticas de acceso
+   - Funciones de storage
+   - Limpieza automática
+
+2.5. LIMPIEZA DE ARQUITECTURA LEGACY
+-------------------------------------
+📄 20251011172617_remove_nextauth_legacy_tables.sql
+   Fecha: 2025-10-11 17:30 PM
+   Estado: ✅ APLICADA
+   Contenido:
+   - DROP tablas NextAuth legacy
+   - Limpieza de arquitectura duplicada
+
+================================================================================
+3. CÓDIGO FUENTE NUEVO
+================================================================================
+
+3.1. SERVER ACTIONS
+-------------------
+📄 src/app/actions/devActions.ts
+   Fecha: 2025-10-11 17:35 PM
+   Propósito: Acciones de desarrollo peligrosas
+   Funciones:
+   - deleteUserCompletely(): Elimina usuario completo
+   - userExists(): Verifica existencia de usuario
+   
+   Seguridad: Solo en development
+   Documentación: Ver IMPLEMENTATION_GUIDE_AUTH_REFACTOR.txt
+
+3.2. COMPONENTES REACT
+----------------------
+📄 src/app/[locale]/(app)/profile/DevAccountActions.tsx
+   Fecha: 2025-10-11 17:40 PM
+   Propósito: UI para acciones de desarrollo
+   Características:
+   - Zona de peligro visual
+   - Confirmaciones múltiples
+   - Feedback con toasts
+   - Solo se renderiza en development
+   
+   Documentación: Ver IMPLEMENTATION_GUIDE_AUTH_REFACTOR.txt
+
+================================================================================
+4. DOCUMENTACIÓN LEGACY (ANTERIOR A HOY)
+================================================================================
+
+4.1. SETUP Y CONFIGURACIÓN
+---------------------------
+📄 OAUTH_SETUP.md
+   Ubicación: /docs/
+   Contenido: Configuración de OAuth con Google
+
+📄 OAUTH_QUICK_START.md
+   Ubicación: /RAÍZ
+   Contenido: Guía rápida de OAuth
+
+📄 SUPABASE_AUTH_FIX.md
+   Ubicación: /RAÍZ
+   Contenido: Fixes de autenticación de Supabase
+
+📄 ENVIRONMENT_AUDIT.md
+   Ubicación: /RAÍZ
+   Contenido: Auditoría de variables de entorno
+
+4.2. DEPLOYMENT
+---------------
+📄 DEPLOY_PROD.md
+   Ubicación: /docs/
+   Contenido: Guía de deployment a producción
+
+📄 IMPORTANT_DATABASE_NOTICE.md
+   Ubicación: /RAÍZ
+   Contenido: Avisos importantes sobre la BD
+
+4.3. FEATURES Y FUNCIONALIDADES
+--------------------------------
+📄 ONBOARDING_FLOW.md
+   Ubicación: /RAÍZ
+   Contenido: Flujo de onboarding de usuarios
+
+📄 BITACORA_PDF_UPLOAD.txt
+   Ubicación: /RAÍZ
+   Contenido: Bitácora de implementación de upload de PDFs
+
+📄 TRUST_BADGES_IMPLEMENTATION.md
+   Ubicación: /docs/
+   Contenido: Implementación de trust badges
+
+4.4. SEO Y METADATA
+-------------------
+📄 SEO_SETUP.md
+   Ubicación: /docs/
+   Contenido: Configuración de SEO
+
+📄 SEO_IMPLEMENTATION_SUMMARY.md
+   Ubicación: /docs/
+   Contenido: Resumen de implementación SEO
+
+📄 METADATA_QUICK_START.md
+   Ubicación: /docs/
+   Contenido: Guía rápida de metadatos
+
+4.5. QA Y VERIFICACIÓN
+-----------------------
+📄 QA_PHASE2.md
+   Ubicación: /docs/
+   Contenido: QA de fase 2
+
+📄 VERIFICATION_REPORT.md
+   Ubicación: /RAÍZ
+   Contenido: Reporte de verificación
+
+📄 ACCESSIBILITY_QA.md
+   Ubicación: /docs/
+   Contenido: QA de accesibilidad
+
+4.6. TROUBLESHOOTING
+--------------------
+📄 EDGE_RUNTIME_FIX.md
+   Ubicación: /docs/
+   Contenido: Fixes de Edge Runtime
+
+📄 GETSNAPSHOT_FIX_SUMMARY.md
+   Ubicación: /RAÍZ
+   Contenido: Fix de getSnapshot
+
+📄 RENDER_LOOP_DIAGNOSIS.md
+   Ubicación: /RAÍZ
+   Contenido: Diagnóstico de render loops
+
+================================================================================
+5. GUÍA DE NAVEGACIÓN POR AUDIENCIA
+================================================================================
+
+5.1. NUEVO EN EL PROYECTO
+--------------------------
+Lee en este orden:
+1. README.md (visión general)
+2. DOCUMENTATION_INDEX.txt (este archivo)
+3. DATABASE_ARCHITECTURE_COMPLETE_2025-10-11.txt (arquitectura)
+4. IMPLEMENTATION_GUIDE_AUTH_REFACTOR.txt (flujo de auth)
+5. OAUTH_SETUP.md (configuración inicial)
+6. ENVIRONMENT_AUDIT.md (variables de entorno)
+
+5.2. DESARROLLADOR BACKEND
+---------------------------
+Documentos críticos:
+- DATABASE_ARCHITECTURE_COMPLETE_2025-10-11.txt (ambas partes)
+- Todas las migraciones en /supabase/migrations/
+- src/lib/prisma.ts
+- src/lib/supabase/server.ts
+- IMPLEMENTATION_GUIDE_AUTH_REFACTOR.txt
+
+5.3. DESARROLLADOR FRONTEND
+----------------------------
+Documentos relevantes:
+- IMPLEMENTATION_GUIDE_AUTH_REFACTOR.txt
+- src/app/[locale]/(auth)/ (componentes de auth)
+- src/components/ (componentes UI)
+- ONBOARDING_FLOW.md
+
+5.4. DBA / ARQUITECTO
+---------------------
+Documentos esenciales:
+- DATABASE_ARCHITECTURE_COMPLETE_2025-10-11.txt (COMPLETO)
+- Todas las migraciones SQL
+- IMPORTANT_DATABASE_NOTICE.md
+- Schema: prisma/schema.prisma
+
+5.5. DEVOPS / SRE
+-----------------
+Documentos necesarios:
+- DEPLOY_PROD.md
+- ENVIRONMENT_AUDIT.md
+- setup-supabase-env.sh
+- IMPORTANT_DATABASE_NOTICE.md
+
+5.6. QA / TESTER
+----------------
+Documentos útiles:
+- IMPLEMENTATION_GUIDE_AUTH_REFACTOR.txt (sección de verificación)
+- QA_PHASE2.md
+- VERIFICATION_REPORT.md
+- ACCESSIBILITY_QA.md
+
+5.7. PRODUCT MANAGER
+--------------------
+Documentos de alto nivel:
+- README.md
+- DOCUMENTATION_INDEX.txt (este archivo)
+- Sección "Resumen Ejecutivo" de cada documento técnico
+- ONBOARDING_FLOW.md
+- PHASE2_PREP.md, PHASE3_MOCKS_PROOF.md, PHASE4_TYPOGRAPHY_POLISH.md
+
+================================================================================
+6. REFERENCIAS RÁPIDAS
+================================================================================
+
+6.1. COMANDOS ÚTILES
+--------------------
+
+Aplicar todas las migraciones:
+-------------------------------
+for file in supabase/migrations/*.sql; do 
+    npx prisma db execute --file "$file" --schema prisma/schema.prisma; 
+done
+
+Sincronizar Prisma con BD:
+---------------------------
+npx prisma db pull && npx prisma generate
+
+Ver estructura de base de datos:
+---------------------------------
+npx prisma studio
+
+Generar cliente de Prisma:
+---------------------------
+npx prisma generate
+
+Verificar conexión a BD:
+-------------------------
+npx prisma db push --accept-data-loss=false
+
+Ver migraciones aplicadas:
+---------------------------
+SELECT * FROM schema_migrations;
+
+Ver logs de auditoría recientes:
+---------------------------------
+SELECT * FROM audit_log ORDER BY created_at DESC LIMIT 50;
+
+Ver estadísticas de organización:
+----------------------------------
+SELECT public.get_case_stats('org-uuid-here');
+SELECT public.get_artifact_stats('org-uuid-here');
+
+---
+
+6.2. VARIABLES DE ENTORNO CRÍTICAS
+-----------------------------------
+
+Requeridas para funcionar:
+---------------------------
+✅ NEXT_PUBLIC_SUPABASE_URL
+✅ NEXT_PUBLIC_SUPABASE_ANON_KEY
+✅ SUPABASE_SERVICE_ROLE_KEY (solo backend)
+✅ DATABASE_URL
+✅ DIRECT_URL
+✅ APP_ENCRYPTION_KEY (para cifrado PII)
+✅ NEXTAUTH_SECRET
+✅ GOOGLE_CLIENT_ID
+✅ GOOGLE_CLIENT_SECRET (solo backend)
+
+Ubicación: .env.local (no commitear)
+Ejemplo: Ver ENVIRONMENT_AUDIT.md
+
+---
+
+6.3. TABLAS PRINCIPALES
+------------------------
+
+Multi-tenancy:
+--------------
+- organizations: Entidad raíz
+- org_members: Membresías de usuarios
+- clients: Clientes con PII cifrada
+
+Core business:
+--------------
+- cases: Casos de análisis
+- artifacts: Documentos y metadatos
+- audit_log: Registro de auditoría
+
+Autenticación (Supabase):
+--------------------------
+- auth.users: Usuarios del sistema
+- public.profiles: Perfiles extendidos
+
+---
+
+6.4. FUNCIONES IMPORTANTES
+---------------------------
+
+Cifrado:
+--------
+- encrypt_pii(text) → bytea
+- decrypt_pii(bytea) → text
+
+RLS:
+----
+- is_org_member(org_uuid, user_uuid) → boolean
+- get_user_role(org_uuid, user_uuid) → text
+- is_org_admin(org_uuid, user_uuid) → boolean
+
+Storage:
+--------
+- generate_storage_path(org_uuid, file_name, bucket) → text
+- get_secure_download_url(file_path, bucket, expires) → text
+- cleanup_temp_files() → void
+
+Estadísticas:
+-------------
+- get_case_stats(org_uuid) → jsonb
+- get_artifact_stats(org_uuid) → jsonb
+
+---
+
+6.5. PATRONES DE CÓDIGO COMUNES
+--------------------------------
+
+Crear caso con RLS:
+-------------------
+const newCase = await prisma.case.create({
+  data: {
+    orgId: user.orgId,
+    clientRef: 'CLI-001',
+    status: 'draft'
+  }
+});
+
+Cifrar datos de cliente:
+-------------------------
+await prisma.$executeRaw`
+  INSERT INTO clients (org_id, name_enc, email_enc)
+  VALUES (
+    ${orgId}::uuid,
+    encrypt_pii(${name}),
+    encrypt_pii(${email})
+  )
+`;
+
+Upload de archivo:
+------------------
+const filePath = await supabase.rpc('generate_storage_path', {
+  org_uuid: orgId,
+  file_name: file.name
+});
+
+await supabase.storage.from('artifacts').upload(filePath, file);
+
+Obtener usuario actual:
+------------------------
+import { createServerSupabase } from '@/lib/supabase/server';
+
+const supabase = await createServerSupabase();
+const { data: { user } } = await supabase.auth.getUser();
+
+================================================================================
+7. GLOSARIO
+================================================================================
+
+RLS: Row Level Security - Seguridad a nivel de fila en PostgreSQL
+PII: Personally Identifiable Information - Información personal identificable
+PGP: Pretty Good Privacy - Sistema de cifrado
+UUID: Universally Unique Identifier - Identificador único universal
+JSONB: JSON Binary - Formato JSON optimizado de PostgreSQL
+FK: Foreign Key - Clave foránea
+CASCADE: Eliminación en cascada de registros relacionados
+SECURITY DEFINER: Función que se ejecuta con privilegios del dueño
+bytea: Tipo de datos binario de PostgreSQL
+inet: Tipo de datos para direcciones IP de PostgreSQL
+
+================================================================================
+8. CONTACTO Y SOPORTE
+================================================================================
+
+Para preguntas sobre:
+---------------------
+
+Arquitectura de BD:
+  → Revisar DATABASE_ARCHITECTURE_COMPLETE_2025-10-11.txt
+  → Consultar migraciones en /supabase/migrations/
+
+Autenticación:
+  → Revisar IMPLEMENTATION_GUIDE_AUTH_REFACTOR.txt
+  → Ver código en src/app/[locale]/(auth)/
+
+Deployment:
+  → Revisar DEPLOY_PROD.md
+
+Troubleshooting:
+  → Buscar en IMPLEMENTATION_GUIDE_AUTH_REFACTOR.txt sección 9
+  → Revisar documentos *_FIX_*.md
+
+Documentación externa:
+----------------------
+- Supabase: https://supabase.com/docs
+- Prisma: https://www.prisma.io/docs
+- Next.js: https://nextjs.org/docs
+- PostgreSQL: https://www.postgresql.org/docs/
+
+================================================================================
+9. CHANGELOG
+================================================================================
+
+2025-10-11:
+-----------
+✅ Arquitectura multi-tenant completa implementada
+✅ Cifrado PII con pgcrypto
+✅ RLS en todas las tablas
+✅ Storage buckets configurados
+✅ Refactorización de autenticación (eliminada arquitectura NextAuth legacy)
+✅ Herramienta de desarrollo para gestión de usuarios
+✅ Documentación completa generada
+
+Archivos creados hoy:
+---------------------
+- DATABASE_ARCHITECTURE_COMPLETE_2025-10-11.txt
+- DATABASE_ARCHITECTURE_COMPLETE_2025-10-11_PART2.txt
+- IMPLEMENTATION_GUIDE_AUTH_REFACTOR.txt
+- DOCUMENTATION_INDEX.txt (este archivo)
+- 5 migraciones SQL
+- 2 archivos TypeScript nuevos
+
+Estado: ✅ PRODUCCIÓN-READY
+
+================================================================================
+FIN DEL ÍNDICE MAESTRO
+================================================================================
+
+Versión: 1.0
+Fecha: 2025-10-11
+Mantenedor: Equipo de Desarrollo Briki
+Estado: ✅ COMPLETO
+
+Este índice se debe actualizar cada vez que se añada documentación nueva.
+Última revisión: 2025-10-11 18:50
+

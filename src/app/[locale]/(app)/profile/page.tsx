@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "./actions";
 import { ProfileNav } from "./ProfileNav";
 import { AccountSettings } from "./AccountSettings";
+import { DevAccountActions } from "./DevAccountActions";
 
 export default async function ProfilePage() {
   const userId = await getCurrentUserId();
@@ -57,6 +58,9 @@ export default async function ProfilePage() {
             notificationsPolicyAlerts={notificationsPolicyAlerts}
           />
         </Suspense>
+        
+        {/* Dev-only: Zona de peligro para eliminar cuenta */}
+        <DevAccountActions userId={userId} />
       </div>
     </div>
   );
