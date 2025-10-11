@@ -1,230 +1,365 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Upload, Paperclip, Sparkles, FileText, X } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Upload, Paperclip, Sparkles, FileText, X, ArrowUpIcon, ImageIcon, MonitorIcon, FileUp } from 'lucide-react';
 import { useUI } from '@/lib/ui/state';
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { createBrowserSupabase } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
+
+// Función para tracking de eventos (analytics)
+const trackEvent = (eventName: string, properties?: Record<string, any>) => {
+  console.log('📊 Track Event:', eventName, properties);
+};
+
+// Hook personalizado para auto-resize del textarea (del original v0-ai-chat)
+const useAutoResizeTextarea = ({ minHeight, maxHeight }: { minHeight: number; maxHeight?: number }) => {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const adjustHeight = useCallback(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        textarea.style.height = "auto";
+
+        const newHeight = Math.max(
+            minHeight,
+            Math.min(
+                textarea.scrollHeight,
+                maxHeight ?? Number.POSITIVE_INFINITY
+            )
+        );
+
+        textarea.style.height = `${newHeight}px`;
+    }, [minHeight, maxHeight]);
+
+    useEffect(() => {
+        // Set initial height
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = `${minHeight}px`;
+        }
+    }, [minHeight]);
+
+    // Adjust height on window resize
+    useEffect(() => {
+        const handleResize = () => adjustHeight();
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, [adjustHeight]);
+
+    return { textareaRef, adjustHeight };
+};
 
 export function LandingChatInput() {
-  const { setStep, setInitialMessage, setBrief } = useUI();
-  const [message, setMessage] = useState('');
-  
-  // 📁 Referencias y estado para upload de archivos
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<{
-    name: string;
-    size: number;
-    text: string;
-    pages: number;
-  } | null>(null);
-  
-  // Debug: verificar el estado de Zustand
-  console.log('🔍 LandingChatInput: Estado de Zustand:', { setStep, setInitialMessage, setBrief });
+    const [value, setValue] = useState("");
+    const [user, setUser] = useState<User | null>(null);
+    
+    // ✅ FUSIÓN CRÍTICA: Agregar setInitialMessage que faltaba
+    const { setStep, setInitialMessage, setBrief } = useUI();
+    
+    const { textareaRef, adjustHeight } = useAutoResizeTextarea({
+        minHeight: 90,
+        maxHeight: 200,
+    });
+    
+    // PDF upload state (conservar del original)
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadedFile, setUploadedFile] = useState<{
+        name: string;
+        size: number;
+        text: string;
+        pages: number;
+    } | null>(null);
 
-  const handleWhatsAppImport = () => {
-    setStep('conversation');
-  };
+    useEffect(() => {
+        const supabase = createBrowserSupabase();
+        const checkUser = async () => {
+            const { data } = await supabase.auth.getUser();
+            setUser(data.user);
+        };
+        checkUser();
 
-  const handleSendMessage = () => {
-    if (message.trim() || uploadedFile) {
-      console.log('🚀 LandingChatInput: Enviando mensaje:', message.trim());
-      console.log('🚀 LandingChatInput: Archivo PDF:', uploadedFile?.name);
-      
-      // Crear mensaje combinado
-      let fullMessage = message.trim();
-      if (uploadedFile) {
-        fullMessage += `\n\n📄 DOCUMENTO PDF ADJUNTO: 🟢 ${uploadedFile.name} 🟢\n`;
-      }
-      
-      // Actualizar tanto initialMessage como brief.freeText
-      setInitialMessage(fullMessage);
-      setBrief({ freeText: fullMessage });
-      
-      console.log('🚀 LandingChatInput: SetInitialMessage y setBrief llamados');
-      setStep('conversation');
-      console.log('🚀 LandingChatInput: SetStep llamado');
-    }
-  };
-
-  // 🗑️ Función para remover archivo subido
-  const handleRemoveFile = () => {
-    setUploadedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  // 📁 Función para abrir el selector de archivos
-  const handleUploadClick = () => {
-    console.log('📁 Frontend: Abriendo selector de archivos...');
-    fileInputRef.current?.click();
-  };
-
-  // 📄 Función para procesar el archivo seleccionado
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    console.log('📄 Frontend: Archivo seleccionado:', file.name, file.type, file.size);
-    setIsUploading(true);
-
-    try {
-      // 📡 Crear FormData
-      const formData = new FormData();
-      formData.append('pdf', file);
-      console.log('📡 Frontend: FormData creado');
-
-      // 🚀 Enviar al endpoint
-      console.log('🚀 Frontend: Enviando a /api/upload/pdf...');
-      const response = await fetch('/api/upload/pdf', {
-        method: 'POST',
-        body: formData
-      });
-
-      const result = await response.json();
-      console.log('📡 Frontend: Respuesta recibida:', result);
-
-      if (result.success) {
-        // 📁 Guardar información del archivo subido
-        setUploadedFile({
-          name: result.metadata.name,
-          size: result.metadata.size,
-          text: result.text,
-          pages: result.metadata.pages
+        const { data: authListener } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+            setUser(session?.user ?? null);
         });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
+    }, []);
+
+    // PDF upload handlers (conservar del original funcionando)
+    const handleUploadClick = () => {
+        console.log('📁 Frontend: Abriendo selector de archivos...');
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        console.log('📄 Frontend: Archivo seleccionado:', file.name, file.type, file.size);
+        setIsUploading(true);
+
+        try {
+            const formData = new FormData();
+            formData.append('pdf', file);
+            console.log('📡 Frontend: FormData creado');
+
+            console.log('🚀 Frontend: Enviando a /api/upload/pdf...');
+            const response = await fetch('/api/upload/pdf', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            console.log('📡 Frontend: Respuesta recibida:', result);
+
+            if (result.success) {
+                setUploadedFile({
+                    name: result.metadata.name,
+                    size: result.metadata.size,
+                    text: result.text,
+                    pages: result.metadata.pages
+                });
+                
+                console.log('📖 Texto extraído:', result.text.substring(0, 200) + '...');
+                console.log('✅ Archivo guardado en estado para envío');
+            } else {
+                alert(`❌ Error: ${result.error}`);
+            }
+            
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error de conexión');
+        } finally {
+            setIsUploading(false);
+            event.target.value = '';
+        }
+    };
+
+    const handleRemoveFile = () => {
+        setUploadedFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleSubmit = () => {
+        // Check if user is authenticated
+        if (!user) {
+            window.location.href = '/login';
+            return;
+        }
         
-        console.log('📖 Texto extraído:', result.text.substring(0, 200) + '...');
-        console.log('✅ Archivo guardado en estado para envío');
-      } else {
-        alert(`❌ Error: ${result.error}`);
-      }
-      
-    } catch (error) {
-      console.error('Error:', error);
-      alert('Error de conexión');
-    } finally {
-      setIsUploading(false);
-      event.target.value = ''; // Limpiar input
-    }
-  };
+        // For authenticated users, go to conversation
+        let fullMessage = value.trim();
+        if (uploadedFile) {
+            fullMessage += `\n\n📄 DOCUMENTO PDF ADJUNTO: ${uploadedFile.name}\n`;
+        }
+        
+        if (fullMessage) {
+            // ✅ FUSIÓN CRÍTICA: Agregar setInitialMessage que resuelve el problema
+            setInitialMessage(fullMessage);
+            setBrief({ freeText: fullMessage });
+        }
+        trackEvent("hero_chat_start", { hasText: Boolean(value.trim()), hasPDF: Boolean(uploadedFile) });
+        setStep("conversation");
+    };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (value.trim()) {
+                handleSubmit();
+            }
+        }
+    };
 
-  return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div
-        className="rounded-3xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.3)] bg-gray-800"
-      >
-        {/* Input Area */}
-        <div className="px-8 pt-8 pb-6">
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Describe your client or drop a policy PDF..."
-            aria-label="Describe your client or drop a policy PDF"
-            className="w-full bg-transparent text-white placeholder:text-gray-400 resize-none outline-none text-subhead min-h-[100px]"
-          />
-          
-          {/* PDF upload indicator */}
-          {uploadedFile && (
-            <div className="mt-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/20">
-                  <FileText className="w-4 h-4 text-green-400" />
+    return (
+        <div className="w-full">
+            {/* Input oculto para upload de archivos */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                onChange={handleFileChange}
+                className="hidden"
+            />
+            
+            {/* Diseño original de v0-ai-chat conservado */}
+            <div className="relative bg-neutral-900 rounded-xl border border-neutral-800">
+                <div className="overflow-y-auto">
+                    <Textarea
+                        id="hero-chat-input"
+                        ref={textareaRef}
+                        value={value}
+                        onChange={(e) => {
+                            setValue(e.target.value);
+                            adjustHeight();
+                        }}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Describe your client or drop a policy PDF..."
+                        aria-label="Describe your client or drop a policy PDF"
+                        className={cn(
+                            "w-full px-5 py-4",
+                            "resize-none",
+                            "bg-transparent",
+                            "border-none",
+                            "text-white text-lg",
+                            "focus:outline-none",
+                            "focus-visible:ring-0 focus-visible:ring-offset-0",
+                            "placeholder:text-neutral-500 placeholder:text-lg",
+                            "min-h-[90px]"
+                        )}
+                        style={{
+                            overflow: "hidden",
+                        }}
+                    />
+                    
+                    {/* PDF upload indicator (conservar diseño original) */}
+                    {uploadedFile && (
+                        <div className="mx-5 mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 rounded-lg bg-green-500/20">
+                                    <FileText className="w-4 h-4 text-green-400" />
+                                </div>
+                                <div className="flex-1">
+                                    <div className="text-white text-sm font-medium">
+                                        {uploadedFile.name}
+                                    </div>
+                                    <div className="text-neutral-400 text-xs">
+                                        {Math.round(uploadedFile.size / 1024)} KB • {uploadedFile.pages} pages
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={handleRemoveFile}
+                                className="p-1 rounded-full hover:bg-neutral-800 transition-colors text-neutral-400 hover:text-white"
+                                aria-label="Remove file"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
                 </div>
-                <div className="flex-1">
-                  <div className="text-white text-sm font-medium">
-                    {uploadedFile.name}
-                  </div>
-                  <div className="text-gray-400 text-xs">
-                    {Math.round(uploadedFile.size / 1024)} KB • {uploadedFile.pages} pages
-                  </div>
+
+                <div className="flex items-center justify-between p-4 border-t border-neutral-800">
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleUploadClick}
+                            disabled={isUploading}
+                            aria-label="Upload PDF"
+                            className="group p-2 hover:bg-neutral-800 rounded-lg transition-colors flex items-center gap-1"
+                        >
+                            {isUploading ? (
+                                <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            ) : (
+                                <Paperclip className="w-4 h-4 text-white" />
+                            )}
+                            <span className="text-xs text-zinc-400 hidden group-hover:inline transition-opacity">
+                                {isUploading ? 'Uploading...' : 'Attach PDF'}
+                            </span>
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={handleSubmit}
+                            disabled={!value.trim() && !uploadedFile}
+                            className={cn(
+                                "px-3 py-2 rounded-lg text-sm transition-colors border border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800 flex items-center justify-between gap-1",
+                                (value.trim() || uploadedFile)
+                                    ? "bg-white text-black"
+                                    : "text-zinc-400 cursor-not-allowed"
+                            )}
+                        >
+                            <ArrowUpIcon
+                                className={cn(
+                                    "w-4 h-4",
+                                    (value.trim() || uploadedFile)
+                                        ? "text-black"
+                                        : "text-zinc-400"
+                                )}
+                            />
+                            <span className="sr-only">Send</span>
+                        </button>
+                    </div>
                 </div>
-              </div>
-              <button
-                onClick={handleRemoveFile}
-                className="p-1 rounded-full hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
-                aria-label="Remove file"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
-          )}
+
+            {/* ✅ BOTONES DE ACCIÓN RESTAURADOS - Sección que faltaba en la fusión */}
+            <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
+                <button
+                    type="button"
+                    onClick={handleUploadClick}
+                    disabled={isUploading}
+                    className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-full border transition-colors",
+                        uploadedFile
+                            ? "bg-green-500/20 border-green-500/30 text-green-400"
+                            : "bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-400 hover:text-white",
+                        isUploading && "opacity-50 cursor-not-allowed"
+                    )}
+                >
+                    <FileUp className="w-4 h-4" />
+                    <span className="text-xs">
+                        {isUploading ? 'Uploading...' : uploadedFile ? '✓ PDF Loaded' : 'Upload PDF'}
+                    </span>
+                </button>
+                
+                {/* Botón Import WhatsApp chat */}
+                <ActionButton
+                    icon={<ImageIcon className="w-4 h-4" />}
+                    label="Import WhatsApp chat"
+                    user={user}
+                    onAuthenticatedClick={() => setStep("conversation")}
+                />
+                
+                {/* Botón Connect carriers */}
+                <ActionButton
+                    icon={<MonitorIcon className="w-4 h-4" />}
+                    label="Connect carriers"
+                    user={user}
+                    onAuthenticatedClick={() => setStep("conversation")}
+                />
+            </div>
         </div>
-
-        {/* Toolbar */}
-        <div className="px-8 py-5 border-t border-gray-700/50 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={handleUploadClick}
-              disabled={isUploading}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-white text-sm disabled:opacity-50"
-            >
-              <Upload className="w-4 h-4" />
-              {isUploading ? 'Uploading...' : uploadedFile ? 'Change PDF' : 'Upload'}
-            </button>
-            <button 
-              onClick={handleWhatsAppImport}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-white text-sm"
-            >
-              <Upload className="w-4 h-4" />
-              Import
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button 
-              className="p-2 rounded-lg hover:bg-white/5 transition-colors text-gray-400 hover:text-white"
-              aria-label="Attach file"
-            >
-              <Paperclip className="w-5 h-5" />
-            </button>
-            <button
-              onClick={handleSendMessage}
-              disabled={!message.trim() && !uploadedFile}
-              className="p-2.5 rounded-lg transition-colors bg-[var(--briki-primary)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Generate with AI"
-            >
-              <Sparkles className="w-5 h-5 text-white" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Helper chips */}
-      <div className="flex items-center gap-4 mt-6 justify-center">
-        <button 
-          onClick={handleUploadClick}
-          disabled={isUploading}
-          className={`px-5 py-2.5 rounded-full backdrop-blur-sm text-white text-sm hover:bg-white/20 transition-colors ${
-            uploadedFile ? 'bg-green-500/20 border border-green-500/30' : 'bg-white/10'
-          } disabled:opacity-50`}
-        >
-          {uploadedFile ? '✓ PDF Loaded' : 'Upload PDF'}
-        </button>
-        <button 
-          onClick={handleWhatsAppImport}
-          className="px-5 py-2.5 rounded-full bg-white/10 backdrop-blur-sm text-white text-sm hover:bg-white/20 transition-colors"
-        >
-          Import WhatsApp chat
-        </button>
-      </div>
-
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept=".pdf"
-        onChange={handleFileChange}
-        style={{ display: 'none' }}
-      />
-    </div>
-  );
+    );
 }
 
+// ✅ COMPONENTE ACTIONBUTTON RESTAURADO - Patrón reutilizable para botones de acción
+interface ActionButtonProps {
+    icon: React.ReactNode;
+    label: string;
+    user: User | null;
+    onAuthenticatedClick: () => void;
+}
+
+function ActionButton({ icon, label, user, onAuthenticatedClick }: ActionButtonProps) {
+    const handleClick = () => {
+        // Check if user is authenticated
+        if (!user) {
+            window.location.href = '/login';
+            return;
+        }
+        
+        // For authenticated users, call the authenticated click handler
+        onAuthenticatedClick();
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={handleClick}
+            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 rounded-full border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
+        >
+            {icon}
+            <span className="text-xs">{label}</span>
+        </button>
+    );
+}

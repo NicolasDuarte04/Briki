@@ -1,6 +1,6 @@
 'use client';
 
-import { VercelV0Chat } from '@/components/ui/v0-ai-chat';
+import { LandingChatInput } from '@/components/Landing/LandingChatInput';
 import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { trackEvent } from '@/lib/analytics';
@@ -49,7 +49,7 @@ export function LandingHero() {
               {t('primaryCta')}
             </button>
           </div>
-          <VercelV0Chat />
+          <LandingChatInput />
         </div>
       </div>
       
