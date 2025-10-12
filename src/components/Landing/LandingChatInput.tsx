@@ -67,12 +67,16 @@ export function LandingChatInput() {
     // PDF upload state (conservar del original)
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isUploading, setIsUploading] = useState(false);
-    const [uploadedFile, setUploadedFile] = useState<{
-        name: string;
-        size: number;
-        text: string;
-        pages: number;
-    } | null>(null);
+    const [tempUploads, setTempUploads] = useState<Array<{
+        id: string;
+        storagePath: string;
+        fileName: string;
+        fileSize: number;
+        pageCount?: number;
+        charactersExtracted?: number;
+        fileHash?: string;
+        extractedText?: string;  // ← AÑADIDO: Texto completo del PDF
+    }>>([]);
 
     useEffect(() => {
         const supabase = createBrowserSupabase();
@@ -118,16 +122,9 @@ export function LandingChatInput() {
             const result = await response.json();
             console.log('📡 Frontend: Respuesta recibida:', result);
 
-            if (result.success) {
-                setUploadedFile({
-                    name: result.metadata.name,
-                    size: result.metadata.size,
-                    text: result.text,
-                    pages: result.metadata.pages
-                });
-                
-                console.log('📖 Texto extraído:', result.text.substring(0, 200) + '...');
-                console.log('✅ Archivo guardado en estado para envío');
+            if (result.success && result.mode === 'temp' && result.tempUpload) {
+                setTempUploads((prev) => [...prev, result.tempUpload]);
+                console.log('✅ Upload temporal listo:', result.tempUpload);
             } else {
                 alert(`❌ Error: ${result.error}`);
             }
@@ -141,32 +138,45 @@ export function LandingChatInput() {
         }
     };
 
-    const handleRemoveFile = () => {
-        setUploadedFile(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
+    const handleRemoveFile = (storagePath: string) => {
+        setTempUploads((prev) => prev.filter(t => t.storagePath !== storagePath));
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         // Check if user is authenticated
         if (!user) {
             window.location.href = '/login';
             return;
         }
         
-        // For authenticated users, go to conversation
-        let fullMessage = value.trim();
-        if (uploadedFile) {
-            fullMessage += `\n\n📄 DOCUMENTO PDF ADJUNTO: ${uploadedFile.name}\n`;
+        const message = value.trim();
+        const payload = {
+            message,
+            tempUploads,
+        };
+
+        const res = await fetch('/api/chat/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            alert(`❌ Error: ${data.error || 'No se pudo iniciar el chat'}`);
+            return;
         }
-        
-        if (fullMessage) {
-            // ✅ FUSIÓN CRÍTICA: Agregar setInitialMessage que resuelve el problema
-            setInitialMessage(fullMessage);
-            setBrief({ freeText: fullMessage });
+
+        // Guardar el caseId en el estado global para usarlo en la conversación
+        if (data.caseId) {
+            useUI.getState().setCurrentCaseId(data.caseId);
         }
-        trackEvent("hero_chat_start", { hasText: Boolean(value.trim()), hasPDF: Boolean(uploadedFile) });
+
+        // Limpiar estado local y continuar al chat
+        setInitialMessage(message);
+        setBrief({ freeText: message });
+        setTempUploads([]);
+        trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
         setStep("conversation");
     };
 
@@ -221,28 +231,32 @@ export function LandingChatInput() {
                     />
                     
                     {/* PDF upload indicator (conservar diseño original) */}
-                    {uploadedFile && (
+                    {tempUploads.length > 0 && (
                         <div className="mx-5 mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-lg bg-green-500/20">
-                                    <FileText className="w-4 h-4 text-green-400" />
-                                </div>
-                                <div className="flex-1">
-                                    <div className="text-white text-sm font-medium">
-                                        {uploadedFile.name}
+                            <div className="flex flex-col gap-2 w-full">
+                                {tempUploads.map(t => (
+                                    <div key={t.storagePath} className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 rounded-lg bg-green-500/20">
+                                                <FileText className="w-4 h-4 text-green-400" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="text-white text-sm font-medium">{t.fileName}</div>
+                                                <div className="text-neutral-400 text-xs">
+                                                    {Math.round(t.fileSize / 1024)} KB {t.pageCount ? `• ${t.pageCount} pages` : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => handleRemoveFile(t.storagePath)}
+                                            className="p-1 rounded-full hover:bg-neutral-800 transition-colors text-neutral-400 hover:text-white"
+                                            aria-label="Remove file"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
                                     </div>
-                                    <div className="text-neutral-400 text-xs">
-                                        {Math.round(uploadedFile.size / 1024)} KB • {uploadedFile.pages} pages
-                                    </div>
-                                </div>
+                                ))}
                             </div>
-                            <button
-                                onClick={handleRemoveFile}
-                                className="p-1 rounded-full hover:bg-neutral-800 transition-colors text-neutral-400 hover:text-white"
-                                aria-label="Remove file"
-                            >
-                                <X className="w-4 h-4" />
-                            </button>
                         </div>
                     )}
                 </div>
@@ -270,10 +284,10 @@ export function LandingChatInput() {
                         <button
                             type="button"
                             onClick={handleSubmit}
-                            disabled={!value.trim() && !uploadedFile}
+                            disabled={!value.trim() && tempUploads.length === 0}
                             className={cn(
                                 "px-3 py-2 rounded-lg text-sm transition-colors border border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800 flex items-center justify-between gap-1",
-                                (value.trim() || uploadedFile)
+                                (value.trim() || tempUploads.length > 0)
                                     ? "bg-white text-black"
                                     : "text-zinc-400 cursor-not-allowed"
                             )}
@@ -281,7 +295,7 @@ export function LandingChatInput() {
                             <ArrowUpIcon
                                 className={cn(
                                     "w-4 h-4",
-                                    (value.trim() || uploadedFile)
+                                    (value.trim() || tempUploads.length > 0)
                                         ? "text-black"
                                         : "text-zinc-400"
                                 )}
@@ -300,7 +314,7 @@ export function LandingChatInput() {
                     disabled={isUploading}
                     className={cn(
                         "flex items-center gap-2 px-4 py-2 rounded-full border transition-colors",
-                        uploadedFile
+                        tempUploads.length > 0
                             ? "bg-green-500/20 border-green-500/30 text-green-400"
                             : "bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-400 hover:text-white",
                         isUploading && "opacity-50 cursor-not-allowed"
@@ -308,7 +322,7 @@ export function LandingChatInput() {
                 >
                     <FileUp className="w-4 h-4" />
                     <span className="text-xs">
-                        {isUploading ? 'Uploading...' : uploadedFile ? '✓ PDF Loaded' : 'Upload PDF'}
+                        {isUploading ? 'Uploading...' : tempUploads.length > 0 ? '✓ PDF Loaded' : 'Upload PDF'}
                     </span>
                 </button>
                 

@@ -6,7 +6,7 @@
  */
 
 import { prisma } from './prisma';
-import type { Prisma } from '@prisma/client';
+import type { Prisma, Case } from '@prisma/client';
 import { 
   CaseBrief,
   Artifact,
@@ -209,6 +209,11 @@ export async function getCaseWithArtifacts(caseId: string): Promise<CaseWithArti
 // ============================================================================
 
 /**
+ * @deprecated Esta función crea un caso NUEVO por cada mensaje (comportamiento legacy).
+ * Para el nuevo flujo, usar:
+ * - /api/chat/start para crear el caso inicial
+ * - /api/chat/process-message para mensajes subsecuentes del mismo caso
+ * 
  * Processes a chat message and creates case, artifacts, and audit logs
  * @param userMessage - The user's message content
  * @param userId - Optional user ID for tracking
@@ -318,4 +323,192 @@ function generateAgentResponse(message: string): string {
   
   const randomIndex = Math.floor(Math.random() * responses.length);
   return responses[randomIndex]!; // El ! asegura que existe
+}
+
+// ============================================================================
+// CRUD OPERATIONS - EXTENDED (Multi-tenant support)
+// ============================================================================
+
+/**
+ * Obtiene todos los casos de una organización con sus relaciones.
+ * @param orgId - El ID de la organización.
+ * @returns Promise<Case[]> - Array de casos con artifacts incluidos.
+ */
+export async function getCasesByOrg(orgId: string) {
+  if (!orgId) throw new DatabaseError("Organization ID is required.");
+  
+  return prisma.case.findMany({
+    where: { orgId },
+    include: { 
+      artifacts: {
+        orderBy: { createdAt: 'desc' }
+      }
+    },
+    orderBy: { updatedAt: 'desc' }
+  });
+}
+
+/**
+ * Obtiene un caso específico por ID, verificando que pertenezca a la organización.
+ * @param caseId - El ID del caso.
+ * @param orgId - El ID de la organización (para seguridad adicional).
+ * @returns Promise<Case | null> - El caso con sus relaciones o null.
+ */
+export async function getCaseById(caseId: string, orgId: string) {
+  if (!caseId || !orgId) throw new DatabaseError("Case ID and Organization ID are required.");
+  
+  return prisma.case.findFirst({
+    where: { 
+      id: caseId, 
+      orgId // RLS ya protege, pero es buena práctica añadir orgId
+    },
+    include: { 
+      artifacts: {
+        orderBy: { createdAt: 'desc' }
+      },
+      auditLogs: {
+        orderBy: { createdAt: 'desc' },
+        take: 50 // Limitar a los últimos 50 logs
+      }
+    }
+  });
+}
+
+/**
+ * Crea un nuevo caso vinculado a una organización.
+ * @param orgId - El ID de la organización.
+ * @param briefData - Los datos del brief del caso.
+ * @param userId - El ID del usuario que crea el caso.
+ * @param additionalData - Datos adicionales opcionales del caso.
+ * @returns Promise<Case> - El caso creado.
+ */
+export async function createCaseWithOrg(
+  orgId: string,
+  briefData: any,
+  userId: string,
+  additionalData: {
+    clientRef?: string;
+    clientName?: string;
+    businessType?: string;
+    employees?: number;
+    status?: 'draft' | 'active' | 'completed' | 'archived';
+    stage?: 'initial' | 'sourcing' | 'analysis' | 'proposal' | 'negotiation' | 'closed';
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+  } = {} // <-- Añadir valor por defecto para seguridad
+) {
+  if (!orgId) throw new DatabaseError("Organization ID is required.");
+  if (!userId) throw new DatabaseError("User ID is required.");
+  
+  return prisma.case.create({
+    data: {
+      orgId,
+      briefData: briefData || {},
+      clientRef: additionalData.clientRef,
+      clientName: additionalData.clientName,
+      businessType: additionalData.businessType,
+      employees: additionalData.employees,
+      status: additionalData.status || 'draft', // Default a 'draft'
+      stage: additionalData.stage || 'initial',   // Default a 'initial'
+      priority: additionalData.priority || 'medium', // Default a 'medium'
+    }
+  });
+}
+
+/**
+ * Actualiza un caso existente.
+ * @param caseId - El ID del caso.
+ * @param orgId - El ID de la organización (para seguridad).
+ * @param data - Los datos a actualizar.
+ * @returns Promise<Case> - El caso actualizado.
+ */
+export async function updateCaseById(caseId: string, orgId: string, data: Partial<Case>) {
+  if (!caseId || !orgId) throw new DatabaseError("Case ID and Organization ID are required.");
+  
+  // Remover campos que no deben ser actualizados directamente
+  const { id, createdAt, ...updateData } = data as any;
+  
+  return prisma.case.update({
+    where: { id: caseId },
+    data: updateData
+  });
+}
+
+/**
+ * Elimina un caso y todos sus artefactos asociados (CASCADE).
+ * @param caseId - El ID del caso.
+ * @param orgId - El ID de la organización (para seguridad).
+ * @returns Promise<Case> - El caso eliminado.
+ */
+export async function deleteCaseById(caseId: string, orgId: string) {
+  if (!caseId || !orgId) throw new DatabaseError("Case ID and Organization ID are required.");
+  
+  // Verificar que el caso pertenece a la organización antes de eliminar
+  const caseToDelete = await prisma.case.findFirst({
+    where: { id: caseId, orgId }
+  });
+  
+  if (!caseToDelete) {
+    throw new CaseNotFoundError(caseId);
+  }
+  
+  return prisma.case.delete({
+    where: { id: caseId }
+  });
+}
+
+/**
+ * Asigna un cliente a un caso.
+ * @param caseId - El ID del caso.
+ * @param clientId - El ID del cliente.
+ * @param orgId - El ID de la organización (para seguridad).
+ * @returns Promise<Case> - El caso actualizado.
+ */
+export async function assignClientToCase(caseId: string, clientId: string, orgId: string) {
+  if (!caseId || !clientId || !orgId) {
+    throw new DatabaseError("Case ID, Client ID and Organization ID are required.");
+  }
+  
+  return prisma.case.update({
+    where: { id: caseId },
+    data: { clientId }
+  });
+}
+
+/**
+ * Obtiene estadísticas de casos por organización.
+ * @param orgId - El ID de la organización.
+ * @returns Promise<object> - Estadísticas de casos.
+ */
+export async function getCaseStatsByOrg(orgId: string) {
+  if (!orgId) throw new DatabaseError("Organization ID is required.");
+  
+  const cases = await prisma.case.findMany({
+    where: { orgId },
+    include: { artifacts: true }
+  });
+  
+  return {
+    total: cases.length,
+    byStatus: {
+      draft: cases.filter(c => c.status === 'draft').length,
+      active: cases.filter(c => c.status === 'active').length,
+      completed: cases.filter(c => c.status === 'completed').length,
+      archived: cases.filter(c => c.status === 'archived').length,
+    },
+    byStage: {
+      initial: cases.filter(c => c.stage === 'initial').length,
+      sourcing: cases.filter(c => c.stage === 'sourcing').length,
+      analysis: cases.filter(c => c.stage === 'analysis').length,
+      proposal: cases.filter(c => c.stage === 'proposal').length,
+      negotiation: cases.filter(c => c.stage === 'negotiation').length,
+      closed: cases.filter(c => c.stage === 'closed').length,
+    },
+    byPriority: {
+      low: cases.filter(c => c.priority === 'low').length,
+      medium: cases.filter(c => c.priority === 'medium').length,
+      high: cases.filter(c => c.priority === 'high').length,
+      urgent: cases.filter(c => c.priority === 'urgent').length,
+    },
+    totalArtifacts: cases.reduce((sum, c) => sum + (c.artifacts?.length || 0), 0),
+  };
 }

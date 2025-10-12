@@ -1,9 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { processChatMessage } from '@/lib/database';
+import { createServerSupabase } from '@/lib/supabase/server';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, userId, brief } = await request.json();
+    const supabase = await createServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { message, brief, caseId } = await request.json();
     
     if (!message || typeof message !== 'string') {
       return NextResponse.json(
@@ -14,12 +25,45 @@ export async function POST(request: NextRequest) {
 
     console.log('🔄 API: Procesando mensaje:', message);
     console.log('📋 API: Brief recibido:', brief);
+    console.log('📁 API: Case ID recibido:', caseId);
     
-    const result = await processChatMessage(message, userId, brief);
+    // Construir lista de documentos (sin mostrar todo el texto)
+    let documentsInfo = "";
     
-    console.log('✅ API: Mensaje procesado exitosamente');
+    if (caseId) {
+      try {
+        const artifacts = await prisma.artifact.findMany({
+          where: { caseId: caseId },
+          select: { fileName: true, contentText: true }
+        });
+
+        if (artifacts.length > 0) {
+          const filesList = artifacts
+            .map(a => `📄 ${a.fileName}`)
+            .join('\n');
+          
+          documentsInfo = `\n\nDocumentos cargados:\n${filesList}`;
+          
+          console.log(`📁 ${artifacts.length} documentos disponibles para análisis`);
+          // El contentText está disponible aquí para el LLM
+          // artifacts.forEach(a => console.log(`Texto disponible: ${a.contentText?.length || 0} caracteres`));
+        }
+      } catch (error) {
+        console.error("Error al obtener artifacts del caso:", caseId, error);
+      }
+    }
     
-    return NextResponse.json(result);
+    // Lógica del agente (Placeholder - Aquí se conectaría el LLM)
+    // El LLM recibiría artifacts[].contentText para análisis interno
+    // Pero la respuesta mostrada al usuario es limpia
+    const agentResponse = `${message}${documentsInfo}\n\nEstoy analizando esta información para proporcionarte una respuesta detallada sobre tus seguros.`;
+    
+    console.log('✅ API: Mensaje procesado con contexto');
+    
+    return NextResponse.json({
+      response: agentResponse,
+      caseId: caseId // Devolver el caseId para mantener el estado
+    });
     
   } catch (error) {
     console.error('❌ API Error:', error);

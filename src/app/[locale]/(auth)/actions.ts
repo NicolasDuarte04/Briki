@@ -61,6 +61,32 @@ export async function signup(formData: FormData): Promise<ActionResult> {
       }
     })
 
+    // Paso 3: Crear una organización por defecto para el nuevo usuario.
+    // Esto es crucial para la arquitectura multi-tenant desde el inicio.
+    try {
+      const orgSlug = `personal-${authData.user.id.substring(0, 8)}`;
+      const orgName = `${authData.user.email}'s Workspace`;
+
+      const newOrg = await prisma.organizations.create({
+        data: {
+          name: orgName,
+          slug: orgSlug,
+        },
+      });
+
+      await prisma.org_members.create({
+        data: {
+          org_id: newOrg.id,
+          user_id: authData.user.id,
+          role: 'owner',
+        },
+      });
+    } catch (orgError) {
+      // Si la creación de la organización falla, se debe considerar un rollback
+      // o registrar un error crítico. Por ahora, lo logueamos.
+      console.error('CRITICAL: Failed to create default organization for user:', authData.user.id, orgError);
+    }
+
     // Clear any cached data before redirecting
     const { revalidatePath } = await import('next/cache')
     revalidatePath('/', 'layout')
@@ -119,6 +145,36 @@ export async function login(formData: FormData): Promise<ActionResult> {
         locale: 'en'
       }
     })
+
+    // Verificar si el usuario tiene al menos una organización
+    const existingMembership = await prisma.org_members.findFirst({
+      where: { user_id: authData.user.id }
+    });
+
+    // Si no tiene organización, crear una por defecto
+    if (!existingMembership) {
+      try {
+        const orgSlug = `personal-${authData.user.id.substring(0, 8)}`;
+        const orgName = `${authData.user.email}'s Workspace`;
+
+        const newOrg = await prisma.organizations.create({
+          data: {
+            name: orgName,
+            slug: orgSlug,
+          },
+        });
+
+        await prisma.org_members.create({
+          data: {
+            org_id: newOrg.id,
+            user_id: authData.user.id,
+            role: 'owner',
+          },
+        });
+      } catch (orgError) {
+        console.error('Failed to create organization for existing user:', authData.user.id, orgError);
+      }
+    }
 
     // Clear any cached data before redirecting
     const { revalidatePath } = await import('next/cache')

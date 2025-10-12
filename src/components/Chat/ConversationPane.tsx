@@ -290,6 +290,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     setIsTyping(true);
 
     try {
+      const currentCaseId = useUI.getState().currentCaseId;
+      
       const response = await fetch('/api/chat/process-message', {
         method: 'POST',
         headers: {
@@ -297,8 +299,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         },
         body: JSON.stringify({
           message: trimmed,
-          userId: 'anonymous', // TODO: usar usuario real
-          brief: brief
+          brief: brief,
+          caseId: currentCaseId  // ← AÑADIDO: Enviar caseId activo
         })
       });
       

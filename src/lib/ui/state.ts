@@ -525,6 +525,7 @@ export interface RenewalStatusMeta {
 
 export interface UIState {
   initialMessage?: string;
+  currentCaseId: string | null;
   step: UIStep;
   isSourcing: boolean;
   rightOpen: boolean;
@@ -580,6 +581,7 @@ export interface UIState {
   _cachedFilteredRenewalsView?: RenewalView[];
   setInitialMessage: (message: string) => void;
   clearInitialMessage: () => void;
+  setCurrentCaseId: (id: string | null) => void;
   setStep: (step: UIStep) => void;
   toggleRight: () => void;
   openCompliance: (jurisdiction: ComplianceJurisdiction) => void;
@@ -649,6 +651,7 @@ export const useUI = create<UIState>()(
   devtools(
     (set, get) => ({
       initialMessage: undefined,
+      currentCaseId: null,
       step: "landing",
       isSourcing: false,
       rightOpen: true,
@@ -705,6 +708,7 @@ export const useUI = create<UIState>()(
       renewalsViewLogged: false,
       setInitialMessage: (message: string) => set({ initialMessage: message }),  // ✅ Implementación
       clearInitialMessage: () => set({ initialMessage: "" }),                  // ✅ Implementación simple
+      setCurrentCaseId: (id: string | null) => set({ currentCaseId: id }),     // ✅ AÑADIDO
       setStep: (step) =>
         set((state) => {
           if (state.isSourcing && step !== "conversation") {

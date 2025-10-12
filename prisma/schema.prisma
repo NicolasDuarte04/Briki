@@ -375,6 +375,7 @@ model Case {
   briefData    Json?      @map("brief_data")
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  priority     String     @default("medium") @db.VarChar(20)
   artifacts    Artifact[]
   auditLogs    AuditLog[]
 
@@ -464,6 +465,74 @@ model organizations {
   org_members org_members[]
 
   @@index([slug], map: "idx_organizations_slug")
+  @@schema("public")
+}
+
+model Account {
+  id                String      @id
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  User              public_User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@schema("public")
+}
+
+model public_Profile {
+  id                  String      @id
+  userId              String      @unique
+  name                String?
+  locale              String      @default("en")
+  onboardingCompleted Boolean     @default(false)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime
+  User                public_User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("Profile")
+  @@schema("public")
+}
+
+model Session {
+  id           String      @id
+  sessionToken String      @unique
+  userId       String
+  expires      DateTime
+  User         public_User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+}
+
+model public_User {
+  id            String          @id
+  name          String?
+  email         String?         @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  Account       Account[]
+  Profile       public_Profile?
+  Session       Session[]
+
+  @@map("User")
+  @@schema("public")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
   @@schema("public")
 }
 

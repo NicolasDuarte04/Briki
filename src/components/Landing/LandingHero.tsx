@@ -49,6 +49,7 @@ export function LandingHero() {
               {t('primaryCta')}
             </button>
           </div>
+          
           <LandingChatInput />
         </div>
       </div>

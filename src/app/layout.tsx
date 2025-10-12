@@ -180,7 +180,7 @@ export default function RootLayout({
     <html lang="es" className={`${inter.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
         {/* Preload hero background images to improve LCP */}
-        <link rel="preload" as="image" href="/brand/landing-bg.jpeg" />
+        {/* Removed invalid preload to avoid 404 during dev */}
         {/* JSON-LD Structured Data for better SEO */}
         <script
           type="application/ld+json"

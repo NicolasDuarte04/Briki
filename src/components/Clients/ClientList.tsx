@@ -1,0 +1,76 @@
+// /src/components/Clients/ClientList.tsx
+'use client';
+
+import { useState } from 'react';
+import { ClientCard } from './ClientCard';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { Search, Users } from 'lucide-react';
+import type { DecryptedClient } from '@/lib/clientsDb';
+
+interface ClientListProps {
+  clients: DecryptedClient[];
+  orgId: string;
+}
+
+export function ClientList({ clients, orgId }: ClientListProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filtrar clientes por término de búsqueda
+  const filteredClients = clients.filter(client => {
+    if (!searchTerm) return true;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      client.name.toLowerCase().includes(searchLower) ||
+      client.email?.toLowerCase().includes(searchLower) ||
+      client.phone?.toLowerCase().includes(searchLower)
+    );
+  });
+  
+  return (
+    <div className="space-y-4">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por nombre, email o teléfono..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+      
+      {/* Results count */}
+      <div className="text-sm text-muted-foreground">
+        Mostrando {filteredClients.length} de {clients.length} clientes
+      </div>
+      
+      {/* Clients Grid */}
+      {filteredClients.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredClients.map((client) => (
+            <ClientCard key={client.id} client={client} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 border-2 border-dashed rounded-lg">
+          <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">
+            {searchTerm
+              ? 'No se encontraron clientes con ese término de búsqueda'
+              : 'No hay clientes todavía. Crea tu primer cliente para comenzar.'}
+          </p>
+          {!searchTerm && (
+            <Button asChild className="mt-4">
+              <Link href="/workspace/clients/new">
+                Crear Primer Cliente
+              </Link>
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

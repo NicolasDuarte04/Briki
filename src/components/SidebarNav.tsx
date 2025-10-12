@@ -4,14 +4,9 @@ import { SidebarLink } from "@/components/ui/sidebar";
 import Image from "next/image";
 import Link from "next/link";
 import { useUI } from "@/lib/ui/state";
+import { workspaceLinks } from "@/config/navigation";
 
-const links = [
-  { label: "Saved Analyses", href: "#" },
-  { label: "Cases", href: "#" },
-  { label: "Playbooks", href: "#" },
-  { label: "Integrations", href: "#" },
-  { label: "Settings", href: "#" },
-];
+const links = workspaceLinks;
 
 export default function SidebarNav() {
   const { setStep } = useUI();

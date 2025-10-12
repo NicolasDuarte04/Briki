@@ -202,6 +202,16 @@ export function LandingNavigation() {
                 Profile
               </Link>
             </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={`/${locale}/workspace/cases`} className="w-full cursor-pointer">
+                Cases
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={`/${locale}/workspace/clients`} className="w-full cursor-pointer">
+                Clients
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuItem
               onSelect={(e) => {
                 e.preventDefault();

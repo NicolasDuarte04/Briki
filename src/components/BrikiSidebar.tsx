@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/sidebar";
 import { IconLogout } from "@tabler/icons-react";
 import Link from "next/link";
+import { workspaceLinks } from "@/config/navigation";
 
 export default function BrikiSidebarLayout({
   children,
@@ -16,13 +17,7 @@ export default function BrikiSidebarLayout({
 }) {
   const [open, setOpen] = React.useState(false);
 
-  const navLinks = [
-    { label: "Saved Analyses", href: "#" },
-    { label: "Cases", href: "#" },
-    { label: "Playbooks", href: "#" },
-    { label: "Integrations", href: "#" },
-    { label: "Settings", href: "#" },
-  ];
+  const navLinks = workspaceLinks;
 
   return (
     <div className="flex h-screen w-full">
