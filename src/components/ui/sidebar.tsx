@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import React, { useState, createContext, useContext } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { IconMenu2, IconX } from "@tabler/icons-react";
+import { useUI } from "@/lib/ui/state";
 
 interface Links {
   label: string;
@@ -97,19 +98,23 @@ export const DesktopSidebar = ({
   children,
   ...props
 }: React.ComponentProps<typeof motion.div>) => {
-  const { open, setOpen, animate } = useSidebar();
+  const { open: hoverOpen, setOpen, animate } = useSidebar();
+  const { sidebarPinned } = useUI();
+  const isOpen = sidebarPinned || hoverOpen;
+  
   return (
     <>
       <motion.div
         className={cn(
-          "h-full px-4 py-4 hidden md:flex md:flex-col bg-sidebar border-r border-sidebar-border w-[280px] shrink-0",
+          "h-full px-4 py-4 hidden md:flex md:flex-col bg-sidebar border-r border-sidebar-border w-[280px] shrink-0 overflow-hidden",
           className
         )}
         animate={{
-          width: animate ? (open ? "280px" : "72px") : "280px",
+          width: animate ? (isOpen ? "280px" : "72px") : "280px",
         }}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
+        onMouseEnter={() => !sidebarPinned && setOpen(true)}
+        onMouseLeave={() => !sidebarPinned && setOpen(false)}
+        aria-expanded={isOpen}
         {...props}
       >
         {children}
@@ -182,7 +187,10 @@ export const SidebarLink = ({
   className?: string;
   isActive?: boolean;
 }) => {
-  const { open, animate } = useSidebar();
+  const { open: hoverOpen, animate } = useSidebar();
+  const { sidebarPinned } = useUI();
+  const isOpen = sidebarPinned || hoverOpen;
+  
   return (
     <a
       href={link.href}
@@ -200,8 +208,8 @@ export const SidebarLink = ({
 
       <motion.span
         animate={{
-          display: animate ? (open ? "inline-block" : "none") : "inline-block",
-          opacity: animate ? (open ? 1 : 0) : 1,
+          display: animate ? (isOpen ? "inline-block" : "none") : "inline-block",
+          opacity: animate ? (isOpen ? 1 : 0) : 1,
         }}
         className="text-sm whitespace-pre inline-block !p-0 !m-0"
       >

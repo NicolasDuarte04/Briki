@@ -1,3 +1,9 @@
+/**
+ * @deprecated This component has been replaced by BrikiChat in src/components/Chat/BrikiChat.tsx
+ * Use <BrikiChat mode="agent" /> instead.
+ * This file is kept temporarily for reference and will be removed in a future cleanup.
+ */
+
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";

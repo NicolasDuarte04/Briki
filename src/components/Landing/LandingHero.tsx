@@ -1,6 +1,6 @@
 'use client';
 
-import { VercelV0Chat } from '@/components/ui/v0-ai-chat';
+import { BrikiChat } from '@/components/Chat/BrikiChat';
 import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { trackEvent } from '@/lib/analytics';
@@ -14,7 +14,7 @@ export function LandingHero() {
   }, [bgVariant]);
 
   return (
-    <section className="landing-hero-section relative min-h-screen flex items-center justify-center overflow-hidden pt-20" aria-labelledby="landing-hero-heading">
+    <section className="landing-hero-section relative min-h-screen flex items-center justify-center pt-20 pb-16" aria-labelledby="landing-hero-heading">
       {/* Wave background */}
       <div className={bgVariant === 'concept' ? 'landing-hero-concept' : 'landing-hero'} aria-hidden="true" />
       
@@ -23,7 +23,7 @@ export function LandingHero() {
       <div className="landing-hero-vignette" />
       
       {/* Content */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto px-6 sm:px-8 py-28 text-center">
+      <div className="relative z-10 w-full max-w-5xl mx-auto px-6 sm:px-8 py-20 text-center">
         <div className="space-y-8">
           <h1 id="landing-hero-heading" className="text-display-xl text-slate-50 font-bold tracking-tight px-6 text-balance font-smooth mx-auto max-w-[24ch] md:max-w-[28ch]">
             {t('heading')}
@@ -49,7 +49,7 @@ export function LandingHero() {
               {t('primaryCta')}
             </button>
           </div>
-          <VercelV0Chat />
+          <BrikiChat mode="landing" />
         </div>
       </div>
       

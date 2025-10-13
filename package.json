@@ -20,6 +20,7 @@
     "validate:metadata": "tsx scripts/validate-metadata.ts"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@prisma/client": "^6.2.1",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-checkbox": "^1.3.3",

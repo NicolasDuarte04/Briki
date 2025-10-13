@@ -134,7 +134,6 @@ export function Canvas({
   isSourcing?: boolean;
 }) {
   const showRight = rightOpen || isSourcing;
-  const innerPadding = "px-4 pb-8 pt-6 sm:px-6";
   
   // Initialize with DEFAULT_RATIO for consistent SSR/CSR hydration
   const [splitRatio, setSplitRatio] = useState(DEFAULT_RATIO);
@@ -273,26 +272,18 @@ export function Canvas({
     persistRatio(newRatio);
   }, [isSmallScreen, persistRatio]);
   
-  // Ensure ratio stays within bounds when container resizes
-  useEffect(() => {
-    const clamped = clampRatio(splitRatio);
-    if (clamped !== splitRatio) {
-      setSplitRatio(clamped);
-    }
-  }, [splitRatio, clampRatio]);
-
   // Stack vertically on small screens
   if (isSmallScreen) {
     return (
       <div className={cn("flex-1 h-screen flex flex-col gap-y-8 overflow-hidden", className)}>
-        <section className="flex h-full flex-col bg-background min-w-0 overflow-auto">
-          <div className={cn("flex h-full flex-1 flex-col gap-6 overflow-auto", innerPadding)}>
-            <div className="flex-1 h-full">{left}</div>
+        <section className="flex h-full flex-col bg-background min-w-0 overflow-hidden">
+          <div className="relative flex h-full w-full flex-col">
+            {left}
           </div>
         </section>
         {showRight && (
-          <section className="flex h-full flex-col bg-background min-w-0 overflow-auto">
-            <div className={cn("flex h-full flex-1 flex-col gap-6 overflow-auto", innerPadding)}>
+          <section className="flex h-full flex-col bg-background min-w-0">
+            <div className="flex h-full flex-1 flex-col">
               <div className="flex-1 h-full">{right}</div>
             </div>
           </section>
@@ -338,11 +329,11 @@ export function Canvas({
     >
       {/* Left panel */}
       <section
-        className="flex h-full flex-col bg-background min-w-0 overflow-auto"
+        className="flex h-full flex-col bg-background min-w-0 overflow-hidden"
         style={leftPanelStyle}
       >
-        <div className={cn("flex h-full flex-1 flex-col gap-6 overflow-auto", innerPadding)}>
-          <div className="flex-1">{left}</div>
+        <div className="relative flex h-full w-full flex-col">
+          {left}
         </div>
       </section>
       
@@ -378,11 +369,11 @@ export function Canvas({
           
           {/* Right panel */}
           <section
-            className="flex h-full flex-col bg-background min-w-0 overflow-auto"
+            className="flex h-full flex-col bg-background min-w-0"
             style={rightPanelStyle}
           >
-            <div className={cn("flex h-full flex-1 flex-col gap-6 overflow-auto", innerPadding)}>
-              <div className="flex-1">{right}</div>
+            <div className="flex h-full flex-1 flex-col">
+              <div className="flex-1 h-full">{right}</div>
             </div>
           </section>
         </>

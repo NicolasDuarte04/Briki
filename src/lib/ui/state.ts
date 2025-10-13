@@ -85,6 +85,9 @@ export type {
   UIStep,
 } from "../types";
 
+export type SidebarMode = 'nav' | 'chat';
+export type SidebarPanel = 'none' | 'chats';
+
 export type ProposalData = {
   broker: BrokerProfile;
   brief: CaseBrief;
@@ -528,6 +531,9 @@ export interface UIState {
   step: UIStep;
   isSourcing: boolean;
   rightOpen: boolean;
+  sidebarMode: SidebarMode;
+  sidebarPanel: SidebarPanel;
+  sidebarPinned: boolean;
   complianceOpen: boolean;
   complianceJurisdiction: ComplianceJurisdiction;
   checked: ComplianceCheckedState;
@@ -582,6 +588,9 @@ export interface UIState {
   clearInitialMessage: () => void;
   setStep: (step: UIStep) => void;
   toggleRight: () => void;
+  setSidebarMode: (mode: SidebarMode) => void;
+  openSidebarPanel: (panel: 'chats') => void;
+  closeSidebarPanel: () => void;
   openCompliance: (jurisdiction: ComplianceJurisdiction) => void;
   closeCompliance: () => void;
   toggleCompliance: (itemId: ComplianceItemId) => void;
@@ -652,6 +661,9 @@ export const useUI = create<UIState>()(
       step: "landing",
       isSourcing: false,
       rightOpen: true,
+      sidebarMode: "nav",
+      sidebarPanel: "none",
+      sidebarPinned: false,
       complianceOpen: false,
       complianceJurisdiction: complianceJurisdictions[0] ?? "co",
       checked: createDefaultComplianceChecked(),
@@ -713,6 +725,9 @@ export const useUI = create<UIState>()(
           return { step };
         }),
       toggleRight: () => set((state) => ({ rightOpen: !state.rightOpen })),
+      setSidebarMode: (mode) => set(() => ({ sidebarMode: mode })),
+      openSidebarPanel: (panel) => set(() => ({ sidebarPanel: panel, sidebarPinned: true })),
+      closeSidebarPanel: () => set(() => ({ sidebarPanel: "none", sidebarPinned: false })),
       openCompliance: (jurisdiction) =>
         set((state) => ({
           complianceOpen: true,

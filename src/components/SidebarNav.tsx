@@ -4,6 +4,8 @@ import { SidebarLink } from "@/components/ui/sidebar";
 import Image from "next/image";
 import Link from "next/link";
 import { useUI } from "@/lib/ui/state";
+import { ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
+import { cn } from "@/lib/utils";
 
 const links = [
   { label: "Saved Analyses", href: "#" },
@@ -14,7 +16,7 @@ const links = [
 ];
 
 export default function SidebarNav() {
-  const { setStep } = useUI();
+  const { setStep, openSidebarPanel, sidebarPanel } = useUI();
 
   const handleLogoClick = () => {
     setStep("landing");
@@ -22,7 +24,7 @@ export default function SidebarNav() {
 
   return (
     <div className="flex h-full flex-col justify-between">
-      <div>
+      <div className="flex flex-col h-full overflow-hidden">
         <Link
           href="/"
           onClick={handleLogoClick}
@@ -41,6 +43,22 @@ export default function SidebarNav() {
             />
           </span>
         </Link>
+
+        {/* Chat Panel Trigger */}
+        <button
+          onClick={() => openSidebarPanel('chats')}
+          className={cn(
+            "mt-4 flex items-center gap-3 rounded-md px-2 py-2 text-sm font-medium transition-colors",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+            sidebarPanel === 'chats'
+              ? "bg-sidebar-accent text-sidebar-accent-foreground"
+              : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          )}
+        >
+          <ChatBubbleLeftRightIcon className="h-5 w-5 shrink-0" />
+          <span>Chat</span>
+        </button>
+
         <div className="mt-4 flex flex-col">
           {links.map((link) => (
             <SidebarLink key={link.label} link={link} />

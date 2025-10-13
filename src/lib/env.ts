@@ -51,6 +51,14 @@ export const env = {
   // Vercel-specific
   VERCEL_URL: process.env.VERCEL_URL,
   VERCEL_ENV: process.env.VERCEL_ENV,
+  
+  // Contact form spam protection
+  get CONTACT_SPAM_SALT() {
+    if (typeof window !== 'undefined') {
+      throw new Error('CONTACT_SPAM_SALT should only be used on the server');
+    }
+    return getEnvVar('CONTACT_SPAM_SALT', 'default-salt-change-in-production');
+  },
 } as const;
 
 // Type-safe environment variable access

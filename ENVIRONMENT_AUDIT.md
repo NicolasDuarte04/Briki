@@ -44,6 +44,7 @@ DIRECT_URL                      # Direct database URL for migrations
 NEXT_PUBLIC_SITE_URL            # Site URL (defaults to http://localhost:3000)
 GOOGLE_CLIENT_ID                # Google OAuth client ID
 GOOGLE_CLIENT_SECRET            # Google OAuth client secret
+CONTACT_SPAM_SALT               # Salt for hashing IPs in contact form (defaults to generic value)
 ```
 
 ## Vercel Deployment Checklist

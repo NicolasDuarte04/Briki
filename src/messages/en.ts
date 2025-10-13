@@ -104,6 +104,49 @@ const en = {
         },
       },
     },
+    contactForm: {
+      hero: "Turn policies into proposals in minutes.",
+      title: "Contact us",
+      fields: {
+        name: {
+          label: "Name",
+          placeholder: "John Doe",
+        },
+        email: {
+          label: "Email",
+          placeholder: "john@example.com",
+        },
+        company: {
+          label: "Company",
+          placeholder: "Acme Inc.",
+        },
+        city: {
+          label: "City",
+          placeholder: "New York",
+        },
+        phone: {
+          label: "Phone",
+          placeholder: "+1 (555) 123-4567",
+        },
+      },
+      submit: "Submit",
+      submitting: "Sending...",
+      success: {
+        message: "Message sent successfully. We'll contact you soon.",
+      },
+      errors: {
+        generic: "Something went wrong. Please try again.",
+        validation: "Please check your information and try again.",
+        spam: "Unable to process request. Please try again later.",
+      },
+      aria: {
+        submitting: "Sending contact request",
+      },
+      meta: {
+        requestMessage: "Contact request from landing page",
+      },
+      demoLink: "Book a demo",
+    },
   },
   footer: {
     privacy: "Privacy Policy",

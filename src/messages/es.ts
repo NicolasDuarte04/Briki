@@ -104,6 +104,49 @@ const es = {
         },
       },
     },
+    contactForm: {
+      hero: "Convierte pólizas en propuestas en minutos.",
+      title: "Contáctanos",
+      fields: {
+        name: {
+          label: "Nombre",
+          placeholder: "Juan Pérez",
+        },
+        email: {
+          label: "Correo electrónico",
+          placeholder: "juan@ejemplo.com",
+        },
+        company: {
+          label: "Empresa",
+          placeholder: "Empresa ejemplo S.A.",
+        },
+        city: {
+          label: "Ciudad",
+          placeholder: "Bogotá",
+        },
+        phone: {
+          label: "Teléfono",
+          placeholder: "+57 (300) 123-4567",
+        },
+      },
+      submit: "Enviar",
+      submitting: "Enviando...",
+      success: {
+        message: "Mensaje enviado correctamente. Te contactaremos pronto.",
+      },
+      errors: {
+        generic: "Algo salió mal. Por favor intenta de nuevo.",
+        validation: "Por favor revisa tu información e intenta de nuevo.",
+        spam: "No se pudo procesar la solicitud. Intenta más tarde.",
+      },
+      aria: {
+        submitting: "Enviando solicitud de contacto",
+      },
+      meta: {
+        requestMessage: "Solicitud de contacto desde la página de inicio",
+      },
+      demoLink: "Agenda una demo",
+    },
   },
   footer: {
     privacy: "Política de Privacidad",

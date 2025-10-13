@@ -63,7 +63,7 @@
   --secondary: 210 40% 96%;
   --secondary-foreground: 222 47% 11%;
   --muted: 210 40% 96%;
-  --muted-foreground: 215 16% 47%; /* Meets WCAG AA 4.5:1 contrast on white */
+  --muted-foreground: 215 16% 45%; /* Meets WCAG AA 4.5:1 contrast on white */
   --accent: 210 40% 96%;
   --accent-foreground: 222 47% 12%;
   --destructive: 0 84% 50%;
