@@ -5,7 +5,7 @@ import { useUI } from "@/lib/ui/state";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, ArrowDown } from "lucide-react";
+import { SendHorizonal, ArrowDown, Search, Code2, Puzzle, Paperclip, Image as ImageIcon, ChevronDown } from "lucide-react";
 import Message, { type MessageRole, type MessageAgentMeta } from "@/components/Chat/Message";
 import { useTranslations } from "next-intl";
 import { ProvenanceChip, type ProvenanceTag } from "@/components/Sourcing/ProvenanceChip";
@@ -37,6 +37,13 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const [value, setValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const trimmed = value.trim();
+  
+  // Agent controls state
+  const [selectedAgent, setSelectedAgent] = useState<string>("sourcing");
+  const [showAgentMenu, setShowAgentMenu] = useState(false);
+  const [showHelper, setShowHelper] = useState(false);
+  const agentMenuRef = useRef<HTMLDivElement>(null);
+  const helperTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement | null>(null);
@@ -47,6 +54,28 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const [showJumpToNewest, setShowJumpToNewest] = useState(false);
   const pendingRafRef = useRef<number | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Helper functions - EXACT COPY FROM TEAM
+  function hideHelper() {
+    if (helperTimerRef.current) {
+      clearTimeout(helperTimerRef.current);
+      helperTimerRef.current = null;
+    }
+    if (showHelper) {
+      setShowHelper(false);
+    }
+  }
+
+  function showEmptyHelper() {
+    setShowHelper(true);
+    if (helperTimerRef.current) {
+      clearTimeout(helperTimerRef.current);
+    }
+    helperTimerRef.current = setTimeout(() => {
+      setShowHelper(false);
+      helperTimerRef.current = null;
+    }, 2000);
+  }
 
   const sourcingStatusCopy = useMemo(() => {
     const rawMicroSteps = sourcingTranslations.raw("microSteps");
@@ -336,11 +365,20 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
   useEffect(() => {
     if (initialMessage && initialMessage.trim() && initialMessage !== "") {
-      // Simular que el usuario envió el mensaje automáticamente
-      sendMessage(initialMessage.trim());
+      // Mostrar el mensaje del usuario
+      const userMessage: ChatMessage = { 
+        role: "user", 
+        content: initialMessage.trim() 
+      };
+      setMessages([userMessage]);
+      
+      // Mostrar estado de "pensando" infinito
+      setIsTyping(true);
+      
+      // Limpiar el mensaje inicial
       clearInitialMessage();
     }
-  }, [initialMessage, sendMessage, clearInitialMessage]);
+  }, [initialMessage, clearInitialMessage]);
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -351,6 +389,10 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!trimmed) {
+      showEmptyHelper();
+      return;
+    }
     sendMessage();
   }
 
@@ -444,49 +486,130 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         ) : null}
       </div>
       <div className="sticky bottom-0 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70 border-t">
-        <form
-          onSubmit={onSubmit}
-          className={cn(
-            "relative p-3",
-            "focus-within:bg-background/95"
-          )}
-        >
+        {/* Main composer - EXACT COPY FROM TEAM */}
+        <div className="relative">
           <Textarea
             ref={composerRef}
-            rows={1}
-            placeholder={chatTranslations("placeholder")}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => {
+              setValue(e.target.value);
+              if (showHelper) {
+                setShowHelper(false);
+              }
+            }}
             onKeyDown={onKeyDown}
+            placeholder={chatTranslations("placeholder")}
+            aria-label={chatTranslations("placeholder")}
             className={cn(
-              "w-full pr-16",
-              "min-h-[52px] max-h-[220px] resize-none",
-              "bg-transparent border-none shadow-none",
-              "py-3.5 pl-4",
-              "text-base leading-relaxed text-foreground",
-              "placeholder:text-muted-foreground/70",
-              "focus-visible:ring-0 focus-visible:ring-offset-0"
+              "w-full pl-4 pr-14 py-3",
+              "resize-none",
+              "bg-background",
+              "border border-input",
+              "rounded-lg",
+              "text-base text-foreground",
+              "focus:outline-none",
+              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0",
+              "placeholder:text-muted-foreground",
+              "min-h-[90px]"
             )}
-            style={{ overflowY: "auto" }}
+            style={{
+              overflow: "hidden",
+            }}
           />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          <div className="absolute right-3 bottom-3">
             <Button
-              type="submit"
-              disabled={!trimmed || isTyping}
-              variant={trimmed ? "default" : "secondary"}
+              type="button"
               size="icon"
+              onClick={onSubmit}
+              disabled={!trimmed || isTyping}
               className={cn(
                 "h-9 w-9 rounded-lg",
                 trimmed && !isTyping
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "bg-muted text-muted-foreground cursor-not-allowed"
               )}
-              aria-label={chatTranslations("send")}
             >
               <SendHorizonal className="h-4 w-4" />
+              <span className="sr-only">Send</span>
             </Button>
           </div>
-        </form>
+        </div>
+
+        {/* Controls bar - EXACT COPY FROM TEAM */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Left controls */}
+          <div className="flex items-center gap-1">
+            {/* Agent selector */}
+            <div className="relative" ref={agentMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowAgentMenu(!showAgentMenu)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-muted transition-colors text-sm text-foreground"
+              >
+                {selectedAgent === "sourcing" && <Search className="w-4 h-4 text-primary" />}
+                {selectedAgent === "analysis" && <Code2 className="w-4 h-4 text-primary" />}
+                {selectedAgent === "creative" && <Puzzle className="w-4 h-4 text-primary" />}
+                <span className="font-medium capitalize">
+                  {selectedAgent}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+
+              {/* Agent dropdown menu */}
+              {showAgentMenu && (
+                <div className="absolute bottom-full left-0 mb-2 w-48 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50">
+                  <div className="py-1">
+                    {[
+                      { id: "sourcing", label: "Sourcing", icon: Search },
+                      { id: "analysis", label: "Analysis", icon: Code2 },
+                      { id: "creative", label: "Creative", icon: Puzzle }
+                    ].map((agent) => (
+                      <button
+                        key={agent.id}
+                        onClick={() => {
+                          setSelectedAgent(agent.id);
+                          setShowAgentMenu(false);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                      >
+                        <agent.icon className="w-4 h-4" />
+                        {agent.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* File attachment button */}
+            <button
+              type="button"
+              className="p-2 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Attach file"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
+
+            {/* Image button */}
+            <button
+              type="button"
+              className="p-2 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Add image"
+            >
+              <ImageIcon className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Press Enter to send message - SIMPLE VERSION */}
+        <div
+          className={cn(
+            "px-4 pt-1 text-xs text-muted-foreground transition-opacity duration-300",
+            showHelper ? "opacity-100" : "opacity-0"
+          )}
+        >
+          {chatTranslations("composer.emptyHelper")}
+        </div>
       </div>
     </div>
   );

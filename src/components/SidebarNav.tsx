@@ -1,6 +1,8 @@
 "use client";
 
 import { SidebarLink } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import { MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useUI } from "@/lib/ui/state";
@@ -9,7 +11,7 @@ import { workspaceLinks } from "@/config/navigation";
 const links = workspaceLinks;
 
 export default function SidebarNav() {
-  const { setStep } = useUI();
+  const { setStep, openChatPanel } = useUI();
 
   const handleLogoClick = () => {
     setStep("landing");
@@ -36,7 +38,21 @@ export default function SidebarNav() {
             />
           </span>
         </Link>
-        <div className="mt-4 flex flex-col">
+        
+        {/* Chat button - positioned after logo */}
+        <div className="mt-4 mb-4">
+          <Button
+            onClick={openChatPanel}
+            variant="outline"
+            size="sm"
+            className="w-full justify-start gap-2"
+          >
+            <MessageCircle className="h-4 w-4" />
+            <span>Chat</span>
+          </Button>
+        </div>
+        
+        <div className="flex flex-col">
           {links.map((link) => (
             <SidebarLink key={link.label} link={link} />
           ))}

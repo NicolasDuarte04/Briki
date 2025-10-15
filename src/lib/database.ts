@@ -394,6 +394,12 @@ export async function createCaseWithOrg(
     status?: 'draft' | 'active' | 'completed' | 'archived';
     stage?: 'initial' | 'sourcing' | 'analysis' | 'proposal' | 'negotiation' | 'closed';
     priority?: 'low' | 'medium' | 'high' | 'urgent';
+    // Nuevos campos del Brief detallado
+    insurance_category?: string;
+    max_budget?: number;
+    budget_currency?: 'COP' | 'USD';
+    required_coverages?: string[];
+    client_profile?: string;
   } = {} // <-- Añadir valor por defecto para seguridad
 ) {
   if (!orgId) throw new DatabaseError("Organization ID is required.");
@@ -410,6 +416,12 @@ export async function createCaseWithOrg(
       status: additionalData.status || 'draft', // Default a 'draft'
       stage: additionalData.stage || 'initial',   // Default a 'initial'
       priority: additionalData.priority || 'medium', // Default a 'medium'
+      // Nuevos campos del Brief detallado
+      insurance_category: additionalData.insurance_category,
+      max_budget: additionalData.max_budget,
+      budget_currency: additionalData.budget_currency || 'COP',
+      required_coverages: additionalData.required_coverages || [],
+      client_profile: additionalData.client_profile,
     }
   });
 }

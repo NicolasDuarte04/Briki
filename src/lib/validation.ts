@@ -312,6 +312,12 @@ export const CaseSchema = z
     quoteIds: z.array(z.string()),
     createdAt: IsoDateTimeStringSchema,
     updatedAt: IsoDateTimeStringSchema,
+    // Nuevos campos del Brief detallado
+    insurance_category: z.string().optional(),
+    max_budget: z.number().optional(),
+    budget_currency: z.enum(['COP', 'USD']).optional().default('COP'),
+    required_coverages: z.array(z.string()).optional().default([]),
+    client_profile: z.string().optional(),
   })
   .strict();
 export type CaseParsed = z.infer<typeof CaseSchema>;

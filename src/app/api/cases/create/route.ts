@@ -28,6 +28,12 @@ export async function POST(request: NextRequest) {
       priority,
       briefData,
       tempUploads = [], // PDFs temporales del formulario
+      // Nuevos campos del Brief detallado
+      insurance_category,
+      max_budget,
+      budget_currency,
+      required_coverages,
+      client_profile,
     } = body;
     
     // Validaciones básicas
@@ -73,6 +79,12 @@ export async function POST(request: NextRequest) {
         status,
         stage,
         priority,
+        // Nuevos campos del Brief detallado
+        insurance_category,
+        max_budget,
+        budget_currency,
+        required_coverages,
+        client_profile,
       }
     );
     

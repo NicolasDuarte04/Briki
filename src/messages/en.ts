@@ -692,6 +692,10 @@ const en = {
       empty: "No plans available yet.",
     },
   },
+  composer: {
+    placeholder: "Describe your client or upload documents…",
+    emptyHelper: "Press Enter to send. Shift+Enter adds a new line.",
+  },
 } as const;
 
 export default en;

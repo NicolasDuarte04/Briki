@@ -530,6 +530,9 @@ export interface UIState {
   isSourcing: boolean;
   rightOpen: boolean;
   complianceOpen: boolean;
+  chatPanelOpen: boolean;
+  // Nuevo estado para el flujo de briefing
+  briefingCase: { isActive: boolean; initialMessage: string } | null;
   complianceJurisdiction: ComplianceJurisdiction;
   checked: ComplianceCheckedState;
   complianceAuditLog: ComplianceAuditEvent[];
@@ -583,7 +586,13 @@ export interface UIState {
   clearInitialMessage: () => void;
   setCurrentCaseId: (id: string | null) => void;
   setStep: (step: UIStep) => void;
+  // Funciones para el flujo de briefing
+  startBriefing: (initialMessage: string) => void;
+  completeBriefing: (caseId: string) => void;
+  cancelBriefing: () => void;
   toggleRight: () => void;
+  openChatPanel: () => void;
+  closeChatPanel: () => void;
   openCompliance: (jurisdiction: ComplianceJurisdiction) => void;
   closeCompliance: () => void;
   toggleCompliance: (itemId: ComplianceItemId) => void;
@@ -656,6 +665,8 @@ export const useUI = create<UIState>()(
       isSourcing: false,
       rightOpen: true,
       complianceOpen: false,
+      chatPanelOpen: false,
+      briefingCase: null,
       complianceJurisdiction: complianceJurisdictions[0] ?? "co",
       checked: createDefaultComplianceChecked(),
       complianceAuditLog: [],
@@ -716,7 +727,26 @@ export const useUI = create<UIState>()(
           }
           return { step };
         }),
+      // Funciones para el flujo de briefing
+      startBriefing: (initialMessage: string) => 
+        set(() => ({ 
+          briefingCase: { isActive: true, initialMessage },
+          step: "landing" // Mantener en landing para mostrar el formulario
+        })),
+      completeBriefing: (caseId: string) => 
+        set(() => ({ 
+          briefingCase: null,
+          currentCaseId: caseId,
+          step: "conversation"
+        })),
+      cancelBriefing: () => 
+        set(() => ({ 
+          briefingCase: null,
+          step: "landing"
+        })),
       toggleRight: () => set((state) => ({ rightOpen: !state.rightOpen })),
+      openChatPanel: () => set(() => ({ chatPanelOpen: true })),
+      closeChatPanel: () => set(() => ({ chatPanelOpen: false })),
       openCompliance: (jurisdiction) =>
         set((state) => ({
           complianceOpen: true,
@@ -1009,11 +1039,13 @@ export const useUI = create<UIState>()(
         }
         set(() => ({ casesLoading: true } satisfies Partial<UIState>));
         try {
-          const cases = await loadCases();
-          set(() => ({ cases, casesLoaded: true, casesLoading: false } satisfies Partial<UIState>));
+          // Usar API route para evitar problemas de server/client components
+          const response = await fetch('/api/cases');
+          const data = await response.json();
+          set(() => ({ cases: data.cases, casesLoaded: true, casesLoading: false } satisfies Partial<UIState>));
         } catch (error) {
+          console.error("Error loading cases:", error);
           set(() => ({ cases: [], casesLoaded: false, casesLoading: false } satisfies Partial<UIState>));
-          throw error;
         }
       },
       setComparisonWeights: (weights) =>
@@ -1092,7 +1124,7 @@ export const useUI = create<UIState>()(
         set(() => ({ renewalsLoading: true }));
         try {
           const renewals = await loadRenewals();
-          const withStatus = renewals.map((renewal) => ({
+          const withStatus = renewals.map((renewal: any) => ({
             ...renewal,
             status: renewal.status ?? deriveRenewalStatus(renewal.renewalDateISO),
           }));

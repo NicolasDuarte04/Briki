@@ -151,33 +151,16 @@ export function LandingChatInput() {
         }
         
         const message = value.trim();
-        const payload = {
-            message,
-            tempUploads,
-        };
-
-        const res = await fetch('/api/chat/start', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-            alert(`❌ Error: ${data.error || 'No se pudo iniciar el chat'}`);
-            return;
-        }
-
-        // Guardar el caseId en el estado global para usarlo en la conversación
-        if (data.caseId) {
-            useUI.getState().setCurrentCaseId(data.caseId);
-        }
-
-        // Limpiar estado local y continuar al chat
-        setInitialMessage(message);
-        setBrief({ freeText: message });
+        
+        // Limpiar estado local
+        setValue('');
         setTempUploads([]);
         trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
-        setStep("conversation");
+        
+        // En lugar de ir directamente a la conversación, activar el briefing
+        // Esto interceptará el primer mensaje y mostrará el formulario detallado
+        const { startBriefing } = useUI.getState();
+        startBriefing(message);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -331,7 +314,10 @@ export function LandingChatInput() {
                     icon={<ImageIcon className="w-4 h-4" />}
                     label="Import WhatsApp chat"
                     user={user}
-                    onAuthenticatedClick={() => setStep("conversation")}
+                    onAuthenticatedClick={() => {
+                        const { startBriefing } = useUI.getState();
+                        startBriefing("Importar chat de WhatsApp");
+                    }}
                 />
                 
                 {/* Botón Connect carriers */}
@@ -339,7 +325,10 @@ export function LandingChatInput() {
                     icon={<MonitorIcon className="w-4 h-4" />}
                     label="Connect carriers"
                     user={user}
-                    onAuthenticatedClick={() => setStep("conversation")}
+                    onAuthenticatedClick={() => {
+                        const { startBriefing } = useUI.getState();
+                        startBriefing("Conectar con aseguradoras");
+                    }}
                 />
             </div>
         </div>

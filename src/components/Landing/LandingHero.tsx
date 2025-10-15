@@ -23,7 +23,7 @@ export function LandingHero() {
       <div className="landing-hero-vignette" />
       
       {/* Content */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto px-6 sm:px-8 py-28 text-center">
+      <div className="relative z-10 w-full max-w-5xl mx-auto px-6 sm:px-8 py-20 text-center">
         <div className="space-y-8">
           <h1 id="landing-hero-heading" className="text-display-xl text-slate-50 font-bold tracking-tight px-6 text-balance font-smooth mx-auto max-w-[24ch] md:max-w-[28ch]">
             {t('heading')}
