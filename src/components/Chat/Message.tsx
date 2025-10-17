@@ -23,10 +23,11 @@ interface MessageProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "conte
   isGroupEnd?: boolean;
   isTyping?: boolean;
   timestamp?: string;
+  onApprove?: () => void;
 }
 
 export const Message = forwardRef<HTMLDivElement, MessageProps>(function Message(
-  { role, content, agent, className, isGroupStart, isGroupEnd, isTyping, timestamp, ...rest },
+  { role, content, agent, className, isGroupStart, isGroupEnd, isTyping, timestamp, onApprove, ...rest },
   ref
 ) {
   const isUser = role === "user";
@@ -86,6 +87,7 @@ export const Message = forwardRef<HTMLDivElement, MessageProps>(function Message
           {...(agent?.tag ? { tagLabel: agent.tag } : {})}
           {...(timestamp ? { timestamp } : {})}
           body={<div className="break-words">{content}</div>}
+          onApprove={onApprove}
         />
       ) : (
         <div className="max-w-full">

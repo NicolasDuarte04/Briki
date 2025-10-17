@@ -578,6 +578,10 @@ export interface UIState {
   renewalsAuditLog: RenewalsAuditEvent[];
   renewalsSequence: number;
   renewalsViewLogged: boolean;
+  // Estados para aprobación de casos
+  caseApproving: boolean;
+  caseApprovalError: string | null;
+  caseApproved: boolean;
   // Cache properties (internal use)
   _cachedPoliciesView?: PolicyView[];
   _cachedRenewalsView?: RenewalView[];
@@ -586,6 +590,9 @@ export interface UIState {
   clearInitialMessage: () => void;
   setCurrentCaseId: (id: string | null) => void;
   setStep: (step: UIStep) => void;
+  // Función para aprobación de casos
+  approveCurrentCase: () => Promise<boolean>;
+  resetApprovalStatus: () => void;
   // Funciones para el flujo de briefing
   startBriefing: (initialMessage: string) => void;
   completeBriefing: (caseId: string) => void;
@@ -717,6 +724,10 @@ export const useUI = create<UIState>()(
       renewalsAuditLog: [],
       renewalsSequence: 0,
       renewalsViewLogged: false,
+      // Estados para aprobación de casos
+      caseApproving: false,
+      caseApprovalError: null,
+      caseApproved: false,
       setInitialMessage: (message: string) => set({ initialMessage: message }),  // ✅ Implementación
       clearInitialMessage: () => set({ initialMessage: "" }),                  // ✅ Implementación simple
       setCurrentCaseId: (id: string | null) => set({ currentCaseId: id }),     // ✅ AÑADIDO
@@ -727,6 +738,60 @@ export const useUI = create<UIState>()(
           }
           return { step };
         }),
+      // Función para aprobación de casos
+      approveCurrentCase: async () => {
+        const { brief, currentCaseId, startSourcing } = get();
+
+        console.log('🔍 DEBUG approveCurrentCase:', { 
+          currentCaseId, 
+          brief,
+          briefKeys: Object.keys(brief || {}),
+          briefValues: brief
+        });
+
+        if (!currentCaseId) {
+          console.error('❌ No currentCaseId found');
+          set({ caseApprovalError: 'No active case selected.' });
+          return false;
+        }
+
+        set({ caseApproving: true, caseApprovalError: null });
+
+        try {
+          console.log('🚀 Calling /api/cases/approve with:', { caseId: currentCaseId, briefData: brief });
+          
+          const response = await fetch('/api/cases/approve', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              caseId: currentCaseId,
+              briefData: brief // Envía la versión más reciente del brief desde el store
+            }),
+          });
+
+          console.log('📡 API Response status:', response.status);
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error('❌ API Error:', errorData);
+            throw new Error(errorData.error || 'Failed to approve case');
+          }
+
+          const result = await response.json();
+          console.log('✅ API Success:', result);
+
+          // Si la API tiene éxito, activa el flujo de sourcing en la UI
+          set({ caseApproved: true, caseApproving: false });
+          startSourcing();
+          return true;
+
+        } catch (error: any) {
+          console.error('❌ approveCurrentCase error:', error);
+          set({ caseApproving: false, caseApprovalError: error.message });
+          return false;
+        }
+      },
+      resetApprovalStatus: () => set({ caseApproved: false }),
       // Funciones para el flujo de briefing
       startBriefing: (initialMessage: string) => 
         set(() => ({ 

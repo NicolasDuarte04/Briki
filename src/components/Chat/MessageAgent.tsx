@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Edit3, RotateCcw } from "lucide-react";
+import { useUI } from "@/lib/ui/state";
 
 export interface MessageAgentProps extends React.HTMLAttributes<HTMLDivElement> {
   title?: string;
@@ -32,6 +33,7 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
   ...rest
 }) => {
   const t = useTranslations("chat.agent");
+  const { caseApproving } = useUI();
   const headerId = useId();
   const isoTimestamp = React.useMemo(() => {
     if (!timestamp) return undefined;
@@ -101,9 +103,10 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
             size="sm"
             aria-label={t("actions.approve.aria")}
             onClick={onApprove}
+            disabled={caseApproving}
             className="w-full sm:w-auto"
           >
-            {t("actions.approve.label")}
+            {caseApproving ? 'Aprobando...' : t("actions.approve.label")}
           </Button>
           <Button
             type="button"

@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { useUI } from "@/lib/ui/state";
 import { ComplianceGate } from "./ComplianceGate";
 import CaseBrief from "./CaseBrief";
+import CaseBriefForm from "./CaseBriefForm";
 import Policies from "./Policies";
 import Comparison from "./Comparison";
 import Proposal from "./Proposal";
@@ -51,8 +52,8 @@ export function WorkspaceTabs() {
           </TabsList>
         </div>
         <div className="flex-1 overflow-y-auto px-6 md:px-8">
-          <TabsContent value="case-brief" className="py-6">
-            <CaseBrief />
+          <TabsContent value="case-brief" className="py-6 h-full">
+            <CaseBriefForm />
           </TabsContent>
           <TabsContent value="policies" className="py-6">
             <Policies />

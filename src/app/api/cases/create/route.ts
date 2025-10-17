@@ -113,7 +113,11 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    return NextResponse.json(newCase, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      caseId: newCase.id,
+      case: newCase
+    }, { status: 201 });
     
   } catch (error) {
     console.error('Error creating case:', error);

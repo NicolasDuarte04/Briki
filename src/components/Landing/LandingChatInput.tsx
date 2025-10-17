@@ -144,23 +144,72 @@ export function LandingChatInput() {
     };
 
     const handleSubmit = async () => {
-        // Check if user is authenticated
+        // La verificación de autenticación es crucial.
         if (!user) {
-            window.location.href = '/login';
+            console.error('❌ User not authenticated');
+            window.location.href = '/login'; // O mostrar un modal de login.
             return;
         }
         
+        console.log('✅ User authenticated:', user.id);
+
         const message = value.trim();
-        
-        // Limpiar estado local
+        if (!message && tempUploads.length === 0) return;
+
+        // Limpiar estado local antes de la transición.
         setValue('');
         setTempUploads([]);
         trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
-        
-        // En lugar de ir directamente a la conversación, activar el briefing
-        // Esto interceptará el primer mensaje y mostrará el formulario detallado
-        const { startBriefing } = useUI.getState();
-        startBriefing(message);
+
+        // --- NUEVO FLUJO DIRECTO ---
+        // Crear caso en la base de datos primero
+        try {
+            console.log('🚀 Creating case from LandingPage with message:', message);
+            
+            // Primero obtener los datos del usuario autenticado
+            const authResponse = await fetch('/api/auth/me');
+            if (!authResponse.ok) {
+                throw new Error('Failed to get user data');
+            }
+            const { userId, orgId } = await authResponse.json();
+            console.log('👤 User data:', { userId, orgId });
+            
+            const response = await fetch('/api/cases/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orgId,
+                    userId,
+                    briefData: { freeText: message },
+                    clientName: 'Cliente desde Landing',
+                    businessType: 'Por definir',
+                    employees: 0,
+                    status: 'draft',
+                    stage: 'initial'
+                })
+            });
+
+            console.log('📡 Case creation response status:', response.status);
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('✅ Case created successfully:', result);
+                // Guardar el caseId en el estado global
+                useUI.getState().setCurrentCaseId(result.caseId);
+                console.log('💾 currentCaseId set to:', result.caseId);
+            } else {
+                const errorData = await response.json();
+                console.error('❌ Case creation failed:', errorData);
+            }
+        } catch (error) {
+            console.error('❌ Error creating case:', error);
+        }
+
+        // Guarda el mensaje inicial y el brief en el store de Zustand.
+        setInitialMessage(message);
+        setBrief({ freeText: message });
+        // Navega directamente a la vista de conversación del agente.
+        setStep("conversation");
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

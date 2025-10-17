@@ -11,6 +11,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 // ToggleGroup no disponible, usaremos Button como alternativa
 import { Plus, X, DollarSign, User, FileText, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PdfUploader } from '@/components/Upload/PdfUploader';
+
+// Define el tipo para uploads temporales
+export type TempUpload = {
+  id: string;
+  storagePath: string;
+  fileName: string;
+  fileSize: number;
+  pageCount?: number;
+  charactersExtracted?: number;
+  fileHash?: string;
+  extractedText?: string;
+};
 
 // Define la interfaz de los datos que el formulario manejará
 export type CaseBriefData = {
@@ -27,12 +40,17 @@ export type CaseBriefData = {
   employees: number | null;
   coverage: string;
   freeText: string;
+  // Uploads temporales
+  tempUploads?: TempUpload[];
 };
 
 interface BriefFormProps {
   onSubmit: (data: CaseBriefData) => Promise<void>;
   initialNotes?: string;
   isSubmitting: boolean;
+  initialData?: any; // Datos del caso para modo edición
+  mode?: 'create' | 'edit';
+  orgId?: string;
 }
 
 const INSURANCE_CATEGORIES = [
@@ -44,24 +62,27 @@ const INSURANCE_CATEGORIES = [
   { value: 'otro', label: 'Otro' },
 ];
 
-export function BriefForm({ onSubmit, initialNotes = '', isSubmitting }: BriefFormProps) {
+export function BriefForm({ onSubmit, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) {
   // Estado para todos los campos del formulario
   const [formData, setFormData] = useState<CaseBriefData>({
-    insurance_category: '',
-    max_budget: null,
-    budget_currency: 'COP',
-    required_coverages: [],
-    client_profile: '',
+    insurance_category: initialData?.insurance_category || '',
+    max_budget: initialData?.max_budget || null,
+    budget_currency: initialData?.budget_currency || 'COP',
+    required_coverages: initialData?.required_coverages || [],
+    client_profile: initialData?.client_profile || '',
     notes: initialNotes,
-    clientName: '',
-    businessType: '',
-    employees: null,
+    clientName: initialData?.clientName || '',
+    businessType: initialData?.businessType || '',
+    employees: initialData?.employees || null,
     coverage: '',
-    freeText: '',
+    freeText: initialData?.briefData?.freeText || '',
   });
 
   // Estado para el input de coberturas
   const [currentCoverage, setCurrentCoverage] = useState('');
+  
+  // Estado para uploads temporales
+  const [tempUploads, setTempUploads] = useState<TempUpload[]>([]);
 
   // Handlers para actualizar el estado
   const updateField = (field: keyof CaseBriefData, value: any) => {
@@ -79,6 +100,20 @@ export function BriefForm({ onSubmit, initialNotes = '', isSubmitting }: BriefFo
     updateField('required_coverages', formData.required_coverages.filter(c => c !== coverageToRemove));
   };
 
+  // Handlers para uploads
+  const handleFileUpload = (file: File) => {
+    // Esta función será llamada por PdfUploader cuando se seleccione un archivo
+    // El PdfUploader manejará la subida y nos devolverá el resultado
+  };
+
+  const handleUploadComplete = (upload: TempUpload) => {
+    setTempUploads(prev => [...prev, upload]);
+  };
+
+  const handleRemoveUpload = (storagePath: string) => {
+    setTempUploads(prev => prev.filter(upload => upload.storagePath !== storagePath));
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -88,7 +123,7 @@ export function BriefForm({ onSubmit, initialNotes = '', isSubmitting }: BriefFo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    await onSubmit({ ...formData, tempUploads });
   };
 
   return (
@@ -275,6 +310,59 @@ export function BriefForm({ onSubmit, initialNotes = '', isSubmitting }: BriefFo
               rows={4}
             />
           </div>
+
+          {/* Sección de Carga de PDFs */}
+          {orgId && (
+            <div className="space-y-4 pt-4 border-t">
+              <div className="space-y-2">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Documentos Adjuntos
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Sube documentos PDF que contengan información relevante para el caso
+                </p>
+              </div>
+              
+              <PdfUploader
+                caseId={mode === 'edit' ? initialData?.id : undefined}
+                orgId={orgId}
+                onFileSelected={handleFileUpload}
+                onUploadComplete={handleUploadComplete}
+              />
+              
+              {/* Lista de archivos subidos */}
+              {tempUploads.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Archivos subidos:</Label>
+                  <div className="space-y-2">
+                    {tempUploads.map((upload) => (
+                      <div key={upload.storagePath} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">{upload.fileName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {upload.pageCount && `${upload.pageCount} páginas`}
+                              {upload.fileSize && ` • ${(upload.fileSize / 1024 / 1024).toFixed(2)} MB`}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveUpload(upload.storagePath)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Botón de Envío */}
           <div className="flex justify-end pt-4">

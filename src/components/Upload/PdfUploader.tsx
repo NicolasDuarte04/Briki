@@ -14,9 +14,10 @@ interface PdfUploaderProps {
   caseId?: string; // Opcional para permitir uploads temporales
   orgId: string;
   onFileSelected?: (file: File) => void; // Callback para cuando se selecciona un archivo
+  onUploadComplete?: (upload: any) => void; // Callback para cuando se completa la subida
 }
 
-export function PdfUploader({ caseId, orgId, onFileSelected }: PdfUploaderProps) {
+export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }: PdfUploaderProps) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -94,6 +95,11 @@ export function PdfUploader({ caseId, orgId, onFileSelected }: PdfUploaderProps)
       setProgress(100);
       setUploadResult(data.artifact);
       setSuccessMessage(`${data.artifact.fileName} se ha procesado correctamente.`);
+      
+      // Llamar callback si existe
+      if (onUploadComplete && data.artifact) {
+        onUploadComplete(data.artifact);
+      }
       
       // Actualizar la página después de un breve delay
       setTimeout(() => {

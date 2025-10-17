@@ -630,10 +630,6 @@ const es = {
       },
     },
   },
-  composer: {
-    placeholder: "Describe tu cliente o sube documentos…",
-    emptyHelper: "Presiona Enter para enviar. Shift+Enter crea una nueva línea.",
-  },
   hotkeys: {
     title: "Atajos de teclado",
     ignored: "Se ignoran mientras escribes",
@@ -668,6 +664,10 @@ const es = {
     agents: {
       sourcing: "Agente de sourcing",
     },
+    composer: {
+      placeholder: "Describe tu cliente o sube documentos…",
+      emptyHelper: "Presiona Enter para enviar. Shift+Enter crea una nueva línea.",
+    },
   },
   comparison: {
     title: "Comparación de aseguradoras",
@@ -691,10 +691,6 @@ const es = {
       },
       empty: "Aún no hay planes disponibles.",
     },
-  },
-  composer: {
-    placeholder: "Describe tu cliente o sube documentos…",
-    emptyHelper: "Presiona Enter para enviar. Shift+Enter crea una nueva línea.",
   },
 } as const;
 

@@ -28,6 +28,10 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const startSourcing = useUI((state) => state.startSourcing);
   const initialMessage = useUI((state) => state.initialMessage);
   const clearInitialMessage = useUI((state) => state.clearInitialMessage);
+  const approveCurrentCase = useUI((state) => state.approveCurrentCase);
+  const caseApproving = useUI((state) => state.caseApproving);
+  const caseApproved = useUI((state) => state.caseApproved);
+  const briefingCase = useUI((state) => state.briefingCase);
   
   const sourcingTranslations = useTranslations("sourcing.status");
   const chatTranslations = useTranslations("chat");
@@ -36,6 +40,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [value, setValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [showApprovalButton, setShowApprovalButton] = useState(false);
   const trimmed = value.trim();
   
   // Agent controls state
@@ -363,22 +368,33 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value]);
 
+  // Efecto para el mensaje inicial
   useEffect(() => {
-    if (initialMessage && initialMessage.trim() && initialMessage !== "") {
-      // Mostrar el mensaje del usuario
-      const userMessage: ChatMessage = { 
-        role: "user", 
-        content: initialMessage.trim() 
+    if (initialMessage && initialMessage.trim() !== '') {
+      const userMessage: ChatMessage = { role: "user", content: initialMessage, id: Date.now().toString() };
+      const agentResponse: ChatMessage = {
+        role: "assistant",
+        content: "Estoy analizando tu solicitud, pero para darte la mejor recomendación, por favor completa los detalles (Que tengas a disposicion) del caso en el formulario del panel derecho.",
+        agent: { label: "Sourcing" },
+        id: (Date.now() + 1).toString()
       };
-      setMessages([userMessage]);
-      
-      // Mostrar estado de "pensando" infinito
-      setIsTyping(true);
-      
-      // Limpiar el mensaje inicial
+      setMessages(prev => [...prev, userMessage, agentResponse]);
       clearInitialMessage();
     }
-  }, [initialMessage, clearInitialMessage]);
+  }, [initialMessage, clearInitialMessage, setMessages]);
+
+  // Efecto para mostrar el botón de aprobación
+  useEffect(() => {
+    // Define aquí los campos mínimos para considerar el brief "completo"
+    const isBriefComplete = brief.businessType && brief.coverage;
+    if (isBriefComplete) {
+      setShowApprovalButton(true);
+    }
+  }, [brief]);
+
+  const handleApprove = async () => {
+    await approveCurrentCase();
+  };
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -442,6 +458,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
                       isGroupStart={isGroupStart}
                       isGroupEnd={isGroupEnd}
                       timestamp={displayTimestamp}
+                      onApprove={handleApprove}
                     />
                   </div>
                 </div>
@@ -610,6 +627,20 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         >
           {chatTranslations("composer.emptyHelper")}
         </div>
+
+        {/* Botón de aprobación */}
+        {!caseApproved && showApprovalButton && (
+          <div className="px-4 py-2">
+            <div className="p-4 bg-secondary border rounded-lg text-center">
+              <p className="text-sm text-secondary-foreground mb-3">
+                El brief del caso está listo. ¿Deseas que proceda con el análisis?
+              </p>
+              <Button onClick={handleApprove} className="w-full" disabled={isTyping || caseApproving}>
+                {caseApproving ? 'Aprobando...' : 'Aprobar y Continuar Análisis'}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
