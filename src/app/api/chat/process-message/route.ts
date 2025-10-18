@@ -1,75 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { prisma } from '@/lib/prisma';
+import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
+import { analyzeInsuranceDocuments, AnalysisRequest } from '@/lib/openai';
+import { CaseBrief } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
+    const { user, currentOrg } = await getCurrentOrg(); // Asegura autenticación y org
     const { message, brief, caseId } = await request.json();
     
-    if (!message || typeof message !== 'string') {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      );
+    if (!caseId) {
+      return NextResponse.json({ error: 'Case ID is required' }, { status: 400 });
     }
 
     console.log('🔄 API: Procesando mensaje:', message);
     console.log('📋 API: Brief recibido:', brief);
     console.log('📁 API: Case ID recibido:', caseId);
     
-    // Construir lista de documentos (sin mostrar todo el texto)
-    let documentsInfo = "";
-    
-    if (caseId) {
-      try {
+    // 1. Obtener los artefactos (documentos) del caso actual
         const artifacts = await prisma.artifact.findMany({
-          where: { caseId: caseId },
+      where: { 
+        caseId: caseId,
+        case: {
+          orgId: currentOrg.id // Seguridad: Filtra por orgId a través de la relación case
+        }
+      },
           select: { fileName: true, contentText: true }
         });
 
-        if (artifacts.length > 0) {
-          const filesList = artifacts
-            .map(a => `📄 ${a.fileName}`)
-            .join('\n');
-          
-          documentsInfo = `\n\nDocumentos cargados:\n${filesList}`;
-          
-          console.log(`📁 ${artifacts.length} documentos disponibles para análisis`);
-          // El contentText está disponible aquí para el LLM
-          // artifacts.forEach(a => console.log(`Texto disponible: ${a.contentText?.length || 0} caracteres`));
-        }
-      } catch (error) {
-        console.error("Error al obtener artifacts del caso:", caseId, error);
-      }
-    }
-    
-    // Lógica del agente (Placeholder - Aquí se conectaría el LLM)
-    // El LLM recibiría artifacts[].contentText para análisis interno
-    // Pero la respuesta mostrada al usuario es limpia
-    const agentResponse = `${message}${documentsInfo}\n\nEstoy analizando esta información para proporcionarte una respuesta detallada sobre tus seguros.`;
-    
-    console.log('✅ API: Mensaje procesado con contexto');
-    
+    console.log(`📁 ${artifacts.length} documentos disponibles para análisis`);
+
+    // 2. Preparar la solicitud para el servicio OpenAI
+    const analysisRequest: AnalysisRequest = {
+      message: message || '',
+      brief: brief || {}, // Pasar el brief recibido del frontend
+      documents: artifacts.map(artifact => ({
+        fileName: artifact.fileName || 'Unknown Document',
+        content: artifact.contentText // Puede ser null si la extracción falló
+      }))
+    };
+
+    // 3. Llamar al servicio de OpenAI para obtener el análisis
+    const analysisResult = await analyzeInsuranceDocuments(analysisRequest);
+
+    console.log('✅ API: Análisis completado con OpenAI');
+
+    // 4. Devolver la respuesta generada por OpenAI
     return NextResponse.json({
-      response: agentResponse,
-      caseId: caseId // Devolver el caseId para mantener el estado
+      response: analysisResult,
+      caseId: caseId
     });
-    
-  } catch (error) {
-    console.error('❌ API Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to process message' },
-      { status: 500 }
-    );
+
+  } catch (error: any) {
+    console.error('ERROR [API/CHAT/PROCESS-MESSAGE]:', error);
+    const errorMessage = error.message || 'Failed to process message';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

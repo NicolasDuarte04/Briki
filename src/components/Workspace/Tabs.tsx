@@ -7,6 +7,7 @@ import { useUI } from "@/lib/ui/state";
 import { ComplianceGate } from "./ComplianceGate";
 import CaseBrief from "./CaseBrief";
 import CaseBriefForm from "./CaseBriefForm";
+import { CaseSummary } from "./CaseSummary";
 import Policies from "./Policies";
 import Comparison from "./Comparison";
 import Proposal from "./Proposal";
@@ -16,6 +17,7 @@ export type WorkspaceTab = "case-brief" | "policies" | "comparisons" | "proposal
 
 export function WorkspaceTabs() {
   const t = useTranslations("workspace.tabs");
+  const { caseApproved, brief, setCaseApproved } = useUI();
   const tabLabels = useMemo(() => ({
       "case-brief": t("caseBrief"),
       policies: t("policies"),
@@ -26,6 +28,11 @@ export function WorkspaceTabs() {
     } satisfies Record<WorkspaceTab, string>), [t]);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("case-brief");
   const logRenewalsEvent = useUI((state) => state.logRenewalsEvent);
+
+  // Función para volver al modo de edición (resetea el estado de aprobación)
+  const handleEditBrief = () => {
+    setCaseApproved(false);
+  };
 
   const handleTabChange = useCallback((value: string) => {
     const nextTab = value as WorkspaceTab;
@@ -53,7 +60,11 @@ export function WorkspaceTabs() {
         </div>
         <div className="flex-1 overflow-y-auto px-6 md:px-8">
           <TabsContent value="case-brief" className="py-6 h-full">
-            <CaseBriefForm />
+            {caseApproved ? (
+              <CaseSummary brief={brief} onEdit={handleEditBrief} />
+            ) : (
+              <CaseBriefForm />
+            )}
           </TabsContent>
           <TabsContent value="policies" className="py-6">
             <Policies />

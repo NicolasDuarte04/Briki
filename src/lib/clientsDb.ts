@@ -90,6 +90,8 @@ export async function createClient(orgId: string, clientData: {
       )
       RETURNING id
     `;
+  }, {
+    timeout: 30000, // 30 segundos timeout para operaciones de cifrado
   });
 
   if (!result || result.length === 0) {
@@ -139,6 +141,41 @@ export async function getClientsByOrg(orgId: string): Promise<DecryptedClient[]>
       WHERE org_id = ${orgId}::uuid
       ORDER BY created_at DESC
     `;
+  }, {
+    timeout: 30000, // 30 segundos timeout para operaciones de cifrado
+  });
+}
+
+/**
+ * Obtiene solo los nombres de los clientes para el Combobox (más eficiente).
+ * 
+ * @param orgId - El ID de la organización
+ * @returns Array de clientes con solo ID y nombre
+ */
+export async function getClientsForCombobox(orgId: string): Promise<{ id: string; name: string }[]> {
+  if (!orgId) {
+    throw new Error('Organization ID is required');
+  }
+  
+  const encryptionKey = process.env.APP_ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    throw new Error('APP_ENCRYPTION_KEY no está configurada.');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
+    
+    // Solo descifrar el nombre para el Combobox
+    return tx.$queryRaw<{ id: string; name: string }[]>`
+      SELECT 
+        id::text,
+        public.decrypt_pii(name_enc) as name
+      FROM public.clients
+      WHERE org_id = ${orgId}::uuid
+      ORDER BY created_at DESC
+    `;
+  }, {
+    timeout: 15000, // 15 segundos timeout para operaciones más simples
   });
 }
 
@@ -182,6 +219,8 @@ export async function getClientById(
     `;
     
     return clients.length > 0 ? clients[0] : null;
+  }, {
+    timeout: 30000, // 30 segundos timeout para operaciones de cifrado
   });
 }
 
@@ -251,6 +290,8 @@ export async function updateClient(
     `;
     
     return true;
+  }, {
+    timeout: 30000, // 30 segundos timeout para operaciones de cifrado
   });
 }
 

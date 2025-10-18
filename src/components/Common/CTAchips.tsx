@@ -24,7 +24,9 @@ export function CTAchips() {
       return;
     }
     
-    setStep("conversation");
+    // Funcionalidad temporalmente deshabilitada para botones específicos
+    console.log("Acción de botón - Funcionalidad en desarrollo");
+    // setStep("conversation"); // Comentado temporalmente
   };
 
   const isLoading = !ready || status === 'loading';

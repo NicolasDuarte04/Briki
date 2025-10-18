@@ -252,10 +252,14 @@
   }
 
   .landing-hero {
-    background: url('/brand/BrikiBGB.jpeg') center/cover no-repeat;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+    /* Imagen principal con fallback de gradiente */
+    background:
+      /* Fallback si la imagen falla - usando paleta azul de Briki con opacidad muy baja */
+      linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(14, 165, 233, 0.15) 100%),
+      /* Imagen (si carga, cubrirá el gradiente) */
+      url('/brand/BrikiBGB.jpeg') center center / cover no-repeat;
+    /* Asegura un color de fondo base por si todo falla */
+    background-color: #f8fafc; /* Color neutro claro */
     image-rendering: auto;
     image-rendering: smooth;
     position: fixed;
@@ -268,13 +272,17 @@
     min-height: 100dvh;
   }
   .landing-hero-concept {
+    /* Imagen principal con fallback de gradiente */
     background:
+      /* Fallback si la imagen falla - usando paleta azul de Briki con opacidad muy baja */
+      linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(14, 165, 233, 0.15) 100%),
+      /* Gradientes de concepto existentes */
       radial-gradient(900px 480px at 70% 10%, rgba(56, 189, 248, 0.18) 0%, rgba(56, 189, 248, 0.05) 45%, rgba(56, 189, 248, 0) 65%),
       radial-gradient(800px 520px at 30% 0%, rgba(14, 165, 233, 0.18) 0%, rgba(14, 165, 233, 0.05) 45%, rgba(14, 165, 233, 0) 65%),
-      url('/brand/BrikiBGB.jpeg') center/cover no-repeat;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+      /* Imagen (si carga, cubrirá los gradientes) */
+      url('/brand/BrikiBGB.jpeg') center center / cover no-repeat;
+    /* Asegura un color de fondo base por si todo falla */
+    background-color: #f8fafc; /* Color neutro claro */
     image-rendering: auto;
     image-rendering: smooth;
     position: fixed;

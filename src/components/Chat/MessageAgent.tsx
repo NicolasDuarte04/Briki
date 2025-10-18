@@ -33,7 +33,7 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
   ...rest
 }) => {
   const t = useTranslations("chat.agent");
-  const { caseApproving } = useUI();
+  const { caseApproving, caseApproved, isBriefValid } = useUI();
   const headerId = useId();
   const isoTimestamp = React.useMemo(() => {
     if (!timestamp) return undefined;
@@ -96,39 +96,42 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
       </CardContent>
 
       <CardFooter className="justify-end gap-3 border-t border-border/70 px-5 pb-4 pt-3">
-        <div className="flex w-full flex-wrap items-center justify-end gap-3">
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            aria-label={t("actions.approve.aria")}
-            onClick={onApprove}
-            disabled={caseApproving}
-            className="w-full sm:w-auto"
-          >
-            {caseApproving ? 'Aprobando...' : t("actions.approve.label")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={t("actions.edit.aria")}
-            onClick={onEdit}
-          >
-            <Edit3 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-            {t("actions.edit.label")}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={t("actions.rerun.aria")}
-            onClick={onRerun}
-          >
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-            {t("actions.rerun.label")}
-          </Button>
-        </div>
+        {/* Solo mostrar los botones de acción si el caso NO ha sido aprobado */}
+        {!caseApproved && (
+          <div className="flex w-full flex-wrap items-center justify-end gap-3">
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              aria-label={t("actions.approve.aria")}
+              onClick={onApprove}
+              disabled={caseApproving || !isBriefValid()}
+              className="w-full sm:w-auto"
+            >
+              {caseApproving ? 'Aprobando...' : t("actions.approve.label")}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={t("actions.edit.aria")}
+              onClick={onEdit}
+            >
+              <Edit3 className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              {t("actions.edit.label")}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={t("actions.rerun.aria")}
+              onClick={onRerun}
+            >
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+              {t("actions.rerun.label")}
+            </Button>
+          </div>
+        )}
       </CardFooter>
     </Card>
   );

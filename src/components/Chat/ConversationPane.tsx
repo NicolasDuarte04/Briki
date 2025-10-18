@@ -5,10 +5,11 @@ import { useUI } from "@/lib/ui/state";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, ArrowDown, Search, Code2, Puzzle, Paperclip, Image as ImageIcon, ChevronDown } from "lucide-react";
+import { SendHorizonal, ArrowDown, Search, Code2, Puzzle, Paperclip, Image as ImageIcon, ChevronDown, Loader2 } from "lucide-react";
 import Message, { type MessageRole, type MessageAgentMeta } from "@/components/Chat/Message";
 import { useTranslations } from "next-intl";
 import { ProvenanceChip, type ProvenanceTag } from "@/components/Sourcing/ProvenanceChip";
+import { useClientValidation } from "@/hooks/useClientValidation";
 // Removemos el import que no funciona en el browser
 // import { processChatMessage } from "@/lib/database";
 
@@ -32,6 +33,16 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const caseApproving = useUI((state) => state.caseApproving);
   const caseApproved = useUI((state) => state.caseApproved);
   const briefingCase = useUI((state) => state.briefingCase);
+  const isBriefValid = useUI((state) => state.isBriefValid);
+  
+  // Estado local para manejar la validación de clientes
+  const [isResolvingClient, setIsResolvingClient] = useState(false);
+  
+  // Estado local para indicador de análisis de OpenAI
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  // Hook para validación de clientes (movido al nivel superior)
+  const { validateAndResolveClient } = useClientValidation();
   
   const sourcingTranslations = useTranslations("sourcing.status");
   const chatTranslations = useTranslations("chat");
@@ -322,6 +333,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     // Solo limpiar el input si no viene de parámetro
     if (!messageText) setValue("");
     setIsTyping(true);
+    setIsAnalyzing(true); // Iniciar indicador de análisis
 
     try {
       const currentCaseId = useUI.getState().currentCaseId;
@@ -339,7 +351,9 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       });
       
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
+        // Manejo de error de API
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'API request failed');
       }
       
       const result = await response.json();
@@ -350,20 +364,21 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         agent: { label: chatTranslations("agents.sourcing") },
       };
       setMessages((prev) => [...prev, assistantResponse]);
-      setIsTyping(false);
       
       if (!isSourcing) {
         startSourcing();
       }
-    } catch (error) {
-      console.error('Error processing message:', error);
-      // Fallback response en caso de error
+    } catch (error: any) {
+      console.error("Error sending message or processing response:", error);
+      // Mostrar mensaje de error al usuario en el chat
       const errorResponse: ChatMessage = {
         role: "assistant",
         content: "Disculpa, hubo un problema procesando tu mensaje. ¿Puedes intentar de nuevo?",
         agent: { label: chatTranslations("agents.sourcing") },
       };
       setMessages((prev) => [...prev, errorResponse]);
+    } finally {
+      setIsAnalyzing(false); // Detener indicador de análisis
       setIsTyping(false);
     }
   }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value]);
@@ -385,15 +400,46 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
   // Efecto para mostrar el botón de aprobación
   useEffect(() => {
-    // Define aquí los campos mínimos para considerar el brief "completo"
-    const isBriefComplete = brief.businessType && brief.coverage;
-    if (isBriefComplete) {
+    // Usar la validación unificada del brief
+    if (isBriefValid()) {
       setShowApprovalButton(true);
     }
-  }, [brief]);
+  }, [brief, isBriefValid]);
 
-  const handleApprove = async () => {
-    await approveCurrentCase();
+  // Función de orquestación que maneja la validación y creación de clientes
+  const handleApprovalOrchestration = async () => {
+    setIsResolvingClient(true);
+    try {
+      // Paso 1: Validar y resolver cliente
+      const clientId = await validateAndResolveClient();
+      
+      // Paso 2: Si la validación es exitosa, aprobar el caso con el clientId
+      const success = await approveCurrentCase(clientId);
+      
+      if (!success) {
+        // El error ya se maneja en approveCurrentCase
+        return;
+      }
+      
+    } catch (error: any) {
+      console.error('Error en orquestación de aprobación:', error);
+      
+      // Manejar errores específicos del hook de validación
+      if (error.message === "CLIENT_CREATION_CANCELLED") {
+        // Usuario canceló la creación del cliente
+        console.log('Usuario canceló la creación del cliente');
+        // No hacer nada, el usuario puede intentar de nuevo
+      } else if (error.message === "CLIENT_CREATION_FAILED") {
+        // Error al crear el cliente
+        console.error('Error al crear el cliente');
+        // Aquí podrías mostrar un mensaje de error al usuario
+      } else {
+        // Otros errores
+        console.error('Error inesperado:', error);
+      }
+    } finally {
+      setIsResolvingClient(false);
+    }
   };
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -458,7 +504,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
                       isGroupStart={isGroupStart}
                       isGroupEnd={isGroupEnd}
                       timestamp={displayTimestamp}
-                      onApprove={handleApprove}
+                      onApprove={handleApprovalOrchestration}
                     />
                   </div>
                 </div>
@@ -628,6 +674,14 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           {chatTranslations("composer.emptyHelper")}
         </div>
 
+        {/* Indicador de análisis de OpenAI */}
+        {isAnalyzing && (
+          <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Analizando documentos con IA, por favor espera...
+          </div>
+        )}
+
         {/* Botón de aprobación */}
         {!caseApproved && showApprovalButton && (
           <div className="px-4 py-2">
@@ -635,8 +689,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
               <p className="text-sm text-secondary-foreground mb-3">
                 El brief del caso está listo. ¿Deseas que proceda con el análisis?
               </p>
-              <Button onClick={handleApprove} className="w-full" disabled={isTyping || caseApproving}>
-                {caseApproving ? 'Aprobando...' : 'Aprobar y Continuar Análisis'}
+              <Button onClick={handleApprovalOrchestration} className="w-full" disabled={isTyping || caseApproving || isResolvingClient}>
+                {isResolvingClient ? 'Validando cliente...' : caseApproving ? 'Aprobando...' : 'Aprobar y Continuar Análisis'}
               </Button>
             </div>
           </div>

@@ -582,6 +582,8 @@ export interface UIState {
   caseApproving: boolean;
   caseApprovalError: string | null;
   caseApproved: boolean;
+  // Función de validación unificada del brief
+  isBriefValid: () => boolean;
   // Cache properties (internal use)
   _cachedPoliciesView?: PolicyView[];
   _cachedRenewalsView?: RenewalView[];
@@ -591,8 +593,9 @@ export interface UIState {
   setCurrentCaseId: (id: string | null) => void;
   setStep: (step: UIStep) => void;
   // Función para aprobación de casos
-  approveCurrentCase: () => Promise<boolean>;
+  approveCurrentCase: (clientId?: string | null) => Promise<boolean>;
   resetApprovalStatus: () => void;
+  setCaseApproved: (isApproved: boolean) => void;
   // Funciones para el flujo de briefing
   startBriefing: (initialMessage: string) => void;
   completeBriefing: (caseId: string) => void;
@@ -684,6 +687,8 @@ export const useUI = create<UIState>()(
         employees: 0,
         coverage: "Por definir...",
         freeText: "Por definir...",
+        clientName: "",
+        selectedClientId: null,
       },
       policies: [],
       policiesLoading: false,
@@ -728,6 +733,12 @@ export const useUI = create<UIState>()(
       caseApproving: false,
       caseApprovalError: null,
       caseApproved: false,
+      // Función de validación unificada del brief
+      isBriefValid: () => {
+        const { brief } = get();
+        // Solo la categoría de seguro es obligatoria
+        return !!(brief.insurance_category?.trim());
+      },
       setInitialMessage: (message: string) => set({ initialMessage: message }),  // ✅ Implementación
       clearInitialMessage: () => set({ initialMessage: "" }),                  // ✅ Implementación simple
       setCurrentCaseId: (id: string | null) => set({ currentCaseId: id }),     // ✅ AÑADIDO
@@ -739,12 +750,13 @@ export const useUI = create<UIState>()(
           return { step };
         }),
       // Función para aprobación de casos
-      approveCurrentCase: async () => {
+      approveCurrentCase: async (clientId?: string | null) => {
         const { brief, currentCaseId, startSourcing } = get();
 
         console.log('🔍 DEBUG approveCurrentCase:', { 
           currentCaseId, 
           brief,
+          clientId,
           briefKeys: Object.keys(brief || {}),
           briefValues: brief
         });
@@ -758,14 +770,14 @@ export const useUI = create<UIState>()(
         set({ caseApproving: true, caseApprovalError: null });
 
         try {
-          console.log('🚀 Calling /api/cases/approve with:', { caseId: currentCaseId, briefData: brief });
+          console.log('🚀 Calling /api/cases/approve with:', { caseId: currentCaseId, briefData: { ...brief, selectedClientId: clientId } });
           
           const response = await fetch('/api/cases/approve', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               caseId: currentCaseId,
-              briefData: brief // Envía la versión más reciente del brief desde el store
+              briefData: { ...brief, selectedClientId: clientId } // Incluir el clientId resuelto
             }),
           });
 
@@ -792,6 +804,7 @@ export const useUI = create<UIState>()(
         }
       },
       resetApprovalStatus: () => set({ caseApproved: false }),
+      setCaseApproved: (isApproved) => set({ caseApproved: isApproved }),
       // Funciones para el flujo de briefing
       startBriefing: (initialMessage: string) => 
         set(() => ({ 

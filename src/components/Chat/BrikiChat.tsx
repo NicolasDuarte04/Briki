@@ -1052,13 +1052,19 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                         icon={<ImageIcon className="w-4 h-4" />}
                         label="Import WhatsApp chat"
                         user={user}
-                        onAuthenticatedClick={() => setStep("conversation")}
+                        onAuthenticatedClick={() => {
+                            // Funcionalidad temporalmente deshabilitada
+                            console.log("Import WhatsApp chat - Funcionalidad en desarrollo");
+                        }}
                     />
                     <ActionButton
                         icon={<MonitorIcon className="w-4 h-4" />}
                         label="Connect carriers"
                         user={user}
-                        onAuthenticatedClick={() => setStep("conversation")}
+                        onAuthenticatedClick={() => {
+                            // Funcionalidad temporalmente deshabilitada
+                            console.log("Connect carriers - Funcionalidad en desarrollo");
+                        }}
                     />
                 </div>
             )}

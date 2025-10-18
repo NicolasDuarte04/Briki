@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,10 +8,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-// ToggleGroup no disponible, usaremos Button como alternativa
-import { Plus, X, DollarSign, User, FileText, Shield } from 'lucide-react';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PdfUploader } from '@/components/Upload/PdfUploader';
+import { useUI } from '@/lib/ui/state';
 
 // Define el tipo para uploads temporales
 export type TempUpload = {
@@ -23,6 +25,12 @@ export type TempUpload = {
   charactersExtracted?: number;
   fileHash?: string;
   extractedText?: string;
+};
+
+// Define el tipo para opciones de cliente
+export type ClientOption = {
+  id: string;
+  name: string;
 };
 
 // Define la interfaz de los datos que el formulario manejará
@@ -63,6 +71,9 @@ const INSURANCE_CATEGORIES = [
 ];
 
 export function BriefForm({ onSubmit, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) {
+  // Hook para acceder al estado global
+  const { brief, setBrief, isBriefValid } = useUI();
+
   // Estado para todos los campos del formulario
   const [formData, setFormData] = useState<CaseBriefData>({
     insurance_category: initialData?.insurance_category || '',
@@ -71,11 +82,11 @@ export function BriefForm({ onSubmit, initialNotes = '', isSubmitting, initialDa
     required_coverages: initialData?.required_coverages || [],
     client_profile: initialData?.client_profile || '',
     notes: initialNotes,
-    clientName: initialData?.clientName || '',
-    businessType: initialData?.businessType || '',
-    employees: initialData?.employees || null,
-    coverage: '',
-    freeText: initialData?.briefData?.freeText || '',
+    clientName: initialData?.clientName || brief?.clientName || '',
+    businessType: initialData?.businessType || brief?.businessType || '',
+    employees: initialData?.employees || brief?.employees || null,
+    coverage: brief?.coverage || '',
+    freeText: initialData?.briefData?.freeText || brief?.freeText || '',
   });
 
   // Estado para el input de coberturas
@@ -84,9 +95,105 @@ export function BriefForm({ onSubmit, initialNotes = '', isSubmitting, initialDa
   // Estado para uploads temporales
   const [tempUploads, setTempUploads] = useState<TempUpload[]>([]);
 
+  // Estados para el Combobox de clientes
+  const [clientList, setClientList] = useState<ClientOption[]>([]);
+  const [isClientListLoading, setIsClientListLoading] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<ClientOption | null>(null);
+  const [clientSearchTerm, setClientSearchTerm] = useState(brief?.clientName || '');
+  const [isClientComboboxOpen, setIsClientComboboxOpen] = useState(false);
+
+  // Cargar clientes al montar el componente
+  useEffect(() => {
+    const loadClients = async () => {
+      console.log('🔄 Loading clients...');
+      setIsClientListLoading(true);
+      try {
+        const response = await fetch('/api/clients/list');
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        console.log('✅ Clients loaded:', data.clients?.length || 0);
+        setClientList(data.clients || []);
+      } catch (error) {
+        console.error('❌ Error loading clients:', error);
+        setClientList([]); // Asegura que la lista esté vacía en caso de error
+      } finally {
+        console.log('🏁 Client loading finished');
+        setIsClientListLoading(false);
+      }
+    };
+    loadClients();
+  }, []);
+
+  // Efecto para sincronizar estado local con global
+  useEffect(() => {
+    if (brief?.clientName !== clientSearchTerm) {
+      setClientSearchTerm(brief?.clientName || '');
+    }
+    // OJO: Evitar dependencias circulares, solo reaccionar a cambios externos
+  }, [brief?.clientName, clientSearchTerm]);
+
+  // Efecto para cerrar el dropdown cuando se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (isClientComboboxOpen && !target.closest('.client-combobox-container')) {
+        setIsClientComboboxOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isClientComboboxOpen]);
+
   // Handlers para actualizar el estado
   const updateField = (field: keyof CaseBriefData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    // Sincronizar con el estado global para campos que existen en brief
+    if (field === 'clientName' || field === 'businessType' || field === 'coverage' || field === 'freeText' || field === 'insurance_category') {
+      setBrief({ ...brief, [field]: value });
+    }
+  };
+
+  // Handlers para el Combobox de clientes
+  const handleClientSelect = (client: ClientOption | null) => {
+    setSelectedClient(client);
+    if (client) {
+      // Cliente existente seleccionado
+      setClientSearchTerm(client.name); // Sincronizar input local
+      updateField('clientName', client.name);
+      setBrief({ 
+        ...brief, 
+        clientName: client.name, 
+        selectedClientId: client.id 
+      });
+    } else {
+      // Limpiar selección
+      setClientSearchTerm(''); // Sincronizar input local
+      updateField('clientName', '');
+      setBrief({ 
+        ...brief, 
+        clientName: '', 
+        selectedClientId: null 
+      });
+    }
+    setIsClientComboboxOpen(false);
+  };
+
+  const handleClientSearchChange = (value: string) => {
+    setClientSearchTerm(value);
+    updateField('clientName', value);
+    // Actualizar estado global con el término de búsqueda, marcando que no hay ID seleccionado
+    setBrief({ 
+      ...brief, 
+      clientName: value, 
+      selectedClientId: null 
+    });
+    // Abrir dropdown cuando se escriba
+    if (value.length > 0) {
+      setIsClientComboboxOpen(true);
+    }
   };
 
   const handleAddCoverage = () => {
@@ -259,12 +366,48 @@ export function BriefForm({ onSubmit, initialNotes = '', isSubmitting, initialDa
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="clientName">Nombre del Cliente</Label>
-              <Input
-                id="clientName"
-                placeholder="Nombre completo"
-                value={formData.clientName}
-                onChange={(e) => updateField('clientName', e.target.value)}
-              />
+              <div className="relative client-combobox-container">
+                <Input
+                  id="clientName"
+                  placeholder="Escribir nombre del cliente..."
+                      value={clientSearchTerm}
+                  onChange={(e) => handleClientSearchChange(e.target.value)}
+                  onFocus={() => setIsClientComboboxOpen(true)}
+                  className="w-full"
+                    />
+                {isClientComboboxOpen && (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                    <Command>
+                    <CommandList>
+                      <CommandEmpty>
+                        {isClientListLoading ? "Cargando clientes..." : "No se encontraron clientes."}
+                      </CommandEmpty>
+                      <CommandGroup>
+                          {clientList
+                            .filter(client => 
+                              client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
+                            )
+                            .map((client) => (
+                            <div
+                            key={client.id}
+                              onClick={() => handleClientSelect(client)}
+                              className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded-sm"
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedClient?.id === client.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {client.name}
+                            </div>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="businessType">Tipo de Negocio</Label>
@@ -368,7 +511,7 @@ export function BriefForm({ onSubmit, initialNotes = '', isSubmitting, initialDa
           <div className="flex justify-end pt-4">
             <Button
               type="submit"
-              disabled={isSubmitting || !formData.insurance_category}
+              disabled={isSubmitting || !isBriefValid()}
               className="min-w-[140px]"
             >
               {isSubmitting ? 'Procesando...' : 'Buscar Planes'}

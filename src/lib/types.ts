@@ -233,6 +233,20 @@ export interface CaseBrief {
   coverage?: string;
   /** Free text notes */
   freeText?: string;
+  /** Client name (for display and search) */
+  clientName?: string;
+  /** Selected client ID (if from existing client) */
+  selectedClientId?: string | null;
+  /** Insurance category */
+  insurance_category?: string;
+  /** Maximum budget for insurance */
+  max_budget?: number;
+  /** Budget currency */
+  budget_currency?: CurrencyCode;
+  /** Required coverages list */
+  required_coverages?: string[];
+  /** Client profile description */
+  client_profile?: string;
 }
 
 /**

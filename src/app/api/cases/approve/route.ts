@@ -41,6 +41,7 @@ export async function PUT(request: NextRequest) {
 
         // Actualizar campos opcionales solo si están presentes
         if (briefData.clientName) updateData.clientName = briefData.clientName;
+        if (briefData.selectedClientId) updateData.clientRef = briefData.selectedClientId; // CORRECCIÓN: client_id → clientRef
         if (briefData.insurance_category) updateData.insurance_category = briefData.insurance_category;
         if (briefData.max_budget) updateData.max_budget = briefData.max_budget;
         if (briefData.budget_currency) updateData.budget_currency = briefData.budget_currency;
@@ -59,6 +60,18 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ success: true, case: updatedCase });
     } catch (error: any) {
         console.error('ERROR [API/CASES/APPROVE]:', error);
+        
+        // Manejo de errores de Prisma más específico
+        if (error.code === 'P2025') { // "Record to update not found."
+            return NextResponse.json({ error: 'Case not found or access denied.' }, { status: 404 });
+        }
+        if (error.code === 'P2002') { // "Unique constraint failed."
+            return NextResponse.json({ error: 'Case already exists with this data.' }, { status: 409 });
+        }
+        if (error.code === 'P2003') { // "Foreign key constraint failed."
+            return NextResponse.json({ error: 'Invalid client reference.' }, { status: 400 });
+        }
+        
         return NextResponse.json({ error: 'Failed to approve case' }, { status: 500 });
     }
 }

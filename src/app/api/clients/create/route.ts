@@ -1,31 +1,17 @@
 // /src/app/api/clients/create/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabase } from '@/lib/supabase/server';
+import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { createClient } from '@/lib/clientsDb';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    // getCurrentOrg maneja la autenticación y obtención de la organización actual
+    const { currentOrg } = await getCurrentOrg();
     
     const body = await request.json();
-    const { orgId, name, email, phone, address } = body;
+    const { name, email, phone, address } = body;
     
     // Validaciones básicas
-    if (!orgId) {
-      return NextResponse.json(
-        { error: 'Organization ID is required' },
-        { status: 400 }
-      );
-    }
-    
     if (!name || name.trim().length === 0) {
       return NextResponse.json(
         { error: 'Client name is required' },
@@ -33,23 +19,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Verificar que el usuario pertenece a la organización
-    const { data: membership } = await supabase
-      .from('org_members')
-      .select('*')
-      .eq('org_id', orgId)
-      .eq('user_id', user.id)
-      .single();
-    
-    if (!membership) {
-      return NextResponse.json(
-        { error: 'User is not a member of this organization' },
-        { status: 403 }
-      );
-    }
-    
     // Crear el cliente (los datos se cifrarán automáticamente)
-    const clientId = await createClient(orgId, {
+    const clientId = await createClient(currentOrg.id, {
       name: name.trim(),
       email: email?.trim() || undefined,
       phone: phone?.trim() || undefined,

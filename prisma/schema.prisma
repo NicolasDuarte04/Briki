@@ -371,26 +371,25 @@ model sso_providers {
 }
 
 model Case {
-  id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId                String?    @map("org_id") @db.Uuid
-  clientRef            String?    @map("client_ref") @db.VarChar(255)
-  clientName           String?    @map("client_name") @db.VarChar(255)
-  businessType         String?    @map("business_type") @db.VarChar(255)
-  employees            Int?
-  status               String     @default("draft") @db.VarChar(50)
-  stage                String     @default("initial") @db.VarChar(50)
-  briefData            Json?      @map("brief_data")
-  createdAt            DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  priority             String     @default("medium") @db.VarChar(20)
-  // Nuevos campos del Brief detallado
-  insurance_category    String?
-  max_budget           Decimal?   @map("max_budget") @db.Decimal(10,2)
-  budget_currency      String?    @map("budget_currency") @db.VarChar(3) @default("COP")
-  required_coverages   String[]   @map("required_coverages") @default([])
-  client_profile       String?    @map("client_profile")
-  artifacts            Artifact[]
-  auditLogs            AuditLog[]
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId              String?    @map("org_id") @db.Uuid
+  clientRef          String?    @map("client_ref") @db.VarChar(255)
+  clientName         String?    @map("client_name") @db.VarChar(255)
+  businessType       String?    @map("business_type") @db.VarChar(255)
+  employees          Int?
+  status             String     @default("draft") @db.VarChar(50)
+  stage              String     @default("initial") @db.VarChar(50)
+  briefData          Json?      @map("brief_data")
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  priority           String     @default("medium") @db.VarChar(20)
+  budget_currency    String?    @default("COP") @map("budget_currency") @db.VarChar(3)
+  client_profile     String?    @map("client_profile")
+  insurance_category String?
+  max_budget         Decimal?   @map("max_budget") @db.Decimal(10, 2)
+  required_coverages String[]   @default([]) @map("required_coverages")
+  artifacts          Artifact[]
+  auditLogs          AuditLog[]
 
   @@map("cases")
   @@schema("public")

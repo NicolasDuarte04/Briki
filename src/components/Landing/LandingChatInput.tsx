@@ -364,8 +364,8 @@ export function LandingChatInput() {
                     label="Import WhatsApp chat"
                     user={user}
                     onAuthenticatedClick={() => {
-                        const { startBriefing } = useUI.getState();
-                        startBriefing("Importar chat de WhatsApp");
+                        // Funcionalidad temporalmente deshabilitada
+                        console.log("Import WhatsApp chat - Funcionalidad en desarrollo");
                     }}
                 />
                 
@@ -375,8 +375,8 @@ export function LandingChatInput() {
                     label="Connect carriers"
                     user={user}
                     onAuthenticatedClick={() => {
-                        const { startBriefing } = useUI.getState();
-                        startBriefing("Conectar con aseguradoras");
+                        // Funcionalidad temporalmente deshabilitada
+                        console.log("Connect carriers - Funcionalidad en desarrollo");
                     }}
                 />
             </div>

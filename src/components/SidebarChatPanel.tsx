@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUI } from "@/lib/ui/state";
-import { ArrowLeftIcon, MagnifyingGlassIcon, PlusIcon, EllipsisVerticalIcon, PencilIcon, TrashIcon, ArchiveBoxIcon, ArchiveBoxArrowDownIcon } from "@heroicons/react/24/outline";
+import { ArrowLeft, Search, Plus, MoreVertical, Pencil, Trash2, Archive, ArchiveRestore } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import type { Case } from "@/lib/types";
@@ -178,14 +178,14 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
           className="p-1.5 rounded-md hover:bg-sidebar-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
           aria-label="Back to navigation"
         >
-          <ArrowLeftIcon className="h-4 w-4 text-sidebar-foreground/70" />
+          <ArrowLeft className="h-4 w-4 text-sidebar-foreground/70" />
         </button>
       </div>
 
       {/* Search Input */}
       <div className="px-2 py-3">
         <div className="relative">
-          <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-sidebar-foreground/50" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-sidebar-foreground/50" />
           <input
             ref={searchInputRef}
             type="text"
@@ -231,7 +231,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
           onClick={handleNewChat}
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2"
         >
-          <PlusIcon className="h-4 w-4" />
+          <Plus className="h-4 w-4" />
           <span>New chat</span>
         </button>
       </div>
@@ -323,7 +323,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
                       )}
                       aria-label="More options"
                     >
-                      <EllipsisVerticalIcon className="h-4 w-4 text-sidebar-foreground/70" />
+                      <MoreVertical className="h-4 w-4 text-sidebar-foreground/70" />
                     </button>
 
                     {/* Dropdown menu */}
@@ -341,7 +341,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-popover-foreground hover:bg-accent transition-colors"
                           >
-                            <PencilIcon className="h-4 w-4" />
+                            <Pencil className="h-4 w-4" />
                             <span>Rename</span>
                           </button>
                           {/* ✅ FUSIÓN CRÍTICA: Archive/Unarchive no implementado para Cases por ahora */}
@@ -354,7 +354,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-popover-foreground hover:bg-accent transition-colors"
                           >
-                            <ArchiveBoxIcon className="h-4 w-4" />
+                            <Archive className="h-4 w-4" />
                             <span>Archive</span>
                           </button>
                           <button
@@ -364,7 +364,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
                             }}
                             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-accent transition-colors"
                           >
-                            <TrashIcon className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4" />
                             <span>Delete</span>
                           </button>
                         </div>

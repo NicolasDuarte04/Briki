@@ -81,9 +81,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  //Matcher optimizado para excluir rutas internas y de activos de Next.js
   matcher: [
-    '/',
-    '/(es|en)/:path*',
-    '/((?!_next/static|_next/image|favicon.ico|brand/|api/|.*\\..*).*)',
+    // Excluir rutas de API, _next/static, _next/image, assets, favicon.ico, brand, landing, robots.txt, sitemap.xml, iconos PWA
+    '/((?!api|_next/static|_next/image|assets|favicon.ico|brand|landing|robots.txt|sitemap.xml|apple-touch-icon|site.webmanifest|android-chrome|favicon-).*)',
+    // Incluir explícitamente la raíz si es necesario (depende de tu lógica)
+    // '/',
   ],
 };

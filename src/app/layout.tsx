@@ -4,6 +4,7 @@ import "./globals.css";
 import LoadingProvider from "@/components/LoadingProvider";
 import AuthProvider from "@/components/AuthProvider";
 import { Analytics } from "@vercel/analytics/next";
+import { ChunkLoadErrorBoundary } from "@/components/ErrorBoundary";
 
 const siteConfig = {
   name: "Briki",
@@ -235,11 +236,13 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <LoadingProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-        </LoadingProvider>
+        <ChunkLoadErrorBoundary>
+          <LoadingProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </LoadingProvider>
+        </ChunkLoadErrorBoundary>
         <Analytics />
       </body>
     </html>

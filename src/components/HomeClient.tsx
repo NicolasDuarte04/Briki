@@ -254,21 +254,28 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
                     )
                   }
                   right={(() => {
-                    if (currentStep === "conversation") {
-                      return isSourcing ? (
-                        <div className="flex h-full min-h-0 flex-col gap-4">
-                          <SourcingProgressWidget compact onStop={stopSourcing} />
-                          <div className="flex flex-1 min-h-0 flex-col">
-                            <CaseBrief />
+                    // --- MODIFICACIÓN CLAVE ---
+                    if (currentStep === "conversation" || isSourcing) { // Mostrar panel derecho en conversación Y sourcing
+                      return (
+                        <div className="flex h-full flex-col overflow-hidden">
+                          {/* Widget de progreso: Se muestra solo si isSourcing es true */}
+                          {isSourcing && (
+                            <div className="flex-shrink-0 border-b border-border/50 p-2">
+                              {/* Asegúrate que SourcingProgressWidget acepte estas props */}
+                              <SourcingProgressWidget compact onStop={stopSourcing} />
+                            </div>
+                          )}
+
+                          {/* Panel de Tabs: Siempre visible en este flujo */}
+                          <div className="flex-1 min-h-0 overflow-y-auto">
+                            {/* WorkspaceTabs necesita acceso al caseId actual, asegúrate que lo reciba */}
+                            <WorkspaceTabs />
                           </div>
-                        </div>
-                      ) : (
-                        <div className="flex h-full flex-col">
-                          <WorkspaceTabs />
                         </div>
                       );
                     }
 
+                    // Mantener la lógica para otros steps si existen
                     if (currentStep === "compliance") {
                       return (
                         <div className="flex h-full flex-col">
@@ -276,8 +283,8 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
                         </div>
                       );
                     }
-
-                    return <div className="flex h-full flex-col">Workspace for step: {currentStep}</div>;
+                    // Fallback o lógica para otros steps
+                    return <div className="p-4">Panel derecho para: {currentStep}</div>;
                   })()}
                 />
               </BrikiSidebarLayout>

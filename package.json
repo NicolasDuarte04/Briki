@@ -20,6 +20,7 @@
     "validate:metadata": "tsx scripts/validate-metadata.ts"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@prisma/client": "^6.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -46,6 +47,7 @@
     "motion": "^12.23.19",
     "next": "15.5.3",
     "next-intl": "^4.3.9",
+    "openai": "^6.5.0",
     "pdf-parse": "^2.2.1",
     "pdf2json": "^3.2.2",
     "pdfjs-dist": "^5.4.296",
