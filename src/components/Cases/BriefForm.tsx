@@ -14,6 +14,7 @@ import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield } fr
 import { cn } from '@/lib/utils';
 import { PdfUploader } from '@/components/Upload/PdfUploader';
 import { useUI } from '@/lib/ui/state';
+import { useClientValidation } from '@/hooks/useClientValidation';
 
 // Define el tipo para uploads temporales
 export type TempUpload = {
@@ -54,6 +55,7 @@ export type CaseBriefData = {
 
 interface BriefFormProps {
   onSubmit: (data: CaseBriefData) => Promise<void>;
+  onApprove?: () => Promise<void>; // Nueva prop para aprobación con validación
   initialNotes?: string;
   isSubmitting: boolean;
   initialData?: any; // Datos del caso para modo edición
@@ -70,9 +72,12 @@ const INSURANCE_CATEGORIES = [
   { value: 'otro', label: 'Otro' },
 ];
 
-export function BriefForm({ onSubmit, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) {
+export function BriefForm({ onSubmit, onApprove, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) {
   // Hook para acceder al estado global
   const { brief, setBrief, isBriefValid } = useUI();
+  
+  // La validación de clientes se maneja en el componente padre
+  // const { validateAndResolveClient, isLoading: isClientValidationLoading } = useClientValidation();
 
   // Estado para todos los campos del formulario
   const [formData, setFormData] = useState<CaseBriefData>({
@@ -230,7 +235,14 @@ export function BriefForm({ onSubmit, initialNotes = '', isSubmitting, initialDa
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit({ ...formData, tempUploads });
+    
+    // Si hay función de aprobación (con validación), usarla
+    if (onApprove) {
+      await onApprove();
+    } else {
+      // Fallback: solo proceder con el envío del formulario
+      await onSubmit({ ...formData, tempUploads });
+    }
   };
 
   return (

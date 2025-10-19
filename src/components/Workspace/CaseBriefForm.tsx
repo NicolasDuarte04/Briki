@@ -7,11 +7,15 @@ import { BriefForm, CaseBriefData } from '@/components/Cases/BriefForm';
 import { CaseBrief } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from 'next-intl';
+import { useClientValidation } from '@/hooks/useClientValidation';
 
 export default function CaseBriefForm() {
     const { brief, setBrief, currentCaseId, approveCurrentCase, caseApproving, caseApproved, setCaseApproved } = useUI();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const t = useTranslations("workspace.caseBrief");
+    
+    // Hook para validación de clientes (coordinado con ConversationPane)
+    const { validateAndResolveClient, isLoading: isClientValidationLoading } = useClientValidation();
     
     // El estado de edición ahora es una derivación directa del estado global.
     // El formulario está en modo edición si el caso NO está aprobado.
@@ -25,7 +29,7 @@ export default function CaseBriefForm() {
     const handleFormSubmit = async (data: CaseBriefData) => {
         setIsSubmitting(true);
         try {
-            // 1. Actualiza el brief en el estado global para que la función de aprobación tenga los datos más recientes.
+            // Actualiza el brief en el estado global para que la función de aprobación tenga los datos más recientes.
             const briefUpdate: Partial<CaseBrief> = {
                 businessType: data.businessType,
                 coverage: data.coverage,
@@ -47,12 +51,47 @@ export default function CaseBriefForm() {
             
             setBrief(briefUpdate);
             
-            // 2. Llama a la función unificada.
+            // La validación de clientes se maneja en el componente padre (ConversationPane)
+            // Solo proceder con la aprobación
             await approveCurrentCase();
             
             // El estado de edición ahora se maneja automáticamente por caseApproved
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error updating case brief:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Función de aprobación con validación de clientes
+    const handleApproveWithValidation = async () => {
+        setIsSubmitting(true);
+        try {
+            // Actualizar brief con datos actuales del formulario
+            const currentBrief = useUI.getState().brief;
+            setBrief(currentBrief);
+            
+            // Validar y resolver cliente antes de aprobar
+            const clientId = await validateAndResolveClient();
+            
+            // Aprobar el caso con el clientId resuelto
+            const success = await approveCurrentCase(clientId);
+            if (!success) {
+                console.log('Aprobación falló');
+            }
+        } catch (error: any) {
+            console.error('Error en aprobación con validación:', error);
+            
+            // Manejar errores específicos del hook de validación
+            if (error.message === "CLIENT_CREATION_CANCELLED") {
+                console.log('Usuario canceló la creación del cliente');
+            } else if (error.message === "CLIENT_CREATION_FAILED") {
+                console.error('Error al crear el cliente');
+                alert('Error al crear el cliente. Por favor, inténtalo de nuevo.');
+            } else {
+                console.error('Error inesperado en la validación:', error);
+                alert('Error inesperado. Por favor, inténtalo de nuevo.');
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -74,7 +113,8 @@ export default function CaseBriefForm() {
                 {isEditing ? (
                     <BriefForm
                         onSubmit={handleFormSubmit}
-                        isSubmitting={isSubmitting || caseApproving}
+                        onApprove={handleApproveWithValidation}
+                        isSubmitting={isSubmitting || caseApproving || isClientValidationLoading}
                         initialNotes={brief.freeText || ''}
                     />
                 ) : (

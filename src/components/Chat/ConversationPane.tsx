@@ -10,16 +10,14 @@ import Message, { type MessageRole, type MessageAgentMeta } from "@/components/C
 import { useTranslations } from "next-intl";
 import { ProvenanceChip, type ProvenanceTag } from "@/components/Sourcing/ProvenanceChip";
 import { useClientValidation } from "@/hooks/useClientValidation";
+import { ChatMessage as BaseChatMessage } from "@/store/useChatStore";
 // Removemos el import que no funciona en el browser
 // import { processChatMessage } from "@/lib/database";
 
-interface ChatMessage {
-  id?: string;
-  role: MessageRole;
-  content: React.ReactNode;
-  agent?: MessageAgentMeta;
-  isSeeded?: boolean;
-}
+// Tipo local que extiende ChatMessage para soportar React.ReactNode
+type ChatMessage = Omit<BaseChatMessage, 'content'> & {
+  content: string | React.ReactNode;
+};
 
 const SOURCING_PROVENANCE: ProvenanceTag[] = ["API", "Portal", "PDF"];
 
@@ -34,6 +32,11 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const caseApproved = useUI((state) => state.caseApproved);
   const briefingCase = useUI((state) => state.briefingCase);
   const isBriefValid = useUI((state) => state.isBriefValid);
+  // Usar estado global de mensajes
+  const messages = useUI((state) => state.messages);
+  const addMessage = useUI((state) => state.addMessage);
+  const setMessages = useUI((state) => state.setMessages);
+  // setValidateAndApproveClient removido para evitar bucles infinitos
   
   // Estado local para manejar la validación de clientes
   const [isResolvingClient, setIsResolvingClient] = useState(false);
@@ -44,11 +47,14 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // Hook para validación de clientes (movido al nivel superior)
   const { validateAndResolveClient } = useClientValidation();
   
+  // Cache para evitar validaciones repetidas del mismo cliente
+  const [validatedClientCache, setValidatedClientCache] = useState<Map<string, string>>(new Map());
+  
   const sourcingTranslations = useTranslations("sourcing.status");
   const chatTranslations = useTranslations("chat");
 
-  // Chat state - comenzar vacío para agente real
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Chat state - ahora se usa el estado global de Zustand
+  // const [messages, setMessages] = useState<ChatMessage[]>([]); // ELIMINADO - usar estado global
   const [value, setValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [showApprovalButton, setShowApprovalButton] = useState(false);
@@ -167,52 +173,51 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
   useEffect(() => {
     if (isSourcing && !prevIsSourcingRef.current) {
-      setMessages((prev) => {
-        const hasStatusMessage = prev.some(
-          (message) => message.role === "assistant" && message.id === "sourcing-status"
+      const currentMessages = messages;
+      const hasStatusMessage = currentMessages.some(
+        (message) => message.role === "assistant" && message.id === "sourcing-status"
+      );
+
+      if (hasStatusMessage) {
+        const updatedMessages = currentMessages.map((message) =>
+          message.id === "sourcing-status"
+            ? {
+                ...message,
+                content: (
+                  <SourcingStatusMessage
+                    body={sourcingStatusCopy.body}
+                    sources={SOURCING_PROVENANCE}
+                    sourcesLabel={sourcingStatusCopy.sourcesLabel}
+                    microSteps={sourcingStatusCopy.microSteps}
+                    microStepsLabel={sourcingStatusCopy.microStepsLabel}
+                  />
+                ),
+              }
+            : message
         );
-
-        if (hasStatusMessage) {
-          return prev.map((message) =>
-            message.id === "sourcing-status"
-              ? {
-                  ...message,
-                  content: (
-                    <SourcingStatusMessage
-                      body={sourcingStatusCopy.body}
-                      sources={SOURCING_PROVENANCE}
-                      sourcesLabel={sourcingStatusCopy.sourcesLabel}
-                      microSteps={sourcingStatusCopy.microSteps}
-                      microStepsLabel={sourcingStatusCopy.microStepsLabel}
-                    />
-                  ),
-                }
-              : message
-          );
-        }
-
-        return [
-          ...prev,
-          {
-            id: "sourcing-status",
-            role: "assistant",
-            content: (
-              <SourcingStatusMessage
-                body={sourcingStatusCopy.body}
-                sources={SOURCING_PROVENANCE}
-                sourcesLabel={sourcingStatusCopy.sourcesLabel}
-                microSteps={sourcingStatusCopy.microSteps}
-                microStepsLabel={sourcingStatusCopy.microStepsLabel}
-              />
-            ),
-            agent: { label: chatTranslations("agents.sourcing") },
-          },
-        ];
-      });
+        setMessages(updatedMessages);
+      } else {
+        const newStatusMessage: ChatMessage = {
+          id: "sourcing-status",
+          role: "assistant",
+          content: (
+            <SourcingStatusMessage
+              body={sourcingStatusCopy.body}
+              sources={SOURCING_PROVENANCE}
+              sourcesLabel={sourcingStatusCopy.sourcesLabel}
+              microSteps={sourcingStatusCopy.microSteps}
+              microStepsLabel={sourcingStatusCopy.microStepsLabel}
+            />
+          ),
+          createdAt: Date.now(),
+          agent: { label: chatTranslations("agents.sourcing") },
+        };
+        addMessage(newStatusMessage);
+      }
     }
 
     prevIsSourcingRef.current = isSourcing;
-  }, [chatTranslations, isSourcing, sourcingStatusCopy]);
+  }, [chatTranslations, isSourcing, sourcingStatusCopy, messages, setMessages, addMessage]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -328,8 +333,13 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     const nearBottom = container ? isNearBottom(container) : true;
     shouldStickToBottomRef.current = nearBottom;
     
-    const newUserMessage: ChatMessage = { role: "user", content: trimmed };
-    setMessages((prev) => [...prev, newUserMessage]);
+    const newUserMessage: ChatMessage = { 
+      id: `user-${Date.now()}`,
+      role: "user", 
+      content: trimmed,
+      createdAt: Date.now()
+    };
+    addMessage(newUserMessage);
     // Solo limpiar el input si no viene de parámetro
     if (!messageText) setValue("");
     setIsTyping(true);
@@ -359,11 +369,13 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       const result = await response.json();
       
       const assistantResponse: ChatMessage = {
+        id: `assistant-${Date.now()}`,
         role: "assistant",
         content: result.response,
+        createdAt: Date.now(),
         agent: { label: chatTranslations("agents.sourcing") },
       };
-      setMessages((prev) => [...prev, assistantResponse]);
+      addMessage(assistantResponse);
       
       if (!isSourcing) {
         startSourcing();
@@ -372,11 +384,13 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       console.error("Error sending message or processing response:", error);
       // Mostrar mensaje de error al usuario en el chat
       const errorResponse: ChatMessage = {
+        id: `error-${Date.now()}`,
         role: "assistant",
         content: "Disculpa, hubo un problema procesando tu mensaje. ¿Puedes intentar de nuevo?",
+        createdAt: Date.now(),
         agent: { label: chatTranslations("agents.sourcing") },
       };
-      setMessages((prev) => [...prev, errorResponse]);
+      addMessage(errorResponse);
     } finally {
       setIsAnalyzing(false); // Detener indicador de análisis
       setIsTyping(false);
@@ -386,14 +400,20 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // Efecto para el mensaje inicial
   useEffect(() => {
     if (initialMessage && initialMessage.trim() !== '') {
-      const userMessage: ChatMessage = { role: "user", content: initialMessage, id: Date.now().toString() };
+      const userMessage: ChatMessage = { 
+        role: "user", 
+        content: initialMessage, 
+        id: `initial-user-${Date.now()}`,
+        createdAt: Date.now()
+      };
       const agentResponse: ChatMessage = {
         role: "assistant",
         content: "Estoy analizando tu solicitud, pero para darte la mejor recomendación, por favor completa los detalles (Que tengas a disposicion) del caso en el formulario del panel derecho.",
         agent: { label: "Sourcing" },
-        id: (Date.now() + 1).toString()
+        id: `initial-agent-${Date.now()}`,
+        createdAt: Date.now()
       };
-      setMessages(prev => [...prev, userMessage, agentResponse]);
+      setMessages([userMessage, agentResponse]);
       clearInitialMessage();
     }
   }, [initialMessage, clearInitialMessage, setMessages]);
@@ -406,12 +426,52 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, [brief, isBriefValid]);
 
+  // Función optimizada de validación de clientes con cache
+  const validateClientWithCache = async (): Promise<string | null> => {
+    const { clientName, selectedClientId } = brief;
+    
+    // Si ya hay un ID seleccionado, usarlo
+    if (selectedClientId) {
+      return selectedClientId;
+    }
+    
+    // Si no hay nombre de cliente, no validar
+    if (!clientName || clientName.trim() === '') {
+      return null;
+    }
+    
+    const clientNameKey = clientName.trim().toLowerCase();
+    
+    // Verificar cache primero
+    if (validatedClientCache.has(clientNameKey)) {
+      const cachedClientId = validatedClientCache.get(clientNameKey)!;
+      console.log('✅ Usando cliente del cache:', clientNameKey, '->', cachedClientId);
+      return cachedClientId;
+    }
+    
+    // Si no está en cache, validar usando el hook
+    try {
+      const clientId = await validateAndResolveClient();
+      
+      // Guardar en cache si se obtuvo un ID
+      if (clientId) {
+        setValidatedClientCache(prev => new Map(prev).set(clientNameKey, clientId));
+        console.log('✅ Cliente validado y guardado en cache:', clientNameKey, '->', clientId);
+      }
+      
+      return clientId;
+    } catch (error: any) {
+      console.error('Error en validación de cliente:', error);
+      throw error;
+    }
+  };
+
   // Función de orquestación que maneja la validación y creación de clientes
   const handleApprovalOrchestration = async () => {
     setIsResolvingClient(true);
     try {
-      // Paso 1: Validar y resolver cliente
-      const clientId = await validateAndResolveClient();
+      // Paso 1: Validar y resolver cliente (con cache)
+      const clientId = await validateClientWithCache();
       
       // Paso 2: Si la validación es exitosa, aprobar el caso con el clientId
       const success = await approveCurrentCase(clientId);
@@ -420,6 +480,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         // El error ya se maneja en approveCurrentCase
         return;
       }
+      
+      // El envío automático del mensaje se maneja en approveCurrentCase
       
     } catch (error: any) {
       console.error('Error en orquestación de aprobación:', error);
@@ -441,6 +503,31 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       setIsResolvingClient(false);
     }
   };
+
+  // Función pública para validación de clientes (para usar desde otros componentes)
+  const validateAndApproveClient = async (): Promise<boolean> => {
+    try {
+      const clientId = await validateClientWithCache();
+      const success = await approveCurrentCase(clientId);
+      return success;
+    } catch (error: any) {
+      console.error('Error en validación y aprobación de cliente:', error);
+      
+      if (error.message === "CLIENT_CREATION_CANCELLED") {
+        console.log('Usuario canceló la creación del cliente');
+        return false;
+      } else if (error.message === "CLIENT_CREATION_FAILED") {
+        console.error('Error al crear el cliente');
+        return false;
+      } else {
+        console.error('Error inesperado:', error);
+        return false;
+      }
+    }
+  };
+
+  // La función validateAndApproveClient está disponible para uso interno
+  // No necesitamos registrarla en el store para evitar bucles infinitos
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -498,7 +585,12 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
                     <Message
                       role={m.role}
                       content={m.content}
-                      {...(m.agent ? { agent: m.agent } : {})}
+                      {...(m.agent && m.agent.label ? { 
+                        agent: { 
+                          label: m.agent.label, 
+                          ...(m.agent.tag ? { tag: m.agent.tag } : {})
+                        } 
+                      } : {})}
                       ref={isLast ? lastMessageRef : undefined}
                       {...(messageTabIndex !== undefined ? { tabIndex: messageTabIndex } : {})}
                       isGroupStart={isGroupStart}
