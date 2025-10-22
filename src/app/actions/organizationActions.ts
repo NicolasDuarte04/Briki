@@ -4,6 +4,7 @@
 import { prisma } from '@/lib/prisma';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { getWorkspaceHome } from '@/lib/routes/workspace';
 
 /**
  * Crea una nueva organización y asigna al usuario actual como 'owner'.
@@ -103,6 +104,6 @@ export async function updateOrganization(orgId: string, data: { name?: string; s
     data
   });
   
-  revalidatePath('/workspace');
+  revalidatePath(getWorkspaceHome());
   return updatedOrg;
 }

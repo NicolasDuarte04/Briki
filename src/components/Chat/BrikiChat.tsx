@@ -669,7 +669,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                                     setShowJumpToNewest(false);
                                 }}
                             >
-                                <ArrowDown className="mr-1.5 h-3.5 w-3.5" />
+                                <ArrowDown className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                                 {chatTranslations("jumpToNewest")}
                             </Button>
                         </div>
@@ -694,7 +694,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                                                 className="w-8 h-8 object-cover rounded"
                                             />
                                         ) : (
-                                            <FileText className="w-4 h-4 text-muted-foreground" />
+                                            <FileText className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
                                         )}
                                         <div className="flex-1 min-w-0">
                                             <div className="text-sm font-medium text-foreground truncate">
@@ -709,7 +709,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                                             className="p-1 hover:bg-muted rounded transition-colors text-muted-foreground hover:text-foreground"
                                             aria-label="Remove file"
                                         >
-                                            <X className="w-3.5 h-3.5" />
+                                            <X className="w-3.5 h-3.5" aria-hidden="true" />
                                         </button>
                                     </div>
                                 ))}
@@ -757,7 +757,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                                             : "bg-muted text-muted-foreground cursor-not-allowed"
                                     )}
                                 >
-                                    <ArrowUpIcon className="h-4 w-4" />
+                                    <ArrowUpIcon className="h-4 w-4" aria-hidden="true" />
                                     <span className="sr-only">Send</span>
                                 </Button>
                             </div>
@@ -774,13 +774,13 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                                         onClick={() => setShowAgentMenu(!showAgentMenu)}
                                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-muted transition-colors text-sm text-foreground"
                                     >
-                                        {selectedAgent === "sourcing" && <Search className="w-4 h-4 text-primary" />}
-                                        {selectedAgent === "analysis" && <Code2 className="w-4 h-4 text-primary" />}
-                                        {selectedAgent === "creative" && <Puzzle className="w-4 h-4 text-primary" />}
+                                        {selectedAgent === "sourcing" && <Search className="w-4 h-4 text-primary" aria-hidden="true" />}
+                                        {selectedAgent === "analysis" && <Code2 className="w-4 h-4 text-primary" aria-hidden="true" />}
+                                        {selectedAgent === "creative" && <Puzzle className="w-4 h-4 text-primary" aria-hidden="true" />}
                                         <span className="font-medium capitalize">
                                             {selectedAgent}
                                         </span>
-                                        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                                        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
                                     </button>
 
                                     {/* Agent dropdown menu */}
@@ -803,7 +803,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                                                             selectedAgent === agent.id && "bg-accent text-accent-foreground"
                                                         )}
                                                     >
-                                                        <agent.icon className="w-4 h-4" />
+                                                        <agent.icon className="w-4 h-4" aria-hidden="true" />
                                                         <span className="text-sm">{agent.label}</span>
                                                     </button>
                                                 ))}
@@ -819,7 +819,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                                     className="p-2 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                                     aria-label="Attach file"
                                 >
-                                    <Paperclip className="w-4 h-4" />
+                                    <Paperclip className="w-4 h-4" aria-hidden="true" />
                                 </button>
 
                                 {/* Image button */}
@@ -831,7 +831,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                                     className="p-2 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                                     aria-label="Add image"
                                 >
-                                    <ImageLucide className="w-4 h-4" />
+                                    <ImageLucide className="w-4 h-4" aria-hidden="true" />
                                 </button>
                             </div>
 
@@ -858,11 +858,15 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
 
     // ✅ FUSIÓN CRÍTICA: Render landing mode (composer only) - Estructura del equipo + lógica de múltiples PDFs
     return (
-        <div className={cn("w-full", className)}>
+        <div className={cn(
+            "w-full",
+            mode === "landing" && "max-w-2xl md:max-w-2xl xl:max-w-[56rem] mx-auto",
+            className
+        )}>
             <div className={cn(
                 "relative",
                 mode === "landing" 
-                    ? "bg-neutral-900 rounded-xl border border-neutral-800" 
+                    ? "bg-muted/90 rounded-2xl border border-border/60 shadow-sm backdrop-blur-sm" 
                     : "bg-background rounded-lg border border-input"
             )}>
                 <div className="overflow-y-auto">
@@ -883,7 +887,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                             "bg-transparent",
                             "border-none",
                             mode === "landing" 
-                                ? "text-white text-lg placeholder:text-neutral-500 placeholder:text-lg"
+                                ? "text-foreground text-lg placeholder:text-muted-foreground/70 placeholder:text-lg"
                                 : "text-foreground text-base placeholder:text-muted-foreground",
                             "focus:outline-none",
                             "focus-visible:ring-0 focus-visible:ring-offset-0",
@@ -916,19 +920,19 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                                         )}>
                                             <FileText className={cn(
                                                 "w-4 h-4",
-                                                mode === "landing" ? "text-green-400" : "text-green-600"
-                                            )} />
+                                                mode === "landing" ? "text-green-500" : "text-green-600"
+                                            )} aria-hidden="true" />
                                         </div>
                                         <div className="flex-1">
                                             <div className={cn(
                                                 "text-sm font-medium",
-                                                mode === "landing" ? "text-white" : "text-foreground"
+                                                mode === "landing" ? "text-foreground" : "text-foreground"
                                             )}>
                                                 {upload.name}
                                             </div>
                                             <div className={cn(
                                                 "text-xs",
-                                                mode === "landing" ? "text-neutral-400" : "text-muted-foreground"
+                                                mode === "landing" ? "text-muted-foreground" : "text-muted-foreground"
                                             )}>
                                                 {Math.round(upload.size / 1024)} KB • {upload.pages} pages
                                             </div>
@@ -939,12 +943,12 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                                         className={cn(
                                             "p-1 rounded-full transition-colors",
                                             mode === "landing"
-                                                ? "hover:bg-neutral-800 text-neutral-400 hover:text-white"
+                                                ? "hover:bg-accent text-muted-foreground hover:text-foreground"
                                                 : "hover:bg-muted text-muted-foreground hover:text-foreground"
                                         )}
                                         aria-label="Remove file"
                                     >
-                                        <X className="w-4 h-4" />
+                                        <X className="w-4 h-4" aria-hidden="true" />
                                     </button>
                                 </div>
                             ))}
@@ -956,7 +960,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                 <div className={cn(
                     "px-5 py-2 text-xs",
                     mode === "landing" 
-                        ? "text-neutral-500" 
+                        ? "text-muted-foreground/60" 
                         : "text-muted-foreground"
                 )}>
                     Press Enter to send
@@ -964,7 +968,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
 
                 <div className={cn(
                     "flex items-center justify-between p-4 border-t",
-                    mode === "landing" ? "border-neutral-800" : "border-border"
+                    mode === "landing" ? "border-border/50" : "border-border"
                 )}>
                     <div className="flex items-center gap-2">
                         <button
@@ -975,21 +979,21 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                             className={cn(
                                 "group p-2 rounded-lg transition-colors flex items-center gap-1",
                                 mode === "landing" 
-                                    ? "hover:bg-neutral-800"
+                                    ? "hover:bg-accent"
                                     : "hover:bg-muted"
                             )}
                         >
                             {isUploading ? (
-                                <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                <div className="w-4 h-4 animate-spin rounded-full border-2 border-foreground border-t-transparent" />
                             ) : (
                                 <Paperclip className={cn(
                                     "w-4 h-4",
-                                    mode === "landing" ? "text-white" : "text-foreground"
-                                )} />
+                                    mode === "landing" ? "text-foreground" : "text-foreground"
+                                )} aria-hidden="true" />
                             )}
                             <span className={cn(
                                 "text-xs hidden group-hover:inline transition-opacity",
-                                mode === "landing" ? "text-zinc-400" : "text-muted-foreground"
+                                mode === "landing" ? "text-muted-foreground" : "text-muted-foreground"
                             )}>
                                 {isUploading ? 'Uploading...' : 'Attach PDF'}
                             </span>
@@ -1003,14 +1007,14 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                             className={cn(
                                 "px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between gap-1",
                                 mode === "landing"
-                                    ? "border border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800"
+                                    ? "border border-border/50 hover:border-border hover:bg-accent"
                                     : "border border-input hover:bg-muted",
                                 (value.trim() || tempUploads.length > 0)
                                     ? mode === "landing" 
-                                        ? "bg-white text-black" 
+                                        ? "bg-primary text-primary-foreground" 
                                         : "bg-primary text-primary-foreground"
                                     : mode === "landing"
-                                        ? "text-zinc-400 cursor-not-allowed"
+                                        ? "text-muted-foreground cursor-not-allowed"
                                         : "text-muted-foreground cursor-not-allowed"
                             )}
                         >
@@ -1018,9 +1022,10 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                                 className={cn(
                                     "w-4 h-4",
                                     (value.trim() || tempUploads.length > 0)
-                                        ? mode === "landing" ? "text-black" : "text-primary-foreground"
-                                        : mode === "landing" ? "text-zinc-400" : "text-muted-foreground"
+                                        ? mode === "landing" ? "text-primary-foreground" : "text-primary-foreground"
+                                        : mode === "landing" ? "text-muted-foreground" : "text-muted-foreground"
                                 )}
+                                aria-hidden="true"
                             />
                             <span className="sr-only">Send</span>
                         </button>
@@ -1030,32 +1035,32 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
 
             {/* ✅ FUSIÓN CRÍTICA: Action buttons - solo en modo landing (del LandingChatInput original) */}
             {mode === "landing" && (
-                <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
+                <div className="flex items-center justify-center gap-3 mt-3 flex-wrap">
                     <button
                         type="button"
                         onClick={handleUploadClick}
                         disabled={isUploading}
                         className={cn(
-                            "flex items-center gap-2 px-4 py-2 rounded-full border transition-colors",
+                            "flex items-center gap-2 px-4 py-2 rounded-full border transition-colors text-sm",
                             tempUploads.length > 0
-                                ? "bg-green-500/20 border-green-500/30 text-green-400"
-                                : "bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-400 hover:text-white",
+                                ? "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400"
+                                : "bg-background/80 hover:bg-accent border-border/50 text-muted-foreground hover:text-foreground",
                             isUploading && "opacity-50 cursor-not-allowed"
                         )}
                     >
-                        <FileUp className="w-4 h-4" />
+                        <FileUp className="w-4 h-4" aria-hidden="true" />
                         <span className="text-xs">
                             {isUploading ? 'Uploading...' : tempUploads.length > 0 ? `✓ ${tempUploads.length} PDF${tempUploads.length > 1 ? 's' : ''} Loaded` : 'Upload PDF'}
                         </span>
                     </button>
                     <ActionButton
-                        icon={<ImageIcon className="w-4 h-4" />}
+                        icon={<ImageIcon className="w-4 h-4" aria-hidden="true" />}
                         label="Import WhatsApp chat"
                         user={user}
                         onAuthenticatedClick={() => setStep("conversation")}
                     />
                     <ActionButton
-                        icon={<MonitorIcon className="w-4 h-4" />}
+                        icon={<MonitorIcon className="w-4 h-4" aria-hidden="true" />}
                         label="Connect carriers"
                         user={user}
                         onAuthenticatedClick={() => setStep("conversation")}
@@ -1096,7 +1101,7 @@ function ActionButton({ icon, label, user, onAuthenticatedClick }: ActionButtonP
         <button
             type="button"
             onClick={handleClick}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 rounded-full border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-background/80 hover:bg-accent rounded-full border border-border/50 text-muted-foreground hover:text-foreground transition-colors"
         >
             {icon}
             <span className="text-xs">{label}</span>

@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, FileText, Upload, X } from 'lucide-react';
+import { useLocale } from 'next-intl';
+import { pathForCase, type Locale } from '@/lib/routes/workspace';
 
 interface CaseFormProps {
   orgId: string;
@@ -27,6 +29,7 @@ export function CaseForm({ orgId, userId }: CaseFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const locale = useLocale() as Locale;
   const [tempUploads, setTempUploads] = useState<Array<{
     id: string;
     storagePath: string;
@@ -120,7 +123,7 @@ export function CaseForm({ orgId, userId }: CaseFormProps) {
       
       // Redirigir después de 3 segundos para que el usuario vea el mensaje
       setTimeout(() => {
-        router.push(`/workspace/cases/${data.id}`);
+        router.push(pathForCase(data.id, locale));
         router.refresh();
       }, 3000);
     } catch (err) {

@@ -107,7 +107,12 @@ export async function signup(formData: FormData): Promise<ActionResult> {
 export async function login(formData: FormData): Promise<ActionResult> {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
-  const next = formData.get('next') as string | null
+  const locale = (formData.get('locale') as string) || 'en'
+  const nextParam = formData.get('next') as string
+  // Use next param if valid (must be relative path), otherwise default to dashboard
+  const next = (nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//')) 
+    ? nextParam 
+    : `/${locale}/dashboard`
 
   // Basic validation
   if (!email || !password) {
@@ -180,15 +185,8 @@ export async function login(formData: FormData): Promise<ActionResult> {
     const { revalidatePath } = await import('next/cache')
     revalidatePath('/', 'layout')
 
-    // Validate the next path. It must be a relative path.
-    const isValidNextPath = next && next.startsWith('/') && !next.startsWith('//')
-
-    if (isValidNextPath) {
-      redirect(next)
-    }
-
-    // After a successful login, always redirect to the landing page.
-    redirect('/')
+    // Redirect to next param or dashboard
+    redirect(next)
 
   } catch (error) {
     // If the error is a redirect error, re-throw it so Next.js can handle it

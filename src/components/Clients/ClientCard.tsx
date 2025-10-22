@@ -4,12 +4,15 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Mail, Phone, MapPin, User, Shield } from 'lucide-react';
 import type { DecryptedClient } from '@/lib/clientsDb';
+import { useLocale } from 'next-intl';
+import { pathForClient, type Locale } from '@/lib/routes/workspace';
 
 interface ClientCardProps {
   client: DecryptedClient;
 }
 
 export function ClientCard({ client }: ClientCardProps) {
+  const locale = useLocale() as Locale;
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('es-ES', {
       year: 'numeric',
@@ -19,7 +22,7 @@ export function ClientCard({ client }: ClientCardProps) {
   };
   
   return (
-    <Link href={`/workspace/clients/${client.id}`}>
+    <Link href={pathForClient(client.id, locale)}>
       <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">

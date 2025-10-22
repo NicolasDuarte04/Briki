@@ -44,6 +44,7 @@ import {
   loadRiders,
 } from "../fx";
 import { sendViaEmail, sendViaWhatsApp } from "../share";
+import { BriefingCase, SourcingUpdate } from "@/lib/types";
 
 // Local helper to convert policies into view objects consumed by components
 const policyToView = (policy: Policy): PolicyView => {
@@ -661,6 +662,8 @@ export interface UIState {
   selectPolicyView: (policyId: string) => PolicyView | undefined;
   selectRenewalsView: () => RenewalView[];
   selectFilteredSortedRenewalsView: () => RenewalView[];
+  dashboardViewTime: number | null;
+  setDashboardViewTime: (time: number) => void;
 }
 
 export const useUI = create<UIState>()(
@@ -728,6 +731,7 @@ export const useUI = create<UIState>()(
       caseApproving: false,
       caseApprovalError: null,
       caseApproved: false,
+      dashboardViewTime: null,
       setInitialMessage: (message: string) => set({ initialMessage: message }),  // ✅ Implementación
       clearInitialMessage: () => set({ initialMessage: "" }),                  // ✅ Implementación simple
       setCurrentCaseId: (id: string | null) => set({ currentCaseId: id }),     // ✅ AÑADIDO
@@ -1300,6 +1304,7 @@ export const useUI = create<UIState>()(
         const view = filtered.map(renewalToView);
         return view;
       },
+      setDashboardViewTime: (time) => set({ dashboardViewTime: time }),
     }),
     { name: "ui-store" }
   )

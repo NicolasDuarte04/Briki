@@ -32,12 +32,14 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const caseApproving = useUI((state) => state.caseApproving);
   const caseApproved = useUI((state) => state.caseApproved);
   const briefingCase = useUI((state) => state.briefingCase);
+  const currentCaseId = useUI((state) => state.currentCaseId);
   
   const sourcingTranslations = useTranslations("sourcing.status");
   const chatTranslations = useTranslations("chat");
 
   // Chat state - comenzar vacío para agente real
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loadedThreadId, setLoadedThreadId] = useState<string | null>(null);
   const [value, setValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [showApprovalButton, setShowApprovalButton] = useState(false);
@@ -367,6 +369,27 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       setIsTyping(false);
     }
   }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value]);
+
+  // Effect to load/reset messages when thread changes
+  useEffect(() => {
+    if (currentCaseId !== loadedThreadId) {
+      // Thread has changed - reset messages for now
+      // TODO: In the future, load messages from database for this thread
+      setMessages([]);
+      setLoadedThreadId(currentCaseId);
+      
+      // If there's a new thread, could show a welcome message
+      if (currentCaseId) {
+        const welcomeMessage: ChatMessage = {
+          role: "assistant",
+          content: "Hola, estoy aquí para ayudarte con este caso. ¿En qué puedo asistirte?",
+          agent: { label: chatTranslations("agents.sourcing") },
+          id: `welcome-${currentCaseId}`
+        };
+        setMessages([welcomeMessage]);
+      }
+    }
+  }, [currentCaseId, loadedThreadId, chatTranslations]);
 
   // Efecto para el mensaje inicial
   useEffect(() => {

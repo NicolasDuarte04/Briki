@@ -1,6 +1,8 @@
 import type { ReactElement } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { createServerSupabase } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 
 import LoginForm from "../_components/LoginForm";
 import RightPanel from "../_components/RightPanel";
@@ -10,7 +12,26 @@ export const metadata: Metadata = {
   description: "Access your Briki workspace and keep policies moving forward.",
 };
 
-export default function LoginPage(): ReactElement {
+export default async function LoginPage({
+  params,
+  searchParams,
+}: {
+  params: { locale: string };
+  searchParams: { next?: string };
+}): Promise<ReactElement> {
+  // If the user is already authenticated, redirect them to their dashboard.
+  // This prevents authenticated users from seeing the login page.
+  const supabase = await createServerSupabase();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session) {
+    redirect(`/${params.locale}/dashboard`);
+  }
+
+  // Capture the next parameter for post-login redirect
+  const next = searchParams.next || `/${params.locale}/dashboard`;
   return (
     <div className="flex min-h-screen w-full bg-white lg:h-screen">
       <div className="flex w-full flex-col lg:flex-row">
@@ -50,7 +71,7 @@ export default function LoginPage(): ReactElement {
               </div>
 
               {/* Login Form */}
-              <LoginForm />
+              <LoginForm next={next} />
             </div>
           </div>
         </section>
