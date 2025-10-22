@@ -5,6 +5,7 @@ export { LandingHowItWorks } from './LandingHowItWorks';
 export { LandingDemo } from './LandingDemo';
 export { LandingFeatures } from './LandingFeatures';
 export { LandingStatsGrowth } from './LandingStatsGrowth';
+export { LandingPricing } from './LandingPricing';
 export { LandingSocialProof } from './LandingSocialProof';
 export { LandingCTA } from './LandingCTA';
 export { LandingFooter } from './LandingFooter';

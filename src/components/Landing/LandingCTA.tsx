@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 
 export function LandingCTA() {
+  const t = useTranslations('landing.cta');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -23,17 +25,17 @@ export function LandingCTA() {
   };
 
   return (
-    <section id="pricing" className="py-32 px-6 sm:px-8 bg-[var(--briki-surface)]">
+    <section id="cta" className="py-32 px-6 sm:px-8 bg-[var(--briki-surface)]">
       <div className="max-w-4xl mx-auto text-center">
         <h2
           className="mb-16 text-headline font-bold text-[var(--briki-text)] text-balance font-smooth px-4"
         >
-          Turn policies into proposals in minutes.
+          {t('heading')}
         </h2>
         
         <div className="mb-8">
           <h3 className="text-title-lg font-semibold text-[var(--briki-text)] mb-8">
-            Contact us:
+            {t('subheading')}
           </h3>
           
           <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
@@ -44,7 +46,7 @@ export function LandingCTA() {
                   htmlFor="name" 
                   className="block text-sm font-medium text-[var(--briki-text)] mb-2"
                 >
-                  Name
+                  {t('form.name.label')}
                 </label>
                 <input
                   type="text"
@@ -54,7 +56,7 @@ export function LandingCTA() {
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-3 rounded-lg border border-[var(--briki-border)] bg-[var(--briki-surface-alt)] text-[var(--briki-text)] outline-none focus:ring-2 focus:ring-[var(--briki-primary)] focus:border-transparent transition-all"
-                  placeholder="John Doe"
+                  placeholder={t('form.name.placeholder')}
                 />
               </div>
 
@@ -64,7 +66,7 @@ export function LandingCTA() {
                   htmlFor="email" 
                   className="block text-sm font-medium text-[var(--briki-text)] mb-2"
                 >
-                  Email
+                  {t('form.email.label')}
                 </label>
                 <input
                   type="email"
@@ -74,7 +76,7 @@ export function LandingCTA() {
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-3 rounded-lg border border-[var(--briki-border)] bg-[var(--briki-surface-alt)] text-[var(--briki-text)] outline-none focus:ring-2 focus:ring-[var(--briki-primary)] focus:border-transparent transition-all"
-                  placeholder="john@example.com"
+                  placeholder={t('form.email.placeholder')}
                 />
               </div>
 
@@ -84,7 +86,7 @@ export function LandingCTA() {
                   htmlFor="company" 
                   className="block text-sm font-medium text-[var(--briki-text)] mb-2"
                 >
-                  Company
+                  {t('form.company.label')}
                 </label>
                 <input
                   type="text"
@@ -94,7 +96,7 @@ export function LandingCTA() {
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-3 rounded-lg border border-[var(--briki-border)] bg-[var(--briki-surface-alt)] text-[var(--briki-text)] outline-none focus:ring-2 focus:ring-[var(--briki-primary)] focus:border-transparent transition-all"
-                  placeholder="Acme Inc."
+                  placeholder={t('form.company.placeholder')}
                 />
               </div>
 
@@ -104,7 +106,7 @@ export function LandingCTA() {
                   htmlFor="city" 
                   className="block text-sm font-medium text-[var(--briki-text)] mb-2"
                 >
-                  City
+                  {t('form.city.label')}
                 </label>
                 <input
                   type="text"
@@ -114,7 +116,7 @@ export function LandingCTA() {
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-3 rounded-lg border border-[var(--briki-border)] bg-[var(--briki-surface-alt)] text-[var(--briki-text)] outline-none focus:ring-2 focus:ring-[var(--briki-primary)] focus:border-transparent transition-all"
-                  placeholder="New York"
+                  placeholder={t('form.city.placeholder')}
                 />
               </div>
 
@@ -124,7 +126,7 @@ export function LandingCTA() {
                   htmlFor="phone" 
                   className="block text-sm font-medium text-[var(--briki-text)] mb-2"
                 >
-                  Phone
+                  {t('form.phone.label')}
                 </label>
                 <input
                   type="tel"
@@ -133,7 +135,7 @@ export function LandingCTA() {
                   value={formData.phone}
                   onChange={handleChange}
                   className="w-full px-4 py-3 rounded-lg border border-[var(--briki-border)] bg-[var(--briki-surface-alt)] text-[var(--briki-text)] outline-none focus:ring-2 focus:ring-[var(--briki-primary)] focus:border-transparent transition-all"
-                  placeholder="+1 (555) 123-4567"
+                  placeholder={t('form.phone.placeholder')}
                 />
               </div>
             </div>
@@ -144,7 +146,7 @@ export function LandingCTA() {
                 type="submit"
                 className="inline-flex items-center justify-center px-8 py-3 rounded-full bg-[var(--briki-primary)] text-white font-semibold hover:opacity-90 transition-opacity shadow-md"
               >
-                Submit
+                {t('form.submit')}
               </button>
             </div>
           </form>
@@ -155,7 +157,7 @@ export function LandingCTA() {
             href="#"
             className="inline-block hover:opacity-70 transition-opacity text-body text-[var(--briki-text-muted)] underline font-medium font-smooth"
           >
-            Book a demo
+            {t('demo')}
           </a>
         </div>
       </div>

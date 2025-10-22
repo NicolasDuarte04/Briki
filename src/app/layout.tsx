@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter } from "next/font/google";
+import { Geist_Mono, Inter, DM_Sans, Newsreader } from "next/font/google";
 import "./globals.css";
 import LoadingProvider from "@/components/LoadingProvider";
 import AuthProvider from "@/components/AuthProvider";
@@ -169,6 +169,26 @@ const inter = Inter({
   preload: true,
 });
 
+// DM Sans for display/hero only - calm, confident, readable at large sizes
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+  weight: ["400", "500", "600", "700"],
+});
+
+// Newsreader for editorial serif display headlines - calm, editorial feel with optical sizing
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+  weight: ["200", "300", "400", "500", "600", "700", "800"],
+  style: ["normal", "italic"],
+  opticalSizing: "auto",
+});
+
 export default function RootLayout({
   children,
   params,
@@ -177,7 +197,7 @@ export default function RootLayout({
   params: Promise<{ locale?: string }>;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} ${geistMono.variable}`} suppressHydrationWarning>
+    <html lang="es" className={`${inter.variable} ${geistMono.variable} ${dmSans.variable} ${newsreader.variable}`} suppressHydrationWarning>
       <head>
         {/* Preload hero background images to improve LCP */}
         {/* Removed invalid preload to avoid 404 during dev */}

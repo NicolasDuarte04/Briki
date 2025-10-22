@@ -60,8 +60,8 @@ export function LandingChatInput() {
     const { setStep, setInitialMessage, setBrief } = useUI();
     
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
-        minHeight: 90,
-        maxHeight: 200,
+        minHeight: 70,
+        maxHeight: 150,
     });
     
     // PDF upload state (conservar del original)
@@ -232,8 +232,9 @@ export function LandingChatInput() {
                 className="hidden"
             />
             
-            {/* Diseño original de v0-ai-chat conservado */}
-            <div className="relative bg-neutral-900 rounded-xl border border-neutral-800">
+            {/* Composer: narrower than hero text, centered for processing fluency + Fitts's law */}
+            <div className="mx-auto w-[min(85vw,720px)] max-w-[720px]">
+                <div className="relative bg-neutral-900/98 backdrop-blur supports-[backdrop-filter]:bg-neutral-900/85 rounded-2xl border border-neutral-800/60 shadow-lg p-4">
                 <div className="overflow-y-auto">
                     <Textarea
                         id="hero-chat-input"
@@ -247,7 +248,7 @@ export function LandingChatInput() {
                         placeholder="Describe your client or drop a policy PDF..."
                         aria-label="Describe your client or drop a policy PDF"
                         className={cn(
-                            "w-full px-5 py-4",
+                            "w-full px-4 py-3",
                             "resize-none",
                             "bg-transparent",
                             "border-none",
@@ -255,7 +256,7 @@ export function LandingChatInput() {
                             "focus:outline-none",
                             "focus-visible:ring-0 focus-visible:ring-offset-0",
                             "placeholder:text-neutral-500 placeholder:text-lg",
-                            "min-h-[90px]"
+                            "min-h-[70px]"
                         )}
                         style={{
                             overflow: "hidden",
@@ -264,7 +265,7 @@ export function LandingChatInput() {
                     
                     {/* PDF upload indicator (conservar diseño original) */}
                     {tempUploads.length > 0 && (
-                        <div className="mx-5 mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between">
+                        <div className="mx-4 mb-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between">
                             <div className="flex flex-col gap-2 w-full">
                                 {tempUploads.map(t => (
                                     <div key={t.storagePath} className="flex items-center justify-between">
@@ -293,7 +294,7 @@ export function LandingChatInput() {
                     )}
                 </div>
 
-                <div className="flex items-center justify-between p-4 border-t border-neutral-800">
+                <div className="flex items-center justify-between p-3 border-t border-neutral-800">
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
@@ -311,6 +312,47 @@ export function LandingChatInput() {
                                 {isUploading ? 'Uploading...' : 'Attach PDF'}
                             </span>
                         </button>
+                        
+                        {/* Action buttons moved next to the attach PDF button */}
+                        <button
+                            type="button"
+                            onClick={handleUploadClick}
+                            disabled={isUploading}
+                            className={cn(
+                                "flex items-center gap-1.5 px-3 py-2 rounded-full border transition-colors min-h-[36px]",
+                                tempUploads.length > 0
+                                    ? "bg-green-500/20 border-green-500/30 text-green-400"
+                                    : "bg-neutral-900/50 hover:bg-neutral-800 border-neutral-800/50 text-neutral-400 hover:text-white",
+                                isUploading && "opacity-50 cursor-not-allowed"
+                            )}
+                        >
+                            <FileUp className="w-3.5 h-3.5" />
+                            <span className="text-xs">
+                                {isUploading ? 'Uploading...' : tempUploads.length > 0 ? '✓ PDF' : 'Upload PDF'}
+                            </span>
+                        </button>
+                        
+                        {/* Botón Import WhatsApp chat */}
+                        <ActionButton
+                            icon={<ImageIcon className="w-3.5 h-3.5" />}
+                            label="Import WhatsApp"
+                            user={user}
+                            onAuthenticatedClick={() => {
+                                const { startBriefing } = useUI.getState();
+                                startBriefing("Importar chat de WhatsApp");
+                            }}
+                        />
+                        
+                        {/* Botón Connect carriers */}
+                        <ActionButton
+                            icon={<MonitorIcon className="w-3.5 h-3.5" />}
+                            label="Connect carriers"
+                            user={user}
+                            onAuthenticatedClick={() => {
+                                const { startBriefing } = useUI.getState();
+                                startBriefing("Conectar con aseguradoras");
+                            }}
+                        />
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -325,61 +367,25 @@ export function LandingChatInput() {
                             )}
                         >
                             <ArrowUpIcon
-                                className={cn(
-                                    "w-4 h-4",
-                                    (value.trim() || tempUploads.length > 0)
-                                        ? "text-black"
-                                        : "text-zinc-400"
-                                )}
-                            />
-                            <span className="sr-only">Send</span>
+                            className={cn(
+                                "w-4 h-4",
+                                (value.trim() || tempUploads.length > 0)
+                                    ? "text-black"
+                                    : "text-zinc-400"
+                            )}
+                        />
+                        <span className="sr-only">Send</span>
                         </button>
                     </div>
                 </div>
+                </div>
+                
+                {/* Micro-copy for commitment comfort (risk reversal) */}
+                <p className="mt-2 text-xs text-white text-center">
+                    Sin registro. Prueba con un PDF o un mensaje.
+                </p>
             </div>
 
-            {/* ✅ BOTONES DE ACCIÓN RESTAURADOS - Sección que faltaba en la fusión */}
-            <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
-                <button
-                    type="button"
-                    onClick={handleUploadClick}
-                    disabled={isUploading}
-                    className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-full border transition-colors",
-                        tempUploads.length > 0
-                            ? "bg-green-500/20 border-green-500/30 text-green-400"
-                            : "bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-400 hover:text-white",
-                        isUploading && "opacity-50 cursor-not-allowed"
-                    )}
-                >
-                    <FileUp className="w-4 h-4" />
-                    <span className="text-xs">
-                        {isUploading ? 'Uploading...' : tempUploads.length > 0 ? '✓ PDF Loaded' : 'Upload PDF'}
-                    </span>
-                </button>
-                
-                {/* Botón Import WhatsApp chat */}
-                <ActionButton
-                    icon={<ImageIcon className="w-4 h-4" />}
-                    label="Import WhatsApp chat"
-                    user={user}
-                    onAuthenticatedClick={() => {
-                        const { startBriefing } = useUI.getState();
-                        startBriefing("Importar chat de WhatsApp");
-                    }}
-                />
-                
-                {/* Botón Connect carriers */}
-                <ActionButton
-                    icon={<MonitorIcon className="w-4 h-4" />}
-                    label="Connect carriers"
-                    user={user}
-                    onAuthenticatedClick={() => {
-                        const { startBriefing } = useUI.getState();
-                        startBriefing("Conectar con aseguradoras");
-                    }}
-                />
-            </div>
         </div>
     );
 }
@@ -408,7 +414,7 @@ function ActionButton({ icon, label, user, onAuthenticatedClick }: ActionButtonP
         <button
             type="button"
             onClick={handleClick}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 rounded-full border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 bg-neutral-900/50 hover:bg-neutral-800 rounded-full border border-neutral-800/50 text-neutral-400 hover:text-white transition-colors min-h-[36px]"
         >
             {icon}
             <span className="text-xs">{label}</span>
