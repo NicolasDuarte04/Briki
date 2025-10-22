@@ -3,17 +3,20 @@ import { cn } from "@/lib/utils";
 import React, { useState, createContext, useContext } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { IconMenu2, IconX } from "@tabler/icons-react";
+import Link from "next/link";
 
 interface Links {
   label: string;
   href: string;
   icon?: React.JSX.Element | React.ReactNode;
+  matchPath?: string; // For active state detection
 }
 
 interface SidebarContextProps {
   open: boolean;
   setOpen: React.Dispatch<React.SetStateAction<boolean>>;
   animate: boolean;
+  disableAutoCollapse?: boolean;
 }
 
 const SidebarContext = createContext<SidebarContextProps | undefined>(
@@ -33,11 +36,13 @@ export const SidebarProvider = ({
   open: openProp,
   setOpen: setOpenProp,
   animate = true,
+  disableAutoCollapse = false,
 }: {
   children: React.ReactNode;
   open?: boolean;
   setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
   animate?: boolean;
+  disableAutoCollapse?: boolean;
 }) => {
   const [openState, setOpenState] = useState(false);
 
@@ -45,7 +50,7 @@ export const SidebarProvider = ({
   const setOpen = setOpenProp !== undefined ? setOpenProp : setOpenState;
 
   return (
-    <SidebarContext.Provider value={{ open, setOpen, animate: animate }}>
+    <SidebarContext.Provider value={{ open, setOpen, animate: animate, disableAutoCollapse }}>
       {children}
     </SidebarContext.Provider>
   );
@@ -56,17 +61,20 @@ export const Sidebar = ({
   open,
   setOpen,
   animate,
+  disableAutoCollapse,
 }: {
   children: React.ReactNode;
   open?: boolean;
   setOpen?: React.Dispatch<React.SetStateAction<boolean>>;
   animate?: boolean;
+  disableAutoCollapse?: boolean;
 }) => {
   return (
     <SidebarProvider
       {...(open !== undefined ? { open } : {})}
       {...(setOpen !== undefined ? { setOpen } : {})}
       {...(animate !== undefined ? { animate } : {})}
+      {...(disableAutoCollapse !== undefined ? { disableAutoCollapse } : {})}
     >
       {children}
     </SidebarProvider>
@@ -97,7 +105,7 @@ export const DesktopSidebar = ({
   children,
   ...props
 }: React.ComponentProps<typeof motion.div>) => {
-  const { open, setOpen, animate } = useSidebar();
+  const { open, setOpen, animate, disableAutoCollapse } = useSidebar();
   return (
     <>
       <motion.div
@@ -108,8 +116,8 @@ export const DesktopSidebar = ({
         animate={{
           width: animate ? (open ? "280px" : "72px") : "280px",
         }}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
+        onMouseEnter={!disableAutoCollapse ? () => setOpen(true) : undefined}
+        onMouseLeave={!disableAutoCollapse ? () => setOpen(false) : undefined}
         {...props}
       >
         {children}
@@ -138,7 +146,7 @@ export const MobileSidebar = ({
             aria-label="Open sidebar menu"
             className="p-2 -m-2"
           >
-            <IconMenu2 className="text-neutral-800" />
+            <IconMenu2 className="text-neutral-800" aria-hidden="true" />
           </button>
         </div>
         <AnimatePresence>
@@ -161,7 +169,7 @@ export const MobileSidebar = ({
                 onClick={() => setOpen(!open)}
                 aria-label="Close sidebar menu"
               >
-                <IconX />
+                <IconX aria-hidden="true" />
               </button>
               {children}
             </motion.div>
@@ -184,7 +192,7 @@ export const SidebarLink = ({
 }) => {
   const { open, animate } = useSidebar();
   return (
-    <a
+    <Link
       href={link.href}
       className={cn(
         "flex items-center justify-start gap-2 group/sidebar py-2 px-2 rounded-md",
@@ -194,6 +202,7 @@ export const SidebarLink = ({
         className
       )}
       aria-current={isActive ? "page" : undefined}
+      aria-label={link.label}
       {...props}
     >
       {link.icon ? link.icon : null}
@@ -207,6 +216,6 @@ export const SidebarLink = ({
       >
         {link.label}
       </motion.span>
-    </a>
+    </Link>
   );
 };

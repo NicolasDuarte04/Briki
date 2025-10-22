@@ -6,6 +6,8 @@ import { ArrowLeftIcon, MagnifyingGlassIcon, PlusIcon, EllipsisVerticalIcon, Pen
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import type { Case } from "@/lib/types";
+import { useLocale } from "next-intl";
+import { pathForCase, pathForNewEntity, pathForAgentThread, type Locale } from "@/lib/routes/workspace";
 
 interface SidebarChatPanelProps {
   cases: Case[];
@@ -15,6 +17,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
   const { closeChatPanel } = useUI();
   const router = useRouter();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const locale = useLocale() as Locale;
   
   // Search state
   const [searchInput, setSearchInput] = useState("");
@@ -97,12 +100,12 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
 
   const handleNewChat = () => {
     // ✅ FUSIÓN CRÍTICA: Crear nuevo Case en lugar de conversación
-    router.push('/workspace/cases/new');
+    router.push(pathForNewEntity('case', locale));
   };
 
   const handleChatClick = (caseId: string) => {
-    // ✅ FUSIÓN CRÍTICA: Navegar al Case en lugar de conversación
-    router.push(`/workspace/cases/${caseId}`);
+    // Navigate to agent thread deep link
+    router.push(pathForAgentThread(caseId, locale));
   };
 
   const handleRenameStart = (caseId: string, currentTitle: string) => {
