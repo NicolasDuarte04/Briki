@@ -262,10 +262,10 @@ export function LandingNavigation() {
             <Image 
               src="/brand/briki-logo-2.png" 
               alt="Briki logo" 
-              width={24} 
-              height={24} 
+              width={18} 
+              height={18} 
               priority
-              sizes="24px"
+              sizes="18px"
             />
             <span className="text-sm font-semibold text-[var(--briki-text)] font-smooth">Briki</span>
           </Link>
@@ -308,11 +308,11 @@ export function LandingNavigation() {
               <Image 
               src="/brand/briki-logo-2.png" 
               alt="Briki logo" 
-              width={24} 
-              height={24} 
+              width={18} 
+              height={18} 
               className="opacity-90"
                 priority
-                sizes="24px"
+                sizes="18px"
             />
             <span className="text-sm text-slate-50 font-medium font-smooth">Briki</span>
           </Link>
