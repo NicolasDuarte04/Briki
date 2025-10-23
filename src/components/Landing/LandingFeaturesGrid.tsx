@@ -14,7 +14,7 @@ export function LandingFeaturesGrid() {
                     <Card className="group overflow-hidden shadow-black/5 sm:col-span-3 sm:rounded-none sm:rounded-tl-xl transition-transform duration-300 ease-out hover:scale-[1.02]">
                         <CardHeader>
                             <div className="md:p-6">
-                                <p className="font-medium">{t('compare.title')}</p>
+                                <p className="text-lg font-semibold sm:text-2xl">{t('compare.title')}</p>
                                 <p className="text-muted-foreground mt-3 max-w-sm text-sm">{t('compare.description')}</p>
                             </div>
                         </CardHeader>
@@ -66,15 +66,15 @@ export function LandingFeaturesGrid() {
                     </Card>
                     <Card className="group relative shadow-black/5 sm:col-span-3 sm:rounded-none sm:rounded-br-xl transition-transform duration-300 ease-out hover:scale-[1.02]">
                         <CardHeader className="p-6 md:p-12">
-                            <p className="font-medium">{t('generate.title')}</p>
+                            <p className="text-lg font-semibold sm:text-2xl">{t('generate.title')}</p>
                             <p className="text-muted-foreground mt-2 max-w-sm text-sm">{t('generate.description')}</p>
                         </CardHeader>
                         <CardContent className="relative h-fit px-6 pb-6 md:px-12 md:pb-12">
                             <div className="grid grid-cols-4 gap-2 md:grid-cols-6">
-                                <div className="rounded-(--radius) aspect-square border border-dashed"></div>
+                                <div className="rounded-lg aspect-square border border-dashed"></div>
                                 <button 
                                     type="button"
-                                    className="rounded-(--radius) bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
+                                    className="rounded-lg bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
                                     title="Send via email"
                                     aria-label="Send via email"
                                 >
@@ -82,7 +82,7 @@ export function LandingFeaturesGrid() {
                                 </button>
                                 <button 
                                     type="button"
-                                    className="rounded-(--radius) bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
+                                    className="rounded-lg bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
                                     title="Send via WhatsApp"
                                     aria-label="Send via WhatsApp"
                                 >
@@ -90,31 +90,31 @@ export function LandingFeaturesGrid() {
                                 </button>
                                 <button 
                                     type="button"
-                                    className="rounded-(--radius) bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
+                                    className="rounded-lg bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
                                     title="Export PDF"
                                     aria-label="Export PDF"
                                 >
                                     <FileText className="size-6 text-foreground/70" strokeWidth={1.5} aria-hidden="true" />
                                 </button>
-                                <div className="rounded-(--radius) aspect-square border border-dashed"></div>
+                                <div className="rounded-lg aspect-square border border-dashed"></div>
                                 <button 
                                     type="button"
-                                    className="rounded-(--radius) bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
+                                    className="rounded-lg bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
                                     title="Store in cloud"
                                     aria-label="Store in cloud"
                                 >
                                     <Cloud className="size-6 text-foreground/70" strokeWidth={1.5} aria-hidden="true" />
                                 </button>
-                                <div className="rounded-(--radius) aspect-square border border-dashed"></div>
+                                <div className="rounded-lg aspect-square border border-dashed"></div>
                                 <button 
                                     type="button"
-                                    className="rounded-(--radius) bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
+                                    className="rounded-lg bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
                                     title="Analytics & reports"
                                     aria-label="Analytics & reports"
                                 >
                                     <BarChart className="size-6 text-foreground/70" strokeWidth={1.5} aria-hidden="true" />
                                 </button>
-                                <div className="rounded-(--radius) aspect-square border border-dashed"></div>
+                                <div className="rounded-lg aspect-square border border-dashed"></div>
                             </div>
                         </CardContent>
                     </Card>

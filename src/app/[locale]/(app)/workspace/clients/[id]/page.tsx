@@ -9,12 +9,13 @@ export const dynamic = 'force-dynamic';
 interface ClientDetailPageProps {
   params: Promise<{
     id: string;
+    locale: string;
   }>;
 }
 
 export default async function ClientDetailPage({ params }: ClientDetailPageProps) {
   const { currentOrg } = await getCurrentOrg();
-  const { id } = await params;
+  const { id, locale } = await params;
   
   // Obtener el cliente (los datos ya vienen descifrados)
   const client = await getClientById(id, currentOrg.id);
@@ -23,5 +24,5 @@ export default async function ClientDetailPage({ params }: ClientDetailPageProps
     notFound();
   }
   
-  return <ClientDetailContent client={client} clientId={id} orgId={currentOrg.id} />;
+  return <ClientDetailContent client={client} clientId={id} orgId={currentOrg.id} locale={locale} />;
 }

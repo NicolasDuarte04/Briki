@@ -150,7 +150,7 @@ Mobile (Single Column, stacked):
 ```typescript
 statsGrowth: {
   title: "Clarity that compounds.",
-  description: "Briki turns policy PDFs into proposals and insights—so brokers make decisions faster.",
+  description: "Briki turns policy PDFs into proposals and insights so brokers make decisions faster.",
   cta: {
     primary: "Try the demo",
     secondary: "See how it works",
@@ -172,7 +172,7 @@ statsGrowth: {
 ```typescript
 statsGrowth: {
   title: "Claridad que se multiplica.",
-  description: "Briki convierte PDFs de pólizas en propuestas e insights—para que los corredores tomen decisiones más rápido.",
+  description: "Briki convierte PDFs de pólizas en propuestas e insights para que los corredores tomen decisiones más rápido.",
   cta: {
     primary: "Probar la demo",
     secondary: "Ver cómo funciona",

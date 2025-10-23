@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle, Users, Mail, Phone, MapPin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { pathForNewEntity, type Locale } from '@/lib/routes/workspace';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ClientsPage() {
+export default async function ClientsPage({ params }: { params: { locale: Locale } }) {
   const { currentOrg } = await getCurrentOrg();
   
   // Obtener clientes y estadísticas
@@ -26,7 +27,7 @@ export default async function ClientsPage() {
             Gestiona la información de tus clientes de forma segura
           </p>
         </div>
-        <Link href="/workspace/clients/new">
+        <Link href={pathForNewEntity('client', params.locale)}>
           <Button className="gap-2">
             <PlusCircle className="h-4 w-4" />
             Nuevo Cliente
@@ -104,7 +105,7 @@ export default async function ClientsPage() {
       </div>
       
       {/* Clients List */}
-      <ClientList clients={clients} orgId={currentOrg.id} />
+      <ClientList clients={clients} orgId={currentOrg.id} locale={params.locale} />
     </div>
   );
 }

@@ -5,8 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { redirect } from 'next/navigation';
+import { pathForCases, type Locale } from '@/lib/routes/workspace';
 
-export default function OrganizationOnboardingPage() {
+export default function OrganizationOnboardingPage({ params }: { params: { locale: Locale } }) {
   const handleCreateOrg = async (formData: FormData) => {
     'use server';
     const name = formData.get('orgName') as string;
@@ -24,7 +25,7 @@ export default function OrganizationOnboardingPage() {
     
     try {
       await createOrganization(name, slug);
-      redirect('/workspace/cases'); // Redirigir al workspace después de crear la organización
+      redirect(pathForCases(params.locale)); // Redirigir al workspace después de crear la organización
     } catch (error) {
       console.error('Error creando organización:', error);
       throw error;

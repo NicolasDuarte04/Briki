@@ -299,7 +299,7 @@ exports.useUI = (0, zustand_1.create)()((0, middleware_1.devtools)((set, get) =>
     })),
     primaryAction: () => {
         // For now just log the current step as requested
-        // eslint-disable-next-line no-console
+         
         console.log("Primary action on step:", get().step);
     },
     startSourcing: () => set(() => ({ isSourcing: true, step: "conversation" })),

@@ -154,7 +154,7 @@ const en = {
     },
     statsGrowth: {
       title: "Clarity that compounds.",
-      description: "Briki turns policy PDFs into proposals and insights—so brokers make decisions faster.",
+      description: "Briki turns policy PDFs into proposals and insights so brokers make decisions faster.",
       cta: {
         primary: "Watch demo",
         secondary: "See how it works",

@@ -18,7 +18,7 @@ export function LandingHero() {
   }, [bgVariant]);
 
   return (
-    <section className="landing-hero-section relative min-h-screen flex items-center justify-center overflow-hidden pt-[60px] md:pt-[80px] lg:pt-[100px]" aria-labelledby="landing-hero-heading">
+    <section className="landing-hero-section relative min-h-screen flex items-center justify-center overflow-hidden pt-[30px] md:pt-[40px] lg:pt-[50px]" aria-labelledby="landing-hero-heading">
       {/* Wave background */}
       <div className={bgVariant === 'concept' ? 'landing-hero-concept' : 'landing-hero'} aria-hidden="true" />
       
@@ -41,16 +41,16 @@ export function LandingHero() {
             <span className="block font-semibold">IA Para Brokers</span>
           </h1>
           
-          {/* Spacing between headline and CTAs - responsive */}
+          {/* Spacing between headline and CTAs responsive */}
           <div className="h-10 sm:h-12 md:h-12 lg:h-14 xl:h-14"></div>
           
-          {/* CTA Buttons */}
+          {/* CTA Button */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
             <Button
               asChild
               variant="default"
-              size="default"
-              className="rounded-full bg-white text-slate-900 hover:bg-white/90 shadow-lg hover:shadow-xl transition-all duration-300 font-semibold h-10"
+              size="sm"
+              className="rounded-full border border-white/20 bg-white/5 text-sm font-semibold text-white shadow-sm backdrop-blur-xl transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:shadow-md h-8 px-4"
               onClick={() => {
                 trackEvent('hero_cta_click', { type: 'primary' });
               }}
@@ -61,35 +61,6 @@ export function LandingHero() {
               >
                 {t('primaryCta')}
               </Link>
-            </Button>
-            <Button
-              type="button"
-              size="default"
-              className="rounded-full border border-white/20 bg-white/5 text-lg font-semibold text-white shadow-sm backdrop-blur-xl transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:shadow-md h-10"
-              onClick={(e) => {
-                console.log('Button clicked - preventing navigation');
-                e.preventDefault();
-                e.stopPropagation();
-                e.nativeEvent.stopImmediatePropagation();
-                trackEvent('hero_cta_click', { type: 'secondary' });
-                // Smooth scroll to pricing section
-                setTimeout(() => {
-                  const pricingSection = document.getElementById('pricing');
-                  console.log('Looking for pricing section:', pricingSection);
-                  if (pricingSection) {
-                    console.log('Scrolling to pricing section');
-                    pricingSection.scrollIntoView({ 
-                      behavior: 'smooth',
-                      block: 'start'
-                    });
-                  } else {
-                    console.error('Pricing section not found');
-                  }
-                }, 100);
-                return false;
-              }}
-            >
-              {t('secondaryCta')}
             </Button>
           </div>
           

@@ -31,7 +31,7 @@ const es = {
       brand: "Briki",
       cta: "Inicia una conversación",
       heading: "El Nuevo Estándar IA Para Brokers",
-      primaryCta: "Probar la demo",
+      primaryCta: "Empieza Ya",
       secondaryCta: "Ver precios",
       video: {
         title: "Mira Briki en acción",
@@ -154,7 +154,7 @@ const es = {
     },
     statsGrowth: {
       title: "Claridad que se multiplica.",
-      description: "Briki convierte PDFs de pólizas en propuestas e insights—para que los corredores tomen decisiones más rápido.",
+      description: "Briki convierte PDFs de pólizas en propuestas e insights para que los corredores tomen decisiones más rápido.",
       cta: {
         primary: "Ver la demo",
         secondary: "Ver cómo funciona",

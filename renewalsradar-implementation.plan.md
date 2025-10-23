@@ -1,0 +1,5 @@
+- [X] Extend RenewalItem interface to include policyLabel field
+- [X] Update getRenewalsBuckets to fetch and map policyLabel from cases.title
+- [X] Create RenewalsRadar.tsx with tabs structure and helper functions
+- [X] Build renewal row component with date formatting, primary CTA, and WhatsApp button
+- [X] Add empty state handling for each tab

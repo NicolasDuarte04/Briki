@@ -7,9 +7,7 @@ import Landing from "@/components/Landing";
 import FooterNav from "@/components/FooterNav";
 import { useUI, type UIStep } from "@/lib/ui/state";
 import { motion, AnimatePresence } from "framer-motion";
-import BrikiSidebarLayout from "@/components/BrikiSidebarLayout";
-import SidebarNav from "@/components/SidebarNav";
-import SidebarChatPanel from "@/components/SidebarChatPanel";
+// Sidebar shell is now provided by /app/[locale]/(app)/layout.tsx
 import WorkspaceTabs from "@/components/Workspace/Tabs";
 import CaseBrief from "@/components/Workspace/CaseBrief";
 import SourcingProgressWidget from "@/components/Sourcing/SourcingProgressWidget";
@@ -41,7 +39,7 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
     }
 
     initializedRef.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [initialStep, setStep]);
 
   // Load cases when chat panel opens
@@ -242,46 +240,46 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
               transition={{ duration: 0.15, ease: "easeOut" }}
               className="relative z-10 flex flex-1 flex-col bg-background min-h-0 overflow-hidden"
             >
-              <BrikiSidebarLayout sidebar={chatPanelOpen ? <SidebarChatPanel cases={cases} /> : <SidebarNav />}>
-                <Canvas
-                  rightOpen={rightOpen}
-                  isSourcing={isSourcing}
-                  left={
-                    currentStep === "conversation" || currentStep === "compliance" ? (
-                      <ConversationPane />
+              <Canvas
+                rightOpen={rightOpen}
+                isSourcing={isSourcing}
+                left={
+                  currentStep === "conversation" || currentStep === "compliance" ? (
+                    <ConversationPane />
+                  ) : (
+                    <div className="flex h-full flex-col justify-start">Current step: {currentStep}</div>
+                  )
+                }
+                right={(() => {
+                  if (currentStep === "conversation") {
+                    return isSourcing ? (
+                      <div className="flex h-full min-h-0 flex-col gap-4">
+                        <SourcingProgressWidget compact onStop={stopSourcing} />
+                        <div className="flex flex-1 min-h-0 flex-col">
+                          <CaseBrief />
+                        </div>
+                      </div>
                     ) : (
-                      <div className="flex h-full flex-col justify-start">Current step: {currentStep}</div>
-                    )
+                      <div className="flex h-full flex-col">
+                        <WorkspaceTabs />
+                      </div>
+                    );
                   }
-                  right={(() => {
-                    if (currentStep === "conversation") {
-                      return isSourcing ? (
-                        <div className="flex h-full min-h-0 flex-col gap-4">
-                          <SourcingProgressWidget compact onStop={stopSourcing} />
-                          <div className="flex flex-1 min-h-0 flex-col">
-                            <CaseBrief />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex h-full flex-col">
-                          <WorkspaceTabs />
-                        </div>
-                      );
-                    }
 
-                    if (currentStep === "compliance") {
-                      return (
-                        <div className="flex h-full flex-col">
-                          <ComplianceGate />
-                        </div>
-                      );
-                    }
+                  if (currentStep === "compliance") {
+                    return (
+                      <div className="flex h-full flex-col">
+                        <ComplianceGate />
+                      </div>
+                    );
+                  }
 
-                    return <div className="flex h-full flex-col">Workspace for step: {currentStep}</div>;
-                  })()}
-                />
-              </BrikiSidebarLayout>
-              <FooterNav className="mt-4" fullBleed />
+                  return <div className="flex h-full flex-col">Workspace for step: {currentStep}</div>;
+                })()}
+              />
+              {currentStep !== "conversation" && (
+                <FooterNav className="mt-4" fullBleed />
+              )}
             </motion.div>
           )}
         </AnimatePresence>

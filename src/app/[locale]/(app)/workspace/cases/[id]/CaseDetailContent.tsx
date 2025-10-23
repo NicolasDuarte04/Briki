@@ -11,14 +11,16 @@ import { CaseStatusBadge } from '@/components/Cases/CaseStatusBadge';
 import { CaseDetailClient } from '@/components/Cases/CaseDetailClient';
 import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
+import { pathForCases, pathForEditEntity, type Locale } from '@/lib/routes/workspace';
 
 interface CaseDetailContentProps {
   caseData: any; // Tipo del caso
   caseId: string;
   orgId: string;
+  locale: string;
 }
 
-export function CaseDetailContent({ caseData, caseId, orgId }: CaseDetailContentProps) {
+export function CaseDetailContent({ caseData, caseId, orgId, locale }: CaseDetailContentProps) {
   const {
     deleteDialogOpen,
     setDeleteDialogOpen,
@@ -27,7 +29,7 @@ export function CaseDetailContent({ caseData, caseId, orgId }: CaseDetailContent
     handleDeleteConfirm
   } = useDeleteConfirmation({
     deleteApiEndpoint: '/api/cases/delete',
-    redirectPath: '/workspace/cases',
+    redirectPath: pathForCases(locale),
     itemName: 'caso'
   });
 
@@ -36,7 +38,7 @@ export function CaseDetailContent({ caseData, caseId, orgId }: CaseDetailContent
       <div className="container mx-auto py-8 px-4">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Link href="/workspace/cases">
+          <Link href={pathForCases(locale)}>
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -50,7 +52,7 @@ export function CaseDetailContent({ caseData, caseId, orgId }: CaseDetailContent
             </p>
           </div>
           <div className="flex gap-2">
-            <Link href={`/workspace/cases/${caseId}/edit`}>
+            <Link href={pathForEditEntity('case', caseId, locale as Locale)}>
               <Button variant="outline" size="sm" className="gap-2">
                 <Edit className="h-4 w-4" />
                 Editar
@@ -181,7 +183,7 @@ export function CaseDetailContent({ caseData, caseId, orgId }: CaseDetailContent
           <TabsContent value="documents" className="space-y-4">
             {/* Upload Section */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Subir Nuevo Documento</h3>
+              <h2 className="text-lg font-semibold mb-4">Subir Nuevo Documento</h2>
               <CaseDetailClient caseId={caseId} orgId={orgId} auditLogs={[]} type="uploader" />
             </div>
             

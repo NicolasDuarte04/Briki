@@ -56,7 +56,7 @@ export function LandingChatInput() {
     const [value, setValue] = useState("");
     const [user, setUser] = useState<User | null>(null);
     
-    // ✅ FUSIÓN CRÍTICA: Agregar setInitialMessage que faltaba
+        // FUSIÓN CRÍTICA: Agregar setInitialMessage que faltaba
     const { setStep, setInitialMessage, setBrief } = useUI();
     
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
@@ -75,7 +75,7 @@ export function LandingChatInput() {
         pageCount?: number;
         charactersExtracted?: number;
         fileHash?: string;
-        extractedText?: string;  // ← AÑADIDO: Texto completo del PDF
+        extractedText?: string;  // AÑADIDO: Texto completo del PDF
     }>>([]);
 
     useEffect(() => {
@@ -161,7 +161,7 @@ export function LandingChatInput() {
         setTempUploads([]);
         trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
 
-        // --- NUEVO FLUJO DIRECTO ---
+        // NUEVO FLUJO DIRECTO
         // Crear caso en la base de datos primero
         try {
             console.log('🚀 Creating case from LandingPage with message:', message);
@@ -380,17 +380,13 @@ export function LandingChatInput() {
                 </div>
                 </div>
                 
-                {/* Micro-copy for commitment comfort (risk reversal) */}
-                <p className="mt-2 text-xs text-white text-center">
-                    Sin registro. Prueba con un PDF o un mensaje.
-                </p>
             </div>
 
         </div>
     );
 }
 
-// ✅ COMPONENTE ACTIONBUTTON RESTAURADO - Patrón reutilizable para botones de acción
+// COMPONENTE ACTIONBUTTON RESTAURADO - Patrón reutilizable para botones de acción
 interface ActionButtonProps {
     icon: React.ReactNode;
     label: string;

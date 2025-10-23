@@ -261,7 +261,7 @@
   }
 
   .landing-hero {
-    background: url('/landing-background.jpg?v=2025') center/cover no-repeat;
+    background: url('/landing-background.jpg') center/cover no-repeat;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -280,7 +280,7 @@
     background:
       radial-gradient(900px 480px at 70% 10%, rgba(56, 189, 248, 0.18) 0%, rgba(56, 189, 248, 0.05) 45%, rgba(56, 189, 248, 0) 65%),
       radial-gradient(800px 520px at 30% 0%, rgba(14, 165, 233, 0.18) 0%, rgba(14, 165, 233, 0.05) 45%, rgba(14, 165, 233, 0) 65%),
-      url('/landing-background.jpg?v=2025') center/cover no-repeat;
+      url('/landing-background.jpg') center/cover no-repeat;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;

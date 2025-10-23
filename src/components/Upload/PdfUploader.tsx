@@ -130,8 +130,8 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
     <Card>
       <CardContent className="pt-6">
         {successMessage && (
-          <div className="mb-4 flex items-center gap-2 text-sm text-green-700 bg-green-50 p-3 rounded-lg">
-            <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+          <div className="mb-4 flex items-center gap-2 text-sm text-green-700 bg-green-50 p-3 rounded-lg" role="status">
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
             <span>{successMessage}</span>
           </div>
         )}
@@ -148,8 +148,8 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
               ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
             `}
           >
-            <input {...getInputProps()} />
-            <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <input {...getInputProps()} aria-label="Seleccionar archivo PDF para subir" />
+            <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" aria-hidden="true" />
             {isDragActive ? (
               <p className="text-lg font-medium">Suelta el archivo aquí</p>
             ) : (
@@ -168,7 +168,7 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
         {selectedFile && !uploadResult && (
           <div className="space-y-4">
             <div className="flex items-start gap-4 p-4 border rounded-lg">
-              <FileText className="h-10 w-10 text-primary flex-shrink-0" />
+              <FileText className="h-10 w-10 text-primary flex-shrink-0" aria-hidden="true" />
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{selectedFile.name}</p>
                 <p className="text-sm text-muted-foreground">
@@ -180,24 +180,25 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
                 size="icon"
                 onClick={handleCancel}
                 disabled={uploading}
+                aria-label="Cancelar y quitar archivo seleccionado"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
             
             {uploading && (
-              <div className="space-y-2">
+              <div className="space-y-2" role="status" aria-live="polite">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Subiendo y procesando...</span>
                   <span className="font-medium">{progress}%</span>
                 </div>
-                <Progress value={progress} className="h-2" />
+                <Progress value={progress} className="h-2" aria-label={`Progreso de subida: ${progress}%`} />
               </div>
             )}
             
             {error && (
-              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-lg" role="alert">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
                 <span>{error}</span>
               </div>
             )}
@@ -221,7 +222,7 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
             
             {uploading && (
               <Button disabled className="w-full">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                 Procesando...
               </Button>
             )}
@@ -230,8 +231,8 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
         
         {uploadResult && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <CheckCircle2 className="h-10 w-10 text-green-600 flex-shrink-0" />
+            <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg" role="status">
+              <CheckCircle2 className="h-10 w-10 text-green-600 flex-shrink-0" aria-hidden="true" />
               <div className="flex-1">
                 <p className="font-medium text-green-900">PDF procesado exitosamente</p>
                 <p className="text-sm text-green-700">

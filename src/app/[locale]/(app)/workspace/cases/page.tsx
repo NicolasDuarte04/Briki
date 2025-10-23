@@ -5,10 +5,11 @@ import { CaseList } from '@/components/Cases/CaseList';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle } from 'lucide-react';
+import { pathForNewEntity, type Locale } from '@/lib/routes/workspace';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CasesPage() {
+export default async function CasesPage({ params }: { params: { locale: Locale } }) {
   // Obtener usuario y organización actual
   const { currentOrg } = await getCurrentOrg();
   
@@ -25,7 +26,7 @@ export default async function CasesPage() {
             Gestiona y da seguimiento a todos tus casos de seguros
           </p>
         </div>
-        <Link href="/workspace/cases/new">
+        <Link href={pathForNewEntity('case', params.locale)}>
           <Button className="gap-2">
             <PlusCircle className="h-4 w-4" />
             Nuevo Caso

@@ -967,7 +967,7 @@ export const useUI = create<UIState>()(
         }),
       primaryAction: () => {
         // For now just log the current step as requested
-        // eslint-disable-next-line no-console
+         
         console.log("Primary action on step:", get().step);
       },
       startSourcing: () => set(() => ({ isSourcing: true, step: "conversation" })),

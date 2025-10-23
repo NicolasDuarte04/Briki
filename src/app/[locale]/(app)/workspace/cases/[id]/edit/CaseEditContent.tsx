@@ -3,11 +3,12 @@
 
 import { useState } from 'react';
 import { BriefForm, CaseBriefData } from '@/components/Cases/BriefForm';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Case } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { parseLocaleFromPath, pathForCase } from '@/lib/routes/workspace';
 
 interface CaseEditContentProps {
   caseData: Case;
@@ -20,6 +21,8 @@ export default function CaseEditContent({ caseData, caseId, orgId }: CaseEditCon
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
+  const locale = parseLocaleFromPath(pathname);
 
   const handleUpdateCase = async (formData: CaseBriefData) => {
     setIsSubmitting(true);
@@ -46,7 +49,7 @@ export default function CaseEditContent({ caseData, caseId, orgId }: CaseEditCon
       
       // Redirigir después de 2 segundos para que el usuario vea el mensaje
       setTimeout(() => {
-        router.push(`/workspace/cases/${caseId}`);
+        router.push(pathForCase(caseId, locale));
         router.refresh();
       }, 2000);
 
@@ -62,7 +65,7 @@ export default function CaseEditContent({ caseData, caseId, orgId }: CaseEditCon
     <div className="container mx-auto py-8 px-4">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <Link href={`/workspace/cases/${caseId}`}>
+        <Link href={pathForCase(caseId, locale)}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
