@@ -1,20 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-12-18.acacia',
 });
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if Stripe is properly configured
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json(
-        { error: 'Stripe configuration missing' },
-        { status: 500 }
-      );
-    }
-
     const { planId, isAnnual, userId } = await request.json();
 
     // Define your pricing plans with Stripe price IDs
