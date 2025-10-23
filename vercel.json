@@ -1,6 +1,5 @@
 {
   "buildCommand": "pnpm build",
   "installCommand": "pnpm install",
-  "framework": "nextjs",
-  "nodeVersion": "24.2.0"
+  "framework": "nextjs"
 }
