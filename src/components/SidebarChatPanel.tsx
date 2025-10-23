@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUI } from "@/lib/ui/state";
-import { ArrowLeftIcon, MagnifyingGlassIcon, PlusIcon, EllipsisVerticalIcon, PencilIcon, TrashIcon, ArchiveBoxIcon, ArchiveBoxArrowDownIcon } from "@heroicons/react/24/outline";
+import { ArrowLeftIcon, MagnifyingGlassIcon, PlusIcon, EllipsisVerticalIcon, PencilIcon, TrashIcon, ArchiveBoxIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import type { Case } from "@/lib/types";
