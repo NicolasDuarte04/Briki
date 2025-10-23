@@ -7,7 +7,7 @@ import { Analytics } from "@vercel/analytics/next";
 
 const siteConfig = {
   name: "Briki",
-  title: "Briki - Insurance AI Agent",
+  title: "Briki - Tu Compañero de Seguros Inteligente",
   description: "Briki te ayuda a entender, comparar y gestionar tus seguros de manera simple e inteligente. Obtén asesoría personalizada, compara pólizas y toma decisiones informadas con inteligencia artificial.",
   url: process.env.NEXT_PUBLIC_SITE_URL || "https://briki.com",
   ogImage: "/brand/briki-og-image.png", // 1200x630px recommended
