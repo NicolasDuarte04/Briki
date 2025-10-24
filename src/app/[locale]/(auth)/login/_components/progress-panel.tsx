@@ -68,15 +68,15 @@ export default function ProgressPanel(): ReactElement {
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-4xl flex-1 flex-col justify-between gap-12 px-6 sm:px-10 lg:px-12">
-        <motion.div
-          key={animationKey}
-          variants={{
-            hidden: { opacity: 0, y: 40 },
-            visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.21, 0.97, 0.36, 0.99] } },
-          }}
-          {...animationProps}
-          className="max-w-sm space-y-4"
-        >
+        <div className="max-w-sm space-y-4">
+          <motion.div
+            key={animationKey}
+            variants={{
+              hidden: { opacity: 0, y: 40 },
+              visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.21, 0.97, 0.36, 0.99] } },
+            }}
+            {...animationProps}
+          >
           <span className="inline-flex items-center rounded-full bg-white/15 px-3 py-1 text-sm font-medium text-white/90 backdrop-blur">
             Live preview
           </span>
@@ -86,22 +86,23 @@ export default function ProgressPanel(): ReactElement {
           <p className="text-base text-white/90">
             The right side keeps momentum high—upload, extract, and compare without hopping tools.
           </p>
-        </motion.div>
+          </motion.div>
+        </div>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,_280px)_minmax(0,_1fr)] lg:items-center">
-          <motion.ul
-            key={`${animationKey}-list`}
-            variants={{
-              hidden: {},
-              visible: {
-                transition: {
-                  staggerChildren: reduceMotion ? 0 : 0.18,
+          <div className="flex flex-col gap-4">
+            <motion.ul
+              key={`${animationKey}-list`}
+              variants={{
+                hidden: {},
+                visible: {
+                  transition: {
+                    staggerChildren: reduceMotion ? 0 : 0.18,
+                  },
                 },
-              },
-            }}
-            {...animationProps}
-            className="flex flex-col gap-4"
-          >
+              }}
+              {...animationProps}
+            >
             {steps.map((step, index) => (
               <motion.li
                 key={step.title}
@@ -113,8 +114,8 @@ export default function ProgressPanel(): ReactElement {
                     transition: { duration: 0.5, delay: reduceMotion ? 0 : index * 0.12 },
                   },
                 }}
-                className="group rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm transition hover:border-white/30"
               >
+                <div className="group rounded-2xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm transition hover:border-white/30">
                 <div className="flex items-start gap-4">
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20 text-white">
                     {step.icon}
@@ -129,27 +130,29 @@ export default function ProgressPanel(): ReactElement {
                     </p>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                       <motion.div
-                        className="h-full rounded-full bg-white"
                         initial={{ width: reduceMotion ? `${((index + 1) / steps.length) * 100}%` : "0%" }}
                         animate={{ width: `${((index + 1) / steps.length) * 100}%` }}
                         transition={{ duration: 0.6, delay: reduceMotion ? 0 : 0.2 + index * 0.1, ease: "easeOut" }}
+                        style={{ height: '100%', borderRadius: '9999px', backgroundColor: 'white' }}
                       />
                     </div>
                   </div>
                 </div>
+                </div>
               </motion.li>
               ))}
-          </motion.ul>
+            </motion.ul>
+          </div>
 
-          <motion.div
-            key={`${animationKey}-cards`}
-            variants={{
-              hidden: { opacity: 0, y: 30 },
-              visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
-            }}
-            {...animationProps}
-            className="grid gap-4 sm:grid-cols-2"
-          >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <motion.div
+              key={`${animationKey}-cards`}
+              variants={{
+                hidden: { opacity: 0, y: 30 },
+                visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
+              }}
+              {...animationProps}
+            >
             <DemoCard
               title="Upload PDF"
               subtitle="Policy-ACME-v3.pdf"
@@ -167,7 +170,8 @@ export default function ProgressPanel(): ReactElement {
             <p className="col-span-full rounded-2xl border border-white/25 bg-white/10 p-4 text-sm text-white/85">
               No new messages yet. Connect your workspace to see real-time updates as teams collaborate.
             </p>
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
       </div>
     </section>

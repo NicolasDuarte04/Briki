@@ -13,9 +13,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { createBrowserSupabase } from '@/lib/supabase/client';
 import { signOut } from '@/app/[locale]/(auth)/actions';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import { useSafeTranslations } from '@/hooks/useSafeTranslations';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
+import { pathForCases, pathForClients, getProfilePath, pathForAgent } from '@/lib/routes/workspace';
 
 export function LandingNavigation() {
   const [isDetached, setIsDetached] = useState(false);
@@ -25,6 +27,7 @@ export function LandingNavigation() {
   const locale = useLocale();
   const router = useRouter();
   const { user, status, ready } = useAuth();
+  const { t } = useSafeTranslations('nav');
 
   // Close dropdown and clear profile name when user signs out
   useEffect(() => {
@@ -115,9 +118,9 @@ export function LandingNavigation() {
   }, []);
 
   const navLinks = [
-    { label: 'Features', href: '#how' },
-    { label: 'Demo', href: '#demo' },
-    { label: 'Pricing', href: '#pricing' },
+    { label: t('features'), href: '#how' },
+    { label: t('demo'), href: '#demo' },
+    { label: t('pricing'), href: '#pricing' },
   ];
 
   const getUserInitials = () => {
@@ -198,18 +201,18 @@ export function LandingNavigation() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem asChild>
-              <Link href={`/${locale}/profile`} className="w-full cursor-pointer">
-                Profile
+                <Link href={getProfilePath(locale as 'en' | 'es')} className="w-full cursor-pointer">
+                  {t('profile')}
+                </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={pathForCases(locale as 'en' | 'es')} className="w-full cursor-pointer">
+                {t('cases')}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href={`/${locale}/workspace/cases`} className="w-full cursor-pointer">
-                Cases
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={`/${locale}/workspace/clients`} className="w-full cursor-pointer">
-                Clients
+              <Link href={pathForClients(locale as 'en' | 'es')} className="w-full cursor-pointer">
+                {t('clients')}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -218,7 +221,7 @@ export function LandingNavigation() {
                 handleSignOut();
               }}
             >
-              Sign out
+              {t('signOut')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -227,16 +230,17 @@ export function LandingNavigation() {
 
     // Unauthenticated: show CTA button
     return (
-      <Link href="/login">
-        <Button
-          className={detached
-            ? "rounded-full px-4 py-1 h-8 text-sm bg-[var(--briki-primary)] text-white hover:opacity-90"
-            : "rounded-full px-4 py-1 h-8 text-sm bg-white/10 text-slate-50 hover:bg-white/20 border border-white/20"
-          }
-        >
-          Start
-        </Button>
-      </Link>
+      <Button
+        asChild
+        className={detached
+          ? "rounded-full px-4 py-1 h-8 text-sm bg-[var(--briki-primary)] text-white hover:opacity-90"
+          : "rounded-full px-4 py-1 h-8 text-sm bg-white/10 text-slate-50 hover:bg-white/20 border border-white/20"
+        }
+      >
+        <Link href={pathForAgent(locale as 'en' | 'es')}>
+          {t('start')}
+        </Link>
+      </Button>
     );
   };
 
@@ -259,10 +263,10 @@ export function LandingNavigation() {
             <Image 
               src="/brand/briki-logo-2.png" 
               alt="Briki logo" 
-              width={24} 
-              height={24} 
+              width={18} 
+              height={18} 
               priority
-              sizes="24px"
+              sizes="18px"
             />
             <span className="text-sm font-semibold text-[var(--briki-text)] font-smooth">Briki</span>
           </Link>
@@ -277,7 +281,9 @@ export function LandingNavigation() {
               </a>
             ))}
           </div>
-          <AuthButton detached={true} />
+          <div className="flex items-center gap-2">
+            <AuthButton detached={true} />
+          </div>
         </div>
       </nav>
       </>
@@ -303,11 +309,11 @@ export function LandingNavigation() {
               <Image 
               src="/brand/briki-logo-2.png" 
               alt="Briki logo" 
-              width={24} 
-              height={24} 
+              width={18} 
+              height={18} 
               className="opacity-90"
                 priority
-                sizes="24px"
+                sizes="18px"
             />
             <span className="text-sm text-slate-50 font-medium font-smooth">Briki</span>
           </Link>
@@ -321,7 +327,9 @@ export function LandingNavigation() {
                 {link.label}
               </a>
             ))}
-            <AuthButton detached={false} />
+            <div className="flex items-center gap-2">
+              <AuthButton detached={false} />
+            </div>
           </div>
         </div>
       </div>

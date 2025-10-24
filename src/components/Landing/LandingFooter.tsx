@@ -1,9 +1,10 @@
 'use client';
 import React from 'react';
 import type { ComponentProps, ReactNode } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { InstagramIcon, LinkedinIcon, YoutubeIcon, MailIcon } from 'lucide-react';
 import Image from 'next/image';
+import { useSafeTranslations } from '@/hooks/useSafeTranslations';
 
 interface FooterLink {
 	title: string;
@@ -16,46 +17,47 @@ interface FooterSection {
 	links: FooterLink[];
 }
 
-const footerLinks: FooterSection[] = [
-	{
-		label: 'Product',
-		links: [
-			{ title: 'Features', href: '#how' },
-			{ title: 'Pricing', href: '#pricing' },
-			{ title: 'Demo', href: '#demo' },
-			{ title: 'Integration', href: '/' },
-		],
-	},
-	{
-		label: 'Company',
-		links: [
-			{ title: 'About Us', href: '/about' },
-			{ title: 'Careers', href: 'mailto:talent@brikiapp.com' },
-			{ title: 'Privacy Policy', href: '/privacy' },
-			{ title: 'Terms of Services', href: '/terms' },
-		],
-	},
-	{
-		label: 'Resources',
-		links: [
-			{ title: 'Help Center', href: '/help' },
-			{ title: 'Contact', href: 'mailto:contact@brikiapp.com' },
-			{ title: 'Blog', href: '/blog' },
-			{ title: 'Documentation', href: '/docs' },
-		],
-	},
-	{
-		label: 'Social Links',
-		links: [
-			{ title: 'LinkedIn', href: 'https://www.linkedin.com/company/brikiapp/', icon: LinkedinIcon },
-			{ title: 'Email', href: 'mailto:contact@brikiapp.com', icon: MailIcon },
-			{ title: 'Instagram', href: '#', icon: InstagramIcon },
-			{ title: 'YouTube', href: '#', icon: YoutubeIcon },
-		],
-	},
-];
-
 export function LandingFooter() {
+    const { t } = useSafeTranslations('footer');
+
+    const footerLinks: FooterSection[] = [
+        {
+            label: t('product.label'),
+            links: [
+                { title: t('product.links.features'), href: '#how' },
+                { title: t('product.links.pricing'), href: '#pricing' },
+                { title: t('product.links.demo'), href: '#demo' },
+                { title: t('product.links.integration'), href: '/' },
+            ],
+        },
+        {
+            label: t('company.label'),
+            links: [
+                { title: t('company.links.about'), href: '/about' },
+                { title: t('company.links.careers'), href: 'mailto:talent@brikiapp.com' },
+                { title: t('company.links.privacy'), href: '/privacy' },
+                { title: t('company.links.terms'), href: '/terms' },
+            ],
+        },
+        {
+            label: t('resources.label'),
+            links: [
+                { title: t('resources.links.help'), href: '/help' },
+                { title: t('resources.links.contact'), href: 'mailto:contact@brikiapp.com' },
+                { title: t('resources.links.blog'), href: '/blog' },
+                { title: t('resources.links.documentation'), href: '/docs' },
+            ],
+        },
+        {
+            label: t('social.label'),
+            links: [
+                { title: t('social.links.linkedin'), href: 'https://www.linkedin.com/company/brikiapp/', icon: LinkedinIcon },
+                { title: t('social.links.email'), href: 'mailto:contact@brikiapp.com', icon: MailIcon },
+                { title: t('social.links.instagram'), href: '#', icon: InstagramIcon },
+                { title: t('social.links.youtube'), href: '#', icon: YoutubeIcon },
+            ],
+        },
+    ];
 	return (
 		<footer className="md:rounded-t-6xl relative w-full flex flex-col items-center justify-center rounded-t-4xl border-t bg-white px-6 pt-12 pb-32 lg:pt-16 lg:pb-40">
 			<div className="bg-foreground/20 absolute top-0 right-1/2 left-1/2 h-px w-1/3 -translate-x-1/2 -translate-y-1/2 rounded-full blur" />
@@ -76,7 +78,7 @@ export function LandingFooter() {
 						</span>
 					</div>
 					<p className="text-muted-foreground mt-8 text-sm md:mt-0">
-						© {new Date().getFullYear()} Briki. All rights reserved.
+						© {new Date().getFullYear()} Briki. {t('rights')}
 					</p>
 				</AnimatedContainer>
 
@@ -111,7 +113,7 @@ export function LandingFooter() {
 
 type ViewAnimationProps = {
 	delay?: number;
-	className?: ComponentProps<typeof motion.div>['className'];
+	className?: string;
 	children: ReactNode;
 };
 
@@ -123,15 +125,16 @@ function AnimatedContainer({ className, delay = 0.1, children }: ViewAnimationPr
 	}
 
 	return (
-		<motion.div
-			initial={{ filter: 'blur(4px)', translateY: -8, opacity: 0 }}
-			whileInView={{ filter: 'blur(0px)', translateY: 0, opacity: 1 }}
-			viewport={{ once: true }}
-			transition={{ delay, duration: 0.8 }}
-			className={className}
-		>
-			{children}
-		</motion.div>
+		<div className={className}>
+			<motion.div
+				initial={{ filter: 'blur(4px)', translateY: -8, opacity: 0 }}
+				whileInView={{ filter: 'blur(0px)', translateY: 0, opacity: 1 }}
+				viewport={{ once: true }}
+				transition={{ delay, duration: 0.8 }}
+			>
+				{children}
+			</motion.div>
+		</div>
 	);
 }
 

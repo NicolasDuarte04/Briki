@@ -6,15 +6,40 @@ import { MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useUI } from "@/lib/ui/state";
-import { workspaceLinks } from "@/config/navigation";
-
-const links = workspaceLinks;
+import { getWorkspaceLinks } from "@/config/navigation";
+import { usePathname } from "next/navigation";
+import { useLocale } from "next-intl";
+import type { Locale } from "@/lib/routes/workspace";
 
 export default function SidebarNav() {
   const { setStep, openChatPanel } = useUI();
+  const pathname = usePathname();
+  const locale = useLocale() as Locale;
 
   const handleLogoClick = () => {
     setStep("landing");
+  };
+
+  // Get locale-aware links with icons
+  const links = getWorkspaceLinks(locale);
+
+  // Check if a link is active based on the current pathname
+  const isLinkActive = (link: typeof links[0]) => {
+    // Remove locale prefix from pathname for comparison
+    const pathWithoutLocale = pathname.replace(`/${locale}`, '');
+    
+    // Exact match for the matchPath
+    if (pathWithoutLocale === link.matchPath) {
+      return true;
+    }
+    
+    // For nested routes, check if path starts with matchPath followed by '/'
+    // This prevents false positives like /agent-tools matching /agent
+    if (pathWithoutLocale.startsWith(link.matchPath + '/')) {
+      return true;
+    }
+    
+    return false;
   };
 
   return (
@@ -54,7 +79,11 @@ export default function SidebarNav() {
         
         <div className="flex flex-col">
           {links.map((link) => (
-            <SidebarLink key={link.label} link={link} />
+            <SidebarLink 
+              key={link.label} 
+              link={link} 
+              isActive={isLinkActive(link)}
+            />
           ))}
         </div>
       </div>

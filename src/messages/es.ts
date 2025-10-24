@@ -1,4 +1,20 @@
 const es = {
+  nav: {
+    features: "Características",
+    demo: "Demo",
+    pricing: "Precios",
+    start: "Comenzar",
+    profile: "Perfil",
+    cases: "Casos",
+    clients: "Clientes",
+    signOut: "Cerrar sesión",
+    login: "Iniciar sesión",
+    locale: {
+      toggle: "Cambiar idioma a {language}",
+      english: "Inglés",
+      spanish: "Español",
+    },
+  },
   validation: {
     required: "Campo obligatorio.",
     invalidDate: "Ingresa una fecha válida.",
@@ -32,7 +48,7 @@ const es = {
       cta: "Inicia una conversación",
       heading: "Tu Agente de Seguros con IA",
       subhead: "Briki les devuelve el tiempo a los corredores. Y su ventaja.",
-      primaryCta: "Probar la demo",
+      primaryCta: "Empieza ya",
       video: {
         title: "Mira Briki en acción",
         description: "Mira cómo Briki transforma tu flujo de trabajo",
@@ -104,22 +120,229 @@ const es = {
         },
       },
     },
+    howItWorks: {
+      heading: "Cómo funciona",
+      steps: {
+        upload: {
+          title: "Subir",
+          bullets: ["PDF de póliza o chat de WhatsApp", "Español/Inglés"]
+        },
+        analyze: {
+          title: "Analizar",
+          bullets: ["Extraer cláusulas y exclusiones", "Comparar aseguradoras"]
+        },
+        propose: {
+          title: "Proponer",
+          bullets: ["Propuesta lista para cliente", "Compartir por email/WhatsApp"]
+        }
+      }
+    },
+    pricing: {
+      title: "Planes de Precios",
+      subtitle: "Elige un plan que se adapte a tus necesidades.",
+      toggleMonthly: "Mensual",
+      toggleAnnual: "Anual",
+      saveLabel: "Ahorra 20%",
+      perMonth: "por mes",
+      perYear: "por año",
+      recommended: "Recomendado",
+      starter: {
+        name: "Starter",
+        description: "Perfecto para brokers independientes",
+        cta: "Comenzar",
+        seats: "1 usuario",
+        features: {
+          aiCredits: "1,000 créditos IA/mes",
+          pdfPages: "500 páginas PDF/mes",
+          whatsapp: "Integración WhatsApp",
+          sourcing: "Sourcing automático",
+          comparisons: "Comparaciones ilimitadas",
+          proposals: "Propuestas básicas",
+          analytics: "Analytics básicos",
+          export: "Exportación PDF",
+          support: "Soporte por email",
+          workspace: "Workspace personal",
+          encryption: "Encriptación SSL"
+        }
+      },
+      pro: {
+        name: "Pro",
+        description: "Para equipos en crecimiento",
+        cta: "Comenzar prueba",
+        seats: "3 usuarios",
+        features: {
+          aiCredits: "5,000 créditos IA/mes",
+          pdfPages: "2,000 páginas PDF/mes",
+          whatsapp: "Integración WhatsApp",
+          sourcing: "Sourcing automático",
+          comparisons: "Comparaciones ilimitadas",
+          proposals: "Propuestas avanzadas",
+          compliance: "Verificación de cumplimiento",
+          analytics: "Analytics avanzados",
+          export: "Exportación múltiple",
+          support: "Soporte prioritario",
+          workspace: "Workspace compartido",
+          sso: "SSO empresarial",
+          onboarding: "Onboarding dedicado"
+        }
+      },
+      team: {
+        name: "Team",
+        description: "Para equipos grandes",
+        cta: "Contactar ventas",
+        seats: "10 usuarios",
+        features: {
+          aiCredits: "15,000 créditos IA/mes",
+          pdfPages: "5,000 páginas PDF/mes",
+          whatsapp: "Integración WhatsApp",
+          sourcing: "Sourcing automático",
+          comparisons: "Comparaciones ilimitadas",
+          proposals: "Propuestas avanzadas",
+          compliance: "Verificación de cumplimiento",
+          renewals: "Gestión de renovaciones",
+          analytics: "Analytics avanzados",
+          export: "Exportación múltiple",
+          support: "Soporte prioritario",
+          workspace: "Workspace compartido",
+          sso: "SSO empresarial",
+          sla: "SLA 99.9%",
+          onboarding: "Onboarding dedicado"
+        }
+      },
+      enterprise: {
+        name: "Enterprise",
+        description: "Solución personalizada",
+        price: "Personalizado",
+        cta: "Contactar ventas",
+        seats: "Usuarios ilimitados",
+        features: {
+          aiCredits: "Créditos IA ilimitados",
+          pdfPages: "Páginas PDF ilimitadas",
+          whatsapp: "Integración WhatsApp",
+          allWorkflows: "Todos los flujos de trabajo",
+          privateModel: "Modelo IA privado",
+          analytics: "Analytics personalizados",
+          support: "Soporte 24/7",
+          workspace: "Workspace personalizado",
+          sso: "SSO empresarial",
+          sla: "SLA 99.9%",
+          compliance: "Cumplimiento personalizado",
+          onboarding: "Onboarding dedicado",
+          dedicated: "Equipo dedicado"
+        }
+      }
+    },
+    contactCta: {
+      heading: "¿Listo para revolucionar tu proceso de seguros?",
+      subheading: "Únete a cientos de brokers que ya están usando Briki para ser más eficientes.",
+      form: {
+        name: {
+          label: "Nombre completo",
+          placeholder: "Tu nombre completo"
+        },
+        email: {
+          label: "Email corporativo",
+          placeholder: "tu@empresa.com"
+        },
+        company: {
+          label: "Empresa",
+          placeholder: "Nombre de tu empresa"
+        },
+        city: {
+          label: "Ciudad",
+          placeholder: "Tu ciudad"
+        },
+        phone: {
+          label: "Teléfono",
+          placeholder: "+57 300 123 4567"
+        },
+        submit: "Solicitar demo"
+      },
+      demo: "Ver demo en vivo"
+    },
+    features: {
+      heading: "Características",
+      items: {
+        extraction: {
+          title: "Extracción inteligente",
+          bullets: ["OCR + análisis de cláusulas", "Exclusiones y límites identificados"]
+        },
+        comparisons: {
+          title: "Comparaciones rápidas",
+          bullets: ["Aseguradoras lado a lado", "Brechas resaltadas"]
+        },
+        outputs: {
+          title: "Salidas listas para cliente",
+          bullets: ["PDFs de propuesta y email", "Español/Inglés"]
+        }
+      }
+    },
+    featuresGrid: {
+      compare: {
+        title: "Compara pólizas en segundos.",
+        description: "Briki extrae y alinea datos de cobertura para que puedas ver instantáneamente lo que cada aseguradora ofrece — claro, estructurado y lado a lado."
+      },
+      proposal: {
+        title: "Crea tu propuesta con claridad.",
+        description: "Briki alinea las coberturas de las aseguradoras lado a lado para que puedas comparar, ajustar y finalizar en minutos."
+      },
+      copilot: {
+        title: "Abre Briki en cualquier lugar — tu Copilot de broker.",
+        description: "Usa el mismo comando rápido (control + K) para abrir el workspace de IA de Briki en propuestas, chats o pólizas."
+      },
+      generate: {
+        title: "Genera propuestas de cliente en segundos.",
+        description: "Briki redacta propuestas profesionales y bilingües directamente desde las pólizas analizadas — listas para enviar o descargar."
+      }
+    },
+    demo: {
+      title: "Mira Briki en acción",
+      description: "Demo de 2 min: de póliza en bruto a propuesta"
+    }
   },
   footer: {
+    product: {
+      label: "Producto",
+      links: {
+        features: "Características",
+        pricing: "Precios",
+        demo: "Demo",
+        integration: "Integración"
+      }
+    },
+    company: {
+      label: "Empresa",
+      links: {
+        about: "Acerca de",
+        careers: "Carreras",
+        privacy: "Privacidad",
+        terms: "Términos"
+      }
+    },
+    resources: {
+      label: "Recursos",
+      links: {
+        help: "Centro de ayuda",
+        contact: "Contacto",
+        blog: "Blog",
+        documentation: "Documentación"
+      }
+    },
+    social: {
+      label: "Redes sociales",
+      links: {
+        linkedin: "LinkedIn",
+        email: "Email",
+        instagram: "Instagram",
+        youtube: "YouTube"
+      }
+    },
+    rights: "Todos los derechos reservados.",
     privacy: "Política de Privacidad",
     terms: "Términos de Servicio",
     contact: "Contacto",
     work: "Trabaja con nosotros",
-    rights: "Todos los derechos reservados.",
     linkedin: "LinkedIn",
-  },
-  nav: {
-    login: "Iniciar sesión",
-    locale: {
-      toggle: "Cambiar idioma a {language}",
-      english: "Inglés",
-      spanish: "Español",
-    },
   },
   auth: {
     nav: {

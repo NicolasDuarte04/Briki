@@ -127,8 +127,8 @@ export function Composer({ className, onSend, placeholder }: { className?: strin
           <Button
             type="submit"
             disabled={!trimmed}
-            variant={trimmed ? "gradient" : "outline"}
-            size="pill"
+            variant={trimmed ? "default" : "outline"}
+            size="default"
             className={cn(
               "w-full md:w-auto min-w-[112px] justify-center text-sm font-semibold",
               trimmed

@@ -1,4 +1,20 @@
 const en = {
+  nav: {
+    features: "Features",
+    demo: "Demo",
+    pricing: "Pricing",
+    start: "Get Started",
+    profile: "Profile",
+    cases: "Cases",
+    clients: "Clients",
+    signOut: "Sign Out",
+    login: "Login",
+    locale: {
+      toggle: "Switch language to {language}",
+      english: "English",
+      spanish: "Spanish",
+    },
+  },
   validation: {
     required: "Required field.",
     invalidDate: "Enter a valid date.",
@@ -32,7 +48,7 @@ const en = {
       cta: "Start a conversation",
       heading: "Your AI Insurance Agent",
       subhead: "Briki gives brokers their time back. And their edge.",
-      primaryCta: "Try the demo",
+      primaryCta: "Get started",
       video: {
         title: "See Briki in action",
         description: "Watch how Briki transforms your workflow",
@@ -104,22 +120,229 @@ const en = {
         },
       },
     },
+    howItWorks: {
+      heading: "How it works",
+      steps: {
+        upload: {
+          title: "Upload",
+          bullets: ["Policy PDF or WhatsApp chat", "Spanish/English"]
+        },
+        analyze: {
+          title: "Analyze",
+          bullets: ["Extract clauses & exclusions", "Compare carriers"]
+        },
+        propose: {
+          title: "Propose",
+          bullets: ["Client-ready proposal", "Share by email/WhatsApp"]
+        }
+      }
+    },
+    pricing: {
+      title: "Pricing Plans",
+      subtitle: "Choose a plan that fits your needs.",
+      toggleMonthly: "Monthly",
+      toggleAnnual: "Annual",
+      saveLabel: "Save 20%",
+      perMonth: "per month",
+      perYear: "per year",
+      recommended: "Recommended",
+      starter: {
+        name: "Starter",
+        description: "Perfect for independent brokers",
+        cta: "Get Started",
+        seats: "1 user",
+        features: {
+          aiCredits: "1,000 AI credits/month",
+          pdfPages: "500 PDF pages/month",
+          whatsapp: "WhatsApp integration",
+          sourcing: "Automatic sourcing",
+          comparisons: "Unlimited comparisons",
+          proposals: "Basic proposals",
+          analytics: "Basic analytics",
+          export: "PDF export",
+          support: "Email support",
+          workspace: "Personal workspace",
+          encryption: "SSL encryption"
+        }
+      },
+      pro: {
+        name: "Pro",
+        description: "For growing teams",
+        cta: "Start trial",
+        seats: "3 users",
+        features: {
+          aiCredits: "5,000 AI credits/month",
+          pdfPages: "2,000 PDF pages/month",
+          whatsapp: "WhatsApp integration",
+          sourcing: "Automatic sourcing",
+          comparisons: "Unlimited comparisons",
+          proposals: "Advanced proposals",
+          compliance: "Compliance verification",
+          analytics: "Advanced analytics",
+          export: "Multiple export",
+          support: "Priority support",
+          workspace: "Shared workspace",
+          sso: "Enterprise SSO",
+          onboarding: "Dedicated onboarding"
+        }
+      },
+      team: {
+        name: "Team",
+        description: "For large teams",
+        cta: "Contact sales",
+        seats: "10 users",
+        features: {
+          aiCredits: "15,000 AI credits/month",
+          pdfPages: "5,000 PDF pages/month",
+          whatsapp: "WhatsApp integration",
+          sourcing: "Automatic sourcing",
+          comparisons: "Unlimited comparisons",
+          proposals: "Advanced proposals",
+          compliance: "Compliance verification",
+          renewals: "Renewal management",
+          analytics: "Advanced analytics",
+          export: "Multiple export",
+          support: "Priority support",
+          workspace: "Shared workspace",
+          sso: "Enterprise SSO",
+          sla: "99.9% SLA",
+          onboarding: "Dedicated onboarding"
+        }
+      },
+      enterprise: {
+        name: "Enterprise",
+        description: "Custom solution",
+        price: "Custom",
+        cta: "Contact sales",
+        seats: "Unlimited users",
+        features: {
+          aiCredits: "Unlimited AI credits",
+          pdfPages: "Unlimited PDF pages",
+          whatsapp: "WhatsApp integration",
+          allWorkflows: "All workflows",
+          privateModel: "Private AI model",
+          analytics: "Custom analytics",
+          support: "24/7 support",
+          workspace: "Custom workspace",
+          sso: "Enterprise SSO",
+          sla: "99.9% SLA",
+          compliance: "Custom compliance",
+          onboarding: "Dedicated onboarding",
+          dedicated: "Dedicated team"
+        }
+      }
+    },
+    contactCta: {
+      heading: "Ready to revolutionize your insurance process?",
+      subheading: "Join hundreds of brokers already using Briki to be more efficient.",
+      form: {
+        name: {
+          label: "Full name",
+          placeholder: "Your full name"
+        },
+        email: {
+          label: "Corporate email",
+          placeholder: "you@company.com"
+        },
+        company: {
+          label: "Company",
+          placeholder: "Your company name"
+        },
+        city: {
+          label: "City",
+          placeholder: "Your city"
+        },
+        phone: {
+          label: "Phone",
+          placeholder: "+1 555 123 4567"
+        },
+        submit: "Request demo"
+      },
+      demo: "Watch live demo"
+    },
+    features: {
+      heading: "Features",
+      items: {
+        extraction: {
+          title: "Smart extraction",
+          bullets: ["OCR + clause parsing", "Exclusions & limits surfaced"]
+        },
+        comparisons: {
+          title: "Fast comparisons",
+          bullets: ["Side-by-side carriers", "Gaps highlighted"]
+        },
+        outputs: {
+          title: "Client-ready outputs",
+          bullets: ["Proposal PDFs & email", "Spanish/English"]
+        }
+      }
+    },
+    featuresGrid: {
+      compare: {
+        title: "Compare policies in seconds.",
+        description: "Briki extracts and aligns coverage data so you can instantly see what each insurer offers — clear, structured, and side-by-side."
+      },
+      proposal: {
+        title: "Create your proposal with clarity.",
+        description: "Briki aligns insurers' coverages side by side so you can compare, adjust, and finalize in minutes."
+      },
+      copilot: {
+        title: "Open Briki anywhere — your broker Copilot.",
+        description: "Use the same quick command (control + K) to open Briki's AI workspace across proposals, chats, or policies."
+      },
+      generate: {
+        title: "Generate client proposals in seconds.",
+        description: "Briki drafts professional, bilingual proposals directly from analyzed policies — ready to send or download."
+      }
+    },
+    demo: {
+      title: "See Briki in Action",
+      description: "2-min demo: from raw policy to proposal"
+    }
   },
   footer: {
+    product: {
+      label: "Product",
+      links: {
+        features: "Features",
+        pricing: "Pricing",
+        demo: "Demo",
+        integration: "Integration"
+      }
+    },
+    company: {
+      label: "Company",
+      links: {
+        about: "About",
+        careers: "Careers",
+        privacy: "Privacy",
+        terms: "Terms"
+      }
+    },
+    resources: {
+      label: "Resources",
+      links: {
+        help: "Help Center",
+        contact: "Contact",
+        blog: "Blog",
+        documentation: "Documentation"
+      }
+    },
+    social: {
+      label: "Social Links",
+      links: {
+        linkedin: "LinkedIn",
+        email: "Email",
+        instagram: "Instagram",
+        youtube: "YouTube"
+      }
+    },
+    rights: "All rights reserved.",
     privacy: "Privacy Policy",
     terms: "Terms of Service",
     contact: "Contact",
     work: "Work with us",
-    rights: "All rights reserved.",
     linkedin: "LinkedIn",
-  },
-  nav: {
-    login: "Login",
-    locale: {
-      toggle: "Switch language to {language}",
-      english: "English",
-      spanish: "Spanish",
-    },
   },
   auth: {
     nav: {
@@ -691,10 +914,6 @@ const en = {
       },
       empty: "No plans available yet.",
     },
-  },
-  composer: {
-    placeholder: "Describe your client or upload documents…",
-    emptyHelper: "Press Enter to send. Shift+Enter adds a new line.",
   },
 } as const;
 

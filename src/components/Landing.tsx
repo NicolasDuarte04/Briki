@@ -6,6 +6,7 @@ import { LandingHowItWorks } from './Landing/LandingHowItWorks';
 import { LandingFeaturesGrid } from './Landing/LandingFeaturesGrid';
 import { LandingDemo } from './Landing/LandingDemo';
 import { LandingFeatures } from './Landing/LandingFeatures';
+import { LandingPricing } from './Landing/LandingPricing';
 import { LandingStatsGrowth } from './Landing/LandingStatsGrowth';
 import { LandingSocialProof } from './Landing/LandingSocialProof';
 import { LandingCTA } from './Landing/LandingCTA';
@@ -26,6 +27,7 @@ export default function Landing() {
         <LandingFeaturesGrid />
         <LandingDemo />
         <LandingFeatures />
+        <LandingPricing />
         <LandingStatsGrowth />
         <LandingSocialProof />
         <LandingCTA />

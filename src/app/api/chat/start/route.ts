@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       if (error || !memberships || memberships.length === 0) {
         return NextResponse.json({ error: 'No organization found for user' }, { status: 400 });
       }
-      orgId = memberships[0].org_id as string;
+      orgId = memberships[0]?.org_id as string;
     }
 
     // Crear Case

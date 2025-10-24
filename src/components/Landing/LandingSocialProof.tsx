@@ -1,9 +1,9 @@
-import { useTranslations } from 'next-intl';
+import { useSafeTranslations } from '@/hooks/useSafeTranslations';
 import { Handshake, Lock } from 'lucide-react';
 import { TrustBadge } from './TrustBadge';
 
 export function LandingSocialProof() {
-  const t = useTranslations('landing.socialProof');
+  const { t } = useSafeTranslations('landing.socialProof');
 
   return (
     <section className="py-24 px-6 sm:px-8 bg-[var(--briki-surface-alt)]">

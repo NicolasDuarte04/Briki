@@ -4,7 +4,7 @@ import "./globals.css";
 import LoadingProvider from "@/components/LoadingProvider";
 import AuthProvider from "@/components/AuthProvider";
 import { Analytics } from "@vercel/analytics/next";
-import { ChunkLoadErrorBoundary } from "@/components/ErrorBoundary";
+import ChunkLoadErrorBoundary from "@/components/ErrorBoundary";
 
 const siteConfig = {
   name: "Briki",

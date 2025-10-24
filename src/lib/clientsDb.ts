@@ -98,7 +98,7 @@ export async function createClient(orgId: string, clientData: {
     throw new Error('La creación del cliente falló y no devolvió un ID.');
   }
 
-  return result[0].id;
+  return result[0]?.id || '';
 }
 
 /**
@@ -152,20 +152,36 @@ export async function getClientsByOrg(orgId: string): Promise<DecryptedClient[]>
  * @param orgId - El ID de la organización
  * @returns Array de clientes con solo ID y nombre
  */
+// Caché en memoria simple para optimizar consultas repetidas
+const clientComboboxCache = new Map<string, { data: { id: string; name: string }[], timestamp: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
 export async function getClientsForCombobox(orgId: string): Promise<{ id: string; name: string }[]> {
   if (!orgId) {
     throw new Error('Organization ID is required');
   }
+  
+  const cacheKey = `combobox-clients-${orgId}`;
+  const cachedEntry = clientComboboxCache.get(cacheKey);
+
+  // Verificar si la entrada de caché existe y no ha expirado
+  if (cachedEntry && (Date.now() - cachedEntry.timestamp < CACHE_TTL_MS)) {
+    console.log(`[Cache Hit] Serving clients for org ${orgId} from cache.`);
+    return cachedEntry.data;
+  }
+
+  console.log(`[Cache Miss] Fetching clients for org ${orgId} from database.`);
   
   const encryptionKey = process.env.APP_ENCRYPTION_KEY;
   if (!encryptionKey) {
     throw new Error('APP_ENCRYPTION_KEY no está configurada.');
   }
 
-  return prisma.$transaction(async (tx) => {
+  // Usar transacción con timeout aumentado y límite de resultados
+  const clients = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
     
-    // Solo descifrar el nombre para el Combobox
+    // Solo descifrar el nombre para el Combobox con límite de resultados
     return tx.$queryRaw<{ id: string; name: string }[]>`
       SELECT 
         id::text,
@@ -173,10 +189,17 @@ export async function getClientsForCombobox(orgId: string): Promise<{ id: string
       FROM public.clients
       WHERE org_id = ${orgId}::uuid
       ORDER BY created_at DESC
+      LIMIT 100
     `;
   }, {
-    timeout: 15000, // 15 segundos timeout para operaciones más simples
+    timeout: 60000, // AUMENTAR TIMEOUT A 60 SEGUNDOS
+    maxWait: 10000, // 10 segundos máximo de espera
   });
+  
+  // Almacenar el resultado en caché con timestamp
+  clientComboboxCache.set(cacheKey, { data: clients, timestamp: Date.now() });
+
+  return clients;
 }
 
 /**
@@ -218,7 +241,7 @@ export async function getClientById(
       LIMIT 1
     `;
     
-    return clients.length > 0 ? clients[0] : null;
+    return clients.length > 0 ? clients[0]! : null;
   }, {
     timeout: 30000, // 30 segundos timeout para operaciones de cifrado
   });
@@ -254,40 +277,42 @@ export async function updateClient(
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
     
-    // Construir la query de actualización usando Prisma.sql para evitar inyección SQL
-    const updateFields: Prisma.Sql[] = [];
-    
-    if (updateData.name !== undefined) {
-      updateFields.push(Prisma.sql`name_enc = public.encrypt_pii(${updateData.name})`);
-    }
-    if (updateData.email !== undefined) {
-      if (updateData.email) {
-        updateFields.push(Prisma.sql`email_enc = public.encrypt_pii(${updateData.email})`);
-      } else {
-        updateFields.push(Prisma.sql`email_enc = NULL`);
+  // Ejecutar la actualización usando query manual
+  if (Object.keys(updateData).length > 0) {
+      // Construir la query de actualización manualmente
+      let updateQuery = 'UPDATE public.clients SET ';
+      const updateParts: string[] = [];
+      
+      if (updateData.name !== undefined) {
+        updateParts.push(`name_enc = public.encrypt_pii('${updateData.name.replace(/'/g, "''")}')`);
       }
-    }
-    if (updateData.phone !== undefined) {
-      if (updateData.phone) {
-        updateFields.push(Prisma.sql`phone_enc = public.encrypt_pii(${updateData.phone})`);
-      } else {
-        updateFields.push(Prisma.sql`phone_enc = NULL`);
+      if (updateData.email !== undefined) {
+        if (updateData.email) {
+          updateParts.push(`email_enc = public.encrypt_pii('${updateData.email.replace(/'/g, "''")}')`);
+        } else {
+          updateParts.push('email_enc = NULL');
+        }
       }
-    }
-    if (updateData.address !== undefined) {
-      if (updateData.address) {
-        updateFields.push(Prisma.sql`address_enc = public.encrypt_pii(${updateData.address})`);
-      } else {
-        updateFields.push(Prisma.sql`address_enc = NULL`);
+      if (updateData.phone !== undefined) {
+        if (updateData.phone) {
+          updateParts.push(`phone_enc = public.encrypt_pii('${updateData.phone.replace(/'/g, "''")}')`);
+        } else {
+          updateParts.push('phone_enc = NULL');
+        }
       }
+      if (updateData.address !== undefined) {
+        if (updateData.address) {
+          updateParts.push(`address_enc = public.encrypt_pii('${updateData.address.replace(/'/g, "''")}')`);
+        } else {
+          updateParts.push('address_enc = NULL');
+        }
+      }
+      
+      updateQuery += updateParts.join(', ') + ', updated_at = NOW()';
+      updateQuery += ` WHERE id = '${clientId}'::uuid AND org_id = '${orgId}'::uuid`;
+      
+      await tx.$executeRawUnsafe(updateQuery);
     }
-    
-    // Ejecutar la actualización usando Prisma.sql
-    await tx.$executeRaw`
-      UPDATE public.clients 
-      SET ${Prisma.join(updateFields, Prisma.sql`, `)}, updated_at = NOW()
-      WHERE id = ${clientId}::uuid AND org_id = ${orgId}::uuid
-    `;
     
     return true;
   }, {

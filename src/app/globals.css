@@ -7,7 +7,9 @@
     --color-background: var(--background);
     --color-foreground: var(--foreground);
     --font-sans: var(--font-inter);
+    --font-display: var(--font-dm-sans);
     --font-mono: var(--font-geist-mono);
+    --font-serif: var(--font-newsreader);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -251,15 +253,23 @@
     text-rendering: optimizeLegibility;
   }
 
+  /* Editorial serif display typography with optical sizing */
+  .font-serif {
+    font-family: var(--font-newsreader), ui-serif, Georgia, Cambria, "Times New Roman", serif;
+    font-optical-sizing: auto;
+    font-variation-settings: "opsz" 72;
+  }
+
+  /* Enhanced font weight for "IA" text to improve visibility against background */
+  .text-ia-bold {
+    font-weight: 600; /* Semi-bold weight to make thin strokes thicker but not too heavy */
+  }
+
   .landing-hero {
-    /* Imagen principal con fallback de gradiente */
-    background:
-      /* Fallback si la imagen falla - usando paleta azul de Briki con opacidad muy baja */
-      linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(14, 165, 233, 0.15) 100%),
-      /* Imagen (si carga, cubrirá el gradiente) */
-      url('/brand/BrikiBGB.jpeg') center center / cover no-repeat;
-    /* Asegura un color de fondo base por si todo falla */
-    background-color: #f8fafc; /* Color neutro claro */
+    background: url('/landing-background.jpg') center/cover no-repeat;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     image-rendering: auto;
     image-rendering: smooth;
     position: fixed;
@@ -272,17 +282,13 @@
     min-height: 100dvh;
   }
   .landing-hero-concept {
-    /* Imagen principal con fallback de gradiente */
     background:
-      /* Fallback si la imagen falla - usando paleta azul de Briki con opacidad muy baja */
-      linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(14, 165, 233, 0.15) 100%),
-      /* Gradientes de concepto existentes */
       radial-gradient(900px 480px at 70% 10%, rgba(56, 189, 248, 0.18) 0%, rgba(56, 189, 248, 0.05) 45%, rgba(56, 189, 248, 0) 65%),
       radial-gradient(800px 520px at 30% 0%, rgba(14, 165, 233, 0.18) 0%, rgba(14, 165, 233, 0.05) 45%, rgba(14, 165, 233, 0) 65%),
-      /* Imagen (si carga, cubrirá los gradientes) */
-      url('/brand/BrikiBGB.jpeg') center center / cover no-repeat;
-    /* Asegura un color de fondo base por si todo falla */
-    background-color: #f8fafc; /* Color neutro claro */
+      url('/landing-background.jpg') center/cover no-repeat;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     image-rendering: auto;
     image-rendering: smooth;
     position: fixed;
@@ -294,17 +300,21 @@
     min-height: 100vh;
     min-height: 100dvh;
   }
-  /* Soft fades and vignette to improve text contrast without removing the wave */
+  /* Subtle darker overlay to improve text contrast */
   .landing-hero-fade {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to bottom, rgba(2, 6, 23, 0.15) 0%, rgba(15, 23, 42, 0.08) 30%, rgba(15, 23, 42, 0.06) 60%, rgba(2, 6, 23, 0.15) 100%);
+    background: 
+      radial-gradient(ellipse 1200px 400px at 50% 20%, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 40%, transparent 70%),
+      linear-gradient(to bottom, rgba(2, 6, 23, 0.15) 0%, rgba(15, 23, 42, 0.08) 30%, rgba(15, 23, 42, 0.06) 60%, rgba(2, 6, 23, 0.12) 100%);
     pointer-events: none;
   }
   .landing-hero-vignette {
     position: absolute;
     inset: 0;
-    background: radial-gradient(1000px 500px at 50% -10%, rgba(2, 6, 23, 0.10) 0%, rgba(2, 6, 23, 0.05) 40%, rgba(2, 6, 23, 0) 70%);
+    background: 
+      radial-gradient(ellipse at center, rgba(0,0,0,0.08) 0%, transparent 60%),
+      radial-gradient(1000px 500px at 50% -10%, rgba(2, 6, 23, 0.12) 0%, rgba(2, 6, 23, 0.08) 40%, rgba(2, 6, 23, 0.03) 70%);
     pointer-events: none;
   }
   .landing-overlay {

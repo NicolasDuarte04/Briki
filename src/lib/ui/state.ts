@@ -533,11 +533,15 @@ export interface RenewalStatusMeta {
 export interface UIState {
   initialMessage?: string;
   currentCaseId: string | null;
+  dashboardViewTime?: number;
   step: UIStep;
   isSourcing: boolean;
   rightOpen: boolean;
   complianceOpen: boolean;
   chatPanelOpen: boolean;
+  // Estado del sidebar
+  sidebarOpen: boolean;
+  sidebarHovered: boolean;
   // Nuevo estado para el flujo de briefing
   briefingCase: { isActive: boolean; initialMessage: string } | null;
   complianceJurisdiction: ComplianceJurisdiction;
@@ -601,6 +605,7 @@ export interface UIState {
   clearInitialMessage: () => void;
   setCurrentCaseId: (id: string | null) => void;
   setStep: (step: UIStep) => void;
+  setDashboardViewTime: (timestamp: number) => void;
   // Función para aprobación de casos
   approveCurrentCase: (clientId?: string | null) => Promise<boolean>;
   resetApprovalStatus: () => void;
@@ -620,6 +625,9 @@ export interface UIState {
   toggleRight: () => void;
   openChatPanel: () => void;
   closeChatPanel: () => void;
+  // Funciones del sidebar
+  setSidebarOpen: (open: boolean) => void;
+  setSidebarHovered: (hovered: boolean) => void;
   openCompliance: (jurisdiction: ComplianceJurisdiction) => void;
   closeCompliance: () => void;
   toggleCompliance: (itemId: ComplianceItemId) => void;
@@ -688,11 +696,14 @@ export const useUI = create<UIState>()(
     (set, get) => ({
       initialMessage: undefined,
       currentCaseId: null,
+      dashboardViewTime: undefined,
       step: "landing",
       isSourcing: false,
       rightOpen: true,
       complianceOpen: false,
       chatPanelOpen: false,
+      sidebarOpen: false,
+      sidebarHovered: false,
       briefingCase: null,
       complianceJurisdiction: complianceJurisdictions[0] ?? "co",
       checked: createDefaultComplianceChecked(),
@@ -761,6 +772,7 @@ export const useUI = create<UIState>()(
       setInitialMessage: (message: string) => set({ initialMessage: message }),  // ✅ Implementación
       clearInitialMessage: () => set({ initialMessage: "" }),                  // ✅ Implementación simple
       setCurrentCaseId: (id: string | null) => set({ currentCaseId: id }),     // ✅ AÑADIDO
+      setDashboardViewTime: (timestamp: number) => set({ dashboardViewTime: timestamp }), // ✅ AÑADIDO
       setStep: (step) =>
         set((state) => {
           if (state.isSourcing && step !== "conversation") {
@@ -919,6 +931,9 @@ export const useUI = create<UIState>()(
       toggleRight: () => set((state) => ({ rightOpen: !state.rightOpen })),
       openChatPanel: () => set(() => ({ chatPanelOpen: true })),
       closeChatPanel: () => set(() => ({ chatPanelOpen: false })),
+      // Funciones del sidebar
+      setSidebarOpen: (open) => set(() => ({ sidebarOpen: open })),
+      setSidebarHovered: (hovered) => set(() => ({ sidebarHovered: hovered })),
       openCompliance: (jurisdiction) =>
         set((state) => ({
           complianceOpen: true,

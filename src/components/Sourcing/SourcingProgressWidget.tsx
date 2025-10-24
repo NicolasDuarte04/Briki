@@ -29,8 +29,15 @@ export function SourcingProgressWidget({
   compact = false,
 }: SourcingProgressWidgetProps = {}) {
   const t = useTranslations("sourcing.status");
-  const translationRows = t.raw("rows") as SourcingRow[];
-  const rows = rowsProp ?? translationRows;
+  
+  // Usar datos estáticos en lugar de t.raw() que puede devolver objetos React
+  const defaultRows: SourcingRow[] = [
+    { name: "API Sources", provenance: "API" },
+    { name: "Portal Data", provenance: "Portal" },
+    { name: "PDF Analysis", provenance: "PDF" }
+  ];
+  
+  const rows = rowsProp ?? defaultRows;
 
   return (
     <Card

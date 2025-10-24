@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import type { ComponentProps, ReactNode } from 'react';
-import { motion, useReducedMotion } from 'motion/react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { InstagramIcon, LinkedinIcon, YoutubeIcon, MailIcon } from 'lucide-react';
 import Image from 'next/image';
 
@@ -115,7 +115,7 @@ export function Footer({ className }: FooterProps) {
 
 type ViewAnimationProps = {
 	delay?: number;
-	className?: ComponentProps<typeof motion.div>['className'];
+	className?: string;
 	children: ReactNode;
 };
 
@@ -127,15 +127,16 @@ function AnimatedContainer({ className, delay = 0.1, children }: ViewAnimationPr
 	}
 
 	return (
-		<motion.div
-			initial={{ filter: 'blur(4px)', translateY: -8, opacity: 0 }}
-			whileInView={{ filter: 'blur(0px)', translateY: 0, opacity: 1 }}
-			viewport={{ once: true }}
-			transition={{ delay, duration: 0.8 }}
-			className={className}
-		>
-			{children}
-		</motion.div>
+		<div className={className}>
+			<motion.div
+				initial={{ filter: 'blur(4px)', translateY: -8, opacity: 0 }}
+				whileInView={{ filter: 'blur(0px)', translateY: 0, opacity: 1 }}
+				viewport={{ once: true }}
+				transition={{ delay, duration: 0.8 }}
+			>
+				{children}
+			</motion.div>
+		</div>
 	);
 }
 

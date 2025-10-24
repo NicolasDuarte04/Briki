@@ -284,7 +284,7 @@ export function Canvas({
   // Stack vertically on small screens
   if (isSmallScreen) {
     return (
-      <div className={cn("flex-1 h-screen flex flex-col gap-y-8 overflow-hidden", className)}>
+      <div className={cn("flex-1 h-screen flex flex-col gap-y-8 overflow-auto", className)}>
         <section className="flex h-full flex-col bg-background min-w-0 overflow-auto">
           <div className={cn("flex h-full flex-1 flex-col gap-6 overflow-auto", innerPadding)}>
             <div className="flex-1 h-full">{left}</div>
@@ -330,7 +330,7 @@ export function Canvas({
     <div
       ref={containerRef}
       className={cn(
-        "flex-1 h-full flex overflow-hidden",
+        "flex-1 h-full flex overflow-auto",
         isDragging && "select-none",
         className
       )}

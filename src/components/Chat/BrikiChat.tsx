@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-// Removed useChatStore - using our existing logic
+import { useChatStore } from "@/hooks/useChatStore";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,8 @@ import { useAuth } from "@/components/AuthProvider";
 import { useTranslations } from "next-intl";
 import Message, { type MessageRole, type MessageAgentMeta } from "@/components/Chat/Message";
 import { useRouter } from "next/navigation";
+import { pathForEntity } from "@/lib/routes/workspace";
+import { useLocale } from "next-intl";
 
 interface UseAutoResizeTextareaProps {
     minHeight: number;
@@ -116,6 +118,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
         appendMessage,
     } = useChatStore();
     const router = useRouter();
+    const locale = useLocale() as 'en' | 'es';
     
     // Chat translations
     const chatTranslations = useTranslations("chat");
@@ -158,7 +161,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
         name: string;
         type: string;
         size: number;
-        preview?: string;
+        preview?: string | undefined;
     }>>([]);
 
     // ✅ FUSIÓN CRÍTICA: PDF upload handlers (del LandingChatInput original)
@@ -242,7 +245,12 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
             preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined
         }));
 
-        setAttachedFiles(prev => [...prev, ...newFiles]);
+        setAttachedFiles(prev => [...prev, ...newFiles.map(file => ({
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            preview: file.preview
+        }))]);
         event.target.value = '';
     };
 
@@ -336,13 +344,25 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
         if (!conversationId) {
             // This should rarely happen as HomeClient creates a conversation
             console.warn('No active conversation in sendMessage, creating one');
-            conversationId = createConversation();
+            const newConversation = {
+                id: `conv-${Date.now()}`,
+                title: 'Nueva conversación',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            createConversation(newConversation);
+            conversationId = newConversation.id;
             setActiveConversation(conversationId);
             // Navigate to conversation step (our existing logic)
             setStep("conversation");
         }
 
-        appendMessage(conversationId, { role: "user", content: trimmed });
+        appendMessage(conversationId, { 
+            id: `msg-${Date.now()}-${Math.random()}`,
+            role: "user", 
+            content: trimmed,
+            timestamp: new Date().toISOString()
+        });
         if (!messageText) setValue("");
         setIsTyping(true);
 
@@ -367,8 +387,10 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
             const result = await response.json();
             
             appendMessage(conversationId, {
+                id: `msg-${Date.now()}-${Math.random()}`,
                 role: "assistant",
                 content: result.response,
+                timestamp: new Date().toISOString(),
                 agent: { label: chatTranslations("agents.sourcing") },
             });
             setIsTyping(false);
@@ -379,8 +401,10 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
         } catch (error) {
             console.error('Error processing message:', error);
             appendMessage(conversationId, {
+                id: `msg-${Date.now()}-${Math.random()}`,
                 role: "assistant",
                 content: "Disculpa, hubo un problema procesando tu mensaje. ¿Puedes intentar de nuevo?",
+                timestamp: new Date().toISOString(),
                 agent: { label: chatTranslations("agents.sourcing") },
             });
             setIsTyping(false);
@@ -426,8 +450,8 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
             if (response.ok) {
                 const result = await response.json();
                 if (result.caseId) {
-                    // Navegar al caso creado
-                    router.push(`/cases/${result.caseId}`);
+                    // Navegar al caso creado usando la ruta correcta
+                    router.push(pathForEntity('case', result.caseId, locale));
                     return;
                 }
             }

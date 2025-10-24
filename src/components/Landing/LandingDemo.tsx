@@ -1,6 +1,11 @@
+'use client';
+
 import { VideoPlayer } from "@/components/ui/video-thumbnail-player";
+import { useSafeTranslations } from "@/hooks/useSafeTranslations";
 
 export function LandingDemo() {
+  const { t } = useSafeTranslations('landing.demo');
+
   return (
     <section id="demo" className="py-32 px-6 sm:px-8 bg-white">
       <div className="max-w-5xl mx-auto">
@@ -8,8 +13,8 @@ export function LandingDemo() {
         <VideoPlayer
           thumbnailUrl="https://img.youtube.com/vi/UVpDdxRQKnA/maxresdefault.jpg"
           videoUrl="https://youtu.be/UVpDdxRQKnA?si=ojkcKXWPlnqTP6yG"
-          title="See Briki in Action"
-          description="2-min demo: from raw policy to proposal"
+          title={t('title')}
+          description={t('description')}
           className="rounded-xl"
         />
       </div>

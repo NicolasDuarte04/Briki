@@ -72,7 +72,7 @@ export default function CaseBriefForm() {
             setBrief(currentBrief);
             
             // Validar y resolver cliente antes de aprobar
-            const clientId = await validateAndResolveClient();
+            const clientId = await validateAndResolveClient(currentBrief.clientName);
             
             // Aprobar el caso con el clientId resuelto
             const success = await approveCurrentCase(clientId);

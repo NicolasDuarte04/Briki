@@ -7,9 +7,6 @@ import Landing from "@/components/Landing";
 import FooterNav from "@/components/FooterNav";
 import { useUI, type UIStep } from "@/lib/ui/state";
 import { motion, AnimatePresence } from "framer-motion";
-import BrikiSidebarLayout from "@/components/BrikiSidebarLayout";
-import SidebarNav from "@/components/SidebarNav";
-import SidebarChatPanel from "@/components/SidebarChatPanel";
 import WorkspaceTabs from "@/components/Workspace/Tabs";
 import CaseBrief from "@/components/Workspace/CaseBrief";
 import SourcingProgressWidget from "@/components/Sourcing/SourcingProgressWidget";
@@ -23,33 +20,34 @@ const ConversationPane = dynamic(() => import("@/components/Chat/ConversationPan
 
 export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
   const initializedRef = useRef(false);
-  const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing, chatPanelOpen, cases, fetchCases, briefingCase, startBriefing, completeBriefing, cancelBriefing } = useUI();
-  const currentStep = initializedRef.current ? step : initialStep;
+  const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing } = useUI();
+  // Usar el valor del store como fuente de verdad para la lógica de renderizado
+  const currentStep = step; // Leer siempre desde Zustand después de la sincronización
+  
+  // Debug: Log the values to see what's happening
+  console.log('HomeClient Debug:', { 
+    currentStep, 
+    rightOpen, 
+    isSourcing, 
+    initialStep,
+    step
+  });
   
   // Estado para verificar autenticación
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
+  // --- SINCRONIZACIÓN DE ESTADO ---
   useEffect(() => {
-    if (initializedRef.current) {
-      return;
-    }
-
-    // Only set the step once on mount, without reading step from state
-    if (initialStep) {
+    // Si se proporciona un initialStep y es diferente al step actual en Zustand,
+    // actualiza el estado de Zustand para que coincida.
+    if (initialStep && initialStep !== step) {
+      console.log(`Syncing Zustand step: from '${step}' to initialStep '${initialStep}'`);
       setStep(initialStep);
     }
+    // Ejecutar solo si initialStep cambia (o en el montaje inicial si tiene valor)
+  }, [initialStep, setStep, step]);
 
-    initializedRef.current = true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialStep, setStep]);
-
-  // Load cases when chat panel opens
-  useEffect(() => {
-    if (chatPanelOpen) {
-      fetchCases();
-    }
-  }, [chatPanelOpen, fetchCases]);
 
   // Verificar autenticación cuando se active el briefing
   useEffect(() => {
@@ -157,7 +155,7 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
   ];
 
   return (
-    <div className="h-dvh min-h-0 w-full flex flex-col overflow-hidden">
+    <div className="h-dvh min-h-0 w-full flex flex-col overflow-auto">
       <Hotkeys
         primaryAction={primaryAction}
         onToggleRightPanel={toggleRight}
@@ -166,17 +164,17 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
           if (next) setStep(next);
         }}
       />
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0 overflow-auto">
         <AnimatePresence mode="wait">
           {briefingCase?.isActive ? (
-            <motion.div
-              key="briefing"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              className="relative flex-1 overflow-auto bg-background"
-            >
+            <div className="relative flex-1 overflow-auto bg-background">
+              <motion.div
+                key="briefing"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+              >
               <div className="container mx-auto py-8 px-4 max-w-6xl">
                 <div className="flex items-center gap-4 mb-8">
                   <button
@@ -221,75 +219,76 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
                   />
                 )}
               </div>
-            </motion.div>
+              </motion.div>
+            </div>
           ) : currentStep === "landing" ? (
-            <motion.div
-              key="landing"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              className="landing-scroll relative flex-1 overflow-auto"
-            >
-              <Landing />
-            </motion.div>
+            <div className="landing-scroll relative flex-1 overflow-auto">
+              <motion.div
+                key="landing"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+              >
+                <Landing />
+              </motion.div>
+            </div>
           ) : (
-            <motion.div
-              key="conversation"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              className="relative z-10 flex flex-1 flex-col bg-background min-h-0 overflow-hidden"
-            >
-              <BrikiSidebarLayout sidebar={chatPanelOpen ? <SidebarChatPanel cases={cases} /> : <SidebarNav />}>
-                <Canvas
-                  rightOpen={rightOpen}
-                  isSourcing={isSourcing}
-                  left={
-                    currentStep === "conversation" || currentStep === "compliance" ? (
-                      <ConversationPane />
-                    ) : (
-                      <div className="flex h-full flex-col justify-start">Current step: {currentStep}</div>
-                    )
-                  }
-                  right={(() => {
-                    // --- MODIFICACIÓN CLAVE ---
-                    if (currentStep === "conversation" || isSourcing) { // Mostrar panel derecho en conversación Y sourcing
-                      return (
-                        <div className="flex h-full flex-col overflow-hidden">
-                          {/* Widget de progreso: Se muestra solo si isSourcing es true */}
-                          {isSourcing && (
-                            <div className="flex-shrink-0 border-b border-border/50 p-2">
-                              {/* Asegúrate que SourcingProgressWidget acepte estas props */}
-                              <SourcingProgressWidget compact onStop={stopSourcing} />
-                            </div>
-                          )}
-
-                          {/* Panel de Tabs: Siempre visible en este flujo */}
-                          <div className="flex-1 min-h-0 overflow-y-auto">
-                            {/* WorkspaceTabs necesita acceso al caseId actual, asegúrate que lo reciba */}
-                            <WorkspaceTabs />
+            <div className="relative z-10 flex flex-1 flex-col bg-background min-h-0 overflow-auto">
+              <motion.div
+                key="conversation"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+              >
+              <Canvas
+                rightOpen={rightOpen}
+                isSourcing={isSourcing}
+                left={
+                  currentStep === "conversation" || currentStep === "compliance" ? (
+                    <ConversationPane />
+                  ) : (
+                    <div className="flex h-full flex-col justify-start">Current step: {currentStep}</div>
+                  )
+                }
+                right={(() => {
+                  // --- MODIFICACIÓN CLAVE ---
+                  if (currentStep === "conversation" || isSourcing) { // Mostrar panel derecho en conversación Y sourcing
+                    return (
+                      <div className="flex h-full flex-col overflow-hidden">
+                        {/* Widget de progreso: Se muestra solo si isSourcing es true */}
+                        {isSourcing && (
+                          <div className="flex-shrink-0 border-b border-border/50 p-2">
+                            {/* Asegúrate que SourcingProgressWidget acepte estas props */}
+                            <SourcingProgressWidget compact onStop={stopSourcing} />
                           </div>
-                        </div>
-                      );
-                    }
+                        )}
 
-                    // Mantener la lógica para otros steps si existen
-                    if (currentStep === "compliance") {
-                      return (
-                        <div className="flex h-full flex-col">
-                          <ComplianceGate />
+                        {/* Panel de Tabs: Siempre visible en este flujo */}
+                        <div className="flex-1 min-h-0 overflow-y-auto">
+                          {/* WorkspaceTabs necesita acceso al caseId actual, asegúrate que lo reciba */}
+                          <WorkspaceTabs />
                         </div>
-                      );
-                    }
-                    // Fallback o lógica para otros steps
-                    return <div className="p-4">Panel derecho para: {currentStep}</div>;
-                  })()}
-                />
-              </BrikiSidebarLayout>
+                      </div>
+                    );
+                  }
+
+                  // Mantener la lógica para otros steps si existen
+                  if (currentStep === "compliance") {
+                    return (
+                      <div className="flex h-full flex-col">
+                        <ComplianceGate />
+                      </div>
+                    );
+                  }
+                  // Fallback o lógica para otros steps
+                  return <div className="p-4">Panel derecho para: {currentStep}</div>;
+                })()}
+              />
               <FooterNav className="mt-4" fullBleed />
-            </motion.div>
+              </motion.div>
+            </div>
           )}
         </AnimatePresence>
       </div>

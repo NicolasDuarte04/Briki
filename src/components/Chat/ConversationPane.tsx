@@ -397,7 +397,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value]);
 
-  // Efecto para el mensaje inicial
+  // Efecto para el mensaje inicial - MOSTRAR RESPUESTA ESTÁTICA
   useEffect(() => {
     if (initialMessage && initialMessage.trim() !== '') {
       const userMessage: ChatMessage = { 
@@ -451,7 +451,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     
     // Si no está en cache, validar usando el hook
     try {
-      const clientId = await validateAndResolveClient();
+      const clientId = await validateAndResolveClient(clientName);
       
       // Guardar en cache si se obtuvo un ID
       if (clientId) {
@@ -546,7 +546,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   }
 
   return (
-    <div className={cn("h-full flex flex-col overflow-hidden", className)}>
+    <div className={cn("h-full flex flex-col", className)}>
       <div className="relative flex-1 flex flex-col">
         <div
           ref={scrollContainerRef}

@@ -87,7 +87,7 @@ export const Message = forwardRef<HTMLDivElement, MessageProps>(function Message
           {...(agent?.tag ? { tagLabel: agent.tag } : {})}
           {...(timestamp ? { timestamp } : {})}
           body={<div className="break-words">{content}</div>}
-          onApprove={onApprove}
+          onApprove={onApprove || (() => {})}
         />
       ) : (
         <div className="max-w-full">

@@ -27,7 +27,7 @@ let browserClient: ReturnType<typeof createBrowserClient> | undefined
 
 export function createBrowserSupabase() {
   if (!browserClient) {
-    browserClient = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    browserClient = createBrowserClient(SUPABASE_URL!, SUPABASE_ANON_KEY!)
   }
 
   return browserClient

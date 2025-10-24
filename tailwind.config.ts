@@ -100,24 +100,6 @@ const config: Config = {
           "monospace",
         ],
       },
-      fontSize: {
-        "display-xl": [
-          "clamp(2.5rem,5vw,3.5rem)",
-          { lineHeight: "1.1", letterSpacing: "-0.015em", fontWeight: "700" }
-        ],
-        headline: [
-          "clamp(1.5rem,2.5vw,2.25rem)",
-          { lineHeight: "1.2", letterSpacing: "-0.015em", fontWeight: "600" }
-        ],
-        subhead: [
-          "clamp(1rem,1.5vw,1.125rem)",
-          { lineHeight: "1.65", letterSpacing: "-0.01em", fontWeight: "400" }
-        ],
-        body: [
-          "1rem",
-          { lineHeight: "1.7", letterSpacing: "0", fontWeight: "400" }
-        ],
-      },
       borderRadius: {
         xl: "var(--radius-xl)",
         lg: "var(--radius-lg)",

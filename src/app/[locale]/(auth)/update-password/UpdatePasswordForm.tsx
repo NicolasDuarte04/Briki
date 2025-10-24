@@ -75,7 +75,7 @@ export function UpdatePasswordForm({ locale }: UpdatePasswordFormProps) {
     
     const result = await updatePassword(formData);
     
-    if (!result.success) {
+    if (!result.ok) {
       toast.error(result.error || 'Failed to update password');
     }
     // Success case will redirect, so no need to handle it here
