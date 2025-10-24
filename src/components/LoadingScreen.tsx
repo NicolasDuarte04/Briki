@@ -60,8 +60,8 @@ export default function LoadingScreen({
           <Image
             src="/brand/briki-logo-2.png"
             alt="Briki"
-            width={80}
-            height={80}
+            width={60}
+            height={60}
             priority
             className="animate-fade-in"
           />

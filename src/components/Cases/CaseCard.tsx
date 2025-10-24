@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CaseStatusBadge } from './CaseStatusBadge';
 import { Clock, FileText, Briefcase, Calendar, Trash2 } from 'lucide-react';
+import { useLocale } from 'next-intl';
+import { pathForCase, type Locale } from '@/lib/routes/workspace';
 
 interface CaseCardProps {
   caseData: any;
@@ -12,6 +14,7 @@ interface CaseCardProps {
 }
 
 export function CaseCard({ caseData, onDelete }: CaseCardProps) {
+  const locale = useLocale() as Locale;
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('es-ES', {
       year: 'numeric',
@@ -30,7 +33,7 @@ export function CaseCard({ caseData, onDelete }: CaseCardProps) {
 
   return (
     <Card className="hover:shadow-lg transition-shadow h-full relative group">
-      <Link href={`/workspace/cases/${caseData.id}`} className="block h-full">
+      <Link href={pathForCase(caseData.id, locale)} className="block h-full">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex-1">

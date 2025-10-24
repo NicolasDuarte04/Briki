@@ -8,14 +8,16 @@ import Link from 'next/link';
 import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
 import { DecryptedClient } from '@/lib/clientsDb';
+import { pathForClients, pathForEditEntity } from '@/lib/routes/workspace';
 
 interface ClientDetailContentProps {
   client: DecryptedClient;
   clientId: string;
   orgId: string;
+  locale: string;
 }
 
-export function ClientDetailContent({ client, clientId, orgId }: ClientDetailContentProps) {
+export function ClientDetailContent({ client, clientId, orgId, locale }: ClientDetailContentProps) {
   const {
     deleteDialogOpen,
     setDeleteDialogOpen,
@@ -24,7 +26,7 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
     handleDeleteConfirm
   } = useDeleteConfirmation({
     deleteApiEndpoint: `/api/clients/${clientId}/delete`,
-    redirectPath: '/workspace/clients',
+    redirectPath: pathForClients(locale),
     itemName: 'cliente'
   });
 
@@ -44,7 +46,7 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
       <div className="container mx-auto py-8 px-4 max-w-4xl">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Link href="/workspace/clients">
+          <Link href={pathForClients(locale)}>
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -59,7 +61,7 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
             </p>
           </div>
           <div className="flex gap-2">
-            <Link href={`/workspace/clients/${clientId}/edit`}>
+            <Link href={pathForEditEntity('client', clientId, locale)}>
               <Button variant="outline" size="sm" className="gap-2">
                 <Edit className="h-4 w-4" />
                 Editar
@@ -188,7 +190,7 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
             <div className="flex gap-3">
               <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
               <div>
-                <h3 className="font-semibold text-blue-900 text-sm">Seguridad de Datos</h3>
+                <h2 className="font-semibold text-blue-900 text-sm">Seguridad de Datos</h2>
                 <p className="text-xs text-blue-700 mt-1">
                   Todos los datos personales de este cliente están cifrados en la base de datos usando encriptación AES-256. 
                   Solo los miembros autorizados de tu organización pueden acceder a esta información.

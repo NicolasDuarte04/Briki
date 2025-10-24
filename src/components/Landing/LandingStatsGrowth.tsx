@@ -28,8 +28,7 @@
 
 'use client';
 
-import { useSafeTranslations } from '@/hooks/useSafeTranslations';
-import { useLocale } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { TrendingUp, Users, FileText, Clock, Zap } from 'lucide-react';
@@ -37,7 +36,7 @@ import Link from 'next/link';
 import { pathForAgent } from '@/lib/routes/workspace';
 
 export function LandingStatsGrowth() {
-  const { t } = useSafeTranslations('landing.statsGrowth');
+  const t = useTranslations('landing.statsGrowth');
   const locale = useLocale();
 
   // Smooth growth curve data points (normalized 0-100 for percentage-based SVG)

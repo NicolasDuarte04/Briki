@@ -283,6 +283,44 @@ export function AccountSettings({
               </div>
             </div>
 
+            {/* Language Card */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-gray-700 mb-1">Language</h3>
+                  <p className="text-sm text-gray-500 mb-3">Choose your preferred language</p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        const newPath = window.location.pathname.replace(`/${locale}`, '/en');
+                        window.location.href = newPath;
+                      }}
+                      className={`px-4 py-2 rounded-lg border transition-colors ${
+                        locale === 'en'
+                          ? 'bg-blue-50 border-blue-600 text-blue-900 font-medium'
+                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      English {locale === 'en' && '✓'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const newPath = window.location.pathname.replace(`/${locale}`, '/es');
+                        window.location.href = newPath;
+                      }}
+                      className={`px-4 py-2 rounded-lg border transition-colors ${
+                        locale === 'es'
+                          ? 'bg-blue-50 border-blue-600 text-blue-900 font-medium'
+                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      Español {locale === 'es' && '✓'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Phone Card */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="flex items-start justify-between">

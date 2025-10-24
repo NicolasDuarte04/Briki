@@ -4,7 +4,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Check, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-// import { createCheckoutSession, redirectToCheckout } from "@/lib/stripe";
+import { createCheckoutSession, redirectToCheckout } from "@/lib/stripe";
 
 export interface PlanFeature {
   label: string;
@@ -55,12 +55,15 @@ export function PricingModule({
       return;
     }
 
-    // Default behavior - just log for now
+    // Default Stripe integration
     try {
       setLoadingPlan(planId);
-      console.log('Plan selected:', { planId, isAnnual, userId });
-      // TODO: Implement actual checkout flow
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate loading
+      const sessionId = await createCheckoutSession({
+        planId,
+        isAnnual,
+        userId: userId || undefined,
+      });
+      await redirectToCheckout(sessionId);
     } catch (error) {
       console.error('Error starting checkout:', error);
       // You might want to show a toast notification here

@@ -2,10 +2,11 @@
 
 import { Card, CardContent, CardHeader } from '@/components/ui/features-card'
 import { Globe, Mail, MessageCircle, FileText, Cloud, BarChart } from 'lucide-react'
-import { useSafeTranslations } from '@/hooks/useSafeTranslations';
+import { useTranslations } from 'next-intl';
 
 export function LandingFeaturesGrid() {
-    const { t } = useSafeTranslations('landing.featuresGrid');
+    const t = useTranslations('landing.featuresGrid');
+
     return (
         <section className="bg-white dark:bg-background pt-8 pb-20 md:pt-12 md:pb-40">
             <div className="mx-auto max-w-7xl px-6">
@@ -102,7 +103,7 @@ export function LandingFeaturesGrid() {
                                     title="Store in cloud"
                                     aria-label="Store in cloud"
                                 >
-                                    <Cloud className="size-6 text-foreground/70" strokeWidth={1.5} />
+                                    <Cloud className="size-6 text-foreground/70" strokeWidth={1.5} aria-hidden="true" />
                                 </button>
                                 <div className="rounded-lg aspect-square border border-dashed"></div>
                                 <button 

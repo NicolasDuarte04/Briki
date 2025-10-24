@@ -1,13 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
-import { ChatMessage as BaseChatMessage } from "@/store/useChatStore";
-import React from "react";
-
-// Tipo extendido que soporta React.ReactNode para el contenido
-type ChatMessage = Omit<BaseChatMessage, 'content'> & {
-  content: string | React.ReactNode;
-};
 
 import { complianceChecklistItems, complianceJurisdictions, type JurisdictionCode } from "../compliance";
 import {
@@ -51,6 +44,7 @@ import {
   loadRiders,
 } from "../fx";
 import { sendViaEmail, sendViaWhatsApp } from "../share";
+import { BriefingCase, SourcingUpdate } from "@/lib/types";
 
 // Local helper to convert policies into view objects consumed by components
 const policyToView = (policy: Policy): PolicyView => {
@@ -533,15 +527,11 @@ export interface RenewalStatusMeta {
 export interface UIState {
   initialMessage?: string;
   currentCaseId: string | null;
-  dashboardViewTime?: number;
   step: UIStep;
   isSourcing: boolean;
   rightOpen: boolean;
   complianceOpen: boolean;
   chatPanelOpen: boolean;
-  // Estado del sidebar
-  sidebarOpen: boolean;
-  sidebarHovered: boolean;
   // Nuevo estado para el flujo de briefing
   briefingCase: { isActive: boolean; initialMessage: string } | null;
   complianceJurisdiction: ComplianceJurisdiction;
@@ -593,10 +583,6 @@ export interface UIState {
   caseApproving: boolean;
   caseApprovalError: string | null;
   caseApproved: boolean;
-  // Función de validación unificada del brief
-  isBriefValid: () => boolean;
-  // Estado de mensajes del chat
-  messages: ChatMessage[];
   // Cache properties (internal use)
   _cachedPoliciesView?: PolicyView[];
   _cachedRenewalsView?: RenewalView[];
@@ -605,19 +591,9 @@ export interface UIState {
   clearInitialMessage: () => void;
   setCurrentCaseId: (id: string | null) => void;
   setStep: (step: UIStep) => void;
-  setDashboardViewTime: (timestamp: number) => void;
   // Función para aprobación de casos
-  approveCurrentCase: (clientId?: string | null) => Promise<boolean>;
+  approveCurrentCase: () => Promise<boolean>;
   resetApprovalStatus: () => void;
-  setCaseApproved: (isApproved: boolean) => void;
-  // Función para enviar mensaje automático después de aprobar
-  sendAutoMessage: (message: string) => Promise<void>;
-  // Funciones para manejo de mensajes del chat
-  addMessage: (message: ChatMessage) => void;
-  setMessages: (messages: ChatMessage[]) => void;
-  // Función para validación y aprobación de clientes (removida para evitar bucles infinitos)
-  // validateAndApproveClient: () => Promise<boolean>;
-  // setValidateAndApproveClient: (fn: () => Promise<boolean>) => void;
   // Funciones para el flujo de briefing
   startBriefing: (initialMessage: string) => void;
   completeBriefing: (caseId: string) => void;
@@ -625,9 +601,6 @@ export interface UIState {
   toggleRight: () => void;
   openChatPanel: () => void;
   closeChatPanel: () => void;
-  // Funciones del sidebar
-  setSidebarOpen: (open: boolean) => void;
-  setSidebarHovered: (hovered: boolean) => void;
   openCompliance: (jurisdiction: ComplianceJurisdiction) => void;
   closeCompliance: () => void;
   toggleCompliance: (itemId: ComplianceItemId) => void;
@@ -689,6 +662,8 @@ export interface UIState {
   selectPolicyView: (policyId: string) => PolicyView | undefined;
   selectRenewalsView: () => RenewalView[];
   selectFilteredSortedRenewalsView: () => RenewalView[];
+  dashboardViewTime: number | null;
+  setDashboardViewTime: (time: number) => void;
 }
 
 export const useUI = create<UIState>()(
@@ -696,14 +671,11 @@ export const useUI = create<UIState>()(
     (set, get) => ({
       initialMessage: undefined,
       currentCaseId: null,
-      dashboardViewTime: undefined,
       step: "landing",
       isSourcing: false,
       rightOpen: true,
       complianceOpen: false,
       chatPanelOpen: false,
-      sidebarOpen: false,
-      sidebarHovered: false,
       briefingCase: null,
       complianceJurisdiction: complianceJurisdictions[0] ?? "co",
       checked: createDefaultComplianceChecked(),
@@ -715,8 +687,6 @@ export const useUI = create<UIState>()(
         employees: 0,
         coverage: "Por definir...",
         freeText: "Por definir...",
-        clientName: "",
-        selectedClientId: null,
       },
       policies: [],
       policiesLoading: false,
@@ -761,18 +731,10 @@ export const useUI = create<UIState>()(
       caseApproving: false,
       caseApprovalError: null,
       caseApproved: false,
-      // Estado de mensajes del chat
-      messages: [],
-      // Función de validación unificada del brief
-      isBriefValid: () => {
-        const { brief } = get();
-        // Solo la categoría de seguro es obligatoria
-        return !!(brief.insurance_category?.trim());
-      },
+      dashboardViewTime: null,
       setInitialMessage: (message: string) => set({ initialMessage: message }),  // ✅ Implementación
       clearInitialMessage: () => set({ initialMessage: "" }),                  // ✅ Implementación simple
       setCurrentCaseId: (id: string | null) => set({ currentCaseId: id }),     // ✅ AÑADIDO
-      setDashboardViewTime: (timestamp: number) => set({ dashboardViewTime: timestamp }), // ✅ AÑADIDO
       setStep: (step) =>
         set((state) => {
           if (state.isSourcing && step !== "conversation") {
@@ -781,13 +743,12 @@ export const useUI = create<UIState>()(
           return { step };
         }),
       // Función para aprobación de casos
-      approveCurrentCase: async (clientId?: string | null) => {
+      approveCurrentCase: async () => {
         const { brief, currentCaseId, startSourcing } = get();
 
         console.log('🔍 DEBUG approveCurrentCase:', { 
           currentCaseId, 
           brief,
-          clientId,
           briefKeys: Object.keys(brief || {}),
           briefValues: brief
         });
@@ -801,14 +762,14 @@ export const useUI = create<UIState>()(
         set({ caseApproving: true, caseApprovalError: null });
 
         try {
-          console.log('🚀 Calling /api/cases/approve with:', { caseId: currentCaseId, briefData: { ...brief, selectedClientId: clientId } });
+          console.log('🚀 Calling /api/cases/approve with:', { caseId: currentCaseId, briefData: brief });
           
           const response = await fetch('/api/cases/approve', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               caseId: currentCaseId,
-              briefData: { ...brief, selectedClientId: clientId } // Incluir el clientId resuelto
+              briefData: brief // Envía la versión más reciente del brief desde el store
             }),
           });
 
@@ -825,21 +786,7 @@ export const useUI = create<UIState>()(
 
           // Si la API tiene éxito, activa el flujo de sourcing en la UI
           set({ caseApproved: true, caseApproving: false });
-          
-          // Añadir el mensaje automático del usuario a la UI inmediatamente
-          const autoMessageContent = brief.freeText || "Por favor, analiza este caso y proporciona recomendaciones de seguros.";
-          const userAutoMessage: ChatMessage = {
-            id: `auto-${Date.now()}`,
-            role: "user",
-            content: autoMessageContent,
-            createdAt: Date.now(),
-          };
-          get().addMessage(userAutoMessage);
-          
-          // Activar sourcing y enviar mensaje automático
           startSourcing();
-          await get().sendAutoMessage(autoMessageContent);
-          
           return true;
 
         } catch (error: any) {
@@ -849,68 +796,6 @@ export const useUI = create<UIState>()(
         }
       },
       resetApprovalStatus: () => set({ caseApproved: false }),
-      setCaseApproved: (isApproved) => set({ caseApproved: isApproved }),
-      // Funciones para manejo de mensajes del chat
-      addMessage: (message) => set((state) => ({ 
-        messages: [...state.messages, { ...message, id: message.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, createdAt: message.createdAt || Date.now() }] 
-      })),
-      setMessages: (messages) => set({ messages }),
-      // Función para validación y aprobación de clientes (removida para evitar bucles infinitos)
-      // validateAndApproveClient: async () => {
-      //   console.warn('validateAndApproveClient called but not implemented in store. This should be called from ConversationPane.');
-      //   return false;
-      // },
-      // setValidateAndApproveClient: (fn) => set({ validateAndApproveClient: fn }),
-      // Función para enviar mensaje automático después de aprobar
-      sendAutoMessage: async (message: string) => {
-        const { currentCaseId, brief, addMessage } = get();
-        
-        if (!currentCaseId) {
-          console.error('No currentCaseId found for auto message');
-          return;
-        }
-
-        try {
-          const response = await fetch('/api/chat/process-message', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              message: message,
-              brief: brief,
-              caseId: currentCaseId
-            }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'API request failed');
-          }
-
-          const result = await response.json();
-          console.log('✅ Auto message processed, agent response received:', result);
-
-          // Añadir la respuesta del AGENTE a la UI
-          const agentResponseMessage: ChatMessage = {
-            id: `agent-${Date.now()}`,
-            role: "assistant",
-            content: result.response || result.message || "Análisis completado",
-            createdAt: Date.now(),
-            agent: { label: "Sourcing" }
-          };
-          addMessage(agentResponseMessage);
-          
-        } catch (error: any) {
-          console.error('Error sending auto message or processing response:', error);
-          // Añadir mensaje de error al chat
-          addMessage({
-            id: `error-${Date.now()}`,
-            role: 'assistant',
-            content: `Error al procesar: ${error.message}`,
-            createdAt: Date.now(),
-            agent: { label: "Error" }
-          });
-        }
-      },
       // Funciones para el flujo de briefing
       startBriefing: (initialMessage: string) => 
         set(() => ({ 
@@ -931,9 +816,6 @@ export const useUI = create<UIState>()(
       toggleRight: () => set((state) => ({ rightOpen: !state.rightOpen })),
       openChatPanel: () => set(() => ({ chatPanelOpen: true })),
       closeChatPanel: () => set(() => ({ chatPanelOpen: false })),
-      // Funciones del sidebar
-      setSidebarOpen: (open) => set(() => ({ sidebarOpen: open })),
-      setSidebarHovered: (hovered) => set(() => ({ sidebarHovered: hovered })),
       openCompliance: (jurisdiction) =>
         set((state) => ({
           complianceOpen: true,
@@ -1085,7 +967,7 @@ export const useUI = create<UIState>()(
         }),
       primaryAction: () => {
         // For now just log the current step as requested
-        // eslint-disable-next-line no-console
+         
         console.log("Primary action on step:", get().step);
       },
       startSourcing: () => set(() => ({ isSourcing: true, step: "conversation" })),
@@ -1422,6 +1304,7 @@ export const useUI = create<UIState>()(
         const view = filtered.map(renewalToView);
         return view;
       },
+      setDashboardViewTime: (time) => set({ dashboardViewTime: time }),
     }),
     { name: "ui-store" }
   )

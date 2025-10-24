@@ -2,8 +2,7 @@
 
 import { LandingChatInput } from '@/components/Landing/LandingChatInput';
 import { useEffect } from 'react';
-import { useSafeTranslations } from '@/hooks/useSafeTranslations';
-import { useLocale } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { trackEvent } from '@/lib/analytics';
 import { pathForAgent } from '@/lib/routes/workspace';
 import Link from 'next/link';
@@ -11,7 +10,7 @@ import { Button } from '@/components/ui/button';
 
 export function LandingHero() {
   const bgVariant = process.env.NEXT_PUBLIC_HERO_BG === 'concept' ? 'concept' : 'wave';
-  const { t } = useSafeTranslations('landing.hero');
+  const t = useTranslations('landing.hero');
   const locale = useLocale();
 
   useEffect(() => {

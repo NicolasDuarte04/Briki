@@ -12,7 +12,6 @@ import {
   pathForAgent,
 } from '@/lib/routes/workspace';
 import type { Locale } from '@/lib/routes/workspace';
-import { LayoutDashboard, Briefcase, Users, User, Bot, BookOpen } from 'lucide-react';
 
 /**
  * Returns workspace navigation links for a given locale
@@ -23,42 +22,31 @@ export function getWorkspaceLinks(locale: Locale) {
     { 
       label: locale === 'es' ? 'Panel' : 'Dashboard',
       href: getDashboardHome(locale),
-      matchPath: '/dashboard', // For active state detection
-      icon: LayoutDashboard
+      matchPath: '/dashboard' // For active state detection
     },
     { 
       label: locale === 'es' ? 'Agente' : 'Agent',
       href: pathForAgent(locale),
-      matchPath: '/agent', // Matches /agent and /agent/<id>
-      icon: Bot
+      matchPath: '/agent' // Matches /agent and /agent/<id>
     },
     { 
       label: locale === 'es' ? 'Casos' : 'Cases',
       href: pathForCases(locale),
-      matchPath: '/workspace/cases', // Matches /workspace/cases and nested routes
-      icon: Briefcase
+      matchPath: '/workspace/cases' // Matches /workspace/cases and nested routes
     },
     { 
       label: locale === 'es' ? 'Clientes' : 'Clients',
       href: pathForClients(locale),
-      matchPath: '/workspace/clients', // Matches /workspace/clients and nested routes
-      icon: Users
+      matchPath: '/workspace/clients' // Matches /workspace/clients and nested routes
     },
     { 
       label: locale === 'es' ? 'Perfil' : 'Profile',
       href: getProfilePath(locale),
-      matchPath: '/profile',
-      icon: User
+      matchPath: '/profile'
     },
-    // --- NUEVA ENTRADA ---
-    { 
-      label: 'Recursos',
-      href: '/#how', // Apunta a sección de landing
-      matchPath: '/#how',
-      icon: BookOpen
-    }
   ];
 }
 
 // Legacy export for backward compatibility (defaults to Spanish)
 export const workspaceLinks = getWorkspaceLinks('es');
+

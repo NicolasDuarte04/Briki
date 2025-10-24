@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Shield } from 'lucide-react';
 import type { DecryptedClient } from '@/lib/clientsDb';
+import { useLocale } from 'next-intl';
+import { pathForClient, type Locale } from '@/lib/routes/workspace';
 
 interface ClientFormProps {
   orgId: string;
@@ -21,6 +23,7 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const locale = useLocale() as Locale;
   
   const isEditMode = !!client;
   
@@ -75,7 +78,7 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
       
       // Redirigir después de 2 segundos para que el usuario vea el mensaje
       setTimeout(() => {
-        router.push(`/workspace/clients/${clientId}`);
+        router.push(pathForClient(clientId, locale));
         router.refresh();
       }, 2000);
     } catch (err) {

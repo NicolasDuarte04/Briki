@@ -1,13 +1,13 @@
 "use client";
 
-import { useSafeTranslations } from "@/hooks/useSafeTranslations";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Layers, Monitor, Users, Building2, Check } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 export function LandingPricing() {
-  const { t } = useSafeTranslations("landing.pricing");
+  const t = useTranslations("landing.pricing");
   const [isAnnual, setIsAnnual] = useState(false);
 
   const plans = [
@@ -257,4 +257,3 @@ export function LandingPricing() {
     </section>
   );
 }
-

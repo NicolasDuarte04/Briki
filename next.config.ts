@@ -14,21 +14,18 @@ const nextConfig: NextConfig = {
     root: path.resolve(__dirname),
   },
   webpack: (config, { isServer }) => {
-    if (!isServer) {
-      // Handle chunk loading errors gracefully
-      config.output.chunkLoadingGlobal = 'webpackChunkBriki';
-      
-      // Ensure proper chunk naming
-      config.output.chunkFilename = 'static/chunks/[name].[contenthash].js';
+    // Only set pg-native alias for server
+    if (isServer) {
+      config.resolve.alias['pg-native'] = false;
     }
-    config.resolve.alias['pg-native'] = false
     return config;
   },
   // Disable strict mode to prevent double renders in development
   reactStrictMode: false,
   // Optimize CSS loading to inline critical font styles
+  // Disabled optimizeCss to prevent URL mangling that breaks background images
   experimental: {
-    optimizeCss: true,
+    // optimizeCss: true, // Commented out to prevent CSS URL mangling
   },
 };
 

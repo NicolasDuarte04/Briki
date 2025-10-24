@@ -196,3 +196,4 @@ export async function InboxServer({
   const items = await getInboxItems(userId, orgId);
   return <Inbox items={items} />;
 }
+

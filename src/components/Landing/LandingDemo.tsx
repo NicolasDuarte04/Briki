@@ -1,10 +1,10 @@
 'use client';
 
 import { VideoPlayer } from "@/components/ui/video-thumbnail-player";
-import { useSafeTranslations } from "@/hooks/useSafeTranslations";
+import { useTranslations } from "next-intl";
 
 export function LandingDemo() {
-  const { t } = useSafeTranslations('landing.demo');
+  const t = useTranslations('landing.demo');
 
   return (
     <section id="demo" className="py-32 px-6 sm:px-8 bg-white">

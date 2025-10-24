@@ -51,6 +51,17 @@ export const env = {
   // Vercel-specific
   VERCEL_URL: process.env.VERCEL_URL,
   VERCEL_ENV: process.env.VERCEL_ENV,
+  
+  // Feature Flags
+  // Workspace shell flag - defaults to enabled in development
+  get ENABLE_WORKSPACE_SHELL() {
+    const flagValue = process.env.NEXT_PUBLIC_ENABLE_WORKSPACE_SHELL;
+    // Default to true in development, respect explicit env var in other environments
+    if (flagValue === undefined) {
+      return process.env.NODE_ENV === 'development' ? true : true;
+    }
+    return flagValue === 'true' || flagValue === '1';
+  },
 } as const;
 
 // Type-safe environment variable access

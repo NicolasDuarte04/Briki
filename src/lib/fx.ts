@@ -76,7 +76,7 @@ export async function loadRenewals(): Promise<RenewalRecord[]> {
 // Mock implementation for sendViaEmail
 export async function sendViaEmail(payload: unknown): Promise<{ success: true }> {
   await sleep(DELAY_MS);
-  // eslint-disable-next-line no-console
+   
   console.log("Mock sending email with payload:", payload);
   return { success: true };
 }
@@ -84,7 +84,7 @@ export async function sendViaEmail(payload: unknown): Promise<{ success: true }>
 // Mock implementation for sendViaWhatsApp
 export async function sendViaWhatsApp(payload: unknown): Promise<{ success: true }> {
   await sleep(DELAY_MS);
-  // eslint-disable-next-line no-console
+   
   console.log("Mock sending WhatsApp with payload:", payload);
   return { success: true };
 }

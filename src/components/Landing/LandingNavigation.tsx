@@ -14,7 +14,6 @@ import Link from 'next/link';
 import { createBrowserSupabase } from '@/lib/supabase/client';
 import { signOut } from '@/app/[locale]/(auth)/actions';
 import { useLocale, useTranslations } from 'next-intl';
-import { useSafeTranslations } from '@/hooks/useSafeTranslations';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import { pathForCases, pathForClients, getProfilePath, pathForAgent } from '@/lib/routes/workspace';
@@ -27,7 +26,7 @@ export function LandingNavigation() {
   const locale = useLocale();
   const router = useRouter();
   const { user, status, ready } = useAuth();
-  const { t } = useSafeTranslations('nav');
+  const t = useTranslations('nav');
 
   // Close dropdown and clear profile name when user signs out
   useEffect(() => {
@@ -201,17 +200,17 @@ export function LandingNavigation() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem asChild>
-                <Link href={getProfilePath(locale as 'en' | 'es')} className="w-full cursor-pointer">
-                  {t('profile')}
-                </Link>
+              <Link href={getProfilePath(locale)} className="w-full cursor-pointer">
+                {t('profile')}
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href={pathForCases(locale as 'en' | 'es')} className="w-full cursor-pointer">
+              <Link href={pathForCases(locale)} className="w-full cursor-pointer">
                 {t('cases')}
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href={pathForClients(locale as 'en' | 'es')} className="w-full cursor-pointer">
+              <Link href={pathForClients(locale)} className="w-full cursor-pointer">
                 {t('clients')}
               </Link>
             </DropdownMenuItem>
@@ -237,7 +236,7 @@ export function LandingNavigation() {
           : "rounded-full px-4 py-1 h-8 text-sm bg-white/10 text-slate-50 hover:bg-white/20 border border-white/20"
         }
       >
-        <Link href={pathForAgent(locale as 'en' | 'es')}>
+        <Link href={pathForAgent(locale)}>
           {t('start')}
         </Link>
       </Button>

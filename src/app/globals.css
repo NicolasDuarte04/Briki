@@ -260,11 +260,6 @@
     font-variation-settings: "opsz" 72;
   }
 
-  /* Enhanced font weight for "IA" text to improve visibility against background */
-  .text-ia-bold {
-    font-weight: 600; /* Semi-bold weight to make thin strokes thicker but not too heavy */
-  }
-
   .landing-hero {
     background: url('/landing-background.jpg') center/cover no-repeat;
     background-size: cover;
@@ -326,6 +321,11 @@
   }
   .text-briki-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] via-[#0EA5E9] to-[#0284C7];
+  }
+
+  /* Enhanced font weight for "IA" text to improve visibility against background */
+  .text-ia-bold {
+    font-weight: 600; /* Semi-bold weight to make thin strokes thicker but not too heavy */
   }
 
   /* Loading screen animations */

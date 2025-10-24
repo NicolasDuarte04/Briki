@@ -5,19 +5,20 @@ import { useUI } from "@/lib/ui/state";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, ArrowDown, Search, Code2, Puzzle, Paperclip, Image as ImageIcon, ChevronDown, Loader2 } from "lucide-react";
+import { SendHorizonal, ArrowDown, Search, Code2, Puzzle, Paperclip, Image as ImageIcon, ChevronDown } from "lucide-react";
 import Message, { type MessageRole, type MessageAgentMeta } from "@/components/Chat/Message";
 import { useTranslations } from "next-intl";
 import { ProvenanceChip, type ProvenanceTag } from "@/components/Sourcing/ProvenanceChip";
-import { useClientValidation } from "@/hooks/useClientValidation";
-import { ChatMessage as BaseChatMessage } from "@/store/useChatStore";
 // Removemos el import que no funciona en el browser
 // import { processChatMessage } from "@/lib/database";
 
-// Tipo local que extiende ChatMessage para soportar React.ReactNode
-type ChatMessage = Omit<BaseChatMessage, 'content'> & {
-  content: string | React.ReactNode;
-};
+interface ChatMessage {
+  id?: string;
+  role: MessageRole;
+  content: React.ReactNode;
+  agent?: MessageAgentMeta;
+  isSeeded?: boolean;
+}
 
 const SOURCING_PROVENANCE: ProvenanceTag[] = ["API", "Portal", "PDF"];
 
@@ -31,30 +32,14 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const caseApproving = useUI((state) => state.caseApproving);
   const caseApproved = useUI((state) => state.caseApproved);
   const briefingCase = useUI((state) => state.briefingCase);
-  const isBriefValid = useUI((state) => state.isBriefValid);
-  // Usar estado global de mensajes
-  const messages = useUI((state) => state.messages);
-  const addMessage = useUI((state) => state.addMessage);
-  const setMessages = useUI((state) => state.setMessages);
-  // setValidateAndApproveClient removido para evitar bucles infinitos
-  
-  // Estado local para manejar la validación de clientes
-  const [isResolvingClient, setIsResolvingClient] = useState(false);
-  
-  // Estado local para indicador de análisis de OpenAI
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  
-  // Hook para validación de clientes (movido al nivel superior)
-  const { validateAndResolveClient } = useClientValidation();
-  
-  // Cache para evitar validaciones repetidas del mismo cliente
-  const [validatedClientCache, setValidatedClientCache] = useState<Map<string, string>>(new Map());
+  const currentCaseId = useUI((state) => state.currentCaseId);
   
   const sourcingTranslations = useTranslations("sourcing.status");
   const chatTranslations = useTranslations("chat");
 
-  // Chat state - ahora se usa el estado global de Zustand
-  // const [messages, setMessages] = useState<ChatMessage[]>([]); // ELIMINADO - usar estado global
+  // Chat state - comenzar vacío para agente real
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loadedThreadId, setLoadedThreadId] = useState<string | null>(null);
   const [value, setValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [showApprovalButton, setShowApprovalButton] = useState(false);
@@ -173,51 +158,52 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
   useEffect(() => {
     if (isSourcing && !prevIsSourcingRef.current) {
-      const currentMessages = messages;
-      const hasStatusMessage = currentMessages.some(
-        (message) => message.role === "assistant" && message.id === "sourcing-status"
-      );
-
-      if (hasStatusMessage) {
-        const updatedMessages = currentMessages.map((message) =>
-          message.id === "sourcing-status"
-            ? {
-                ...message,
-                content: (
-                  <SourcingStatusMessage
-                    body={sourcingStatusCopy.body}
-                    sources={SOURCING_PROVENANCE}
-                    sourcesLabel={sourcingStatusCopy.sourcesLabel}
-                    microSteps={sourcingStatusCopy.microSteps}
-                    microStepsLabel={sourcingStatusCopy.microStepsLabel}
-                  />
-                ),
-              }
-            : message
+      setMessages((prev) => {
+        const hasStatusMessage = prev.some(
+          (message) => message.role === "assistant" && message.id === "sourcing-status"
         );
-        setMessages(updatedMessages);
-      } else {
-        const newStatusMessage: ChatMessage = {
-          id: "sourcing-status",
-          role: "assistant",
-          content: (
-            <SourcingStatusMessage
-              body={sourcingStatusCopy.body}
-              sources={SOURCING_PROVENANCE}
-              sourcesLabel={sourcingStatusCopy.sourcesLabel}
-              microSteps={sourcingStatusCopy.microSteps}
-              microStepsLabel={sourcingStatusCopy.microStepsLabel}
-            />
-          ),
-          createdAt: Date.now(),
-          agent: { label: chatTranslations("agents.sourcing") },
-        };
-        addMessage(newStatusMessage);
-      }
+
+        if (hasStatusMessage) {
+          return prev.map((message) =>
+            message.id === "sourcing-status"
+              ? {
+                  ...message,
+                  content: (
+                    <SourcingStatusMessage
+                      body={sourcingStatusCopy.body}
+                      sources={SOURCING_PROVENANCE}
+                      sourcesLabel={sourcingStatusCopy.sourcesLabel}
+                      microSteps={sourcingStatusCopy.microSteps}
+                      microStepsLabel={sourcingStatusCopy.microStepsLabel}
+                    />
+                  ),
+                }
+              : message
+          );
+        }
+
+        return [
+          ...prev,
+          {
+            id: "sourcing-status",
+            role: "assistant",
+            content: (
+              <SourcingStatusMessage
+                body={sourcingStatusCopy.body}
+                sources={SOURCING_PROVENANCE}
+                sourcesLabel={sourcingStatusCopy.sourcesLabel}
+                microSteps={sourcingStatusCopy.microSteps}
+                microStepsLabel={sourcingStatusCopy.microStepsLabel}
+              />
+            ),
+            agent: { label: chatTranslations("agents.sourcing") },
+          },
+        ];
+      });
     }
 
     prevIsSourcingRef.current = isSourcing;
-  }, [chatTranslations, isSourcing, sourcingStatusCopy, messages, setMessages, addMessage]);
+  }, [chatTranslations, isSourcing, sourcingStatusCopy]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -333,17 +319,11 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     const nearBottom = container ? isNearBottom(container) : true;
     shouldStickToBottomRef.current = nearBottom;
     
-    const newUserMessage: ChatMessage = { 
-      id: `user-${Date.now()}`,
-      role: "user", 
-      content: trimmed,
-      createdAt: Date.now()
-    };
-    addMessage(newUserMessage);
+    const newUserMessage: ChatMessage = { role: "user", content: trimmed };
+    setMessages((prev) => [...prev, newUserMessage]);
     // Solo limpiar el input si no viene de parámetro
     if (!messageText) setValue("");
     setIsTyping(true);
-    setIsAnalyzing(true); // Iniciar indicador de análisis
 
     try {
       const currentCaseId = useUI.getState().currentCaseId;
@@ -361,173 +341,83 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       });
       
       if (!response.ok) {
-        // Manejo de error de API
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'API request failed');
+        throw new Error(`API Error: ${response.status}`);
       }
       
       const result = await response.json();
       
       const assistantResponse: ChatMessage = {
-        id: `assistant-${Date.now()}`,
         role: "assistant",
         content: result.response,
-        createdAt: Date.now(),
         agent: { label: chatTranslations("agents.sourcing") },
       };
-      addMessage(assistantResponse);
+      setMessages((prev) => [...prev, assistantResponse]);
+      setIsTyping(false);
       
       if (!isSourcing) {
         startSourcing();
       }
-    } catch (error: any) {
-      console.error("Error sending message or processing response:", error);
-      // Mostrar mensaje de error al usuario en el chat
+    } catch (error) {
+      console.error('Error processing message:', error);
+      // Fallback response en caso de error
       const errorResponse: ChatMessage = {
-        id: `error-${Date.now()}`,
         role: "assistant",
         content: "Disculpa, hubo un problema procesando tu mensaje. ¿Puedes intentar de nuevo?",
-        createdAt: Date.now(),
         agent: { label: chatTranslations("agents.sourcing") },
       };
-      addMessage(errorResponse);
-    } finally {
-      setIsAnalyzing(false); // Detener indicador de análisis
+      setMessages((prev) => [...prev, errorResponse]);
       setIsTyping(false);
     }
   }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value]);
 
-  // Efecto para el mensaje inicial - MOSTRAR RESPUESTA ESTÁTICA
+  // Effect to load/reset messages when thread changes
+  useEffect(() => {
+    if (currentCaseId !== loadedThreadId) {
+      // Thread has changed - reset messages for now
+      // TODO: In the future, load messages from database for this thread
+      setMessages([]);
+      setLoadedThreadId(currentCaseId);
+      
+      // If there's a new thread, could show a welcome message
+      if (currentCaseId) {
+        const welcomeMessage: ChatMessage = {
+          role: "assistant",
+          content: "Hola, estoy aquí para ayudarte con este caso. ¿En qué puedo asistirte?",
+          agent: { label: chatTranslations("agents.sourcing") },
+          id: `welcome-${currentCaseId}`
+        };
+        setMessages([welcomeMessage]);
+      }
+    }
+  }, [currentCaseId, loadedThreadId, chatTranslations]);
+
+  // Efecto para el mensaje inicial
   useEffect(() => {
     if (initialMessage && initialMessage.trim() !== '') {
-      const userMessage: ChatMessage = { 
-        role: "user", 
-        content: initialMessage, 
-        id: `initial-user-${Date.now()}`,
-        createdAt: Date.now()
-      };
+      const userMessage: ChatMessage = { role: "user", content: initialMessage, id: Date.now().toString() };
       const agentResponse: ChatMessage = {
         role: "assistant",
         content: "Estoy analizando tu solicitud, pero para darte la mejor recomendación, por favor completa los detalles (Que tengas a disposicion) del caso en el formulario del panel derecho.",
         agent: { label: "Sourcing" },
-        id: `initial-agent-${Date.now()}`,
-        createdAt: Date.now()
+        id: (Date.now() + 1).toString()
       };
-      setMessages([userMessage, agentResponse]);
+      setMessages(prev => [...prev, userMessage, agentResponse]);
       clearInitialMessage();
     }
   }, [initialMessage, clearInitialMessage, setMessages]);
 
   // Efecto para mostrar el botón de aprobación
   useEffect(() => {
-    // Usar la validación unificada del brief
-    if (isBriefValid()) {
+    // Define aquí los campos mínimos para considerar el brief "completo"
+    const isBriefComplete = brief.businessType && brief.coverage;
+    if (isBriefComplete) {
       setShowApprovalButton(true);
     }
-  }, [brief, isBriefValid]);
+  }, [brief]);
 
-  // Función optimizada de validación de clientes con cache
-  const validateClientWithCache = async (): Promise<string | null> => {
-    const { clientName, selectedClientId } = brief;
-    
-    // Si ya hay un ID seleccionado, usarlo
-    if (selectedClientId) {
-      return selectedClientId;
-    }
-    
-    // Si no hay nombre de cliente, no validar
-    if (!clientName || clientName.trim() === '') {
-      return null;
-    }
-    
-    const clientNameKey = clientName.trim().toLowerCase();
-    
-    // Verificar cache primero
-    if (validatedClientCache.has(clientNameKey)) {
-      const cachedClientId = validatedClientCache.get(clientNameKey)!;
-      console.log('✅ Usando cliente del cache:', clientNameKey, '->', cachedClientId);
-      return cachedClientId;
-    }
-    
-    // Si no está en cache, validar usando el hook
-    try {
-      const clientId = await validateAndResolveClient(clientName);
-      
-      // Guardar en cache si se obtuvo un ID
-      if (clientId) {
-        setValidatedClientCache(prev => new Map(prev).set(clientNameKey, clientId));
-        console.log('✅ Cliente validado y guardado en cache:', clientNameKey, '->', clientId);
-      }
-      
-      return clientId;
-    } catch (error: any) {
-      console.error('Error en validación de cliente:', error);
-      throw error;
-    }
+  const handleApprove = async () => {
+    await approveCurrentCase();
   };
-
-  // Función de orquestación que maneja la validación y creación de clientes
-  const handleApprovalOrchestration = async () => {
-    setIsResolvingClient(true);
-    try {
-      // Paso 1: Validar y resolver cliente (con cache)
-      const clientId = await validateClientWithCache();
-      
-      // Paso 2: Si la validación es exitosa, aprobar el caso con el clientId
-      const success = await approveCurrentCase(clientId);
-      
-      if (!success) {
-        // El error ya se maneja en approveCurrentCase
-        return;
-      }
-      
-      // El envío automático del mensaje se maneja en approveCurrentCase
-      
-    } catch (error: any) {
-      console.error('Error en orquestación de aprobación:', error);
-      
-      // Manejar errores específicos del hook de validación
-      if (error.message === "CLIENT_CREATION_CANCELLED") {
-        // Usuario canceló la creación del cliente
-        console.log('Usuario canceló la creación del cliente');
-        // No hacer nada, el usuario puede intentar de nuevo
-      } else if (error.message === "CLIENT_CREATION_FAILED") {
-        // Error al crear el cliente
-        console.error('Error al crear el cliente');
-        // Aquí podrías mostrar un mensaje de error al usuario
-      } else {
-        // Otros errores
-        console.error('Error inesperado:', error);
-      }
-    } finally {
-      setIsResolvingClient(false);
-    }
-  };
-
-  // Función pública para validación de clientes (para usar desde otros componentes)
-  const validateAndApproveClient = async (): Promise<boolean> => {
-    try {
-      const clientId = await validateClientWithCache();
-      const success = await approveCurrentCase(clientId);
-      return success;
-    } catch (error: any) {
-      console.error('Error en validación y aprobación de cliente:', error);
-      
-      if (error.message === "CLIENT_CREATION_CANCELLED") {
-        console.log('Usuario canceló la creación del cliente');
-        return false;
-      } else if (error.message === "CLIENT_CREATION_FAILED") {
-        console.error('Error al crear el cliente');
-        return false;
-      } else {
-        console.error('Error inesperado:', error);
-        return false;
-      }
-    }
-  };
-
-  // La función validateAndApproveClient está disponible para uso interno
-  // No necesitamos registrarla en el store para evitar bucles infinitos
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -546,7 +436,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   }
 
   return (
-    <div className={cn("h-full flex flex-col", className)}>
+    <div className={cn("h-full flex flex-col overflow-hidden", className)}>
       <div className="relative flex-1 flex flex-col">
         <div
           ref={scrollContainerRef}
@@ -585,18 +475,13 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
                     <Message
                       role={m.role}
                       content={m.content}
-                      {...(m.agent && m.agent.label ? { 
-                        agent: { 
-                          label: m.agent.label, 
-                          ...(m.agent.tag ? { tag: m.agent.tag } : {})
-                        } 
-                      } : {})}
+                      {...(m.agent ? { agent: m.agent } : {})}
                       ref={isLast ? lastMessageRef : undefined}
                       {...(messageTabIndex !== undefined ? { tabIndex: messageTabIndex } : {})}
                       isGroupStart={isGroupStart}
                       isGroupEnd={isGroupEnd}
                       timestamp={displayTimestamp}
-                      onApprove={handleApprovalOrchestration}
+                      onApprove={handleApprove}
                     />
                   </div>
                 </div>
@@ -766,14 +651,6 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           {chatTranslations("composer.emptyHelper")}
         </div>
 
-        {/* Indicador de análisis de OpenAI */}
-        {isAnalyzing && (
-          <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Analizando documentos con IA, por favor espera...
-          </div>
-        )}
-
         {/* Botón de aprobación */}
         {!caseApproved && showApprovalButton && (
           <div className="px-4 py-2">
@@ -781,8 +658,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
               <p className="text-sm text-secondary-foreground mb-3">
                 El brief del caso está listo. ¿Deseas que proceda con el análisis?
               </p>
-              <Button onClick={handleApprovalOrchestration} className="w-full" disabled={isTyping || caseApproving || isResolvingClient}>
-                {isResolvingClient ? 'Validando cliente...' : caseApproving ? 'Aprobando...' : 'Aprobar y Continuar Análisis'}
+              <Button onClick={handleApprove} className="w-full" disabled={isTyping || caseApproving}>
+                {caseApproving ? 'Aprobando...' : 'Aprobar y Continuar Análisis'}
               </Button>
             </div>
           </div>

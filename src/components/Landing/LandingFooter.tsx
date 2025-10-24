@@ -1,10 +1,10 @@
 'use client';
 import React from 'react';
 import type { ComponentProps, ReactNode } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'motion/react';
 import { InstagramIcon, LinkedinIcon, YoutubeIcon, MailIcon } from 'lucide-react';
 import Image from 'next/image';
-import { useSafeTranslations } from '@/hooks/useSafeTranslations';
+import { useTranslations } from 'next-intl';
 
 interface FooterLink {
 	title: string;
@@ -18,7 +18,7 @@ interface FooterSection {
 }
 
 export function LandingFooter() {
-    const { t } = useSafeTranslations('footer');
+    const t = useTranslations('footer');
 
     const footerLinks: FooterSection[] = [
         {
@@ -58,6 +58,7 @@ export function LandingFooter() {
             ],
         },
     ];
+
 	return (
 		<footer className="md:rounded-t-6xl relative w-full flex flex-col items-center justify-center rounded-t-4xl border-t bg-white px-6 pt-12 pb-32 lg:pt-16 lg:pb-40">
 			<div className="bg-foreground/20 absolute top-0 right-1/2 left-1/2 h-px w-1/3 -translate-x-1/2 -translate-y-1/2 rounded-full blur" />
@@ -113,7 +114,7 @@ export function LandingFooter() {
 
 type ViewAnimationProps = {
 	delay?: number;
-	className?: string;
+	className?: ComponentProps<typeof motion.div>['className'];
 	children: ReactNode;
 };
 
@@ -125,16 +126,15 @@ function AnimatedContainer({ className, delay = 0.1, children }: ViewAnimationPr
 	}
 
 	return (
-		<div className={className}>
-			<motion.div
-				initial={{ filter: 'blur(4px)', translateY: -8, opacity: 0 }}
-				whileInView={{ filter: 'blur(0px)', translateY: 0, opacity: 1 }}
-				viewport={{ once: true }}
-				transition={{ delay, duration: 0.8 }}
-			>
-				{children}
-			</motion.div>
-		</div>
+		<motion.div
+			initial={{ filter: 'blur(4px)', translateY: -8, opacity: 0 }}
+			whileInView={{ filter: 'blur(0px)', translateY: 0, opacity: 1 }}
+			viewport={{ once: true }}
+			transition={{ delay, duration: 0.8 }}
+			className={className}
+		>
+			{children}
+		</motion.div>
 	);
 }
 

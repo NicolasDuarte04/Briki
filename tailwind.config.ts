@@ -90,6 +90,13 @@ const config: Config = {
           "Arial",
           "sans-serif",
         ],
+        display: [
+          "var(--font-dm-sans)",
+          "var(--font-inter)",
+          "system-ui",
+          "-apple-system",
+          "sans-serif",
+        ],
         mono: [
           "var(--font-geist-mono)",
           "ui-monospace",
@@ -98,6 +105,14 @@ const config: Config = {
           "Liberation Mono",
           "Menlo",
           "monospace",
+        ],
+        serif: [
+          "var(--font-newsreader)",
+          "ui-serif",
+          "Georgia",
+          "Cambria",
+          "Times New Roman",
+          "serif",
         ],
       },
       borderRadius: {

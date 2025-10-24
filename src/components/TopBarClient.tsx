@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -20,33 +19,11 @@ interface TopBarClientProps {
 }
 
 export function TopBarClient({ locale, isAuthenticated, userInitials }: TopBarClientProps) {
-  const tLocale = useTranslations("nav.locale");
   const tAuthNav = useTranslations("auth.nav");
   const tTopbar = useTranslations("topbar");
-  const [currentLocale, setCurrentLocale] = useState(locale);
-
-  const nextLanguageLabel = currentLocale === "en" ? tLocale("spanish") : tLocale("english");
-
-  const toggleLocale = () => {
-    const newLocale = currentLocale === "en" ? "es" : "en";
-    setCurrentLocale(newLocale);
-    window.location.href = `/${newLocale}`;
-  };
 
   return (
     <div className="flex items-center gap-3">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={toggleLocale}
-        aria-label={tLocale("toggle", { language: nextLanguageLabel })}
-        title={tLocale("toggle", { language: nextLanguageLabel })}
-        className="h-8 px-2"
-        data-print="hide"
-      >
-        {currentLocale.toUpperCase()}
-      </Button>
       {isAuthenticated ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

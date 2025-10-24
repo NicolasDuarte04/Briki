@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Main soft sky radial -->
+    <radialGradient id="sky" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(800 380) rotate(90) scale(620 900)">
+      <stop offset="0%" stop-color="#EAF6FF"/>
+      <stop offset="45%" stop-color="#F7FBFF"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </radialGradient>
+    <!-- Gentle teal aura behind hero/chat -->
+    <radialGradient id="tealGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(800 560) rotate(90) scale(320 520)">
+      <stop offset="0%" stop-color="#D9F5F1" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#D9F5F1" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Very subtle brand tint from top -->
+    <linearGradient id="topWash" x1="800" y1="0" x2="800" y2="1000" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#EEF6FF" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#EEF6FF" stop-opacity="0"/>
+    </linearGradient>
+    <!-- Noise filter -->
+    <filter id="noise" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" type="saturate" values="0"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.030"/>
+      </feComponentTransfer>
+    </filter>
+  </defs>
+  <!-- layers -->
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <rect width="1600" height="1000" fill="url(#topWash)"/>
+  <ellipse cx="800" cy="560" rx="640" ry="360" fill="url(#tealGlow)"/>
+  <!-- soft vignette mask to keep center bright -->
+  <defs>
+    <radialGradient id="vignette" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse"
+      gradientTransform="translate(800 450) rotate(90) scale(700 1000)">
+      <stop offset="70%" stop-color="#00000000"/>
+      <stop offset="100%" stop-color="#0000000D"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#vignette)"/>
+  <!-- noise overlay -->
+  <rect width="1600" height="1000" filter="url(#noise)" opacity="0.15"/>
+</svg>

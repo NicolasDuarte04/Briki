@@ -1,27 +1,45 @@
 "use client";
 
-import { SidebarLink } from "@/components/ui/sidebar";
+import { SidebarLink, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Home, Briefcase, Users, User, Bot, Book } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useUI } from "@/lib/ui/state";
 import { getWorkspaceLinks } from "@/config/navigation";
-import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { useLocale } from "next-intl";
+import { usePathname } from "next/navigation";
 import type { Locale } from "@/lib/routes/workspace";
+
+const iconMap = {
+  'Panel': <Home className="h-4 w-4 shrink-0" />,
+  'Dashboard': <Home className="h-4 w-4 shrink-0" />,
+  'Agent': <Bot className="h-4 w-4 shrink-0" />,
+  'Agente': <Bot className="h-4 w-4 shrink-0" />,
+  'Casos': <Briefcase className="h-4 w-4 shrink-0" />,
+  'Cases': <Briefcase className="h-4 w-4 shrink-0" />,
+  'Clientes': <Users className="h-4 w-4 shrink-0" />,
+  'Clients': <Users className="h-4 w-4 shrink-0" />,
+  'Perfil': <User className="h-4 w-4 shrink-0" />,
+  'Profile': <User className="h-4 w-4 shrink-0" />,
+};
 
 export default function SidebarNav() {
   const { setStep, openChatPanel } = useUI();
-  const pathname = usePathname();
+  const { open, animate } = useSidebar();
   const locale = useLocale() as Locale;
+  const pathname = usePathname();
 
   const handleLogoClick = () => {
     setStep("landing");
   };
 
-  // Get locale-aware links with icons
-  const links = getWorkspaceLinks(locale);
+  // Get locale-aware links
+  const links = getWorkspaceLinks(locale).map(link => ({
+    ...link,
+    icon: iconMap[link.label as keyof typeof iconMap]
+  }));
 
   // Check if a link is active based on the current pathname
   const isLinkActive = (link: typeof links[0]) => {
@@ -71,9 +89,18 @@ export default function SidebarNav() {
             variant="outline"
             size="sm"
             className="w-full justify-start gap-2"
+            aria-label="Open chat panel"
           >
-            <MessageCircle className="h-4 w-4" />
-            <span>Chat</span>
+            <MessageCircle className="h-4 w-4 shrink-0" />
+            <motion.span
+              animate={{
+                display: animate ? (open ? "inline-block" : "none") : "inline-block",
+                opacity: animate ? (open ? 1 : 0) : 1,
+              }}
+              className="text-sm whitespace-pre inline-block !p-0 !m-0"
+            >
+              Chat
+            </motion.span>
           </Button>
         </div>
         
@@ -85,6 +112,23 @@ export default function SidebarNav() {
               isActive={isLinkActive(link)}
             />
           ))}
+          {/* Recursos button */}
+          <Link
+            href={`/${locale}?landing=1`}
+            className="flex items-center justify-start gap-2 group/sidebar py-2 px-2 rounded-md text-sidebar-foreground hover:bg-sidebar-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring transition-colors duration-150"
+            aria-label="Recursos"
+          >
+            <Book className="h-4 w-4 shrink-0" />
+            <motion.span
+              animate={{
+                display: animate ? (open ? "inline-block" : "none") : "inline-block",
+                opacity: animate ? (open ? 1 : 0) : 1,
+              }}
+              className="text-sm whitespace-pre inline-block !p-0 !m-0"
+            >
+              Recursos
+            </motion.span>
+          </Link>
         </div>
       </div>
       <div />

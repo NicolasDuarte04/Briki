@@ -51,4 +51,3 @@ const Switch = ({ children, className, ...props }: AriaSwitchProps) => (
 )
 
 export { Switch }
-

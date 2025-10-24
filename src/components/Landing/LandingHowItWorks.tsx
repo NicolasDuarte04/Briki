@@ -2,10 +2,10 @@
 
 import { Upload, Search, Send } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { useSafeTranslations } from '@/hooks/useSafeTranslations';
+import { useTranslations } from 'next-intl';
 
 export function LandingHowItWorks() {
-  const { t, tRaw } = useSafeTranslations('landing.howItWorks');
+  const t = useTranslations('landing.howItWorks');
   const stepKeys = ['upload', 'analyze', 'propose'] as const;
 
   return (
@@ -18,8 +18,8 @@ export function LandingHowItWorks() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {stepKeys.map((key, index) => {
-            const Icon = [Upload, Search, Send][index] as React.ComponentType<any>;
-            const bullets = tRaw(`steps.${key}.bullets`, []) as string[];
+            const Icon = [Upload, Search, Send][index];
+            const bullets = t.raw(`steps.${key}.bullets`) as string[];
 
             return (
               <Card
@@ -28,9 +28,9 @@ export function LandingHowItWorks() {
               >
                 <div className="mb-6">
                   <div
-                    className="w-12 h-12 rounded-xl flex items-center justify-center bg-[var(--briki-primary)]/10"
+                    className="w-12 h-12 rounded-xl flex items-center justify-center bg-[var(--briki-surface-alt)]"
                   >
-                    <Icon className="w-6 h-6 text-[var(--briki-primary)]" />
+                    <Icon className="w-6 h-6 text-[var(--briki-text)]" />
                   </div>
                 </div>
                 <h3
@@ -39,7 +39,7 @@ export function LandingHowItWorks() {
                   {t(`steps.${key}.title`)}
                 </h3>
                 <ul className="space-y-2">
-                  {bullets.map((bullet: string, bulletIndex: number) => (
+                  {bullets.map((bullet, bulletIndex) => (
                     <li
                       key={bulletIndex}
                       className="text-body text-[var(--briki-text-muted)] font-smooth"

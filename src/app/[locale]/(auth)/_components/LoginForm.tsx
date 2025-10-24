@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, type FormEvent, useEffect } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { login } from "../actions";
 
-export default function LoginForm() {
+export default function LoginForm({ next }: { next: string }) {
+  const params = useParams();
+  const locale = typeof params.locale === "string" ? params.locale : "en";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -17,19 +20,6 @@ export default function LoginForm() {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [nextUrl, setNextUrl] = useState<string | null>(null);
-
-  // Read the 'next' query parameter on mount
-  useEffect(() => {
-    // Check if we're in the browser environment
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const next = params.get('next');
-      if (next) {
-        setNextUrl(next);
-      }
-    }
-  }, []);
 
   // Validation functions
   const validateEmail = (value: string): string | null => {
@@ -77,10 +67,9 @@ export default function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-[440px] space-y-6">
       {/* Hidden field for next URL */}
-      {nextUrl && (
-        <input type="hidden" name="next" value={nextUrl} />
-      )}
-      
+      <input type="hidden" name="next" value={next} />
+      <input type="hidden" name="locale" value={locale} />
+
       <div className="space-y-8">
         {/* Email Field */}
         <div className="space-y-2">
@@ -178,14 +167,14 @@ export default function LoginForm() {
       {/* Links */}
       <div className="flex items-center justify-center gap-3 text-sm">
         <Link
-          href="/forgot-password"
+          href={`/${locale}/forgot-password`}
           className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           Forgot password
         </Link>
         <span className="text-muted-foreground">|</span>
         <Link
-          href="/register"
+          href={`/${locale}/register`}
           className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
           Create account

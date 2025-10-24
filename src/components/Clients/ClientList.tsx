@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Search, Users } from 'lucide-react';
 import type { DecryptedClient } from '@/lib/clientsDb';
+import { pathForNewEntity } from '@/lib/routes/workspace';
 
 interface ClientListProps {
   clients: DecryptedClient[];
   orgId: string;
+  locale: string;
 }
 
-export function ClientList({ clients, orgId }: ClientListProps) {
+export function ClientList({ clients, orgId, locale }: ClientListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filtrar clientes por término de búsqueda
@@ -64,7 +66,7 @@ export function ClientList({ clients, orgId }: ClientListProps) {
           </p>
           {!searchTerm && (
             <Button asChild className="mt-4">
-              <Link href="/workspace/clients/new">
+              <Link href={pathForNewEntity('client', locale)}>
                 Crear Primer Cliente
               </Link>
             </Button>

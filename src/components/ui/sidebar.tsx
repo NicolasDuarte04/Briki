@@ -8,7 +8,7 @@ import Link from "next/link";
 interface Links {
   label: string;
   href: string;
-  icon?: React.ComponentType<{ className?: string }>;
+  icon?: React.JSX.Element | React.ReactNode;
   matchPath?: string; // For active state detection
 }
 
@@ -81,18 +81,18 @@ export const Sidebar = ({
   );
 };
 
-type SidebarBodyProps = {
+type SidebarBodyProps = Omit<React.ComponentProps<typeof motion.div>, "children"> & {
   children: React.ReactNode;
-  className?: string | undefined;
 };
 
 export const SidebarBody = ({
   children,
   className,
+  ...rest
 }: SidebarBodyProps) => {
   return (
     <>
-      <DesktopSidebar className={className}>
+      <DesktopSidebar className={className} {...rest}>
         {children}
       </DesktopSidebar>
       <MobileSidebar className={className}>{children}</MobileSidebar>
@@ -103,45 +103,25 @@ export const SidebarBody = ({
 export const DesktopSidebar = ({
   className,
   children,
-}: {
-  className?: string | undefined;
-  children: React.ReactNode;
-}) => {
+  ...props
+}: React.ComponentProps<typeof motion.div>) => {
   const { open, setOpen, animate, disableAutoCollapse } = useSidebar();
   return (
     <>
-      <div 
+      <motion.div
         className={cn(
-          "h-full hidden md:flex md:flex-col bg-sidebar border-r border-sidebar-border shrink-0 transition-all duration-200 ease-in-out",
-          open ? "w-[280px]" : "w-[72px]",
+          "h-full px-4 py-4 hidden md:flex md:flex-col bg-sidebar border-r border-sidebar-border w-[280px] shrink-0",
           className
         )}
-        onMouseEnter={() => {
-          if (!disableAutoCollapse) {
-            setOpen(true);
-          }
+        animate={{
+          width: animate ? (open ? "280px" : "72px") : "280px",
         }}
-        onMouseLeave={() => {
-          if (!disableAutoCollapse) {
-            setOpen(false);
-          }
-        }}
+        onMouseEnter={!disableAutoCollapse ? () => setOpen(true) : undefined}
+        onMouseLeave={!disableAutoCollapse ? () => setOpen(false) : undefined}
+        {...props}
       >
-        <div className="px-4 py-4 h-full">
-          <div className="h-full w-full">
-            <motion.div
-              animate={{
-                width: animate ? (open ? "100%" : "100%") : "100%",
-              }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-            >
-              <div className="h-full w-full">
-                {children}
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </div>
+        {children}
+      </motion.div>
     </>
   );
 };
@@ -149,10 +129,8 @@ export const DesktopSidebar = ({
 export const MobileSidebar = ({
   className,
   children,
-}: {
-  className?: string | undefined;
-  children: React.ReactNode;
-}) => {
+  ...props
+}: React.ComponentProps<"div">) => {
   const { open, setOpen } = useSidebar();
   return (
     <>
@@ -160,6 +138,7 @@ export const MobileSidebar = ({
         className={cn(
           "h-10 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-sidebar border-b border-sidebar-border w-full"
         )}
+        {...props}
       >
         <div className="flex justify-end z-20 w-full">
           <button
@@ -172,31 +151,28 @@ export const MobileSidebar = ({
         </div>
         <AnimatePresence>
           {open && (
-            <div className={cn(
-              "fixed h-full w-full inset-0 bg-sidebar p-10 z-[100] flex flex-col justify-between",
-              className
-            )}>
-              <motion.div
-                initial={{ x: "-100%", opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                exit={{ x: "-100%", opacity: 0 }}
-                transition={{
-                  duration: 0.3,
-                  ease: "easeInOut",
-                }}
+            <motion.div
+              initial={{ x: "-100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "-100%", opacity: 0 }}
+              transition={{
+                duration: 0.3,
+                ease: "easeInOut",
+              }}
+              className={cn(
+                "fixed h-full w-full inset-0 bg-sidebar p-10 z-[100] flex flex-col justify-between",
+                className
+              )}
+            >
+              <button
+                className="absolute right-10 top-10 z-50 text-neutral-800 p-2 -m-2"
+                onClick={() => setOpen(!open)}
+                aria-label="Close sidebar menu"
               >
-                <div className="h-full w-full flex flex-col justify-between">
-                  <button
-                    className="absolute right-10 top-10 z-50 text-neutral-800 p-2 -m-2"
-                    onClick={() => setOpen(!open)}
-                    aria-label="Close sidebar menu"
-                  >
-                    <IconX aria-hidden="true" />
-                  </button>
-                  {children}
-                </div>
-              </motion.div>
-            </div>
+                <IconX aria-hidden="true" />
+              </button>
+              {children}
+            </motion.div>
           )}
         </AnimatePresence>
       </div>
@@ -229,18 +205,17 @@ export const SidebarLink = ({
       aria-label={link.label}
       {...props}
     >
-      {link.icon ? React.createElement(link.icon, { className: "h-4 w-4" }) : null}
+      {link.icon ? link.icon : null}
 
-      <span className="text-sm whitespace-pre inline-block !p-0 !m-0">
-        <motion.span
-          animate={{
-            display: animate ? (open ? "inline-block" : "none") : "inline-block",
-            opacity: animate ? (open ? 1 : 0) : 1,
-          }}
-        >
-          {link.label}
-        </motion.span>
-      </span>
+      <motion.span
+        animate={{
+          display: animate ? (open ? "inline-block" : "none") : "inline-block",
+          opacity: animate ? (open ? 1 : 0) : 1,
+        }}
+        className="text-sm whitespace-pre inline-block !p-0 !m-0"
+      >
+        {link.label}
+      </motion.span>
     </Link>
   );
 };

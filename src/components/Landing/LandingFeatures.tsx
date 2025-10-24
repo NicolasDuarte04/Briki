@@ -2,10 +2,10 @@
 
 import { Sparkles, BarChart3, FileText } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { useSafeTranslations } from '@/hooks/useSafeTranslations';
+import { useTranslations } from 'next-intl';
 
 export function LandingFeatures() {
-  const { t, tRaw } = useSafeTranslations('landing.features');
+  const t = useTranslations('landing.features');
   const featureKeys = ['extraction', 'comparisons', 'outputs'] as const;
 
   return (
@@ -18,8 +18,8 @@ export function LandingFeatures() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {featureKeys.map((key, index) => {
-            const Icon = [Sparkles, BarChart3, FileText][index] as React.ComponentType<any>;
-            const bullets = tRaw(`items.${key}.bullets`, []) as string[];
+            const Icon = [Sparkles, BarChart3, FileText][index];
+            const bullets = t.raw(`items.${key}.bullets`) as string[];
 
             return (
               <Card
@@ -39,10 +39,10 @@ export function LandingFeatures() {
                   {t(`items.${key}.title`)}
                 </h3>
                 <ul className="space-y-2">
-                  {bullets.map((bullet: string, bulletIndex: number) => (
+                  {bullets.map((bullet, bulletIndex) => (
                     <li
                       key={bulletIndex}
-                      className="text-body text-[var(--briki-text-muted)] font-smooth"
+                      className="text-body text-[var(--bri-text-muted)] font-smooth"
                     >
                       • {bullet}
                     </li>

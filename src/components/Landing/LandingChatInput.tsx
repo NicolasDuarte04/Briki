@@ -7,9 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { createBrowserSupabase } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
-import { pathForAgent } from "@/lib/routes/workspace";
-import { useLocale } from "next-intl";
-import { useRouter } from "next/navigation";
 
 // Función para tracking de eventos (analytics)
 const trackEvent = (eventName: string, properties?: Record<string, any>) => {
@@ -58,8 +55,6 @@ const useAutoResizeTextarea = ({ minHeight, maxHeight }: { minHeight: number; ma
 export function LandingChatInput() {
     const [value, setValue] = useState("");
     const [user, setUser] = useState<User | null>(null);
-    const locale = useLocale();
-    const router = useRouter();
     
         // FUSIÓN CRÍTICA: Agregar setInitialMessage que faltaba
     const { setStep, setInitialMessage, setBrief } = useUI();
@@ -152,7 +147,7 @@ export function LandingChatInput() {
         // La verificación de autenticación es crucial.
         if (!user) {
             console.error('❌ User not authenticated');
-            router.push('/login'); // Navegación del lado del cliente
+            window.location.href = '/login'; // O mostrar un modal de login.
             return;
         }
         
@@ -215,10 +210,6 @@ export function LandingChatInput() {
         setBrief({ freeText: message });
         // Navega directamente a la vista de conversación del agente.
         setStep("conversation");
-        
-        // Navegar a la página del agente usando router del cliente
-        console.log('🚀 Navigating to agent page...');
-        router.push(pathForAgent(locale as 'en' | 'es'));
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -346,7 +337,6 @@ export function LandingChatInput() {
                             icon={<ImageIcon className="w-3.5 h-3.5" />}
                             label="Import WhatsApp"
                             user={user}
-                            router={router}
                             onAuthenticatedClick={() => {
                                 const { startBriefing } = useUI.getState();
                                 startBriefing("Importar chat de WhatsApp");
@@ -358,7 +348,6 @@ export function LandingChatInput() {
                             icon={<MonitorIcon className="w-3.5 h-3.5" />}
                             label="Connect carriers"
                             user={user}
-                            router={router}
                             onAuthenticatedClick={() => {
                                 const { startBriefing } = useUI.getState();
                                 startBriefing("Conectar con aseguradoras");
@@ -403,14 +392,13 @@ interface ActionButtonProps {
     label: string;
     user: User | null;
     onAuthenticatedClick: () => void;
-    router: any;
 }
 
-function ActionButton({ icon, label, user, onAuthenticatedClick, router }: ActionButtonProps) {
+function ActionButton({ icon, label, user, onAuthenticatedClick }: ActionButtonProps) {
     const handleClick = () => {
         // Check if user is authenticated
         if (!user) {
-            router.push('/login');
+            window.location.href = '/login';
             return;
         }
         

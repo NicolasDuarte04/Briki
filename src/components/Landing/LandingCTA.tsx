@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useSafeTranslations } from '@/hooks/useSafeTranslations';
+import { useTranslations } from 'next-intl';
 
 export function LandingCTA() {
-  const { t } = useSafeTranslations('landing.contactCta');
+  const t = useTranslations('landing.cta');
   const [formData, setFormData] = useState({
     name: '',
     email: '',

@@ -2,9 +2,10 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { BriefForm, CaseBriefData } from '@/components/Cases/BriefForm';
 import { ArrowLeft } from 'lucide-react';
+import { pathForCases, pathForCase, parseLocaleFromPath, type Locale } from '@/lib/routes/workspace';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useUI } from '@/lib/ui/state';
@@ -13,6 +14,8 @@ export default function NewCasePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
+  const locale = parseLocaleFromPath(pathname);
   const { setStep } = useUI();
 
   const handleCreateCase = async (data: CaseBriefData) => {
@@ -56,7 +59,7 @@ export default function NewCasePage() {
       const result = await response.json();
       
       // Redirigir al caso creado
-      router.push(`/workspace/cases/${result.id}`);
+      router.push(pathForCase(result.id, locale));
     } catch (err) {
       console.error('Error creating case:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido al crear el caso');
@@ -69,7 +72,7 @@ export default function NewCasePage() {
     <div className="container mx-auto py-8 px-4 max-w-6xl">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <Link href="/workspace/cases">
+        <Link href={pathForCases(locale)}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>

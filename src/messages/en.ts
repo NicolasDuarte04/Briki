@@ -1,20 +1,4 @@
 const en = {
-  nav: {
-    features: "Features",
-    demo: "Demo",
-    pricing: "Pricing",
-    start: "Get Started",
-    profile: "Profile",
-    cases: "Cases",
-    clients: "Clients",
-    signOut: "Sign Out",
-    login: "Login",
-    locale: {
-      toggle: "Switch language to {language}",
-      english: "English",
-      spanish: "Spanish",
-    },
-  },
   validation: {
     required: "Required field.",
     invalidDate: "Enter a valid date.",
@@ -47,8 +31,8 @@ const en = {
       brand: "Briki",
       cta: "Start a conversation",
       heading: "Your AI Insurance Agent",
-      subhead: "Briki gives brokers their time back. And their edge.",
-      primaryCta: "Get started",
+      primaryCta: "Try the demo",
+      secondaryCta: "View pricing",
       video: {
         title: "See Briki in action",
         description: "Watch how Briki transforms your workflow",
@@ -69,14 +53,92 @@ const en = {
         },
       },
     },
+    howItWorks: {
+      heading: "How it works",
+      steps: {
+        upload: {
+          title: "Upload",
+          bullets: ["Policy PDF or WhatsApp chat", "Spanish/English"],
+        },
+        analyze: {
+          title: "Analyze",
+          bullets: ["Extract clauses & exclusions", "Compare carriers"],
+        },
+        propose: {
+          title: "Propose",
+          bullets: ["Client-ready proposal", "Share by email/WhatsApp"],
+        },
+      },
+    },
+    featuresGrid: {
+      compare: {
+        title: "Compare policies in seconds.",
+        description: "Briki extracts and aligns coverage data so you can instantly see what each insurer offers — clear, structured, and side-by-side.",
+      },
+      proposal: {
+        title: "Create your proposal with clarity.",
+        description: "Briki aligns insurers' coverages side by side so you can compare, adjust, and finalize in minutes.",
+      },
+      copilot: {
+        title: "Open Briki anywhere — your broker Copilot.",
+        description: "Use the same quick command (control + K) to open Briki's AI workspace across proposals, chats, or policies.",
+      },
+      generate: {
+        title: "Generate client proposals in seconds.",
+        description: "Briki drafts professional, bilingual proposals directly from analyzed policies — ready to send or download.",
+      },
+    },
+    demo: {
+      title: "See Briki in Action",
+      description: "2-min demo: from raw policy to proposal",
+    },
+    features: {
+      heading: "Features",
+      items: {
+        extraction: {
+          title: "Smart extraction",
+          bullets: ["OCR + clause parsing", "Exclusions & limits surfaced"],
+        },
+        comparisons: {
+          title: "Fast comparisons",
+          bullets: ["Side-by-side carriers", "Gaps highlighted"],
+        },
+        outputs: {
+          title: "Client-ready outputs",
+          bullets: ["Proposal PDFs & email", "Spanish/English"],
+        },
+      },
+    },
+    cta: {
+      heading: "Turn policies into proposals in minutes.",
+      subheading: "Contact us:",
+      form: {
+        name: {
+          label: "Name",
+          placeholder: "John Doe",
+        },
+        email: {
+          label: "Email",
+          placeholder: "john@example.com",
+        },
+        company: {
+          label: "Company",
+          placeholder: "Acme Inc.",
+        },
+        city: {
+          label: "City",
+          placeholder: "New York",
+        },
+        phone: {
+          label: "Phone",
+          placeholder: "+1 (555) 123-4567",
+        },
+        submit: "Submit",
+      },
+      demo: "Book a demo",
+    },
     subtitle: "Analyze policies, compare options, and send proposals in minutes.",
     placeholder: "Describe your client or upload documents…",
-    cta: {
-      whatsapp: "Import from WhatsApp",
-      upload: "Upload PDFs",
-      carriers: "Name Carriers",
-      enter: "Enter",
-    },
     emptyHelper: "Type something or choose a quick action.",
     socialProof: {
       tagline: "Trusted by brokers in Bogotá & CDMX",
@@ -92,7 +154,7 @@ const en = {
     },
     statsGrowth: {
       title: "Clarity that compounds.",
-      description: "Briki turns policy PDFs into proposals and insights—so brokers make decisions faster.",
+      description: "Briki turns policy PDFs into proposals and insights so brokers make decisions faster.",
       cta: {
         primary: "Watch demo",
         secondary: "See how it works",
@@ -120,185 +182,106 @@ const en = {
         },
       },
     },
-    howItWorks: {
-      heading: "How it works",
-      steps: {
-        upload: {
-          title: "Upload",
-          bullets: ["Policy PDF or WhatsApp chat", "Spanish/English"]
-        },
-        analyze: {
-          title: "Analyze",
-          bullets: ["Extract clauses & exclusions", "Compare carriers"]
-        },
-        propose: {
-          title: "Propose",
-          bullets: ["Client-ready proposal", "Share by email/WhatsApp"]
-        }
-      }
-    },
     pricing: {
-      title: "Pricing Plans",
-      subtitle: "Choose a plan that fits your needs.",
+      title: "Transparent pricing for growing teams",
+      subtitle: "From independent brokers to enterprise operations. Pay only for what you use, scale when you need it.",
       toggleMonthly: "Monthly",
       toggleAnnual: "Annual",
       saveLabel: "Save 20%",
-      perMonth: "per month",
-      perYear: "per year",
+      perMonth: "/ month",
+      perYear: "/ year",
       recommended: "Recommended",
       starter: {
         name: "Starter",
-        description: "Perfect for independent brokers",
-        cta: "Get Started",
-        seats: "1 user",
+        description: "For independent brokers and teams exploring Briki",
+        cta: "Start for free",
+        seats: "Up to 2 seats included",
+        extraSeat: "$15 USD/mo per additional seat",
+        overview: "Overview",
+        highlights: "Highlights",
         features: {
-          aiCredits: "1,000 AI credits/month",
-          pdfPages: "500 PDF pages/month",
-          whatsapp: "WhatsApp integration",
-          sourcing: "Automatic sourcing",
-          comparisons: "Unlimited comparisons",
-          proposals: "Basic proposals",
-          analytics: "Basic analytics",
-          export: "PDF export",
-          support: "Email support",
-          workspace: "Personal workspace",
-          encryption: "SSL encryption"
-        }
+          aiCredits: "500 AI messages/month included",
+          pdfPages: "200 PDF pages/month",
+          whatsapp: "Up to 50 WhatsApp chats/month",
+          sourcing: "Sourcing Agent",
+          comparisons: "Basic comparisons",
+          proposals: "Proposal Generator",
+          analytics: "Basic dashboard",
+          export: "Export to CSV",
+          support: "Email support (48h)",
+          workspace: "1 workspace",
+          encryption: "Full encryption",
+        },
       },
       pro: {
         name: "Pro",
-        description: "For growing teams",
-        cta: "Start trial",
-        seats: "3 users",
+        description: "For small teams and boutiques closing deals faster",
+        cta: "Upgrade to Pro",
+        seats: "Up to 5 seats included",
+        extraSeat: "$25 USD/mo per additional seat",
         features: {
-          aiCredits: "5,000 AI credits/month",
-          pdfPages: "2,000 PDF pages/month",
-          whatsapp: "WhatsApp integration",
-          sourcing: "Automatic sourcing",
-          comparisons: "Unlimited comparisons",
-          proposals: "Advanced proposals",
-          compliance: "Compliance verification",
-          analytics: "Advanced analytics",
-          export: "Multiple export",
-          support: "Priority support",
-          workspace: "Shared workspace",
-          sso: "Enterprise SSO",
-          onboarding: "Dedicated onboarding"
-        }
+          aiCredits: "2,000 AI messages/month included",
+          pdfPages: "1,000 PDF pages/month",
+          whatsapp: "Up to 200 WhatsApp chats/month",
+          sourcing: "Sourcing Agent",
+          comparisons: "Advanced comparisons",
+          proposals: "Proposal Generator",
+          compliance: "Compliance Checker",
+          analytics: "Advanced dashboard",
+          export: "Export to CSV and Excel",
+          support: "Email + Live Chat (12h)",
+          workspace: "3 workspaces",
+          sso: "SSO Google/Microsoft",
+          onboarding: "Assisted onboarding",
+        },
       },
       team: {
         name: "Team",
-        description: "For large teams",
-        cta: "Contact sales",
-        seats: "10 users",
+        description: "For growing teams and agencies seeking scalability",
+        cta: "Start with Team",
+        seats: "Up to 15 seats included",
+        extraSeat: "$20 USD/mo per additional seat",
         features: {
-          aiCredits: "15,000 AI credits/month",
+          aiCredits: "10,000 AI messages/month included",
           pdfPages: "5,000 PDF pages/month",
-          whatsapp: "WhatsApp integration",
-          sourcing: "Automatic sourcing",
-          comparisons: "Unlimited comparisons",
-          proposals: "Advanced proposals",
-          compliance: "Compliance verification",
-          renewals: "Renewal management",
-          analytics: "Advanced analytics",
-          export: "Multiple export",
-          support: "Priority support",
-          workspace: "Shared workspace",
-          sso: "Enterprise SSO",
-          sla: "99.9% SLA",
-          onboarding: "Dedicated onboarding"
-        }
+          whatsapp: "Unlimited WhatsApp chats",
+          sourcing: "Sourcing Agent",
+          comparisons: "Comparisons + benchmarks",
+          proposals: "Proposal Generator",
+          compliance: "Compliance Checker",
+          renewals: "Renewals Radar",
+          analytics: "Full dashboard + API",
+          export: "CSV, Excel, PDF + BI",
+          support: "Priority support (4h)",
+          workspace: "10 workspaces",
+          sso: "SSO + Okta/Azure AD",
+          sla: "Premium SLA (99.5%)",
+          onboarding: "Dedicated onboarding",
+        },
       },
       enterprise: {
         name: "Enterprise",
-        description: "Custom solution",
+        description: "For large brokers and operations requiring full control",
+        cta: "Talk to sales",
         price: "Custom",
-        cta: "Contact sales",
-        seats: "Unlimited users",
+        seats: "Unlimited seats",
         features: {
-          aiCredits: "Unlimited AI credits",
+          aiCredits: "Custom AI credits",
           pdfPages: "Unlimited PDF pages",
-          whatsapp: "WhatsApp integration",
-          allWorkflows: "All workflows",
-          privateModel: "Private AI model",
-          analytics: "Custom analytics",
-          support: "24/7 support",
-          workspace: "Custom workspace",
-          sso: "Enterprise SSO",
-          sla: "99.9% SLA",
-          compliance: "Custom compliance",
-          onboarding: "Dedicated onboarding",
-          dedicated: "Dedicated team"
-        }
-      }
-    },
-    contactCta: {
-      heading: "Ready to revolutionize your insurance process?",
-      subheading: "Join hundreds of brokers already using Briki to be more efficient.",
-      form: {
-        name: {
-          label: "Full name",
-          placeholder: "Your full name"
+          whatsapp: "Dedicated WhatsApp API",
+          allWorkflows: "All workflows + custom",
+          privateModel: "Private model routing",
+          analytics: "Data warehouse + custom dashboards",
+          support: "Dedicated Account Manager (1h)",
+          workspace: "Unlimited workspaces",
+          sso: "SSO any provider",
+          sla: "Enterprise SLA (99.9%)",
+          compliance: "SOC 2 + ISO 27001",
+          onboarding: "Full enterprise onboarding",
+          dedicated: "Optional isolated environment",
         },
-        email: {
-          label: "Corporate email",
-          placeholder: "you@company.com"
-        },
-        company: {
-          label: "Company",
-          placeholder: "Your company name"
-        },
-        city: {
-          label: "City",
-          placeholder: "Your city"
-        },
-        phone: {
-          label: "Phone",
-          placeholder: "+1 555 123 4567"
-        },
-        submit: "Request demo"
       },
-      demo: "Watch live demo"
     },
-    features: {
-      heading: "Features",
-      items: {
-        extraction: {
-          title: "Smart extraction",
-          bullets: ["OCR + clause parsing", "Exclusions & limits surfaced"]
-        },
-        comparisons: {
-          title: "Fast comparisons",
-          bullets: ["Side-by-side carriers", "Gaps highlighted"]
-        },
-        outputs: {
-          title: "Client-ready outputs",
-          bullets: ["Proposal PDFs & email", "Spanish/English"]
-        }
-      }
-    },
-    featuresGrid: {
-      compare: {
-        title: "Compare policies in seconds.",
-        description: "Briki extracts and aligns coverage data so you can instantly see what each insurer offers — clear, structured, and side-by-side."
-      },
-      proposal: {
-        title: "Create your proposal with clarity.",
-        description: "Briki aligns insurers' coverages side by side so you can compare, adjust, and finalize in minutes."
-      },
-      copilot: {
-        title: "Open Briki anywhere — your broker Copilot.",
-        description: "Use the same quick command (control + K) to open Briki's AI workspace across proposals, chats, or policies."
-      },
-      generate: {
-        title: "Generate client proposals in seconds.",
-        description: "Briki drafts professional, bilingual proposals directly from analyzed policies — ready to send or download."
-      }
-    },
-    demo: {
-      title: "See Briki in Action",
-      description: "2-min demo: from raw policy to proposal"
-    }
   },
   footer: {
     product: {
@@ -307,17 +290,17 @@ const en = {
         features: "Features",
         pricing: "Pricing",
         demo: "Demo",
-        integration: "Integration"
-      }
+        integration: "Integration",
+      },
     },
     company: {
       label: "Company",
       links: {
-        about: "About",
+        about: "About Us",
         careers: "Careers",
-        privacy: "Privacy",
-        terms: "Terms"
-      }
+        privacy: "Privacy Policy",
+        terms: "Terms of Services",
+      },
     },
     resources: {
       label: "Resources",
@@ -325,8 +308,8 @@ const en = {
         help: "Help Center",
         contact: "Contact",
         blog: "Blog",
-        documentation: "Documentation"
-      }
+        documentation: "Documentation",
+      },
     },
     social: {
       label: "Social Links",
@@ -334,15 +317,27 @@ const en = {
         linkedin: "LinkedIn",
         email: "Email",
         instagram: "Instagram",
-        youtube: "YouTube"
-      }
+        youtube: "YouTube",
+      },
     },
     rights: "All rights reserved.",
-    privacy: "Privacy Policy",
-    terms: "Terms of Service",
-    contact: "Contact",
-    work: "Work with us",
-    linkedin: "LinkedIn",
+  },
+  nav: {
+    login: "Login",
+    features: "Features",
+    demo: "Demo",
+    pricing: "Pricing",
+    start: "Start",
+    profile: "Profile",
+    cases: "Cases",
+    clients: "Clients",
+    signOut: "Sign out",
+    locale: {
+      toggle: "Switch language to {language}",
+      english: "English",
+      spanish: "Spanish",
+    },
+    switchLanguage: "Switch language",
   },
   auth: {
     nav: {
@@ -914,6 +909,10 @@ const en = {
       },
       empty: "No plans available yet.",
     },
+  },
+  composer: {
+    placeholder: "Describe your client or upload documents…",
+    emptyHelper: "Press Enter to send. Shift+Enter adds a new line.",
   },
 } as const;
 

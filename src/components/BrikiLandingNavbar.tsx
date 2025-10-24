@@ -27,9 +27,9 @@ const BrikiLogo = () => (
       src="/brand/briki-logo-2.png"
       alt=""
       aria-hidden="true"
-      width={20}
-      height={20}
-      className="w-5 h-5 relative z-10"
+      width={16}
+      height={16}
+      className="w-4 h-4 relative z-10"
       priority
     />
     <span className="text-lg font-bold ml-1 relative z-0 text-white">

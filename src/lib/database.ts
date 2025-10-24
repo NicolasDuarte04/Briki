@@ -72,6 +72,13 @@ export interface CaseWithArtifacts {
   updatedAt: Date;
   artifacts: any[];
   auditLogs: any[];
+  priority: string;
+  insurance_category: string | null;
+  max_budget: number | null;
+  budget_currency: string | null;
+  required_coverages: string[];
+  client_profile: string | null;
+  clientId: string | null;
 }
 
 /**
@@ -197,7 +204,12 @@ export async function getCaseWithArtifacts(caseId: string): Promise<CaseWithArti
       }
     });
 
-    return caseWithRelations;
+    if (!caseWithRelations) return null;
+
+    return {
+      ...caseWithRelations,
+      max_budget: caseWithRelations.max_budget ? caseWithRelations.max_budget.toNumber() : null,
+    };
   } catch (error) {
     console.error('Error getting case with artifacts:', error);
     throw new DatabaseError('Failed to get case with artifacts');
@@ -337,7 +349,7 @@ function generateAgentResponse(message: string): string {
 export async function getCasesByOrg(orgId: string) {
   if (!orgId) throw new DatabaseError("Organization ID is required.");
   
-  return prisma.case.findMany({
+  const cases = await prisma.case.findMany({
     where: { orgId },
     include: { 
       artifacts: {
@@ -346,6 +358,11 @@ export async function getCasesByOrg(orgId: string) {
     },
     orderBy: { updatedAt: 'desc' }
   });
+
+  return cases.map(c => ({
+    ...c,
+    max_budget: c.max_budget ? c.max_budget.toNumber() : null,
+  }));
 }
 
 /**
@@ -357,7 +374,7 @@ export async function getCasesByOrg(orgId: string) {
 export async function getCaseById(caseId: string, orgId: string) {
   if (!caseId || !orgId) throw new DatabaseError("Case ID and Organization ID are required.");
   
-  return prisma.case.findFirst({
+  const dbCase = await prisma.case.findFirst({
     where: { 
       id: caseId, 
       orgId // RLS ya protege, pero es buena práctica añadir orgId
@@ -372,6 +389,13 @@ export async function getCaseById(caseId: string, orgId: string) {
       }
     }
   });
+
+  if (!dbCase) return null;
+
+  return {
+    ...dbCase,
+    max_budget: dbCase.max_budget ? dbCase.max_budget.toNumber() : null,
+  };
 }
 
 /**
