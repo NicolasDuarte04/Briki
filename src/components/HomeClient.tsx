@@ -20,7 +20,7 @@ const ConversationPane = dynamic(() => import("@/components/Chat/ConversationPan
 
 export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
   const initializedRef = useRef(false);
-  const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing } = useUI();
+  const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage } = useUI();
   // Usar el valor del store como fuente de verdad para la lógica de renderizado
   const currentStep = step; // Leer siempre desde Zustand después de la sincronización
   
@@ -47,6 +47,15 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
     }
     // Ejecutar solo si initialStep cambia (o en el montaje inicial si tiene valor)
   }, [initialStep, setStep, step]);
+
+  // --- MENSAJE INICIAL DEL AGENTE ---
+  useEffect(() => {
+    // Establecer mensaje inicial cuando se accede al agente desde el panel lateral
+    if (initialStep === "conversation" && !initialMessage) {
+      const welcomeMessage = "Hola, estoy aquí para ayudarte con este caso. ¿En qué puedo asistirte?";
+      setInitialMessage(welcomeMessage);
+    }
+  }, [initialStep, initialMessage, setInitialMessage]);
 
 
   // Verificar autenticación cuando se active el briefing
