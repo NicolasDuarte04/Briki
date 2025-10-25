@@ -51,6 +51,7 @@ export function AccountSettings({
   const [notificationsPending, setNotificationsPending] = useState(false);
   const [passwordResetStatus, setPasswordResetStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [lastSavedField, setLastSavedField] = useState<EditableField | null>(null);
+  const [currentLocale, setCurrentLocale] = useState(locale);
 
   const initialState: FormState = { ok: true };
   const [state, formAction] = useActionState(updateProfile, initialState);
@@ -164,6 +165,30 @@ export function AccountSettings({
       } else {
         setPolicyAlertsChecked(!checked);
       }
+    }
+  };
+
+  const handleLocaleChange = async (newLocale: 'en' | 'es') => {
+    if (newLocale === currentLocale) return;
+    
+    try {
+      const formData = new FormData();
+      formData.append('field', 'locale');
+      formData.append('locale', newLocale);
+      
+      const result = await updateProfile(null, formData);
+      
+      if (result.ok) {
+        setCurrentLocale(newLocale);
+        toast.success('Language updated successfully');
+        // Redirect to apply the new locale
+        window.location.href = `/${newLocale}/profile`;
+      } else {
+        toast.error(result.error || 'Failed to update language');
+      }
+    } catch (error) {
+      console.error('Error updating language:', error);
+      toast.error('Failed to update language');
     }
   };
 
@@ -404,6 +429,38 @@ export function AccountSettings({
                     Edit
                   </Button>
                 )}
+              </div>
+            </div>
+
+            {/* Language Card */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-gray-700 mb-1">Language</h3>
+                  <p className="text-sm text-gray-500 mb-3">Choose your preferred language</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleLocaleChange('en')}
+                      className={`px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
+                        locale === 'en'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      English ✓
+                    </button>
+                    <button
+                      onClick={() => handleLocaleChange('es')}
+                      className={`px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
+                        locale === 'es'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      Español
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </>
