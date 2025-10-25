@@ -1,6 +1,7 @@
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { notFound } from 'next/navigation';
 import HomeClient from '@/components/HomeClient';
+import { AgentInitialMessageSetter } from '@/components/AgentInitialMessageSetter';
 
 // Placeholder: Lógica para validar si el threadId existe para el usuario/org
 const validateThreadAccess = async (threadId: string, orgId: string): Promise<boolean> => {
@@ -23,6 +24,11 @@ export default async function AgentThreadPage({
         notFound();
     }
 
-    // Renderizar HomeClient con el hilo específico
-    return <HomeClient initialStep="conversation" />;
+    // Renderizar HomeClient con el hilo específico y establecer mensaje inicial
+    return (
+        <>
+            <AgentInitialMessageSetter />
+            <HomeClient initialStep="conversation" />
+        </>
+    );
 }
