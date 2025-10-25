@@ -2,6 +2,7 @@ import createMiddleware from 'next-intl/middleware';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/lib/env';
+import { getDashboardHome, type Locale } from '@/lib/routes/workspace';
 
 const intlMiddleware = createMiddleware({
   locales: ['en', 'es'],
@@ -16,6 +17,13 @@ export async function middleware(request: NextRequest) {
 
   // Strip locale prefix if present to check the actual path
   const pathWithoutLocale = pathname.replace(/^\/(es|en)/, '') || '/';
+  
+  // Extract locale from pathname for redirection
+  const localeMatch = pathname.match(/^\/(es|en)/);
+  const locale = (localeMatch ? localeMatch[1] : 'es') as Locale;
+
+  // Check for ?landing=1 bypass parameter
+  const bypassLanding = request.nextUrl.searchParams.get('landing') === '1';
 
   // Public paths that are always accessible
   const publicPaths = [
@@ -33,8 +41,42 @@ export async function middleware(request: NextRequest) {
     (path) => pathWithoutLocale === path || pathWithoutLocale.startsWith(path + '/')
   );
 
-  // If it's a public path, allow access
+  // If it's a public path, check for authentication redirect
   if (isPublicPath) {
+    // For marketing root paths (/, /es, /en), check if user is authenticated
+    const isMarketingRoot = pathWithoutLocale === '/';
+    
+    if (isMarketingRoot && !bypassLanding) {
+      // Create Supabase client to check authentication
+      const supabase = createServerClient(
+        env.NEXT_PUBLIC_SUPABASE_URL,
+        env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+        {
+          cookies: {
+            get(name: string) {
+              return request.cookies.get(name)?.value;
+            },
+            set(name: string, value: string, options: CookieOptions) {
+              response.cookies.set({ name, value, ...options });
+            },
+            remove(name: string, options: CookieOptions) {
+              response.cookies.set({ name, value: '', ...options });
+            },
+          },
+        }
+      );
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      // If user is authenticated, redirect to dashboard
+      if (user) {
+        const dashboardUrl = getDashboardHome(locale);
+        return NextResponse.redirect(new URL(dashboardUrl, request.url));
+      }
+    }
+    
     return response;
   }
 
