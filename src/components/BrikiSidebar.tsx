@@ -24,7 +24,7 @@ export default function BrikiSidebarLayout({
       <Sidebar open={open} setOpen={setOpen} animate>
         <SidebarBody>
           <div className="flex h-full flex-col gap-2">
-            <Link href="/" className="block py-2 select-none">
+            <Link href="/landing" className="block py-2 select-none">
               <span className="text-xl font-semibold text-briki-gradient leading-none">
                 Briki
               </span>

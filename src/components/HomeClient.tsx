@@ -42,23 +42,18 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
 
   // --- SINCRONIZACIÓN DE ESTADO ---
   useEffect(() => {
-    // Si se proporciona un initialStep y es diferente al step actual en Zustand,
-    // actualiza el estado de Zustand para que coincida.
+    // Solo actualiza si initialStep tiene un valor y es DIFERENTE del step actual en Zustand
     if (initialStep && initialStep !== step) {
       console.log(`Syncing Zustand step: from '${step}' to initialStep '${initialStep}'`);
       setStep(initialStep);
     }
-    // Ejecutar solo si initialStep cambia (o en el montaje inicial si tiene valor)
-  }, [initialStep, setStep, step]);
+    // Depende solo de initialStep y setStep (que es estable).
+    // NO incluir 'step' aquí para evitar el ciclo si initialStep no cambia.
+  }, [initialStep, setStep]);
 
-  // --- MENSAJE INICIAL DEL AGENTE ---
-  useEffect(() => {
-    // Establecer mensaje inicial cuando se accede al agente desde el panel lateral
-    if (initialStep === "conversation" && !initialMessage) {
-      const welcomeMessage = "Hola, estoy aquí para ayudarte con este caso. ¿En qué puedo asistirte?";
-      setInitialMessage(welcomeMessage);
-    }
-  }, [initialStep, initialMessage, setInitialMessage]);
+  // --- MENSAJE DE BIENVENIDA DEL AGENTE ---
+  // Este mensaje se maneja directamente en ConversationPane, no aquí
+  // El initialMessage solo se usa para mensajes del usuario (desde LandingPage)
 
 
   // Verificar autenticación cuando se active el briefing
@@ -254,53 +249,61 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
               >
-              <Canvas
-                rightOpen={rightOpen}
-                isSourcing={isSourcing}
-                left={
-                  currentStep === "conversation" || currentStep === "compliance" ? (
-                    <ConversationPane />
-                  ) : (
-                    <div className="flex h-full flex-col justify-start">Current step: {currentStep}</div>
-                  )
-                }
-                right={(() => {
-                  // --- MODIFICACIÓN CLAVE ---
-                  if (currentStep === "conversation" || isSourcing) { // Mostrar panel derecho en conversación Y sourcing
-                    return (
-                      <div className="flex h-full flex-col overflow-hidden">
-                        {/* Widget de progreso: Se muestra solo si isSourcing es true */}
-                        {isSourcing && (
-                          <div className="flex-shrink-0 border-b border-border/50 p-2">
-                            {/* Asegúrate que SourcingProgressWidget acepte estas props */}
-                            <SourcingProgressWidget compact onStop={stopSourcing} />
+              {/* Solo mostrar Canvas para steps que requieren el panel izquierdo */}
+              {(currentStep === "conversation" || currentStep === "compliance" || currentStep === "workspace" || currentStep === "sourcing") ? (
+                <Canvas
+                  rightOpen={rightOpen}
+                  isSourcing={isSourcing}
+                  left={
+                    currentStep === "conversation" || currentStep === "compliance" ? (
+                      <ConversationPane />
+                    ) : (
+                      <div className="flex h-full flex-col justify-start">Current step: {currentStep}</div>
+                    )
+                  }
+                  right={(() => {
+                    // --- MODIFICACIÓN CLAVE ---
+                    if (currentStep === "conversation" || isSourcing) { // Mostrar panel derecho en conversación Y sourcing
+                      return (
+                        <div className="flex h-full flex-col overflow-hidden">
+                          {/* Widget de progreso: Se muestra solo si isSourcing es true */}
+                          {isSourcing && (
+                            <div className="flex-shrink-0 border-b border-border/50 p-2">
+                              {/* Asegúrate que SourcingProgressWidget acepte estas props */}
+                              <SourcingProgressWidget compact onStop={stopSourcing} />
+                            </div>
+                          )}
+
+                          {/* Panel de Tabs: Siempre visible en este flujo */}
+                          <div className="flex-1 min-h-0 overflow-y-auto">
+                            {/* WorkspaceTabs necesita acceso al caseId actual, asegúrate que lo reciba */}
+                            <WorkspaceTabs />
                           </div>
-                        )}
-
-                        {/* Panel de Tabs: Siempre visible en este flujo */}
-                        <div className="flex-1 min-h-0 overflow-y-auto">
-                          {/* WorkspaceTabs necesita acceso al caseId actual, asegúrate que lo reciba */}
-                          <WorkspaceTabs />
                         </div>
-                      </div>
-                    );
-                  }
+                      );
+                    }
 
-                  // Mantener la lógica para otros steps si existen
-                  if (currentStep === "compliance") {
-                    return (
-                      <div className="flex h-full flex-col">
-                        <ComplianceGate />
-                      </div>
-                    );
-                  }
-                  // Fallback o lógica para otros steps
-                  return <div className="p-4">Panel derecho para: {currentStep}</div>;
-                })()}
-              />
+                    // Mantener la lógica para otros steps si existen
+                    if (currentStep === "compliance") {
+                      return (
+                        <div className="flex h-full flex-col">
+                          <ComplianceGate />
+                        </div>
+                      );
+                    }
+                    // Fallback o lógica para otros steps
+                    return <div className="p-4">Panel derecho para: {currentStep}</div>;
+                  })()}
+                />
+              ) : (
+                // Para otros steps, mostrar solo el contenido sin Canvas
+                <div className="flex h-full flex-col justify-start p-4">
+                  <div>Current step: {currentStep}</div>
+                </div>
+              )}
               <FooterNav className="mt-4" fullBleed />
-              </motion.div>
-            </div>
+            </motion.div>
+          </div>
           )}
         </AnimatePresence>
       </div>

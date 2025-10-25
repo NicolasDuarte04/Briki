@@ -418,6 +418,21 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, [initialMessage, clearInitialMessage, setMessages]);
 
+  // Efecto para mostrar mensaje de bienvenida automático cuando se accede desde el panel izquierdo
+  useEffect(() => {
+    // Solo mostrar bienvenida si no hay mensajes y no hay initialMessage
+    if (messages.length === 0 && (!initialMessage || initialMessage.trim() === '')) {
+      const welcomeMessage: ChatMessage = {
+        role: "assistant",
+        content: "Hola, estoy aquí para ayudarte. Por favor, completa los detalles del caso en el panel derecho para comenzar.",
+        agent: { label: "Sourcing" },
+        id: `welcome-${Date.now()}`,
+        createdAt: Date.now()
+      };
+      setMessages([welcomeMessage]);
+    }
+  }, [messages.length, initialMessage, setMessages]);
+
   // Efecto para mostrar el botón de aprobación
   useEffect(() => {
     // Usar la validación unificada del brief

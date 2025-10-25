@@ -48,7 +48,7 @@ export default function SidebarNav() {
     <div className="flex h-full flex-col justify-between">
       <div>
         <Link
-          href="/"
+          href="/landing"
           onClick={handleLogoClick}
           aria-label="Home"
           className="group flex items-center rounded-md py-2 pr-2 pl-0 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"

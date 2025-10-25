@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,7 +72,7 @@ const INSURANCE_CATEGORIES = [
   { value: 'otro', label: 'Otro' },
 ];
 
-export function BriefForm({ onSubmit, onApprove, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) {
+const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) => {
   // Hook para acceder al estado global
   const { brief, setBrief, isBriefValid } = useUI();
   
@@ -152,65 +152,65 @@ export function BriefForm({ onSubmit, onApprove, initialNotes = '', isSubmitting
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isClientComboboxOpen]);
 
-  // Handlers para actualizar el estado
-  const updateField = (field: keyof CaseBriefData, value: any) => {
+  // Handlers para actualizar el estado - MEMOIZADO
+  const updateField = useCallback((field: keyof CaseBriefData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    
+    // TODO: Considerar si la actualización global (setBrief)
+    // puede moverse a onBlur o onSubmit para optimizar re-renders.
     // Sincronizar con el estado global para campos que existen en brief
     if (field === 'clientName' || field === 'businessType' || field === 'coverage' || field === 'freeText' || field === 'insurance_category') {
-      setBrief({ ...brief, [field]: value });
+      // Usar actualización funcional para evitar dependencia de 'brief'
+      setBrief(prevBrief => ({ ...prevBrief, [field]: value }));
     }
-  };
+  }, [setBrief]); // <-- ELIMINAR 'brief' del array de dependencias
 
-  // Handlers para el Combobox de clientes
-  const handleClientSelect = (client: ClientOption | null) => {
+  // Handlers para el Combobox de clientes - MEMOIZADO
+  const handleClientSelect = useCallback((client: ClientOption | null) => {
+    const name = client?.name || '';
+    const id = client?.id || null;
+
+    // Actualizar estado local
     setSelectedClient(client);
-    if (client) {
-      // Cliente existente seleccionado
-      setClientSearchTerm(client.name); // Sincronizar input local
-      updateField('clientName', client.name);
-      setBrief({ 
-        ...brief, 
-        clientName: client.name, 
-        selectedClientId: client.id 
-      });
-    } else {
-      // Limpiar selección
-      setClientSearchTerm(''); // Sincronizar input local
-      updateField('clientName', '');
-      setBrief({ 
-        ...brief, 
-        clientName: '', 
-        selectedClientId: null 
-      });
-    }
-    setIsClientComboboxOpen(false);
-  };
+    setClientSearchTerm(name);
+    updateField('clientName', name);
 
-  const handleClientSearchChange = (value: string) => {
+    // Actualizar estado global funcionalmente
+    setBrief(prevBrief => ({
+      ...prevBrief,
+      clientName: name,
+      selectedClientId: id
+    }));
+    setIsClientComboboxOpen(false);
+  }, [updateField, setBrief]); // <-- ELIMINAR 'brief'
+
+  const handleClientSearchChange = useCallback((value: string) => {
     setClientSearchTerm(value);
     updateField('clientName', value);
+    
     // Actualizar estado global con el término de búsqueda, marcando que no hay ID seleccionado
-    setBrief({ 
-      ...brief, 
+    setBrief(prevBrief => ({ 
+      ...prevBrief, 
       clientName: value, 
       selectedClientId: null 
-    });
+    }));
+    
     // Abrir dropdown cuando se escriba
     if (value.length > 0) {
       setIsClientComboboxOpen(true);
     }
-  };
+  }, [updateField, setBrief]); // <-- ELIMINAR 'brief'
 
-  const handleAddCoverage = () => {
+  const handleAddCoverage = useCallback(() => {
     if (currentCoverage.trim() !== '' && !formData.required_coverages.includes(currentCoverage.trim())) {
       updateField('required_coverages', [...formData.required_coverages, currentCoverage.trim()]);
       setCurrentCoverage('');
     }
-  };
+  }, [currentCoverage, formData.required_coverages, updateField]);
 
-  const handleRemoveCoverage = (coverageToRemove: string) => {
+  const handleRemoveCoverage = useCallback((coverageToRemove: string) => {
     updateField('required_coverages', formData.required_coverages.filter(c => c !== coverageToRemove));
-  };
+  }, [formData.required_coverages, updateField]);
 
   // Handlers para uploads
   const handleFileUpload = (file: File) => {
@@ -233,7 +233,7 @@ export function BriefForm({ onSubmit, onApprove, initialNotes = '', isSubmitting
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Si hay función de aprobación (con validación), usarla
@@ -243,7 +243,7 @@ export function BriefForm({ onSubmit, onApprove, initialNotes = '', isSubmitting
       // Fallback: solo proceder con el envío del formulario
       await onSubmit({ ...formData, tempUploads });
     }
-  };
+  }, [onApprove, onSubmit, formData, tempUploads]);
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -533,4 +533,7 @@ export function BriefForm({ onSubmit, onApprove, initialNotes = '', isSubmitting
       </CardContent>
     </Card>
   );
-}
+});
+
+BriefForm.displayName = "BriefForm";
+export { BriefForm };

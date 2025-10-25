@@ -28,6 +28,7 @@ export async function middleware(request: NextRequest) {
   // Public paths that are always accessible
   const publicPaths = [
     '/',
+    '/landing', // <-- AÑADIR RUTA DEDICADA
     '/login',
     '/register',
     '/auth/verify',
