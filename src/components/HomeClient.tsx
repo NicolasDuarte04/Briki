@@ -16,7 +16,10 @@ import { ComplianceGate } from "@/components/Workspace/ComplianceGate";
 import BrikiLandingNavbar from "@/components/BrikiLandingNavbar";
 import { BriefForm, CaseBriefData } from "@/components/Cases/BriefForm";
 
-const ConversationPane = dynamic(() => import("@/components/Chat/ConversationPane"), { ssr: false });
+const ConversationPane = dynamic(() => import("@/components/Chat/ConversationPane"), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center h-64">Cargando conversación...</div>
+});
 
 export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
   const initializedRef = useRef(false);
