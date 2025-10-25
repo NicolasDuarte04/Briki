@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter } from "next/font/google";
+import { Geist_Mono, Inter, DM_Sans, Newsreader } from "next/font/google";
 import "./globals.css";
 import LoadingProvider from "@/components/LoadingProvider";
 import AuthProvider from "@/components/AuthProvider";
@@ -170,6 +170,23 @@ const inter = Inter({
   preload: true,
 });
 
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+  weight: ["400", "500", "600", "700"],
+});
+
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
+  subsets: ["latin"],
+  display: "swap",
+  preload: true,
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+});
+
 export default function RootLayout({
   children,
   params,
@@ -178,7 +195,7 @@ export default function RootLayout({
   params: Promise<{ locale?: string }>;
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} ${geistMono.variable}`} suppressHydrationWarning>
+    <html lang="es" className={`${inter.variable} ${geistMono.variable} ${dmSans.variable} ${newsreader.variable}`} suppressHydrationWarning>
       <head>
         {/* Preload hero background images to improve LCP */}
         {/* Removed invalid preload to avoid 404 during dev */}

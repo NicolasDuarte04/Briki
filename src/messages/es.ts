@@ -1,6 +1,6 @@
 const es = {
   nav: {
-    features: "Características",
+    features: "Funcionalidades",
     demo: "Demo",
     pricing: "Precios",
     start: "Comenzar",
@@ -261,7 +261,7 @@ const es = {
       demo: "Ver demo en vivo"
     },
     features: {
-      heading: "Características",
+      heading: "Funcionalidades",
       items: {
         extraction: {
           title: "Extracción inteligente",
@@ -304,7 +304,7 @@ const es = {
     product: {
       label: "Producto",
       links: {
-        features: "Características",
+        features: "Funcionalidades",
         pricing: "Precios",
         demo: "Demo",
         integration: "Integración"

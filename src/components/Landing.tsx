@@ -27,8 +27,8 @@ export default function Landing() {
         <LandingFeaturesGrid />
         <LandingDemo />
         <LandingFeatures />
-        <LandingPricing />
         <LandingStatsGrowth />
+        <LandingPricing />
         <LandingSocialProof />
         <LandingCTA />
       </div>
