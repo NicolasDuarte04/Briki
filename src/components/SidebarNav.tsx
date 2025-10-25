@@ -1,6 +1,6 @@
 "use client";
 
-import { SidebarLink } from "@/components/ui/sidebar";
+import { SidebarLink, useSidebar } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { MessageCircle } from "lucide-react";
 import Image from "next/image";
@@ -10,9 +10,11 @@ import { getWorkspaceLinks } from "@/config/navigation";
 import { usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
 import type { Locale } from "@/lib/routes/workspace";
+import { motion } from "framer-motion";
 
 export default function SidebarNav() {
   const { setStep, openChatPanel } = useUI();
+  const { open, animate } = useSidebar();
   const pathname = usePathname();
   const locale = useLocale() as Locale;
 
@@ -73,7 +75,16 @@ export default function SidebarNav() {
             className="w-full justify-start gap-2"
           >
             <MessageCircle className="h-4 w-4" />
-            <span>Chat</span>
+            <span className="text-sm whitespace-pre inline-block !p-0 !m-0">
+              <motion.span
+                animate={{
+                  display: animate ? (open ? "inline-block" : "none") : "inline-block",
+                  opacity: animate ? (open ? 1 : 0) : 1,
+                }}
+              >
+                Chat
+              </motion.span>
+            </span>
           </Button>
         </div>
         
