@@ -337,7 +337,7 @@ function generateAgentResponse(message: string): string {
 export async function getCasesByOrg(orgId: string) {
   if (!orgId) throw new DatabaseError("Organization ID is required.");
   
-  return prisma.case.findMany({
+  const cases = await prisma.case.findMany({
     where: { orgId },
     include: { 
       artifacts: {
@@ -346,6 +346,12 @@ export async function getCasesByOrg(orgId: string) {
     },
     orderBy: { updatedAt: 'desc' }
   });
+
+  // Convertir Decimal a Number para serialización
+  return cases.map(caseItem => ({
+    ...caseItem,
+    max_budget: caseItem.max_budget ? Number(caseItem.max_budget) : null
+  }));
 }
 
 /**
@@ -357,7 +363,7 @@ export async function getCasesByOrg(orgId: string) {
 export async function getCaseById(caseId: string, orgId: string) {
   if (!caseId || !orgId) throw new DatabaseError("Case ID and Organization ID are required.");
   
-  return prisma.case.findFirst({
+  const caseData = await prisma.case.findFirst({
     where: { 
       id: caseId, 
       orgId // RLS ya protege, pero es buena práctica añadir orgId
@@ -372,6 +378,14 @@ export async function getCaseById(caseId: string, orgId: string) {
       }
     }
   });
+
+  if (!caseData) return null;
+
+  // Convertir Decimal a Number para serialización
+  return {
+    ...caseData,
+    max_budget: caseData.max_budget ? Number(caseData.max_budget) : null
+  };
 }
 
 /**

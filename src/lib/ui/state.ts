@@ -717,6 +717,7 @@ export const useUI = create<UIState>()(
         freeText: "Por definir...",
         clientName: "",
         selectedClientId: null,
+        insurance_category: "", // AÑADIR: Campo requerido para habilitar botones
       },
       policies: [],
       policiesLoading: false,

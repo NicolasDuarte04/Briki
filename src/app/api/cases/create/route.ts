@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { createCaseWithOrg } from '@/lib/database';
+import { recordAuditLog } from '@/lib/audit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,9 +45,13 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    if (!clientName) {
+    // clientName es opcional - usar valor por defecto si no se proporciona
+    const finalClientName = clientName || 'Cliente Nuevo';
+    
+    // Validar que el caso tenga al menos insurance_category
+    if (!insurance_category) {
       return NextResponse.json(
-        { error: 'Client name is required' },
+        { error: 'Insurance category is required' },
         { status: 400 }
       );
     }
@@ -72,7 +77,7 @@ export async function POST(request: NextRequest) {
       briefData || {},
       user.id,
       {
-        clientName,
+        clientName: finalClientName,  // Usar el valor final (con fallback)
         clientRef,
         businessType,
         employees,
@@ -88,15 +93,38 @@ export async function POST(request: NextRequest) {
       }
     );
     
+    // Registrar auditoría explícita (alta prioridad - compliance y trazabilidad)
+    try {
+      await recordAuditLog({
+        caseId: newCase.id,
+        actor: user.email || user.id,
+        action: 'created_case',
+        tool: 'cases_api',
+        payload: {
+          clientName,
+          status: newCase.status,
+          stage: newCase.stage,
+          priority: newCase.priority,
+        }
+      });
+    } catch (auditError) {
+      console.error("Error recording audit log:", auditError);
+      // No fallar la solicitud principal si solo falla la auditoría,
+      // pero sí registrarlo en el servidor.
+    }
+    
     // Procesar PDFs temporales si existen
+    console.log('📎 [API] Processing tempUploads:', tempUploads?.length || 0);
     if (tempUploads && tempUploads.length > 0) {
       const { prisma } = await import('@/lib/prisma');
+      console.log('📎 [API] Creating artifacts for caseId:', newCase.id);
       
       for (const tempUpload of tempUploads) {
+        console.log('📎 [API] Creating artifact:', tempUpload.fileName);
         await prisma.artifact.create({
           data: {
             caseId: newCase.id,
-            sourceType: 'upload',
+            sourceType: 'pdf',
             fileId: tempUpload.storagePath,
             fileName: tempUpload.fileName,
             contentType: 'application/pdf',
@@ -110,6 +138,7 @@ export async function POST(request: NextRequest) {
             },
           },
         });
+        console.log('✅ [API] Artifact created successfully');
       }
     }
     

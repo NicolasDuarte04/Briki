@@ -248,7 +248,7 @@ export async function POST(request: NextRequest) {
     const artifact = await prisma.artifact.create({
       data: {
         caseId: caseId,
-        sourceType: 'upload',
+        sourceType: 'pdf', // ✅ CORRECCIÓN: Cambiar de 'upload' a 'pdf'
         fileId: storagePath,
         fileName: file.name,
         contentType: file.type,

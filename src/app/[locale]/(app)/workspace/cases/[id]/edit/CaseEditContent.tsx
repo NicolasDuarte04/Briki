@@ -33,7 +33,8 @@ export default function CaseEditContent({ caseData, caseId, orgId }: CaseEditCon
         body: JSON.stringify({ 
           caseId, 
           orgId,
-          ...formData 
+          ...formData,
+          tempUploads: formData.tempUploads || [] // ✅ Pasar explícitamente
         })
       });
 

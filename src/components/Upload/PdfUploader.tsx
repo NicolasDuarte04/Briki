@@ -41,9 +41,10 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
       setUploadResult(null);
       setSuccessMessage(null);
       
-      // Si no hay caseId, solo notificar que se seleccionó el archivo
+      // Si no hay caseId, notificar inmediatamente (para BriefForm con tempUploads)
       if (!caseId && onFileSelected) {
         onFileSelected(file);
+        return; // No hacer upload, solo notificar
       }
     }
   }, [caseId, onFileSelected]);
@@ -195,6 +196,14 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
               </div>
             )}
             
+            {!caseId && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  ✓ Archivo seleccionado. Se subirá cuando se guarde el caso.
+                </p>
+              </div>
+            )}
+            
             {error && (
               <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-lg">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
@@ -202,19 +211,14 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
               </div>
             )}
             
-            {!uploading && !error && (
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleUpload}
-                  className="flex-1"
-                >
-                  Subir PDF
-                </Button>
+            {/* Botón "Cancelar" solo si hay caseId (modo edición), sino no hacer nada */}
+            {caseId && !uploading && !error && (
+              <div className="flex gap-2 justify-end">
                 <Button
                   variant="outline"
                   onClick={handleCancel}
                 >
-                  Cancelar
+                  Eliminar
                 </Button>
               </div>
             )}

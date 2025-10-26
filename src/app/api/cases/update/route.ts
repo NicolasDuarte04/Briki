@@ -17,15 +17,20 @@ export async function PUT(request: NextRequest) {
             insurance_category: updateData.insurance_category,
             max_budget: updateData.max_budget,
             budget_currency: updateData.budget_currency,
-            required_coverages: updateData.required_coverages,
-            client_profile: updateData.client_profile,
+            required_coverages: updateData.required_coverages || [],
+            client_profile: updateData.client_profile || '',
             clientName: updateData.clientName,
             businessType: updateData.businessType,
             employees: updateData.employees,
             briefData: { // También actualizamos el JSON por coherencia
-                ...updateData
+                freeText: updateData.freeText || updateData.notes || '',
+                businessType: updateData.businessType,
+                employees: updateData.employees,
+                coverage: updateData.coverage || '',
             }
         };
+        
+        console.log('📝 [API /api/cases/update] Actualizando case con:', caseUpdatePayload);
 
         const updatedCase = await prisma.case.update({
             where: {
@@ -36,12 +41,14 @@ export async function PUT(request: NextRequest) {
         });
 
         // Procesar PDFs temporales si existen
+        console.log(`📎 [API /api/cases/update] Procesando ${tempUploads?.length || 0} tempUploads para caseId: ${caseId}`);
         if (tempUploads && tempUploads.length > 0) {
             for (const tempUpload of tempUploads) {
+                console.log(`📎 [API /api/cases/update] Creando artifact: ${tempUpload.fileName}`);
                 await prisma.artifact.create({
                     data: {
                         caseId: caseId,
-                        sourceType: 'upload',
+                        sourceType: 'pdf', // ✅ CORRECCIÓN: Cambiar de 'upload' a 'pdf'
                         fileId: tempUpload.storagePath,
                         fileName: tempUpload.fileName,
                         contentType: 'application/pdf',
@@ -55,6 +62,7 @@ export async function PUT(request: NextRequest) {
                         },
                     },
                 });
+                console.log(`✅ [API /api/cases/update] Artifact creado exitosamente`);
             }
         }
 

@@ -13,6 +13,7 @@
 ### POST /api/cases/create
 - Body: { briefData, clientName?, status?, stage?, ... }
 - Respuesta 200: { id, ...case }
+- **Update (2025-10-26):** Se corrigió el bug de `sourceType` para artifacts (de 'upload' a 'pdf') y se añadió registro de auditoría explícito (`action: 'created_case'`, `tool: 'cases_api'`).
 
 ### Clients
 - POST /api/clients/create

@@ -436,10 +436,9 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // Efecto para mostrar el botón de aprobación
   useEffect(() => {
     // Usar la validación unificada del brief
-    if (isBriefValid()) {
-      setShowApprovalButton(true);
-    }
-  }, [brief, isBriefValid]);
+    const isValid = !!(brief.insurance_category?.trim());
+    setShowApprovalButton(isValid);
+  }, [brief]);
 
   // Función optimizada de validación de clientes con cache
   const validateClientWithCache = async (): Promise<string | null> => {
@@ -485,8 +484,68 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const handleApprovalOrchestration = async () => {
     setIsResolvingClient(true);
     try {
+      // PASO 0: Verificar y crear el caso SI no existe
+      const currentCaseId = useUI.getState().currentCaseId;
+      if (!currentCaseId) {
+        console.log('📝 No hay currentCaseId, creando caso...');
+        
+        // Obtener información del usuario
+        const authResponse = await fetch('/api/auth/me');
+        if (!authResponse.ok) {
+          throw new Error('No se pudo obtener información del usuario');
+        }
+        const { orgId, userId } = await authResponse.json();
+        console.log('👤 Usuario autenticado:', { orgId, userId });
+        
+        // Crear el caso con tempUploads si existen
+        const tempUploads = (brief as any).tempUploads || [];
+        console.log('📎 [ConversationPane] Creating case with tempUploads:', tempUploads);
+        
+        const response = await fetch('/api/cases/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orgId,
+            userId,
+            clientName: brief.clientName,
+            businessType: brief.businessType,
+            employees: brief.employees,
+            status: 'draft',
+            stage: 'initial',
+            priority: 'medium',
+            briefData: {
+              freeText: brief.freeText,
+              businessType: brief.businessType,
+              employees: brief.employees,
+              coverage: brief.coverage,
+            },
+            insurance_category: brief.insurance_category,
+            max_budget: brief.max_budget,
+            budget_currency: brief.budget_currency,
+            required_coverages: brief.required_coverages,
+            client_profile: brief.client_profile,
+            tempUploads: tempUploads, // ✅ Incluir PDFs
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al crear el caso');
+        }
+        
+        const result = await response.json();
+        console.log('✅ Caso creado exitosamente:', result.caseId);
+        
+        // Establecer currentCaseId inmediatamente después de crear el caso
+        useUI.getState().setCurrentCaseId(result.caseId);
+        console.log('💾 currentCaseId establecido en:', result.caseId);
+      } else {
+        console.log('✅ Ya existe currentCaseId:', currentCaseId);
+      }
+
       // Paso 1: Validar y resolver cliente (con cache)
       const clientId = await validateClientWithCache();
+      console.log('✅ Cliente validado/resuelto:', clientId);
       
       // Paso 2: Si la validación es exitosa, aprobar el caso con el clientId
       const success = await approveCurrentCase(clientId);

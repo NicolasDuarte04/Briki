@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { updateProfile, updateNotificationSettings, requestPasswordReset, type FormState } from './actions';
 import { toast } from 'sonner';
 
-type Tab = 'personal' | 'security' | 'notifications';
+type Tab = 'personal' | 'security' | 'notifications' | 'audit';
 
 type EditableField = 'name' | 'phone' | 'address';
 
@@ -52,6 +52,9 @@ export function AccountSettings({
   const [passwordResetStatus, setPasswordResetStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
   const [lastSavedField, setLastSavedField] = useState<EditableField | null>(null);
   const [currentLocale, setCurrentLocale] = useState(locale);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
 
   const initialState: FormState = { ok: true };
   const [state, formAction] = useActionState(updateProfile, initialState);
@@ -113,6 +116,35 @@ export function AccountSettings({
       }
     };
   }, []);
+
+  // Cargar rol de usuario al montar
+  useEffect(() => {
+    const checkAdminAndLoadAuditLogs = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          const isAdminUser = data.role === 'admin' || data.role === 'owner';
+          setIsAdmin(isAdminUser);
+          
+          // Solo cargar audit_logs si es admin/owner
+          if (isAdminUser) {
+            setLoadingAuditLogs(true);
+            const auditResponse = await fetch('/api/audit-log');
+            if (auditResponse.ok) {
+              const logs = await auditResponse.json();
+              setAuditLogs(logs);
+            }
+            setLoadingAuditLogs(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+      }
+    };
+    
+    checkAdminAndLoadAuditLogs();
+  }, [isAdmin]);
 
   const handlePasswordReset = async () => {
     setPasswordResetStatus('sending');
@@ -196,6 +228,8 @@ export function AccountSettings({
     { id: 'personal' as Tab, label: 'Personal info' },
     { id: 'security' as Tab, label: 'Security' },
     { id: 'notifications' as Tab, label: 'Notifications' },
+    // ✅ Solo mostrar pestaña de auditoría si el usuario es admin u owner
+    ...(isAdmin ? [{ id: 'audit' as Tab, label: 'Auditoría (Admins)' }] : []),
   ];
 
   return (
@@ -521,6 +555,61 @@ export function AccountSettings({
                 />
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'audit' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">Audit Log</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Historial de auditoría del sistema. Solo visible para administradores y propietarios.
+            </p>
+            
+            {loadingAuditLogs ? (
+              <p className="text-sm text-gray-500">Cargando registros de auditoría...</p>
+            ) : auditLogs.length === 0 ? (
+              <p className="text-sm text-gray-500">No hay registros de auditoría disponibles.</p>
+            ) : (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {auditLogs.map((log) => (
+                  <div key={log.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-semibold text-gray-900">{log.action}</p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(log.createdAt).toLocaleString()}
+                        </p>
+                        {log.actor && (
+                          <p className="text-sm text-gray-500">Actor: {log.actor}</p>
+                        )}
+                        {log.tool && (
+                          <p className="text-sm text-gray-500">Tool: {log.tool}</p>
+                        )}
+                      </div>
+                      {log.severity && (
+                        <span className={`px-2 py-1 text-xs rounded ${
+                          log.severity === 'error' || log.severity === 'critical'
+                            ? 'bg-red-100 text-red-800'
+                            : log.severity === 'warning'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {log.severity}
+                        </span>
+                      )}
+                    </div>
+                    {log.payload && (
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500">Payload:</p>
+                        <pre className="text-xs bg-gray-50 p-2 rounded mt-1 overflow-x-auto">
+                          {JSON.stringify(log.payload, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

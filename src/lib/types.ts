@@ -247,6 +247,17 @@ export interface CaseBrief {
   required_coverages?: string[];
   /** Client profile description */
   client_profile?: string;
+  /** Temporary uploads from Landing (PDFs pending to be saved as artifacts) */
+  tempUploads?: Array<{
+    id: string;
+    storagePath: string;
+    fileName: string;
+    fileSize: number;
+    pageCount?: number;
+    charactersExtracted?: number;
+    fileHash?: string;
+    extractedText?: string;
+  }>;
 }
 
 /**

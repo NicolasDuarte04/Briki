@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
       await prisma.artifact.create({
         data: {
           caseId: newCase.id,
-          sourceType: 'upload',
+          sourceType: 'pdf',
           fileId: t.storagePath, // mantenemos la ruta; si luego quieres mover, podemos copiar en Storage
           fileName: t.fileName,
           contentType: 'application/pdf',

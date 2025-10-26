@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Upload, Paperclip, Sparkles, FileText, X, ArrowUpIcon, ImageIcon, MonitorIcon, FileUp } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useUI } from '@/lib/ui/state';
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -54,9 +55,10 @@ const useAutoResizeTextarea = ({ minHeight, maxHeight }: { minHeight: number; ma
 export function LandingChatInput() {
     const [value, setValue] = useState("");
     const [user, setUser] = useState<any>(null);
+    const router = useRouter();
     
-    // ✅ FUSIÓN CRÍTICA: Agregar setInitialMessage que faltaba
-    const { setStep, setInitialMessage, setBrief } = useUI();
+    // ✅ FUSIÓN CRÍTICA: Agregar setInitialMessage y openChatPanel que faltaban
+    const { setStep, setInitialMessage, setBrief, openChatPanel } = useUI();
     
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 90,
@@ -155,60 +157,28 @@ export function LandingChatInput() {
         const message = value.trim();
         if (!message && tempUploads.length === 0) return;
 
-        // Limpiar estado local antes de la transición.
+        // ✅ CORRECCIÓN: Guardar PDFs en brief para que el agente los reciba
+        console.log('📎 Preserving PDFs in brief:', tempUploads);
+
+        // Guarda el mensaje inicial y el brief (con PDFs) en el store de Zustand.
+        setInitialMessage(message);
+        setBrief({ 
+          freeText: message,
+          clientName: '',
+          insurance_category: 'Por definir', // Valor temporal para habilitar botón
+          ...(tempUploads.length > 0 && { tempUploads } as any), // ✅ Guardar PDFs en brief (temporal type)
+        });
+
+        // Limpiar estado local después de guardar en brief
         setValue('');
         setTempUploads([]);
         trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
-
-        // --- NUEVO FLUJO DIRECTO ---
-        // Crear caso en la base de datos primero
-        try {
-            console.log('🚀 Creating case from LandingPage with message:', message);
-            
-            // Primero obtener los datos del usuario autenticado
-            const authResponse = await fetch('/api/auth/me');
-            if (!authResponse.ok) {
-                throw new Error('Failed to get user data');
-            }
-            const { userId, orgId } = await authResponse.json();
-            console.log('👤 User data:', { userId, orgId });
-            
-            const response = await fetch('/api/cases/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    orgId,
-                    userId,
-                    briefData: { freeText: message },
-                    clientName: 'Cliente desde Landing',
-                    businessType: 'Por definir',
-                    employees: 0,
-                    status: 'draft',
-                    stage: 'initial'
-                })
-            });
-
-            console.log('📡 Case creation response status:', response.status);
-
-            if (response.ok) {
-                const result = await response.json();
-                console.log('✅ Case created successfully:', result);
-                // Guardar el caseId en el estado global
-                useUI.getState().setCurrentCaseId(result.caseId);
-                console.log('💾 currentCaseId set to:', result.caseId);
-            } else {
-                const errorData = await response.json();
-                console.error('❌ Case creation failed:', errorData);
-            }
-        } catch (error) {
-            console.error('❌ Error creating case:', error);
-        }
-
-        // Guarda el mensaje inicial y el brief en el store de Zustand.
-        setInitialMessage(message);
-        setBrief({ freeText: message });
+        // Abre el panel izquierdo automáticamente
+        openChatPanel();
         // Navega directamente a la vista de conversación del agente.
         setStep("conversation");
+        // Redirige a la ruta del agente
+        router.push('/agent');
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -231,8 +201,9 @@ export function LandingChatInput() {
                 className="hidden"
             />
             
-            {/* Diseño original de v0-ai-chat conservado */}
-            <div className="relative bg-neutral-900 rounded-xl border border-neutral-800">
+            {/* Composer: narrower than hero text, centered for processing fluency + Fitts's law */}
+            <div className="mx-auto w-[min(85vw,720px)] max-w-[720px]">
+                <div className="relative bg-neutral-900/98 backdrop-blur supports-[backdrop-filter]:bg-neutral-900/85 rounded-2xl border border-neutral-800/60 shadow-lg p-4">
                 <div className="overflow-y-auto">
                     <Textarea
                         id="hero-chat-input"
@@ -246,7 +217,7 @@ export function LandingChatInput() {
                         placeholder="Describe your client or drop a policy PDF..."
                         aria-label="Describe your client or drop a policy PDF"
                         className={cn(
-                            "w-full px-5 py-4",
+                            "w-full px-4 py-3",
                             "resize-none",
                             "bg-transparent",
                             "border-none",
@@ -254,7 +225,7 @@ export function LandingChatInput() {
                             "focus:outline-none",
                             "focus-visible:ring-0 focus-visible:ring-offset-0",
                             "placeholder:text-neutral-500 placeholder:text-lg",
-                            "min-h-[90px]"
+                            "min-h-[70px]"
                         )}
                         style={{
                             overflow: "hidden",
@@ -263,7 +234,7 @@ export function LandingChatInput() {
                     
                     {/* PDF upload indicator (conservar diseño original) */}
                     {tempUploads.length > 0 && (
-                        <div className="mx-5 mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between">
+                        <div className="mx-4 mb-3 p-3 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center justify-between">
                             <div className="flex flex-col gap-2 w-full">
                                 {tempUploads.map(t => (
                                     <div key={t.storagePath} className="flex items-center justify-between">
@@ -292,24 +263,47 @@ export function LandingChatInput() {
                     )}
                 </div>
 
-                <div className="flex items-center justify-between p-4 border-t border-neutral-800">
+                <div className="flex items-center justify-between p-3 border-t border-neutral-800">
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
                             onClick={handleUploadClick}
                             disabled={isUploading}
-                            aria-label="Upload PDF"
-                            className="group p-2 hover:bg-neutral-800 rounded-lg transition-colors flex items-center gap-1"
-                        >
-                            {isUploading ? (
-                                <div className="w-4 h-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                            ) : (
-                                <Paperclip className="w-4 h-4 text-white" />
+                            className={cn(
+                                "flex items-center gap-1.5 px-3 py-2 rounded-full border transition-colors min-h-[36px]",
+                                tempUploads.length > 0
+                                    ? "bg-green-500/20 border-green-500/30 text-green-400"
+                                    : "bg-neutral-900/50 hover:bg-neutral-800 border-neutral-800/50 text-neutral-400 hover:text-white",
+                                isUploading && "opacity-50 cursor-not-allowed"
                             )}
-                            <span className="text-xs text-zinc-400 hidden group-hover:inline transition-opacity">
-                                {isUploading ? 'Uploading...' : 'Attach PDF'}
+                        >
+                            <Paperclip className="w-3.5 h-3.5" />
+                            <span className="text-xs">
+                                {isUploading ? 'Uploading...' : tempUploads.length > 0 ? '✓ PDF' : 'Upload PDF'}
                             </span>
                         </button>
+                        
+                        {/* Botón Import WhatsApp */}
+                        <ActionButton
+                            icon={<ImageIcon className="w-3.5 h-3.5" />}
+                            label="Import WhatsApp"
+                            user={user}
+                            onAuthenticatedClick={() => {
+                                const { startBriefing } = useUI.getState();
+                                startBriefing("Importar chat de WhatsApp");
+                            }}
+                        />
+                        
+                        {/* Botón Connect carriers */}
+                        <ActionButton
+                            icon={<MonitorIcon className="w-3.5 h-3.5" />}
+                            label="Connect carriers"
+                            user={user}
+                            onAuthenticatedClick={() => {
+                                const { startBriefing } = useUI.getState();
+                                startBriefing("Conectar con aseguradoras");
+                            }}
+                        />
                     </div>
                     <div className="flex items-center gap-2">
                         <button
@@ -335,50 +329,10 @@ export function LandingChatInput() {
                         </button>
                     </div>
                 </div>
+                </div>
+                
             </div>
 
-            {/* ✅ BOTONES DE ACCIÓN RESTAURADOS - Sección que faltaba en la fusión */}
-            <div className="flex items-center justify-center gap-3 mt-4 flex-wrap">
-                <button
-                    type="button"
-                    onClick={handleUploadClick}
-                    disabled={isUploading}
-                    className={cn(
-                        "flex items-center gap-2 px-4 py-2 rounded-full border transition-colors",
-                        tempUploads.length > 0
-                            ? "bg-green-500/20 border-green-500/30 text-green-400"
-                            : "bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-400 hover:text-white",
-                        isUploading && "opacity-50 cursor-not-allowed"
-                    )}
-                >
-                    <FileUp className="w-4 h-4" />
-                    <span className="text-xs">
-                        {isUploading ? 'Uploading...' : tempUploads.length > 0 ? '✓ PDF Loaded' : 'Upload PDF'}
-                    </span>
-                </button>
-                
-                {/* Botón Import WhatsApp chat */}
-                <ActionButton
-                    icon={<ImageIcon className="w-4 h-4" />}
-                    label="Import WhatsApp chat"
-                    user={user}
-                    onAuthenticatedClick={() => {
-                        // Funcionalidad temporalmente deshabilitada
-                        console.log("Import WhatsApp chat - Funcionalidad en desarrollo");
-                    }}
-                />
-                
-                {/* Botón Connect carriers */}
-                <ActionButton
-                    icon={<MonitorIcon className="w-4 h-4" />}
-                    label="Connect carriers"
-                    user={user}
-                    onAuthenticatedClick={() => {
-                        // Funcionalidad temporalmente deshabilitada
-                        console.log("Connect carriers - Funcionalidad en desarrollo");
-                    }}
-                />
-            </div>
         </div>
     );
 }
@@ -407,7 +361,10 @@ function ActionButton({ icon, label, user, onAuthenticatedClick }: ActionButtonP
         <button
             type="button"
             onClick={handleClick}
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 rounded-full border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
+            className={cn(
+                "flex items-center gap-1.5 px-3 py-2 rounded-full border transition-colors min-h-[36px]",
+                "bg-neutral-900/50 hover:bg-neutral-800 border-neutral-800/50 text-neutral-400 hover:text-white"
+            )}
         >
             {icon}
             <span className="text-xs">{label}</span>

@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 import { PdfUploader } from '@/components/Upload/PdfUploader';
 import { useUI } from '@/lib/ui/state';
 import { useClientValidation } from '@/hooks/useClientValidation';
+import type { CaseBrief } from '@/lib/types';
 
 // Define el tipo para uploads temporales
 export type TempUpload = {
@@ -76,8 +77,8 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // Hook para acceder al estado global
   const { brief, setBrief, isBriefValid } = useUI();
   
-  // La validación de clientes se maneja en el componente padre
-  // const { validateAndResolveClient, isLoading: isClientValidationLoading } = useClientValidation();
+  // Hook para validación y creación de clientes
+  const { validateAndResolveClient, isLoading: isClientValidationLoading } = useClientValidation();
 
   // Estado para todos los campos del formulario
   const [formData, setFormData] = useState<CaseBriefData>({
@@ -99,6 +100,15 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   
   // Estado para uploads temporales
   const [tempUploads, setTempUploads] = useState<TempUpload[]>([]);
+
+  // ✅ Sincronizar tempUploads del brief global al montar el componente
+  useEffect(() => {
+    const briefTempUploads = (brief as any).tempUploads || [];
+    if (briefTempUploads.length > 0) {
+      console.log('📎 [BriefForm] Cargando tempUploads desde brief global:', briefTempUploads);
+      setTempUploads(briefTempUploads);
+    }
+  }, []); // Solo ejecutar una vez al montar
 
   // Estados para el Combobox de clientes
   const [clientList, setClientList] = useState<ClientOption[]>([]);
@@ -131,13 +141,27 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     loadClients();
   }, []);
 
-  // Efecto para sincronizar estado local con global
+  // Sincronización inicial de clientName desde brief (solo una vez al montar)
   useEffect(() => {
-    if (brief?.clientName !== clientSearchTerm) {
-      setClientSearchTerm(brief?.clientName || '');
+    if (!clientSearchTerm && brief?.clientName) {
+      setClientSearchTerm(brief.clientName);
     }
-    // OJO: Evitar dependencias circulares, solo reaccionar a cambios externos
-  }, [brief?.clientName, clientSearchTerm]);
+  }, []); // Solo ejecutar una vez al montar
+
+  // En modo edición: Sincronizar initialData con brief global al montar
+  useEffect(() => {
+    if (mode === 'edit' && initialData) {
+      console.log('🔄 [BriefForm] Edit mode: Syncing initialData to brief', initialData);
+      setBrief({
+        insurance_category: initialData.insurance_category || '',
+        clientName: initialData.clientName || '',
+        businessType: initialData.businessType || '',
+        employees: initialData.employees || 0,
+        coverage: initialData.briefData?.coverage || '',
+        freeText: initialData.briefData?.freeText || '',
+      });
+    }
+  }, [mode, initialData, setBrief]); // Dependencias correctas
 
   // Efecto para cerrar el dropdown cuando se hace clic fuera
   useEffect(() => {
@@ -161,7 +185,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     // Sincronizar con el estado global para campos que existen en brief
     if (field === 'clientName' || field === 'businessType' || field === 'coverage' || field === 'freeText' || field === 'insurance_category') {
       // Usar actualización funcional para evitar dependencia de 'brief'
-      setBrief(prevBrief => ({ ...prevBrief, [field]: value }));
+      setBrief({ [field]: value } as Partial<CaseBrief>);
     }
   }, [setBrief]); // <-- ELIMINAR 'brief' del array de dependencias
 
@@ -176,30 +200,24 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     updateField('clientName', name);
 
     // Actualizar estado global funcionalmente
-    setBrief(prevBrief => ({
-      ...prevBrief,
-      clientName: name,
-      selectedClientId: id
-    }));
+    setBrief({ clientName: name, selectedClientId: id } as Partial<CaseBrief>);
     setIsClientComboboxOpen(false);
   }, [updateField, setBrief]); // <-- ELIMINAR 'brief'
 
   const handleClientSearchChange = useCallback((value: string) => {
     setClientSearchTerm(value);
+    
+    // Actualizar también el estado local del formulario
     updateField('clientName', value);
     
     // Actualizar estado global con el término de búsqueda, marcando que no hay ID seleccionado
-    setBrief(prevBrief => ({ 
-      ...prevBrief, 
-      clientName: value, 
-      selectedClientId: null 
-    }));
+    setBrief({ clientName: value, selectedClientId: null } as Partial<CaseBrief>);
     
     // Abrir dropdown cuando se escriba
     if (value.length > 0) {
       setIsClientComboboxOpen(true);
     }
-  }, [updateField, setBrief]); // <-- ELIMINAR 'brief'
+  }, [setBrief, updateField]);
 
   const handleAddCoverage = useCallback(() => {
     if (currentCoverage.trim() !== '' && !formData.required_coverages.includes(currentCoverage.trim())) {
@@ -213,17 +231,63 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   }, [formData.required_coverages, updateField]);
 
   // Handlers para uploads
-  const handleFileUpload = (file: File) => {
-    // Esta función será llamada por PdfUploader cuando se seleccione un archivo
-    // El PdfUploader manejará la subida y nos devolverá el resultado
+  const handleFileUpload = async (file: File) => {
+    console.log('📄 [BriefForm] Iniciando subida de PDF temporal:', file.name);
+    
+    try {
+      // ✅ REUTILIZACIÓN MÁXIMA: Usar el mismo endpoint que el Landing
+      const formData = new FormData();
+      formData.append('pdf', file);
+      
+      console.log('🚀 [BriefForm] Enviando a /api/upload/pdf...');
+      const response = await fetch('/api/upload/pdf', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const result = await response.json();
+      console.log('📡 [BriefForm] Respuesta recibida:', result);
+      
+      if (result.success && result.mode === 'temp' && result.tempUpload) {
+        console.log('✅ [BriefForm] PDF subido como temp con storagePath real:', result.tempUpload);
+        
+        // Agregar a estado local
+        setTempUploads(prev => [...prev, result.tempUpload]);
+        
+        // ✅ Sincronizar con Zustand global
+        const currentBrief = useUI.getState().brief;
+        setBrief({
+          ...currentBrief,
+          tempUploads: [...(currentBrief.tempUploads || []), result.tempUpload]
+        });
+      } else {
+        console.error('❌ [BriefForm] Error al subir PDF:', result.error);
+        alert(`Error: ${result.error || 'Error desconocido'}`);
+      }
+    } catch (error) {
+      console.error('❌ [BriefForm] Error en fetch /api/upload/pdf:', error);
+      alert('Error de conexión al subir PDF');
+    }
   };
 
   const handleUploadComplete = (upload: TempUpload) => {
     setTempUploads(prev => [...prev, upload]);
+    // ✅ Sincronizar con Zustand global
+    const currentBrief = useUI.getState().brief;
+    setBrief({
+      ...currentBrief,
+      tempUploads: [...(currentBrief.tempUploads || []), upload]
+    });
   };
 
   const handleRemoveUpload = (storagePath: string) => {
     setTempUploads(prev => prev.filter(upload => upload.storagePath !== storagePath));
+    // ✅ Sincronizar con Zustand global
+    const currentBrief = useUI.getState().brief;
+    setBrief({
+      ...currentBrief,
+      tempUploads: (currentBrief.tempUploads || []).filter(upload => upload.storagePath !== storagePath)
+    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -236,14 +300,46 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Si hay función de aprobación (con validación), usarla
-    if (onApprove) {
-      await onApprove();
-    } else {
-      // Fallback: solo proceder con el envío del formulario
-      await onSubmit({ ...formData, tempUploads });
+    console.log('🚀 [BriefForm] handleSubmit triggered. Mode:', mode);
+    console.log('📦 [BriefForm] formData:', formData);
+    console.log('📎 [BriefForm] tempUploads:', tempUploads);
+    
+    try {
+      // ACTUALIZAR brief explícitamente con todos los datos del formulario
+      const briefUpdate: any = {
+        insurance_category: formData.insurance_category,
+        max_budget: formData.max_budget ?? undefined,
+        budget_currency: formData.budget_currency,
+        required_coverages: formData.required_coverages,
+        client_profile: formData.client_profile,
+        clientName: formData.clientName,
+        businessType: formData.businessType,
+        employees: formData.employees ?? undefined,
+        coverage: formData.coverage,
+        freeText: formData.notes,
+      };
+      console.log('📝 [BriefForm] Actualizando brief global con:', briefUpdate);
+      setBrief(briefUpdate);
+
+      // En modo edición: llamar onSubmit con todos los datos
+      if (mode === 'edit') {
+        console.log('✏️ [BriefForm] Edit mode: Calling onSubmit with formData + tempUploads');
+        await onSubmit({ ...formData, tempUploads });
+      } else {
+        // Modo creación: Si hay función de aprobación (con validación), usarla
+        if (onApprove) {
+          await onApprove(); // onApprove ahora leerá el brief actualizado
+        } else {
+          // Fallback: solo proceder con el envío del formulario
+          await onSubmit({ ...formData, tempUploads });
+        }
+      }
+    } catch (error: any) {
+      console.error('❌ [BriefForm] Error en handleSubmit:', error);
+      // Re-lanzar el error para que se maneje en el componente padre
+      throw error;
     }
-  }, [onApprove, onSubmit, formData, tempUploads]);
+  }, [onApprove, onSubmit, formData, tempUploads, setBrief, mode]);
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -389,21 +485,22 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                     />
                 {isClientComboboxOpen && (
                   <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
-                    <Command>
-                    <CommandList>
-                      <CommandEmpty>
-                        {isClientListLoading ? "Cargando clientes..." : "No se encontraron clientes."}
-                      </CommandEmpty>
-                      <CommandGroup>
-                          {clientList
-                            .filter(client => 
-                              client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
-                            )
-                            .map((client) => (
-                            <div
+                    {isClientListLoading ? (
+                      <div className="px-2 py-1.5 text-sm text-gray-500">Cargando clientes...</div>
+                    ) : clientList.filter(client => 
+                        client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
+                      ).length === 0 ? (
+                      <div className="px-2 py-1.5 text-sm text-gray-500">No se encontraron clientes.</div>
+                    ) : (
+                      clientList
+                        .filter(client => 
+                          client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
+                        )
+                        .map((client) => (
+                          <div
                             key={client.id}
-                              onClick={() => handleClientSelect(client)}
-                              className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded-sm"
+                            onClick={() => handleClientSelect(client)}
+                            className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded-sm"
                           >
                             <Check
                               className={cn(
@@ -412,11 +509,9 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                               )}
                             />
                             {client.name}
-                            </div>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
+                          </div>
+                        ))
+                    )}
                   </div>
                 )}
               </div>
@@ -523,10 +618,12 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           <div className="flex justify-end pt-4">
             <Button
               type="submit"
-              disabled={isSubmitting || !isBriefValid()}
+              disabled={mode === 'edit' 
+                ? (isSubmitting || isClientValidationLoading) // En modo edición: solo deshabilitar si está procesando
+                : (isSubmitting || isClientValidationLoading || !brief.insurance_category?.trim())} // En modo creación: validar insurance_category
               className="min-w-[140px]"
             >
-              {isSubmitting ? 'Procesando...' : 'Buscar Planes'}
+              {isSubmitting || isClientValidationLoading ? 'Procesando...' : mode === 'edit' ? 'Guardar Cambios' : 'Buscar Planes'}
             </Button>
           </div>
         </form>

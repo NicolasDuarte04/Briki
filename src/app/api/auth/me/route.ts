@@ -14,10 +14,10 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Obtener la organización del usuario
+    // Obtener la organización del usuario con su rol
     const { data: membership } = await supabase
       .from('org_members')
-      .select('org_id')
+      .select('org_id, role')
       .eq('user_id', user.id)
       .single();
     
@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
       userId: user.id,
       orgId: membership.org_id,
       email: user.email,
+      role: membership.role, // ✅ Incluir rol (admin, owner, member)
     });
     
   } catch (error) {

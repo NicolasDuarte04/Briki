@@ -20,12 +20,20 @@ export default function NewCasePage() {
     setError(null);
     
     try {
+      // Obtener orgId primero
+      const authResponse = await fetch('/api/auth/me');
+      if (!authResponse.ok) {
+        throw new Error('No se pudo obtener la información del usuario');
+      }
+      const { orgId } = await authResponse.json();
+      
       const response = await fetch('/api/cases/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          orgId, // Agregar orgId
           // Mapear los datos del BriefForm a la estructura que espera la API
           clientName: data.clientName,
           businessType: data.businessType,
@@ -45,6 +53,8 @@ export default function NewCasePage() {
           budget_currency: data.budget_currency,
           required_coverages: data.required_coverages,
           client_profile: data.client_profile,
+          // ✅ Añadir tempUploads si existen
+          tempUploads: data.tempUploads || [],
         }),
       });
 
@@ -56,7 +66,7 @@ export default function NewCasePage() {
       const result = await response.json();
       
       // Redirigir al caso creado
-      router.push(`/workspace/cases/${result.id}`);
+      router.push(`/workspace/cases/${result.caseId}`);
     } catch (err) {
       console.error('Error creating case:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido al crear el caso');

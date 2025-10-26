@@ -142,7 +142,7 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
       const result = await response.json();
       
       // Completar el briefing y proceder a la conversación
-      completeBriefing(result.id);
+      completeBriefing(result.caseId);
     } catch (error) {
       console.error('Error creating case from briefing:', error);
       // En caso de error, cancelar el briefing
