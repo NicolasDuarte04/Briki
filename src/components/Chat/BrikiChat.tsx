@@ -104,7 +104,7 @@ interface BrikiChatProps {
 export function BrikiChat({ mode, className }: BrikiChatProps) {
     const [value, setValue] = useState("");
     const { user } = useAuth();
-    const { setStep, setBrief, brief, isSourcing, startSourcing, initialMessage, clearInitialMessage, setInitialMessage } = useUI();
+    const { setStep, setBrief, brief, isSourcing, startSourcing, initialMessage, clearInitialMessage, setInitialMessage, currentCaseId } = useUI();
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 90,
         maxHeight: 200,
@@ -367,6 +367,13 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
         setIsTyping(true);
 
         try {
+            // Use currentCaseId if available, otherwise fall back to conversationId for compatibility
+            const caseIdToSend = currentCaseId || conversationId;
+            
+            if (!caseIdToSend) {
+                throw new Error('No case ID available');
+            }
+            
             const response = await fetch('/api/chat/process-message', {
                 method: 'POST',
                 headers: {
@@ -374,22 +381,25 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                 },
                 body: JSON.stringify({
                     message: trimmed,
-                    userId: 'anonymous',
-                    conversationId: conversationId,
+                    caseId: caseIdToSend,
                     brief: brief
                 })
             });
             
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.status}`);
-            }
-            
             const result = await response.json();
+            
+            if (!response.ok || !result.ok) {
+                const errorMsg = result.error || `API Error: ${response.status}`;
+                const requestId = result.requestId;
+                const error: any = new Error(errorMsg);
+                error.requestId = requestId;
+                throw error;
+            }
             
             appendMessage(conversationId, {
                 id: `msg-${Date.now()}-${Math.random()}`,
                 role: "assistant",
-                content: result.response,
+                content: result.data.response,
                 timestamp: new Date().toISOString(),
                 agent: { label: chatTranslations("agents.sourcing") },
             });
@@ -398,18 +408,24 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
             if (!isSourcing) {
                 startSourcing();
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error processing message:', error);
+            
+            // Include requestId in error message for support purposes
+            const requestIdInfo = error.requestId 
+                ? ` (Request ID: ${error.requestId})` 
+                : '';
+            
             appendMessage(conversationId, {
                 id: `msg-${Date.now()}-${Math.random()}`,
                 role: "assistant",
-                content: "Disculpa, hubo un problema procesando tu mensaje. ¿Puedes intentar de nuevo?",
+                content: `Disculpa, hubo un problema procesando tu mensaje. ¿Puedes intentar de nuevo?${requestIdInfo}`,
                 timestamp: new Date().toISOString(),
                 agent: { label: chatTranslations("agents.sourcing") },
             });
             setIsTyping(false);
         }
-    }, [activeConversationId, appendMessage, brief, chatTranslations, conversations, createConversation, isNearBottom, isSourcing, router, setActiveConversation, startSourcing, value]);
+    }, [activeConversationId, appendMessage, brief, chatTranslations, conversations, createConversation, currentCaseId, isNearBottom, isSourcing, router, setActiveConversation, setStep, startSourcing, value]);
 
     // ✅ FUSIÓN CRÍTICA: Landing mode submit handler (del LandingChatInput original)
     const handleLandingSubmit = async () => {

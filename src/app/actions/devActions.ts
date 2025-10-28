@@ -14,6 +14,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
+import { publicEnv, serverEnv } from '@/lib/env'
 
 // =====================================================
 // TIPOS E INTERFACES
@@ -82,7 +83,7 @@ export async function deleteUserCompletely(userId: string): Promise<ActionRespon
   // =====================================================
   // VALIDACIÓN 1: Entorno de desarrollo
   // =====================================================
-  if (process.env.NODE_ENV !== 'development') {
+  if (serverEnv.NODE_ENV !== 'development') {
     console.error('[SECURITY] Intento de ejecutar deleteUserCompletely en producción bloqueado');
     return { 
       success: false, 
@@ -93,16 +94,9 @@ export async function deleteUserCompletely(userId: string): Promise<ActionRespon
   // =====================================================
   // VALIDACIÓN 2: Variables de entorno
   // =====================================================
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.error('[CONFIG] Missing Supabase credentials');
-    throw new Error(
-      'Supabase URL or Service Role Key are not defined in environment variables. ' +
-      'Please check your .env.local file.'
-    );
-  }
+  // Environment validation is handled by env.ts on module load
+  const supabaseUrl = publicEnv.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = serverEnv.SUPABASE_SERVICE_ROLE_KEY;
 
   // =====================================================
   // VALIDACIÓN 3: UUID válido
@@ -190,16 +184,13 @@ export async function deleteUserCompletely(userId: string): Promise<ActionRespon
  * @returns Promise<boolean> - true si el usuario existe
  */
 export async function userExists(userId: string): Promise<boolean> {
-  if (process.env.NODE_ENV !== 'development') {
+  if (serverEnv.NODE_ENV !== 'development') {
     return false;
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return false;
-  }
+  // Environment validation is handled by env.ts on module load
+  const supabaseUrl = publicEnv.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = serverEnv.SUPABASE_SERVICE_ROLE_KEY;
 
   const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 

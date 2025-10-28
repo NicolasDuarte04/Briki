@@ -1,14 +1,76 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Layers, Monitor, Users, Building2, Check } from "lucide-react";
+import { Layers, Monitor, Users, Building2, Check, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthProvider";
 import { cn } from "@/lib/utils";
 
 export function LandingPricing() {
   const t = useTranslations("landing.pricing");
+  const locale = useLocale();
+  const router = useRouter();
+  const { user, ready } = useAuth();
   const [isAnnual, setIsAnnual] = useState(false);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+
+  const handleButtonClick = async (planId: string) => {
+    // Don't do anything if auth is still loading
+    if (!ready) return;
+
+    // Check if Enterprise plan (special handling)
+    if (planId === "enterprise") {
+      // Redirect to contact/sales page or open email
+      window.location.href = "mailto:sales@briki.com?subject=Enterprise Plan Inquiry";
+      return;
+    }
+
+    // If user is not authenticated, redirect to login
+    if (!user) {
+      const currentPath = window.location.pathname;
+      const returnUrl = `${currentPath}#pricing`;
+      router.push(`/${locale}/login?next=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
+
+    // If user is authenticated, proceed with checkout
+    try {
+      setLoadingPlan(planId);
+      
+      // Call the checkout API
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          planId,
+          isAnnual,
+          userId: user.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to create checkout session");
+      }
+
+      const { sessionUrl } = await response.json();
+      
+      if (!sessionUrl) {
+        throw new Error("No checkout URL returned from server");
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = sessionUrl;
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      setLoadingPlan(null);
+      alert(error instanceof Error ? error.message : "Error al procesar el pago. Por favor, contacta a soporte.");
+    }
+  };
 
   const plans = [
     {
@@ -231,8 +293,17 @@ export function LandingPricing() {
                   variant={plan.recommended ? "default" : "outline"}
                   className="w-full font-medium"
                   size="lg"
+                  onClick={() => handleButtonClick(plan.id)}
+                  disabled={loadingPlan === plan.id || !ready}
                 >
-                  {plan.cta}
+                  {loadingPlan === plan.id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {t("processing", { defaultValue: "Processing..." })}
+                    </>
+                  ) : (
+                    plan.cta
+                  )}
                 </Button>
               </div>
 

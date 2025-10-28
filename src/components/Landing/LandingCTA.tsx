@@ -154,7 +154,7 @@ export function LandingCTA() {
         
         <div className="mt-6">
           <a
-            href="#"
+            href="#demo"
             className="inline-block hover:opacity-70 transition-opacity text-body text-[var(--briki-text-muted)] underline font-medium font-smooth"
           >
             {t('demo')}

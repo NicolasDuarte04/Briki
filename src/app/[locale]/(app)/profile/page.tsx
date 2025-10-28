@@ -1,11 +1,21 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "./actions";
+import { getActiveSubscription } from "@/lib/subscription";
 import { ProfileNav } from "./ProfileNav";
 import { AccountSettings } from "./AccountSettings";
 import { DevAccountActions } from "./DevAccountActions";
+import { revalidatePath } from 'next/cache';
 
-export default async function ProfilePage() {
+// Force dynamic rendering for fresh data
+export const dynamic = 'force-dynamic';
+export const revalidate = 0; // No cache - always fetch fresh data
+
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ portal_return?: string }>;
+}) {
   const userId = await getCurrentUserId();
 
   // If not authenticated, render a minimal message (no client routing changes)
@@ -43,6 +53,16 @@ export default async function ProfilePage() {
   const notificationsProductUpdates = user?.profile?.notificationsProductUpdates ?? false;
   const notificationsPolicyAlerts = user?.profile?.notificationsPolicyAlerts ?? false;
 
+  // Fetch active subscription data
+  const subscription = await getActiveSubscription(userId);
+  
+  // If returning from portal, ensure fresh data
+  const awaitedSearchParams = await searchParams;
+  if (awaitedSearchParams.portal_return) {
+    revalidatePath('/profile', 'layout');
+    console.log('[Profile] Revalidating profile after portal return');
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-neutral-50">
       <ProfileNav />
@@ -56,6 +76,7 @@ export default async function ProfilePage() {
             locale={locale}
             notificationsProductUpdates={notificationsProductUpdates}
             notificationsPolicyAlerts={notificationsPolicyAlerts}
+            subscription={subscription}
           />
         </Suspense>
         

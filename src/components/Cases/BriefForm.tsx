@@ -74,7 +74,7 @@ const INSURANCE_CATEGORIES = [
 
 export function BriefForm({ onSubmit, onApprove, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) {
   // Hook para acceder al estado global
-  const { brief, setBrief, isBriefValid } = useUI();
+  const { brief, setBrief } = useUI();
   
   // La validación de clientes se maneja en el componente padre
   // const { validateAndResolveClient, isLoading: isClientValidationLoading } = useClientValidation();
@@ -523,7 +523,7 @@ export function BriefForm({ onSubmit, onApprove, initialNotes = '', isSubmitting
           <div className="flex justify-end pt-4">
             <Button
               type="submit"
-              disabled={isSubmitting || !isBriefValid()}
+              disabled={isSubmitting || !formData.clientName || !formData.insurance_category}
               className="min-w-[140px]"
             >
               {isSubmitting ? 'Procesando...' : 'Buscar Planes'}

@@ -3,23 +3,14 @@ import { redirect } from 'next/navigation'
 
 import { createServerSupabase } from '@/lib/supabase/server'
 import BrikiSidebarLayout from '@/components/BrikiSidebarLayout'
-<<<<<<< HEAD
-=======
 import AgentSidebar from '@/components/AgentSidebar'
 import { env } from '@/lib/env'
->>>>>>> implementation-dashboard-arreglo-landing-funcionalidad-sidebar-final
 
 type AppLayoutProps = {
   children: ReactNode
   params: Promise<{ locale: string }>
 }
 
-<<<<<<< HEAD
-export default async function AppLayout({ children, params }: AppLayoutProps) {
-  // Extract locale for localized redirects
-  const { locale } = await params
-
-=======
 /**
  * IN-APP LAYOUT WITH SERVER-SIDE AUTH GUARD
  * 
@@ -97,7 +88,6 @@ export default async function AppLayout({ children, params }: AppLayoutProps) {
   const { locale } = await params
 
   // Create server-side Supabase client
->>>>>>> implementation-dashboard-arreglo-landing-funcionalidad-sidebar-final
   const supabase = await createServerSupabase()
 
   // Use getUser() for secure authentication check (validates JWT server-side)
@@ -116,11 +106,6 @@ export default async function AppLayout({ children, params }: AppLayoutProps) {
     redirect(`${loginUrl}?${searchParams.toString()}`)
   }
 
-<<<<<<< HEAD
-  // Render protected content with sidebar shell
-  return (
-    <BrikiSidebarLayout>
-=======
   // TODO: Zero-state detection for first-time users
   // Will display onboarding hints when user has no cases/data
   // Future: Wrap children in <ZeroStateProvider user={user}>{children}</ZeroStateProvider>
@@ -138,7 +123,6 @@ export default async function AppLayout({ children, params }: AppLayoutProps) {
 
   return (
     <BrikiSidebarLayout sidebar={<AgentSidebar />}>
->>>>>>> implementation-dashboard-arreglo-landing-funcionalidad-sidebar-final
       {children}
     </BrikiSidebarLayout>
   )

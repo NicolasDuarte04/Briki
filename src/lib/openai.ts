@@ -2,18 +2,14 @@
 import OpenAI from 'openai';
 import { CaseBrief } from '@/lib/types';
 import { formatInsurancePrompt } from '@/lib/prompts/insurance-analysis';
+import { serverEnv } from '@/lib/env';
 
 // Función para obtener el cliente OpenAI (inicialización lazy)
 function getOpenAIClient(): OpenAI {
-  // --- VALIDACIÓN ROBUSTA DE ENTORNO ---
-  if (!process.env.OPENAI_API_KEY) {
-    console.error('CRITICAL ERROR: OPENAI_API_KEY is not configured in the environment variables.');
-    console.error('Please check your .env.local file and ensure OPENAI_API_KEY is set.');
-    throw new Error('OpenAI service is not configured. Please check the server environment.');
-  }
-
+  // Environment validation is handled by env.ts on module load
+  // No need for additional checks here
   return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: serverEnv.OPENAI_API_KEY,
   });
 }
 
@@ -28,8 +24,8 @@ export async function analyzeInsuranceDocuments(request: AnalysisRequest): Promi
   // Obtener el cliente OpenAI (inicialización lazy)
   const openai = getOpenAIClient();
 
-  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-  const maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS || '4000', 10);
+  const model = serverEnv.OPENAI_MODEL;
+  const maxTokens = serverEnv.OPENAI_MAX_TOKENS;
   const formattedPrompt = formatInsurancePrompt(request);
 
   console.log('🤖 OpenAI: Iniciando análisis con modelo:', model);
@@ -53,15 +49,17 @@ export async function analyzeInsuranceDocuments(request: AnalysisRequest): Promi
   } catch (error: any) {
     console.error('ERROR [OpenAI Service]: API call failed -', error);
     
-    // Manejo específico de errores de OpenAI
-    if (error.code === 'insufficient_quota') {
-      throw new Error('Cuota de OpenAI agotada. Por favor, verifica tu plan de facturación.');
-    } else if (error.code === 'invalid_api_key') {
-      throw new Error('Clave de API de OpenAI inválida. Por favor, verifica la configuración.');
-    } else if (error.code === 'rate_limit_exceeded') {
-      throw new Error('Límite de velocidad excedido. Por favor, intenta de nuevo en unos momentos.');
+    // Preserve the original error for proper status code propagation
+    // OpenAI SDK errors already have status and code properties
+    if (error.status || error.code) {
+      // Re-throw with original error properties intact
+      throw error;
     }
     
-    throw new Error('El servicio de análisis no está disponible en este momento.');
+    // For unknown errors, wrap them appropriately
+    const wrappedError: any = new Error('El servicio de análisis no está disponible en este momento.');
+    wrappedError.status = 503; // Service Unavailable
+    wrappedError.code = 'service_unavailable';
+    throw wrappedError;
   }
 }

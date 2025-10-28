@@ -58,15 +58,16 @@ export function PricingModule({
     // Default Stripe integration
     try {
       setLoadingPlan(planId);
-      const sessionId = await createCheckoutSession({
+      const sessionUrl = await createCheckoutSession({
         planId,
         isAnnual,
         userId: userId || undefined,
       });
-      await redirectToCheckout(sessionId);
+      await redirectToCheckout(sessionUrl);
     } catch (error) {
       console.error('Error starting checkout:', error);
       // You might want to show a toast notification here
+      alert(error instanceof Error ? error.message : 'Failed to start checkout');
     } finally {
       setLoadingPlan(null);
     }

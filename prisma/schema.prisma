@@ -61,17 +61,19 @@ model User {
 }
 
 model Profile {
-  id                          String   @id @db.Uuid
-  name                        String?  @map("display_name")
-  onboardingCompleted         Boolean  @default(false) @map("onboarding_completed")
-  createdAt                   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  locale                      String   @default("en")
+  id                          String        @id @db.Uuid
+  name                        String?       @map("display_name")
+  onboardingCompleted         Boolean       @default(false) @map("onboarding_completed")
+  createdAt                   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  locale                      String        @default("en")
   phone                       String?
   address                     String?
-  notificationsProductUpdates Boolean  @default(false) @map("notifications_product_updates")
-  notificationsPolicyAlerts   Boolean  @default(false) @map("notifications_policy_alerts")
-  user                        User     @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  notificationsProductUpdates Boolean       @default(false) @map("notifications_product_updates")
+  notificationsPolicyAlerts   Boolean       @default(false) @map("notifications_policy_alerts")
+  stripeCustomerId            String?       @map("stripe_customer_id") @db.VarChar(255)
+  user                        User          @relation(fields: [id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  subscriptions               Subscription[]
 
   @@map("profiles")
   @@schema("public")
@@ -423,6 +425,54 @@ model AuditLog {
   case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@map("audit_log")
+  @@schema("public")
+}
+
+model Subscription {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String    @map("user_id") @db.Uuid
+  stripeCustomerId      String    @map("stripe_customer_id") @db.VarChar(255)
+  stripeSubscriptionId  String    @unique @map("stripe_subscription_id") @db.VarChar(255)
+  stripePriceId         String    @map("stripe_price_id") @db.VarChar(255)
+  stripeProductId       String    @map("stripe_product_id") @db.VarChar(255)
+  planCode              String    @map("plan_code") @db.VarChar(50)
+  status                String    @map("status") @db.VarChar(50)
+  interval              String    @map("interval") @db.VarChar(20)
+  currency              String    @map("currency") @db.VarChar(3)
+  currentPeriodStart    DateTime  @map("current_period_start") @db.Timestamptz(6)
+  currentPeriodEnd      DateTime  @map("current_period_end") @db.Timestamptz(6)
+  cancelAtPeriodEnd     Boolean   @default(false) @map("cancel_at_period_end")
+  trialEnd              DateTime? @map("trial_end") @db.Timestamptz(6)
+  cancelAt               DateTime? @map("cancel_at") @db.Timestamptz(6)
+  canceledAt             DateTime? @map("canceled_at") @db.Timestamptz(6)
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  profile                Profile   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId], map: "idx_subscriptions_user_id")
+  @@index([status], map: "idx_subscriptions_status")
+  @@index([stripeSubscriptionId], map: "idx_subscriptions_stripe_subscription_id")
+  @@map("subscriptions")
+  @@schema("public")
+}
+
+model WebhookEvent {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stripeEventId    String    @unique @map("stripe_event_id") @db.VarChar(255)
+  eventType        String    @map("event_type") @db.VarChar(100)
+  processedAt      DateTime  @default(now()) @map("processed_at") @db.Timestamptz(6)
+  subscriptionId   String?   @map("subscription_id") @db.VarChar(255)
+  userId           String?   @map("user_id") @db.Uuid
+  success          Boolean   @default(true)
+  errorMessage     String?   @map("error_message")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([stripeEventId], map: "idx_webhook_events_stripe_event_id")
+  @@index([eventType], map: "idx_webhook_events_event_type")
+  @@index([processedAt], map: "idx_webhook_events_processed_at")
+  @@index([subscriptionId], map: "idx_webhook_events_subscription_id")
+  @@index([userId], map: "idx_webhook_events_user_id")
+  @@map("webhook_events")
   @@schema("public")
 }
 

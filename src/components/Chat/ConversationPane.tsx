@@ -328,6 +328,10 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     try {
       const currentCaseId = useUI.getState().currentCaseId;
       
+      if (!currentCaseId) {
+        throw new Error('No case ID available');
+      }
+      
       const response = await fetch('/api/chat/process-message', {
         method: 'POST',
         headers: {
@@ -336,19 +340,23 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         body: JSON.stringify({
           message: trimmed,
           brief: brief,
-          caseId: currentCaseId  // ← AÑADIDO: Enviar caseId activo
+          caseId: currentCaseId
         })
       });
       
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
-      }
-      
       const result = await response.json();
+      
+      if (!response.ok || !result.ok) {
+        const errorMsg = result.error || `API Error: ${response.status}`;
+        const requestId = result.requestId;
+        const error: any = new Error(errorMsg);
+        error.requestId = requestId;
+        throw error;
+      }
       
       const assistantResponse: ChatMessage = {
         role: "assistant",
-        content: result.response,
+        content: result.data.response,
         agent: { label: chatTranslations("agents.sourcing") },
       };
       setMessages((prev) => [...prev, assistantResponse]);
@@ -357,12 +365,17 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       if (!isSourcing) {
         startSourcing();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing message:', error);
-      // Fallback response en caso de error
+      
+      // Include requestId in error message for support purposes
+      const requestIdInfo = error.requestId 
+        ? ` (Request ID: ${error.requestId})` 
+        : '';
+      
       const errorResponse: ChatMessage = {
         role: "assistant",
-        content: "Disculpa, hubo un problema procesando tu mensaje. ¿Puedes intentar de nuevo?",
+        content: `Disculpa, hubo un problema procesando tu mensaje. ¿Puedes intentar de nuevo?${requestIdInfo}`,
         agent: { label: chatTranslations("agents.sourcing") },
       };
       setMessages((prev) => [...prev, errorResponse]);

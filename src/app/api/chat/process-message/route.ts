@@ -4,15 +4,63 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { analyzeInsuranceDocuments, AnalysisRequest } from '@/lib/openai';
 import { CaseBrief } from '@/lib/types';
+import { z } from 'zod';
+import {
+  logRequest,
+  createErrorResponse,
+  createSuccessResponse,
+} from '@/lib/api-logger';
+
+export const runtime = 'nodejs';
+
+const ROUTE_NAME = '/api/chat/process-message';
+
+// Zod schema for request validation
+const ProcessMessageSchema = z.object({
+  caseId: z.string().min(1, 'caseId is required'),
+  message: z.string().optional().default(''),
+  brief: z.object({
+    businessType: z.string().optional(),
+    employees: z.number().optional(),
+    coverage: z.string().optional(),
+    freeText: z.string().optional(),
+    clientName: z.string().optional(),
+    selectedClientId: z.string().nullable().optional(),
+    insurance_category: z.string().optional(),
+    max_budget: z.number().optional(),
+    budget_currency: z.enum(['COP', 'USD', 'MXN', 'EUR']).optional(),
+    required_coverages: z.array(z.string()).optional(),
+    client_profile: z.string().optional(),
+  }).optional().default({}),
+});
 
 export async function POST(request: NextRequest) {
+  // Generate requestId and start timer
+  const requestId = crypto.randomUUID();
+  const startTime = Date.now();
+
   try {
+    // Log request start
+    logRequest({
+      requestId,
+      route: ROUTE_NAME,
+      phase: 'start',
+    });
+
     const { user, currentOrg } = await getCurrentOrg(); // Asegura autenticación y org
-    const { message, brief, caseId } = await request.json();
     
-    if (!caseId) {
-      return NextResponse.json({ error: 'Case ID is required' }, { status: 400 });
+    // Parse and validate request body
+    const body = await request.json();
+    const parseResult = ProcessMessageSchema.safeParse(body);
+    
+    if (!parseResult.success) {
+      const errors = parseResult.error.issues.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
+      const validationError = new Error(`Bad request: ${errors}`);
+      (validationError as any).status = 400;
+      throw validationError;
     }
+    
+    const { message, brief, caseId } = parseResult.data;
 
     console.log('🔄 API: Procesando mensaje:', message);
     console.log('📋 API: Brief recibido:', brief);
@@ -47,14 +95,31 @@ export async function POST(request: NextRequest) {
     console.log('✅ API: Análisis completado con OpenAI');
 
     // 4. Devolver la respuesta generada por OpenAI
-    return NextResponse.json({
-      response: analysisResult,
-      caseId: caseId
-    });
+    return createSuccessResponse(
+      requestId,
+      {
+        response: analysisResult,
+        caseId: caseId,
+      },
+      ROUTE_NAME,
+      startTime,
+      user.id,
+      currentOrg.id
+    );
 
   } catch (error: any) {
-    console.error('ERROR [API/CHAT/PROCESS-MESSAGE]:', error);
-    const errorMessage = error.message || 'Failed to process message';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    // Use structured error handler that:
+    // - Extracts proper HTTP status from error (especially OpenAI SDK errors)
+    // - Logs with requestId and timing
+    // - Returns safe error message without leaking secrets
+    return createErrorResponse(
+      requestId,
+      error,
+      ROUTE_NAME,
+      startTime,
+      // Try to get user/org if available (might not be if auth failed)
+      (error as any).user?.id,
+      (error as any).currentOrg?.id
+    );
   }
 }

@@ -664,6 +664,7 @@ export interface UIState {
   selectFilteredSortedRenewalsView: () => RenewalView[];
   dashboardViewTime: number | null;
   setDashboardViewTime: (time: number) => void;
+  isBriefValid: () => boolean;
 }
 
 export const useUI = create<UIState>()(
@@ -1305,6 +1306,17 @@ export const useUI = create<UIState>()(
         return view;
       },
       setDashboardViewTime: (time) => set({ dashboardViewTime: time }),
+      isBriefValid: () => {
+        const { brief } = get();
+        // Check that the brief has at least freeText with meaningful content
+        // or other required fields filled out
+        const hasFreeText = brief.freeText && brief.freeText.trim().length > 0 && brief.freeText !== "Por definir...";
+        const hasBusinessType = brief.businessType && brief.businessType.trim().length > 0 && brief.businessType !== "Por definir...";
+        const hasEmployees = typeof brief.employees === 'number' && brief.employees > 0;
+        
+        // Brief is valid if it has meaningful freeText OR all the structured fields
+        return hasFreeText || (hasBusinessType && hasEmployees);
+      },
     }),
     { name: "ui-store" }
   )

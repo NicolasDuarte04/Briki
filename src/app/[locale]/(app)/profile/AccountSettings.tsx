@@ -6,8 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { updateProfile, updateNotificationSettings, requestPasswordReset, type FormState } from './actions';
 import { toast } from 'sonner';
+import { PlanManagement } from './PlanManagement';
+import { useTranslations } from 'next-intl';
+import type { Subscription } from '@prisma/client';
 
-type Tab = 'personal' | 'security' | 'notifications';
+type Tab = 'personal' | 'security' | 'notifications' | 'billing';
 
 type EditableField = 'name' | 'phone' | 'address';
 
@@ -19,13 +22,14 @@ interface AccountSettingsProps {
   locale: 'en' | 'es';
   notificationsProductUpdates: boolean;
   notificationsPolicyAlerts: boolean;
+  subscription: Subscription | null;
 }
 
-function SubmitButton({ label }: { label: string }) {
+function SubmitButton({ label, t }: { label: string; t: any }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" size="sm" disabled={pending} aria-disabled={pending}>
-      {pending ? 'Saving...' : label}
+      {pending ? t('personal.saving', { defaultValue: 'Saving...' }) : label}
     </Button>
   );
 }
@@ -37,8 +41,10 @@ export function AccountSettings({
   email, 
   locale,
   notificationsProductUpdates,
-  notificationsPolicyAlerts
+  notificationsPolicyAlerts,
+  subscription
 }: AccountSettingsProps) {
+  const t = useTranslations('profile.accountSettings');
   const [activeTab, setActiveTab] = useState<Tab>('personal');
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
@@ -168,16 +174,17 @@ export function AccountSettings({
   };
 
   const tabs = [
-    { id: 'personal' as Tab, label: 'Personal info' },
-    { id: 'security' as Tab, label: 'Security' },
-    { id: 'notifications' as Tab, label: 'Notifications' },
+    { id: 'personal' as Tab, label: t('tabs.personal') },
+    { id: 'security' as Tab, label: t('tabs.security') },
+    { id: 'notifications' as Tab, label: t('tabs.notifications') },
+    { id: 'billing' as Tab, label: t('tabs.billing') },
   ];
 
   return (
     <div>
       {/* Breadcrumb */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Account settings</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">{t('title', { defaultValue: 'Account settings' })}</h1>
       </div>
 
       {/* Tabs */}
@@ -234,13 +241,13 @@ export function AccountSettings({
                         defaultValue={nameValue}
                         onChange={(e) => setNameValue(e.target.value)}
                         className="max-w-md"
-                        placeholder="Enter your name"
+                        placeholder={t('personal.namePlaceholder', { defaultValue: 'Enter your name' })}
                         autoFocus
                       />
                       <input type="hidden" name="field" value="name" />
                       <input type="hidden" name="locale" value={locale} />
                       <div className="flex gap-2">
-                        <SubmitButton label="Save" />
+                        <SubmitButton label={t('personal.save')} t={t} />
                         <Button
                           type="button"
                           variant="ghost"
@@ -250,7 +257,7 @@ export function AccountSettings({
                             setNameValue(initialName);
                           }}
                         >
-                          Cancel
+                          {t('personal.cancel')}
                         </Button>
                       </div>
                     </form>
@@ -503,6 +510,18 @@ export function AccountSettings({
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'billing' && (
+          <PlanManagement 
+            subscription={subscription}
+            locale={locale}
+            plans={[
+              { id: 'starter', name: t('billing.starter.name'), description: t('billing.starter.description'), price: 49 },
+              { id: 'pro', name: t('billing.pro.name'), description: t('billing.pro.description'), price: 149 },
+              { id: 'team', name: t('billing.team.name'), description: t('billing.team.description'), price: 399 },
+            ]}
+          />
         )}
       </div>
     </div>
