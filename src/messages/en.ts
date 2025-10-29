@@ -426,6 +426,7 @@ const en = {
   workspace: {
     tabs: {
       caseBrief: "Case Brief",
+      artifacts: "Artifacts", // ✅ FASE 2: Agregar traducción
       policies: "Policies",
       comparisons: "Comparisons",
       proposal: "Proposal",

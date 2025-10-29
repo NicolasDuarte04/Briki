@@ -536,6 +536,8 @@ export interface UIState {
   dashboardViewTime?: number;
   step: UIStep;
   isSourcing: boolean;
+  formVisible: boolean;
+  formCompleted: boolean;
   rightOpen: boolean;
   complianceOpen: boolean;
   chatPanelOpen: boolean;
@@ -699,7 +701,9 @@ const persistState = (state: Partial<UIState>) => {
         currentCaseId: state.currentCaseId,
         brief: state.brief,
         messages: state.messages,
-        step: state.step
+        step: state.step,
+        formVisible: state.formVisible,
+        formCompleted: state.formCompleted
       };
       localStorage.setItem('briki-ui-state', JSON.stringify(stateToPersist));
       console.log('✅ [useUI] Estado persistido:', stateToPersist);
@@ -793,6 +797,9 @@ export const useUI = create<UIState>()(
       renewalsAuditLog: [],
       renewalsSequence: 0,
       renewalsViewLogged: false,
+      // Estado de visibilidad del formulario
+      formVisible: true,
+      formCompleted: false,
       // Estados para aprobación de casos
       caseApproving: false,
       caseApprovalError: null,
@@ -815,6 +822,12 @@ export const useUI = create<UIState>()(
         });
       },
       setDashboardViewTime: (timestamp: number) => set({ dashboardViewTime: timestamp }), // ✅ AÑADIDO
+      
+      // Form visibility control actions
+      showForm: () => set((state) => ({ ...state, formVisible: true })),
+      hideForm: () => set((state) => ({ ...state, formVisible: false })),
+      setFormCompleted: (completed: boolean) => set((state) => ({ ...state, formCompleted: completed })),
+      
       setStep: (step) =>
         set((state) => {
           if (state.isSourcing && step !== "conversation") {

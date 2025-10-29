@@ -395,5 +395,5 @@ src/
 **Mantenedor**: Equipo de Desarrollo Briki  
 **Estado**: ✅ COMPLETO Y ACTUALIZADO
 
-Este índice se debe actualizar cada vez que se añada documentación nueva.  
+Este índice se debe actualizar cada vez que se añada documentación nueva.
 Última revisión: 2025-01-29 22:30

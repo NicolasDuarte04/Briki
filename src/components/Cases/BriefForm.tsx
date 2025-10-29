@@ -416,12 +416,12 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         await onSubmit({ ...formData, tempUploads });
       } else {
         // Modo creación: Si hay función de aprobación (con validación), usarla
-        if (onApprove) {
+    if (onApprove) {
           await onApprove(); // onApprove ahora leerá el brief actualizado
-        } else {
-          // Fallback: solo proceder con el envío del formulario
-          await onSubmit({ ...formData, tempUploads });
-        }
+    } else {
+      // Fallback: solo proceder con el envío del formulario
+      await onSubmit({ ...formData, tempUploads });
+    }
       }
     } catch (error: any) {
       console.error('❌ [BriefForm] Error en handleSubmit:', error);
@@ -578,14 +578,14 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                       <div className="px-2 py-1.5 text-sm text-gray-500">No se encontraron clientes.</div>
                     ) : (
                       clientList
-                        .filter(client => 
-                          client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
-                        )
-                        .map((client) => (
-                          <div
+                            .filter(client => 
+                              client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
+                            )
+                            .map((client) => (
+                            <div
                             key={client.id}
-                            onClick={() => handleClientSelect(client)}
-                            className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded-sm"
+                              onClick={() => handleClientSelect(client)}
+                              className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded-sm"
                           >
                             <Check
                               className={cn(
@@ -594,7 +594,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                               )}
                             />
                             {client.name}
-                          </div>
+                            </div>
                         ))
                     )}
                   </div>

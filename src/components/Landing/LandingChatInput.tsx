@@ -221,7 +221,10 @@ export function LandingChatInput() {
                 freeText: message,
                 clientName: '',
                 // ✅ CORRECCIÓN: NO establecer insurance_category para que el botón permanezca deshabilitado
-                ...(tempUploads.length > 0 && { tempUploads } as any),
+                // ✅ CORRECCIÓN CRÍTICA: NO establecer tempUploads en brief
+                // Los PDFs ya se procesaron y movieron a artifacts en BD (createDraftCase línea 162)
+                // Establecer tempUploads causa residuales cuando se navega a /agent/[caseId]
+                // Los PDFs deben cargarse desde artifacts (tab "Artefactos"), no desde brief.tempUploads
             });
             
             // ✅ FASE 1.3: Redirigir a /agent/[caseId]
@@ -250,7 +253,8 @@ export function LandingChatInput() {
             setBrief({ 
                 freeText: message,
                 clientName: '',
-                ...(tempUploads.length > 0 && { tempUploads } as any),
+                // ✅ CORRECCIÓN CRÍTICA: NO establecer tempUploads en brief (igual que flujo principal)
+                // Los tempUploads deben manejarse localmente o moverse a artifacts en BD
             });
             
             setValue('');

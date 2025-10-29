@@ -105,11 +105,15 @@ export default function CaseBriefForm({ initialData, activeCaseData }: CaseBrief
     // isEditing determina si mostrar botones de aprobar
     // Solo mostrar botones si:
     //   - Hay currentCaseId (caso existe)
+    //   - caseApproved es false (caso no aprobado o usuario quiere editar)
     //   - NO es caso recién creado (activeCaseData existe)
     //   - El caso está activo en BD (status='active')
-    //   - El usuario quiere editar (caseApproved=false)
     const isEditing = useMemo(() => {
         if (!currentCaseId) return false;
+        
+        // ✅ CORRECCIÓN CRÍTICA: Si caseApproved es true, NUNCA mostrar botones
+        // Esto asegura que después de aprobar, los botones desaparezcan inmediatamente
+        if (caseApproved) return false;
         
         // Si hay datos del caso en BD, es caso histórico
         if (activeCaseData && activeCaseData.id === currentCaseId) {
@@ -118,8 +122,8 @@ export default function CaseBriefForm({ initialData, activeCaseData }: CaseBrief
         }
         
         // Si NO hay activeCaseData pero hay currentCaseId, es caso recién creado
-        // NO mostrar botones de aprobar después de crear (solo conversación)
-        return false;
+        // Mostrar botones solo si el caso aún no está aprobado
+        return true; // ✅ CORRECCIÓN: Permitir mostrar botones para casos recién creados
     }, [currentCaseId, activeCaseData, caseApproved]);
     
     // ✅ Obtener orgId al montar el componente

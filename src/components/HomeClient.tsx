@@ -7,7 +7,7 @@ import Landing from "@/components/Landing";
 import FooterNav from "@/components/FooterNav";
 import { useUI, type UIStep } from "@/lib/ui/state";
 import { motion, AnimatePresence } from "framer-motion";
-import WorkspaceTabs from "@/components/Workspace/Tabs";
+import { WorkspaceTabs } from "@/components/Workspace/Tabs";
 import CaseBrief from "@/components/Workspace/CaseBrief";
 import SourcingProgressWidget from "@/components/Sourcing/SourcingProgressWidget";
 import HotkeysGuide from "@/components/HotkeysGuide";
@@ -71,14 +71,13 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
           clientName: '',
           selectedClientId: null,
           insurance_category: '',
-          max_budget: undefined,
           budget_currency: 'COP',
           required_coverages: [],
           client_profile: '',
           businessType: '',
-          employees: undefined,
           coverage: '',
           tempUploads: [] // ✅ CORRECCIÓN: Limpiar PDFs residuales
+          // Omitimos employees y max_budget en lugar de establecerlos como undefined
         });
         state.setInitialMessage('');
         state.setStep('conversation');
@@ -91,6 +90,19 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
       const currentState = useUI.getState();
       if (currentState.currentCaseId !== threadId) {
         console.log(`🔄 [HomeClient] Estableciendo currentCaseId desde threadId: ${threadId}`);
+        
+        // ✅ CORRECCIÓN: Limpiar tempUploads del brief antes de establecer currentCaseId
+        // Esto previene tempUploads residuales desde LandingPage (reutilizando lógica de new-thread-placeholder)
+        const currentBrief = currentState.brief;
+        if ((currentBrief as any).tempUploads && (currentBrief as any).tempUploads.length > 0) {
+          console.warn('🧹 [HomeClient] Limpiando tempUploads residuales antes de cargar caso:', threadId);
+          // Limpiar solo tempUploads, mantener otros campos del brief
+          currentState.setBrief({
+            ...currentBrief,
+            tempUploads: []
+          } as any);
+        }
+        
         setCurrentCaseId(threadId);
         setStep('conversation');
       }
