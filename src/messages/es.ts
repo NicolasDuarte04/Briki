@@ -87,6 +87,13 @@ const es = {
         title: "Genera propuestas para clientes en segundos.",
         description: "Briki redacta propuestas profesionales y bilingües directamente a partir de las pólizas analizadas, listas para enviar o descargar.",
       },
+      actions: {
+        exportPdf: "Exportar PDF",
+        storeInCloud: "Guardar en la nube",
+        sendViaEmail: "Enviar por correo",
+        sendViaWhatsapp: "Enviar por WhatsApp",
+        analyticsReports: "Análisis e informes",
+      },
     },
     demo: {
       title: "Mira a Briki en Acción",
@@ -140,6 +147,11 @@ const es = {
     subtitle: "Analiza pólizas, compara opciones y envía propuestas en minutos.",
     placeholder: "Describe tu cliente o sube documentos…",
     emptyHelper: "Escribe algo o elige una acción rápida.",
+    actions: {
+      uploadPdf: "Subir PDF",
+      importWhatsapp: "Importar WhatsApp",
+      connectCarriers: "Conectar aseguradoras",
+    },
     socialProof: {
       tagline: "Confiado por corredores en Bogotá y CDMX",
       badges: {

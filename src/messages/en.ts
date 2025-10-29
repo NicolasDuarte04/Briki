@@ -87,6 +87,13 @@ const en = {
         title: "Generate client proposals in seconds.",
         description: "Briki drafts professional, bilingual proposals directly from analyzed policies — ready to send or download.",
       },
+      actions: {
+        exportPdf: "Export PDF",
+        storeInCloud: "Store in cloud",
+        sendViaEmail: "Send via email",
+        sendViaWhatsapp: "Send via WhatsApp",
+        analyticsReports: "Analytics & reports",
+      },
     },
     demo: {
       title: "See Briki in Action",
@@ -140,6 +147,11 @@ const en = {
     subtitle: "Analyze policies, compare options, and send proposals in minutes.",
     placeholder: "Describe your client or upload documents…",
     emptyHelper: "Type something or choose a quick action.",
+    actions: {
+      uploadPdf: "Upload PDF",
+      importWhatsapp: "Import WhatsApp",
+      connectCarriers: "Connect carriers",
+    },
     socialProof: {
       tagline: "Trusted by brokers in Bogotá & CDMX",
       badges: {

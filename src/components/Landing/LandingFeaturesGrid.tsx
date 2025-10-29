@@ -75,24 +75,24 @@ export function LandingFeaturesGrid() {
                                 <button 
                                     type="button"
                                     className="rounded-lg bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
-                                    title="Send via email"
-                                    aria-label="Send via email"
+                                    title={t('actions.sendViaEmail')}
+                                    aria-label={t('actions.sendViaEmail')}
                                 >
                                     <Mail className="size-6 text-foreground/70" strokeWidth={1.5} aria-hidden="true" />
                                 </button>
                                 <button 
                                     type="button"
                                     className="rounded-lg bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
-                                    title="Send via WhatsApp"
-                                    aria-label="Send via WhatsApp"
+                                    title={t('actions.sendViaWhatsapp')}
+                                    aria-label={t('actions.sendViaWhatsapp')}
                                 >
                                     <MessageCircle className="size-6 text-foreground/70" strokeWidth={1.5} aria-hidden="true" />
                                 </button>
                                 <button 
                                     type="button"
                                     className="rounded-lg bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
-                                    title="Export PDF"
-                                    aria-label="Export PDF"
+                                    title={t('actions.exportPdf')}
+                                    aria-label={t('actions.exportPdf')}
                                 >
                                     <FileText className="size-6 text-foreground/70" strokeWidth={1.5} aria-hidden="true" />
                                 </button>
@@ -100,8 +100,8 @@ export function LandingFeaturesGrid() {
                                 <button 
                                     type="button"
                                     className="rounded-lg bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
-                                    title="Store in cloud"
-                                    aria-label="Store in cloud"
+                                    title={t('actions.storeInCloud')}
+                                    aria-label={t('actions.storeInCloud')}
                                 >
                                     <Cloud className="size-6 text-foreground/70" strokeWidth={1.5} aria-hidden="true" />
                                 </button>
@@ -109,8 +109,8 @@ export function LandingFeaturesGrid() {
                                 <button 
                                     type="button"
                                     className="rounded-lg bg-muted/50 flex aspect-square items-center justify-center border p-4 hover:bg-muted/70 transition-colors cursor-pointer"
-                                    title="Analytics & reports"
-                                    aria-label="Analytics & reports"
+                                    title={t('actions.analyticsReports')}
+                                    aria-label={t('actions.analyticsReports')}
                                 >
                                     <BarChart className="size-6 text-foreground/70" strokeWidth={1.5} aria-hidden="true" />
                                 </button>

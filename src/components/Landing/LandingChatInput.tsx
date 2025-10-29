@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Upload, Paperclip, Sparkles, FileText, X, ArrowUpIcon, ImageIcon, MonitorIcon, FileUp } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { useUI } from '@/lib/ui/state';
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -53,6 +54,7 @@ const useAutoResizeTextarea = ({ minHeight, maxHeight }: { minHeight: number; ma
 };
 
 export function LandingChatInput() {
+    const t = useTranslations('landing');
     const [value, setValue] = useState("");
     const [user, setUser] = useState<User | null>(null);
     
@@ -245,8 +247,8 @@ export function LandingChatInput() {
                             adjustHeight();
                         }}
                         onKeyDown={handleKeyDown}
-                        placeholder="Describe your client or drop a policy PDF..."
-                        aria-label="Describe your client or drop a policy PDF"
+                        placeholder={t('placeholder')}
+                        aria-label={t('placeholder')}
                         className={cn(
                             "w-full px-4 py-3",
                             "resize-none",
@@ -309,7 +311,7 @@ export function LandingChatInput() {
                                 <Paperclip className="w-4 h-4 text-white" />
                             )}
                             <span className="text-xs text-zinc-400 hidden group-hover:inline transition-opacity">
-                                {isUploading ? 'Uploading...' : 'Attach PDF'}
+                                {isUploading ? 'Subiendo...' : 'Adjuntar PDF'}
                             </span>
                         </button>
                         
@@ -328,14 +330,14 @@ export function LandingChatInput() {
                         >
                             <FileUp className="w-3.5 h-3.5" />
                             <span className="text-xs">
-                                {isUploading ? 'Uploading...' : tempUploads.length > 0 ? '✓ PDF' : 'Upload PDF'}
+                                {isUploading ? 'Subiendo...' : tempUploads.length > 0 ? '✓ PDF' : t('actions.uploadPdf')}
                             </span>
                         </button>
                         
                         {/* Botón Import WhatsApp chat */}
                         <ActionButton
                             icon={<ImageIcon className="w-3.5 h-3.5" />}
-                            label="Import WhatsApp"
+                            label={t('actions.importWhatsapp')}
                             user={user}
                             onAuthenticatedClick={() => {
                                 const { startBriefing } = useUI.getState();
@@ -346,7 +348,7 @@ export function LandingChatInput() {
                         {/* Botón Connect carriers */}
                         <ActionButton
                             icon={<MonitorIcon className="w-3.5 h-3.5" />}
-                            label="Connect carriers"
+                            label={t('actions.connectCarriers')}
                             user={user}
                             onAuthenticatedClick={() => {
                                 const { startBriefing } = useUI.getState();
