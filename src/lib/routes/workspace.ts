@@ -18,7 +18,7 @@ export function getDashboardHome(locale: Locale): string {
  * Get the agent route
  */
 export function pathForAgent(locale: Locale): string {
-  return `/${locale}/agent`;
+  return `/${locale}/agent/new-thread-placeholder`;
 }
 
 /**

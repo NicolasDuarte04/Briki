@@ -691,6 +691,41 @@ export interface UIState {
   selectFilteredSortedRenewalsView: () => RenewalView[];
 }
 
+// ✅ FASE 5: Persistencia de estado
+const persistState = (state: Partial<UIState>) => {
+  if (typeof window !== 'undefined') {
+    try {
+      const stateToPersist = {
+        currentCaseId: state.currentCaseId,
+        brief: state.brief,
+        messages: state.messages,
+        step: state.step
+      };
+      localStorage.setItem('briki-ui-state', JSON.stringify(stateToPersist));
+      console.log('✅ [useUI] Estado persistido:', stateToPersist);
+    } catch (error) {
+      console.error('❌ [useUI] Error persistiendo estado:', error);
+    }
+  }
+};
+
+// ✅ FASE 5: Cargar estado persistido
+const loadPersistedState = (): Partial<UIState> => {
+  if (typeof window !== 'undefined') {
+    try {
+      const persisted = localStorage.getItem('briki-ui-state');
+      if (persisted) {
+        const parsed = JSON.parse(persisted);
+        console.log('✅ [useUI] Estado cargado desde localStorage:', parsed);
+        return parsed;
+      }
+    } catch (error) {
+      console.error('❌ [useUI] Error cargando estado persistido:', error);
+    }
+  }
+  return {};
+};
+
 export const useUI = create<UIState>()(
   devtools(
     (set, get) => ({
@@ -772,14 +807,22 @@ export const useUI = create<UIState>()(
       },
       setInitialMessage: (message: string) => set({ initialMessage: message }),  // ✅ Implementación
       clearInitialMessage: () => set({ initialMessage: "" }),                  // ✅ Implementación simple
-      setCurrentCaseId: (id: string | null) => set({ currentCaseId: id }),     // ✅ AÑADIDO
+      setCurrentCaseId: (id: string | null) => {
+        set((state) => {
+          const newState = { ...state, currentCaseId: id };
+          persistState(newState);
+          return newState;
+        });
+      },
       setDashboardViewTime: (timestamp: number) => set({ dashboardViewTime: timestamp }), // ✅ AÑADIDO
       setStep: (step) =>
         set((state) => {
           if (state.isSourcing && step !== "conversation") {
             return {};
           }
-          return { step };
+          const newState = { ...state, step };
+          persistState(newState);
+          return newState;
         }),
       // Función para aprobación de casos
       approveCurrentCase: async (clientId?: string | null) => {
@@ -855,7 +898,13 @@ export const useUI = create<UIState>()(
       addMessage: (message) => set((state) => ({ 
         messages: [...state.messages, { ...message, id: message.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, createdAt: message.createdAt || Date.now() }] 
       })),
-      setMessages: (messages) => set({ messages }),
+      setMessages: (messages) => {
+        set((state) => {
+          const newState = { ...state, messages };
+          persistState(newState);
+          return newState;
+        });
+      },
       // Función para validación y aprobación de clientes (removida para evitar bucles infinitos)
       // validateAndApproveClient: async () => {
       //   console.warn('validateAndApproveClient called but not implemented in store. This should be called from ConversationPane.');
@@ -1098,7 +1147,9 @@ export const useUI = create<UIState>()(
           if (JSON.stringify(state.brief) === JSON.stringify(newBrief)) {
             return state; // No hay cambios, retornar estado actual
           }
-          return { brief: newBrief };
+          const newState = { ...state, brief: newBrief };
+          persistState(newState);
+          return newState;
         });
       },
       setFollowupCadenceDays: (days) =>
@@ -1436,6 +1487,15 @@ export const useUI = create<UIState>()(
     { name: "ui-store" }
   )
 );
+
+// ✅ FASE 5: Cargar estado persistido al inicializar
+if (typeof window !== 'undefined') {
+  const persistedState = loadPersistedState();
+  if (Object.keys(persistedState).length > 0) {
+    useUI.setState(persistedState);
+    console.log('✅ [useUI] Estado persistido cargado al inicializar');
+  }
+}
 
 function sanitizeWeightValue(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return 0;

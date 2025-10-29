@@ -82,8 +82,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check if the path targets a protected scope (e.g., /(app))
-  // Protected routes are those under /profile, /dashboard, /workspace or other app routes
-  const isProtectedRoute = /^\/(profile|dashboard|workspace|settings)/.test(pathWithoutLocale);
+  // Protected routes are those under /profile, /dashboard, /workspace, /agent or other app routes
+  const isProtectedRoute = /^\/(profile|dashboard|workspace|agent|settings)/.test(pathWithoutLocale);
 
   // If not a protected route, allow access
   if (!isProtectedRoute) {

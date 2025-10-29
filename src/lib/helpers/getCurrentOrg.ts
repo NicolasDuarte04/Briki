@@ -58,11 +58,22 @@ export async function getCurrentOrg() {
                     console.warn(`⚠️ Database server unreachable (attempt ${retryCount}/${maxRetries}), retrying...`);
                     
                     // ✅ CORRECCIÓN INTEGRAL: Intentar reconexión automática para P1001
+                    // Solo en el primer intento para evitar múltiples reconexiones innecesarias
                     if (retryCount === 1) {
                         console.log('🔄 [getCurrentOrg] Attempting automatic reconnection...');
-                        const reconnected = await reconnectPrisma();
+                        const reconnected = await reconnectPrisma(3); // 3 intentos con health check
                         if (reconnected) {
-                            console.log('✅ [getCurrentOrg] Reconnection successful, retrying...');
+                            console.log('✅ [getCurrentOrg] Reconnection successful, engine verified');
+                            // ✅ CORRECCIÓN CRÍTICA: Delay adicional después de reconexión para asegurar estabilidad
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                            // Verificar health una vez más antes de continuar
+                            const health = await checkDatabaseHealth();
+                            if (!health.healthy) {
+                                console.warn('⚠️ [getCurrentOrg] Health check falló después de reconexión, esperando...');
+                                await new Promise(resolve => setTimeout(resolve, 2000));
+                            }
+                        } else {
+                            console.warn('⚠️ [getCurrentOrg] Reconexión falló, continuando con retry estándar...');
                         }
                     }
                     
@@ -70,14 +81,23 @@ export async function getCurrentOrg() {
                     continue;
                 }
                 
-                // ✅ Estrategia 3: Otros errores de Prisma - reintentar una vez
+                // ✅ Estrategia 3: Engine no conectado aún - delay y reintentar
+                if (prismaError.message?.includes('Engine is not yet connected') || 
+                    prismaError.message?.includes('not yet connected')) {
+                    console.warn(`⚠️ Prisma engine not ready yet (attempt ${retryCount}/${maxRetries}), waiting...`);
+                    // Delay más largo porque el engine necesita más tiempo
+                    await new Promise(resolve => setTimeout(resolve, 3000 * retryCount));
+                    continue;
+                }
+                
+                // ✅ Estrategia 4: Otros errores de Prisma - reintentar una vez
                 if (prismaError.code?.startsWith('P')) {
                     console.warn(`⚠️ Prisma error ${prismaError.code} (attempt ${retryCount}/${maxRetries}), retrying...`);
                     await new Promise(resolve => setTimeout(resolve, 1500));
                     continue;
                 }
                 
-                // ✅ Estrategia 4: Error no relacionado con Prisma - lanzar inmediatamente
+                // ✅ Estrategia 5: Error no relacionado con Prisma - lanzar inmediatamente
                 console.error('❌ Non-Prisma error in getCurrentOrg:', prismaError);
                 throw prismaError;
             }

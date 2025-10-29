@@ -161,11 +161,18 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
 
         // --- PASO 4: Actualizar Estado Global ---
         setCurrentCaseId(caseId);
-        setBrief(caseData.briefData || {}); // Cargar brief histórico
+        
+        // ✅ CORRECCIÓN: Limpiar tempUploads al cargar caso histórico (PDFs vienen de artifacts, no de tempUploads)
+        const briefData = caseData.briefData || {};
+        if ((briefData as any).tempUploads) {
+          delete (briefData as any).tempUploads;
+        }
+        setBrief(briefData); // Cargar brief histórico (sin tempUploads)
+        
         setMessages(historicalMessages); // <-- CARGAR MENSAJES HISTÓRICOS
         setStep("conversation");
         closeChatPanel();
-        console.log(`✅ [SidebarChatPanel] Zustand updated for case ${caseId}`);
+        console.log(`✅ [SidebarChatPanel] Zustand updated for case ${caseId} (tempUploads limpiados)`);
 
         // --- PASO 5: Navegar al Agente ---
         const currentPath = window.location.pathname;

@@ -59,19 +59,43 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
   // --- LÓGICA CONDICIONAL BASADA EN threadId ---
   useEffect(() => {
     if (threadId === 'new-thread-placeholder') {
-      // ✅ CORRECCIÓN: Usar batch update para evitar múltiples re-renders
       console.warn('🧹 [HomeClient] Limpieza exhaustiva para new-thread-placeholder');
       
-      const { setCurrentCaseId, setMessages, setBrief, setInitialMessage, setStep } = useUI.getState();
-      setCurrentCaseId(null);
-      setMessages([]);
-      setBrief({});
-      setInitialMessage('');
-      setStep('conversation');
-      
-      console.log('✅ [HomeClient] Estado limpiado para new-thread-placeholder');
+      // ✅ BATCH UPDATE con delay para que se ejecute después de la sincronización
+      setTimeout(() => {
+        const state = useUI.getState();
+        state.setCurrentCaseId(null);
+        state.setMessages([]);
+        state.setBrief({
+          freeText: '',
+          clientName: '',
+          selectedClientId: null,
+          insurance_category: '',
+          max_budget: undefined,
+          budget_currency: 'COP',
+          required_coverages: [],
+          client_profile: '',
+          businessType: '',
+          employees: undefined,
+          coverage: '',
+          tempUploads: [] // ✅ CORRECCIÓN: Limpiar PDFs residuales
+        });
+        state.setInitialMessage('');
+        state.setStep('conversation');
+        
+        console.log('✅ [HomeClient] Estado completamente limpiado (con delay)');
+      }, 100); // Delay de 100ms para que se ejecute después de la sincronización
+    } else if (threadId && threadId !== 'new-thread-placeholder') {
+      // ✅ CORRECCIÓN CRÍTICA: Establecer currentCaseId desde threadId cuando es un caseId real
+      // Esto es necesario después de recarga de página (window.location.href)
+      const currentState = useUI.getState();
+      if (currentState.currentCaseId !== threadId) {
+        console.log(`🔄 [HomeClient] Estableciendo currentCaseId desde threadId: ${threadId}`);
+        setCurrentCaseId(threadId);
+        setStep('conversation');
+      }
     }
-  }, [threadId]); // ✅ Solo threadId como dependencia
+  }, [threadId, setCurrentCaseId, setStep]);
 
   // --- MENSAJE DE BIENVENIDA DEL AGENTE ---
   // Este mensaje se maneja directamente en ConversationPane, no aquí

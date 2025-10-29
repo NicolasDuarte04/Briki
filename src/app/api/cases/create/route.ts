@@ -106,27 +106,63 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Crear el caso
-    const newCase = await createCaseWithOrg(
-      orgId,
-      briefData || {},
-      user.id,
-      {
-        clientName: finalClientName,  // Usar el valor final (con fallback)
-        clientRef,
-        businessType,
-        employees,
-        status,
-        stage,
-        priority,
-        // Nuevos campos del Brief detallado
-        insurance_category,
-        max_budget,
-        budget_currency,
-        required_coverages,
-        client_profile,
+    // ✅ CORRECCIÓN: Crear el caso con manejo robusto de reconexión de Prisma
+    let newCase;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        newCase = await createCaseWithOrg(
+          orgId,
+          briefData || {},
+          user.id,
+          {
+            clientName: finalClientName,  // Usar el valor final (con fallback)
+            clientRef,
+            businessType,
+            employees,
+            status,
+            stage,
+            priority,
+            // Nuevos campos del Brief detallado
+            insurance_category,
+            max_budget,
+            budget_currency,
+            required_coverages,
+            client_profile,
+          }
+        );
+        break; // Éxito, salir del loop
+      } catch (prismaError: any) {
+        retryCount++;
+        
+        // ✅ CORRECCIÓN: Manejar errores específicos de Prisma
+        if (prismaError.code === 'P1001' || prismaError.code === 'P2024') {
+          if (retryCount < maxRetries) {
+            console.warn(`⚠️ [API/cases/create] Error de conexión a BD (intento ${retryCount}/${maxRetries}), reintentando...`);
+            
+            // Intentar reconexión si es el primer intento
+            if (retryCount === 1) {
+              const { reconnectPrisma } = await import('@/lib/prisma');
+              await reconnectPrisma(2); // 2 intentos de reconexión
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+            continue;
+          } else {
+            console.error('❌ [API/cases/create] Error de conexión a BD después de todos los reintentos');
+            return NextResponse.json(
+              { error: 'No se pudo conectar con la base de datos. Por favor, intenta de nuevo en unos segundos.' },
+              { status: 503 }
+            );
+          }
+        }
+        
+        // Si no es un error de conexión, lanzar inmediatamente
+        throw prismaError;
       }
-    );
+    }
     
     // Registrar auditoría explícita (alta prioridad - compliance y trazabilidad)
     try {

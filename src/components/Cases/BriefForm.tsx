@@ -100,13 +100,11 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   const brief = useUI((state) => state.brief);
   const setBrief = useUI((state) => state.setBrief);
   
-  // ✅ CORRECCIÓN CRÍTICA: Calcular validación reactiva basada en brief
-  const isBriefValid = useMemo(() => {
-    return !!(brief.insurance_category?.trim());
-  }, [brief.insurance_category]);
-  
   // Hook para validación y creación de clientes
   const { validateAndResolveClient, isLoading: isClientValidationLoading } = useClientValidation();
+  
+  // ✅ FASE 1: Obtener estado de aprobación para sincronización
+  const caseApproving = useUI((state) => state.caseApproving);
 
   // Estado para todos los campos del formulario
   const [formData, setFormData] = useState<CaseBriefData>({
@@ -122,6 +120,12 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     coverage: brief?.coverage || '',
     freeText: initialData?.briefData?.freeText || brief?.freeText || '',
   });
+  
+  // ✅ CORRECCIÓN CRÍTICA: Calcular validación reactiva basada en formData (estado local)
+  // IMPORTANTE: Declarar DESPUÉS de formData para evitar "Cannot access before initialization"
+  const isBriefValid = useMemo(() => {
+    return !!(formData.insurance_category?.trim());
+  }, [formData.insurance_category]);
 
   // Estado para el input de coberturas
   const [currentCoverage, setCurrentCoverage] = useState('');
@@ -129,20 +133,69 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // Estado para uploads temporales
   const [tempUploads, setTempUploads] = useState<TempUpload[]>([]);
 
-  // ✅ Sincronizar tempUploads del brief global al montar el componente
+  // ✅ CORRECCIÓN: Solo sincronizar tempUploads si NO hay currentCaseId (caso nuevo)
+  // Para casos históricos, los PDFs vienen de la BD (artifacts), no de tempUploads
   useEffect(() => {
-    const briefTempUploads = (brief as any).tempUploads || [];
-    if (briefTempUploads.length > 0) {
-      console.log('📎 [BriefForm] Cargando tempUploads desde brief global:', briefTempUploads);
-      setTempUploads(briefTempUploads);
+    const currentCaseId = useUI.getState().currentCaseId;
+    if (!currentCaseId) {
+      // Solo cargar tempUploads para casos nuevos (new-thread-placeholder)
+      const briefTempUploads = (brief as any).tempUploads || [];
+      if (briefTempUploads.length > 0) {
+        console.log('📎 [BriefForm] Cargando tempUploads desde brief global (caso nuevo):', briefTempUploads);
+        setTempUploads(briefTempUploads);
+      }
+    } else {
+      // Para casos históricos, limpiar tempUploads para evitar PDFs residuales
+      console.log('🧹 [BriefForm] Limpiando tempUploads para caso histórico:', currentCaseId);
+      setTempUploads([]);
+      // También limpiar del brief global
+      const currentBrief = useUI.getState().brief;
+      if ((currentBrief as any).tempUploads && (currentBrief as any).tempUploads.length > 0) {
+        setBrief({ tempUploads: [] } as any);
+      }
     }
   }, []); // Solo ejecutar una vez al montar
+
+  // ✅ FASE 2 REFORMULADA QUIRÚRGICA: Limpiar estado local cuando no hay currentCaseId
+  // ✅ CORRECCIÓN: También limpiar tempUploads del brief global
+  useEffect(() => {
+    const currentCaseId = useUI.getState().currentCaseId;
+    if (!currentCaseId) {
+      console.log('🧹 [BriefForm] Limpiando estado local para new-thread-placeholder');
+      setFormData({
+        insurance_category: '',
+        max_budget: null,
+        budget_currency: 'COP',
+        required_coverages: [],
+        client_profile: '',
+        notes: '', // ✅ CORRECCIÓN QUIRÚRGICA: Limpiar notes completamente
+        clientName: '',
+        businessType: '',
+        employees: null,
+        coverage: '',
+        freeText: '',
+      });
+      setTempUploads([]);
+      
+      // ✅ CORRECCIÓN: Limpiar tempUploads del brief global para evitar PDFs residuales
+      const currentBrief = useUI.getState().brief;
+      if ((currentBrief as any).tempUploads && (currentBrief as any).tempUploads.length > 0) {
+        setBrief({ tempUploads: [] } as any);
+        console.log('🧹 [BriefForm] tempUploads limpiados del brief global');
+      }
+      
+      // ✅ CORRECCIÓN QUIRÚRGICA: Limpiar estados específicos del combobox
+      setClientSearchTerm('');
+      setSelectedClient(null);
+      setIsClientComboboxOpen(false);
+    }
+  }, [initialNotes, setBrief]);
 
   // Estados para el Combobox de clientes
   const [clientList, setClientList] = useState<ClientOption[]>([]);
   const [isClientListLoading, setIsClientListLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<ClientOption | null>(null);
-  const [clientSearchTerm, setClientSearchTerm] = useState(brief?.clientName || '');
+  const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [isClientComboboxOpen, setIsClientComboboxOpen] = useState(false);
 
   // Cargar clientes al montar el componente
@@ -169,9 +222,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     loadClients();
   }, []);
 
-  // Sincronización inicial de clientName desde brief (solo una vez al montar)
+  // ✅ CORRECCIÓN QUIRÚRGICA: Sincronización inicial de clientName desde brief (solo cuando hay currentCaseId)
   useEffect(() => {
-    if (!clientSearchTerm && brief?.clientName) {
+    const currentCaseId = useUI.getState().currentCaseId;
+    if (currentCaseId && !clientSearchTerm && brief?.clientName) {
       setClientSearchTerm(brief.clientName);
     }
   }, []); // Solo ejecutar una vez al montar
@@ -332,6 +386,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     console.log('📦 [BriefForm] formData:', formData);
     console.log('📎 [BriefForm] tempUploads:', tempUploads);
     
+    // ✅ VALIDACIÓN TEMPRANA: Prevenir envío sin categoría de seguro
+    if (!formData.insurance_category?.trim()) {
+      console.warn('❌ [BriefForm] Intentando enviar sin categoría de seguro');
+      alert('Por favor selecciona una categoría de seguro para continuar.');
+      return;
+    }
+    
     try {
       // ACTUALIZAR brief explícitamente con todos los datos del formulario
       const briefUpdate: any = {
@@ -367,7 +428,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       // Re-lanzar el error para que se maneje en el componente padre
       throw error;
     }
-  }, [onApprove, onSubmit, formData, tempUploads, setBrief, mode]);
+  }, [onApprove, onSubmit, formData, tempUploads, setBrief, mode, formData.insurance_category]);
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -643,11 +704,11 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             <Button
               type="submit"
               disabled={mode === 'edit' 
-                ? (isSubmitting || isClientValidationLoading) // En modo edición: solo deshabilitar si está procesando
-                : (isSubmitting || isClientValidationLoading || !isBriefValid)} // ✅ CORRECCIÓN CRÍTICA: Usar valor reactivo calculado
+                ? (isSubmitting || isClientValidationLoading || caseApproving) // ✅ FASE 1: Agregar caseApproving para sincronización
+                : (isSubmitting || isClientValidationLoading || caseApproving || !isBriefValid)} // ✅ FASE 1: Agregar caseApproving para sincronización
               className="min-w-[140px]"
             >
-              {isSubmitting || isClientValidationLoading ? 'Procesando...' : mode === 'edit' ? 'Guardar Cambios' : 'Buscar Planes'}
+              {(isSubmitting || isClientValidationLoading || caseApproving) ? 'Procesando...' : mode === 'edit' ? 'Guardar Cambios' : 'Buscar Planes'}
             </Button>
           </div>
         </form>

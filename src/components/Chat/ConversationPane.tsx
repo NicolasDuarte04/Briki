@@ -27,6 +27,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const startSourcing = useUI((state) => state.startSourcing);
   const initialMessage = useUI((state) => state.initialMessage);
   const clearInitialMessage = useUI((state) => state.clearInitialMessage);
+  const setInitialMessage = useUI((state) => state.setInitialMessage);
   const approveCurrentCase = useUI((state) => state.approveCurrentCase);
   const caseApproving = useUI((state) => state.caseApproving);
   const caseApproved = useUI((state) => state.caseApproved);
@@ -62,35 +63,72 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       return;
     }
     
-    try {
-      console.log('💾 [ConversationPane] Saving message to DB:', message.id);
-      
-      const response = await fetch(`/api/cases/${currentCaseId}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          role: message.role,
-          content: typeof message.content === 'string' 
-            ? message.content 
-            : JSON.stringify(message.content),
-          metadata: {
-            agent: message.agent?.label,
-            messageId: message.id,
-            timestamp: message.createdAt
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        console.log(`💾 [ConversationPane] Saving message to DB (attempt ${retryCount + 1}/${maxRetries}):`, message.id);
+        
+        const response = await fetch(`/api/cases/${currentCaseId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            role: message.role,
+            content: typeof message.content === 'string' 
+              ? message.content 
+              : JSON.stringify(message.content),
+            metadata: {
+              agent: message.agent?.label,
+              messageId: message.id,
+              timestamp: message.createdAt
+            }
+          })
+        });
+        
+        if (response.ok) {
+          console.log('✅ [ConversationPane] Message saved successfully');
+          break; // Éxito, salir del loop
+        } else {
+          // ✅ CORRECCIÓN: Reintentar en errores 500 (problemas del servidor)
+          if (response.status >= 500 && retryCount < maxRetries - 1) {
+            retryCount++;
+            const errorData = await response.json().catch(() => ({ error: response.statusText }));
+            console.warn(`⚠️ [ConversationPane] Error ${response.status} guardando mensaje (intento ${retryCount}/${maxRetries}), reintentando...`, errorData.error);
+            await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+            continue;
+          } else {
+            // Error del cliente (400, 404) o máximo de reintentos alcanzado
+            const errorData = await response.json().catch(() => ({ error: response.statusText }));
+            console.error(`❌ [ConversationPane] Error guardando mensaje después de todos los reintentos:`, errorData.error || response.statusText);
+            // NO bloquear la UI si falla la persistencia
+            break;
           }
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ [ConversationPane] Error saving message:', errorData);
-        return;
+        }
+      } catch (error: any) {
+        retryCount++;
+        
+        // ✅ CORRECCIÓN: Manejar ECONNRESET específicamente (conexión abortada)
+        const isConnectionError = error.message?.includes('aborted') || 
+                                  error.message?.includes('ECONNRESET') ||
+                                  error.code === 'ECONNRESET';
+        
+        if (retryCount < maxRetries) {
+          if (isConnectionError) {
+            console.warn(`⚠️ [ConversationPane] Conexión abortada (ECONNRESET) al guardar mensaje (intento ${retryCount}/${maxRetries}), reintentando con delay...`);
+            // Delay más largo para errores de conexión
+            await new Promise(resolve => setTimeout(resolve, 3000 * retryCount));
+          } else {
+            console.warn(`⚠️ [ConversationPane] Error guardando mensaje (intento ${retryCount}/${maxRetries}):`, error.message);
+            await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+          }
+          continue;
+        } else {
+          console.error('❌ [ConversationPane] Error guardando mensaje a BD después de todos los reintentos:', error);
+          // NO bloquear la UI si falla la persistencia
+          break;
+        }
       }
-      
-      console.log('✅ [ConversationPane] Message saved successfully');
-    } catch (error) {
-      console.error('❌ [ConversationPane] Error saving message to DB:', error);
-      // NO bloquear la UI si falla la persistencia
     }
   }, []);
   
@@ -446,9 +484,56 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value, saveMessageToDB]);
 
-  // Efecto para el mensaje inicial - MOSTRAR RESPUESTA ESTÁTICA
+  // ✅ CORRECCIÓN: Cargar initialMessage desde localStorage si existe (fallback para recargas directas)
+  // Con router.push() normalmente no es necesario, pero sirve como fallback si alguien recarga la página
   useEffect(() => {
-    if (initialMessage && initialMessage.trim() !== '') {
+    if (!initialMessage || initialMessage.trim() === '') {
+      if (typeof window !== 'undefined') {
+        const pendingMessage = localStorage.getItem('pendingInitialMessage');
+        const messageSource = localStorage.getItem('initialMessageSource');
+        if (pendingMessage && messageSource === 'form') {
+          console.log('📥 [ConversationPane] Cargando initialMessage desde localStorage (fallback):', pendingMessage);
+          setInitialMessage(pendingMessage);
+          // Limpiar localStorage después de cargar
+          localStorage.removeItem('pendingInitialMessage');
+          localStorage.removeItem('initialMessageSource');
+        }
+      }
+    }
+  }, []); // Solo ejecutar una vez al montar
+
+  // ✅ CORRECCIÓN INTEGRAL: Procesar mensaje inicial - GENERAR RESPUESTA REAL DEL AGENTE
+  // Recicla la lógica de LandingPage: cuando viene del formulario, llamar a process-message
+  // IMPORTANTE: Este useEffect debe estar después de la declaración de sendMessage
+  // ✅ CORRECCIÓN CRÍTICA: Esperar a que currentCaseId esté disponible antes de procesar
+  const currentCaseId = useUI((state) => state.currentCaseId);
+  
+  useEffect(() => {
+    if (initialMessage && initialMessage.trim() !== '' && sendMessage) {
+      const isFromForm = initialMessage.includes('He completado el formulario');
+      
+      // ✅ CORRECCIÓN CRÍTICA: Si viene del formulario, NECESITA currentCaseId para procesar
+      // (sendMessage requiere currentCaseId para llamar a /api/chat/process-message)
+      if (isFromForm) {
+        // ✅ ESPERAR a que currentCaseId esté disponible (después de recarga)
+        if (!currentCaseId) {
+          console.log('⏳ [ConversationPane] Esperando currentCaseId antes de procesar mensaje del formulario...');
+          // Re-intentar en el siguiente render cuando currentCaseId esté disponible
+          return;
+        }
+        
+        console.log('🤖 [ConversationPane] Procesando mensaje del formulario con OpenAI (currentCaseId:', currentCaseId, ')...');
+        
+        // Usar sendMessage para generar respuesta real del agente
+        // sendMessage ya maneja todo: guardar mensaje, llamar a process-message, mostrar respuesta
+        sendMessage(initialMessage);
+        
+        clearInitialMessage();
+        return;
+      }
+      
+      // Si viene de LandingPage (mensaje de texto simple), mostrar respuesta estática
+      // No requiere currentCaseId porque no llama a sendMessage
       const userMessage: ChatMessage = { 
         role: "user", 
         content: initialMessage, 
@@ -464,28 +549,35 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       };
       setMessages([userMessage, agentResponse]);
       
-      // ✅ FASE 2.3: Persistir mensajes iniciales en BD
-      saveMessageToDB(userMessage);
-      saveMessageToDB(agentResponse);
+      // ✅ FASE 2.3: Persistir mensajes iniciales en BD (solo si hay currentCaseId)
+      if (currentCaseId) {
+        saveMessageToDB(userMessage);
+        saveMessageToDB(agentResponse);
+      }
       
       clearInitialMessage();
     }
-  }, [initialMessage, clearInitialMessage, setMessages, saveMessageToDB]);
+  }, [initialMessage, currentCaseId, clearInitialMessage, setMessages, saveMessageToDB, sendMessage]);
 
-  // Efecto para mostrar mensaje de bienvenida automático cuando se accede desde el panel izquierdo
+  // ✅ FASE 3: Mensaje de bienvenida para placeholder
   useEffect(() => {
-    // Solo mostrar bienvenida si no hay mensajes y no hay initialMessage
-    if (messages.length === 0 && (!initialMessage || initialMessage.trim() === '')) {
+    const currentCaseId = useUI.getState().currentCaseId;
+    const currentMessages = useUI.getState().messages;
+    
+    // Solo para placeholder sin caso y sin mensajes
+    if (!currentCaseId && currentMessages.length === 0) {
       const welcomeMessage: ChatMessage = {
-        role: "assistant",
-        content: "Hola, estoy aquí para ayudarte. Por favor, completa los detalles del caso en el panel derecho para comenzar.",
-        agent: { label: "Sourcing" },
-        id: `welcome-${Date.now()}`,
-        createdAt: Date.now()
+        id: 'welcome-' + Date.now(),
+        role: 'assistant',
+        content: '¡Hola! Soy tu asistente de seguros. Para darte una respuesta más detallada, por favor llena el formulario que aparece a la derecha.',
+        createdAt: Date.now(),
+        agent: { label: 'Briki Assistant' }
       };
-      setMessages([welcomeMessage]);
+      
+      addMessage(welcomeMessage);
+      console.log('✅ [ConversationPane] Mensaje de bienvenida enviado');
     }
-  }, [messages.length, initialMessage, setMessages]);
+  }, [messages.length, addMessage]);
 
   // ✅ ELIMINADO: useEffect problemático que causaba bucle infinito
   // Los mensajes históricos se procesan directamente en SidebarChatPanel

@@ -29,7 +29,7 @@ export function getWorkspaceLinks(locale: Locale) {
     { 
       label: locale === 'es' ? 'Agente' : 'Agent',
       href: pathForAgent(locale),
-      matchPath: '/agent', // Matches /agent and /agent/<id>
+      matchPath: '/agent', // Matches /agent and /agent/<id> including new-thread-placeholder
       icon: Bot
     },
     { 
