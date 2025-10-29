@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslations } from "next-intl";
 import { useUI } from "@/lib/ui/state";
@@ -15,9 +15,17 @@ import Renewals from "./Renewals";
 
 export type WorkspaceTab = "case-brief" | "policies" | "comparisons" | "proposal" | "compliance" | "renewals";
 
+interface CaseData {
+  id: string;
+  briefData: any;
+  artifacts: any[];
+}
+
 export function WorkspaceTabs() {
   const t = useTranslations("workspace.tabs");
-  const { caseApproved, brief, setCaseApproved } = useUI();
+  const { caseApproved, brief, setCaseApproved, currentCaseId } = useUI();
+  const [activeCaseData, setActiveCaseData] = useState<CaseData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
   const tabLabels = useMemo(() => ({
       "case-brief": t("caseBrief"),
       policies: t("policies"),
@@ -28,6 +36,38 @@ export function WorkspaceTabs() {
     } satisfies Record<WorkspaceTab, string>), [t]);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("case-brief");
   const logRenewalsEvent = useUI((state) => state.logRenewalsEvent);
+
+  // ✅ FASE B.2: Cargar datos del caso cuando currentCaseId cambia
+  useEffect(() => {
+    if (currentCaseId) {
+      // ✅ CORRECCIÓN: Evitar llamadas innecesarias si ya tenemos los datos
+      if (activeCaseData?.id === currentCaseId) {
+        console.log(`✅ [WorkspaceTabs] Datos del caso ${currentCaseId} ya cargados`);
+        return;
+      }
+      
+      const fetchCaseData = async () => {
+        setIsLoading(true);
+        try {
+          const response = await fetch(`/api/cases/${currentCaseId}`);
+          if (response.ok) {
+            const { case: caseData } = await response.json();
+            setActiveCaseData(caseData);
+            console.log(`✅ [WorkspaceTabs] Cargados datos del caso ${currentCaseId}`);
+          } else {
+            console.error('Error fetching case data:', response.statusText);
+          }
+        } catch (error) {
+          console.error('Error fetching case data:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchCaseData();
+    } else {
+      setActiveCaseData(null);
+    }
+  }, [currentCaseId, activeCaseData?.id]); // ✅ CORRECCIÓN: Agregar activeCaseData?.id para evitar llamadas innecesarias
 
   // Función para volver al modo de edición (resetea el estado de aprobación)
   const handleEditBrief = () => {
@@ -63,11 +103,11 @@ export function WorkspaceTabs() {
             {caseApproved ? (
               <CaseSummary brief={brief} onEdit={handleEditBrief} />
             ) : (
-              <CaseBriefForm />
+              <CaseBriefForm initialData={activeCaseData?.briefData || brief} />
             )}
           </TabsContent>
           <TabsContent value="policies" className="py-6">
-            <Policies />
+            <Policies caseData={activeCaseData} loading={isLoading} />
           </TabsContent>
           <TabsContent value="comparisons" className="py-6">
             <Comparison />

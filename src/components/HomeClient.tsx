@@ -21,9 +21,14 @@ const ConversationPane = dynamic(() => import("@/components/Chat/ConversationPan
   loading: () => <div className="flex items-center justify-center h-64">Cargando conversación...</div>
 });
 
-export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
+interface HomeClientProps {
+  initialStep?: UIStep;
+  threadId?: string;
+}
+
+export default function HomeClient({ initialStep = "landing", threadId }: HomeClientProps) {
   const initializedRef = useRef(false);
-  const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage } = useUI();
+  const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage, currentCaseId, setCurrentCaseId, setMessages, setBrief } = useUI();
   // Usar el valor del store como fuente de verdad para la lógica de renderizado
   const currentStep = step; // Leer siempre desde Zustand después de la sincronización
   
@@ -50,6 +55,23 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
     // Depende solo de initialStep y setStep (que es estable).
     // NO incluir 'step' aquí para evitar el ciclo si initialStep no cambia.
   }, [initialStep, setStep]);
+
+  // --- LÓGICA CONDICIONAL BASADA EN threadId ---
+  useEffect(() => {
+    if (threadId === 'new-thread-placeholder') {
+      // ✅ CORRECCIÓN: Usar batch update para evitar múltiples re-renders
+      console.warn('🧹 [HomeClient] Limpieza exhaustiva para new-thread-placeholder');
+      
+      const { setCurrentCaseId, setMessages, setBrief, setInitialMessage, setStep } = useUI.getState();
+      setCurrentCaseId(null);
+      setMessages([]);
+      setBrief({});
+      setInitialMessage('');
+      setStep('conversation');
+      
+      console.log('✅ [HomeClient] Estado limpiado para new-thread-placeholder');
+    }
+  }, [threadId]); // ✅ Solo threadId como dependencia
 
   // --- MENSAJE DE BIENVENIDA DEL AGENTE ---
   // Este mensaje se maneja directamente en ConversationPane, no aquí
@@ -250,7 +272,7 @@ export default function HomeClient({ initialStep }: { initialStep: UIStep }) {
                 transition={{ duration: 0.15, ease: "easeOut" }}
               >
               {/* Solo mostrar Canvas para steps que requieren el panel izquierdo */}
-              {(currentStep === "conversation" || currentStep === "compliance" || currentStep === "workspace" || currentStep === "sourcing") ? (
+              {(currentStep === "conversation" || currentStep === "compliance" || currentStep === "sourcing") ? (
                 <Canvas
                   rightOpen={rightOpen}
                   isSourcing={isSourcing}

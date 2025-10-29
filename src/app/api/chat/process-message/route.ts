@@ -41,12 +41,44 @@ export async function POST(request: NextRequest) {
       }))
     };
 
-    // 3. Llamar al servicio de OpenAI para obtener el análisis
+    // 3. Guardar mensaje del usuario en la tabla messages
+    try {
+      await prisma.message.create({
+        data: {
+          caseId: caseId,
+          role: 'user',
+          content: message,
+          metadata: { timestamp: new Date().toISOString() }
+        }
+      });
+      console.log(`✅ API: Mensaje de usuario para caso ${caseId} guardado.`);
+    } catch (dbError) {
+      console.error(`❌ API: Error guardando mensaje de usuario para caso ${caseId}:`, dbError);
+      // Continuar pero loguear el error
+    }
+
+    // 4. Llamar al servicio de OpenAI para obtener el análisis
     const analysisResult = await analyzeInsuranceDocuments(analysisRequest);
 
     console.log('✅ API: Análisis completado con OpenAI');
 
-    // 4. Devolver la respuesta generada por OpenAI
+    // 5. Guardar respuesta del asistente en la tabla messages
+    try {
+      await prisma.message.create({
+        data: {
+          caseId: caseId,
+          role: 'assistant',
+          content: analysisResult,
+          metadata: { timestamp: new Date().toISOString(), agent: 'sourcing' }
+        }
+      });
+      console.log(`✅ API: Respuesta de agente para caso ${caseId} guardada.`);
+    } catch (dbError) {
+      console.error(`❌ API: Error guardando respuesta de agente para caso ${caseId}:`, dbError);
+      // Fallar aquí podría ser problemático si OpenAI ya respondió. Loguear es crucial.
+    }
+
+    // 6. Devolver la respuesta generada por OpenAI
     return NextResponse.json({
       response: analysisResult,
       caseId: caseId

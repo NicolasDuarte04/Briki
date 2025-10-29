@@ -1,7 +1,7 @@
 // src/components/Workspace/CaseBriefForm.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useUI } from '@/lib/ui/state';
 import { BriefForm, CaseBriefData } from '@/components/Cases/BriefForm';
 import { CaseBrief } from '@/lib/types';
@@ -9,7 +9,11 @@ import { Button } from '@/components/ui/button';
 import { useTranslations } from 'next-intl';
 import { useClientValidation } from '@/hooks/useClientValidation';
 
-export default function CaseBriefForm() {
+interface CaseBriefFormProps {
+    initialData?: any;
+}
+
+export default function CaseBriefForm({ initialData }: CaseBriefFormProps = {}) {
     const { brief, setBrief, currentCaseId, approveCurrentCase, caseApproving, caseApproved, setCaseApproved } = useUI();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [orgId, setOrgId] = useState<string | null>(null); // ✅ Estado para orgId
@@ -40,13 +44,26 @@ export default function CaseBriefForm() {
         };
         fetchOrgId();
     }, []);
+
+    // ✅ FASE D.1: Sincronizar con initialData para autorellenado
+    useEffect(() => {
+        if (initialData && Object.keys(initialData).length > 0) {
+            console.log('✅ [CaseBriefForm] Autorellenando formulario con initialData:', initialData);
+            // ✅ CORRECCIÓN CRÍTICA: Verificar si los datos son diferentes antes de actualizar
+            const currentBrief = useUI.getState().brief;
+            if (JSON.stringify(currentBrief) !== JSON.stringify(initialData)) {
+                setBrief(initialData);
+            }
+        }
+    }, [initialData]); // ✅ CORRECCIÓN CRÍTICA: Remover setBrief de dependencias
     
     // Función para volver al modo de edición
     const handleEdit = () => {
         setCaseApproved(false);
     };
 
-    const handleFormSubmit = async (data: CaseBriefData) => {
+    // ✅ CORRECCIÓN: Optimizar con useCallback para evitar re-renders
+    const handleFormSubmit = useCallback(async (data: CaseBriefData) => {
         setIsSubmitting(true);
         try {
             // Actualiza el brief en el estado global para que la función de aprobación tenga los datos más recientes.
@@ -81,10 +98,10 @@ export default function CaseBriefForm() {
         } finally {
             setIsSubmitting(false);
         }
-    };
+    }, [setBrief, approveCurrentCase]); // ✅ Dependencias del useCallback
 
-    // Función de aprobación con validación de clientes
-    const handleApproveWithValidation = async () => {
+    // ✅ CORRECCIÓN: Optimizar con useCallback
+    const handleApproveWithValidation = useCallback(async () => {
         setIsSubmitting(true);
         try {
             // Actualizar brief con datos actuales del formulario
@@ -145,6 +162,23 @@ export default function CaseBriefForm() {
                 // Establecer currentCaseId inmediatamente después de crear el caso
                 useUI.getState().setCurrentCaseId(result.caseId);
                 console.log('💾 currentCaseId establecido en:', result.caseId);
+                
+                // ✅ NUEVO: Marcar timestamp para HomeClient
+                (window as any).lastCaseCreation = Date.now();
+                
+                // ✅ NUEVO: Navegar al caso creado inmediatamente
+                const currentPath = window.location.pathname;
+                const localeMatch = currentPath.match(/\/(es|en)\//);
+                const locale = localeMatch ? localeMatch[1] : 'es';
+                
+                const targetUrl = `/${locale}/agent/${result.caseId}`;
+                console.log(`✅ [CaseBriefForm] Navigating to: ${targetUrl}`);
+                
+                // Usar window.location para navegar (más confiable en async)
+                window.location.href = targetUrl;
+                
+                // Salir aquí, el useEffect de HomeClient manejará el resto
+                return;
             } else {
                 console.log('✅ Ya existe currentCaseId:', currentCaseId);
             }
@@ -187,7 +221,7 @@ export default function CaseBriefForm() {
         } finally {
             setIsSubmitting(false);
         }
-    };
+    }, [currentCaseId, setBrief, validateAndResolveClient]); // ✅ Dependencias del useCallback
 
     return (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-1">

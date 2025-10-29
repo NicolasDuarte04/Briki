@@ -31,7 +31,11 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const caseApproving = useUI((state) => state.caseApproving);
   const caseApproved = useUI((state) => state.caseApproved);
   const briefingCase = useUI((state) => state.briefingCase);
-  const isBriefValid = useUI((state) => state.isBriefValid);
+  
+  // ✅ CORRECCIÓN CRÍTICA: Calcular validación reactiva basada en brief
+  const isBriefValid = useMemo(() => {
+    return !!(brief.insurance_category?.trim());
+  }, [brief.insurance_category]);
   // Usar estado global de mensajes
   const messages = useUI((state) => state.messages);
   const addMessage = useUI((state) => state.addMessage);
@@ -49,6 +53,46 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   
   // Cache para evitar validaciones repetidas del mismo cliente
   const [validatedClientCache, setValidatedClientCache] = useState<Map<string, string>>(new Map());
+  
+  // ✅ FASE 2.1: Función para guardar mensajes en BD
+  const saveMessageToDB = useCallback(async (message: ChatMessage) => {
+    const currentCaseId = useUI.getState().currentCaseId;
+    if (!currentCaseId) {
+      console.warn('⚠️ [ConversationPane] No case ID, skipping DB save');
+      return;
+    }
+    
+    try {
+      console.log('💾 [ConversationPane] Saving message to DB:', message.id);
+      
+      const response = await fetch(`/api/cases/${currentCaseId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: message.role,
+          content: typeof message.content === 'string' 
+            ? message.content 
+            : JSON.stringify(message.content),
+          metadata: {
+            agent: message.agent?.label,
+            messageId: message.id,
+            timestamp: message.createdAt
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ [ConversationPane] Error saving message:', errorData);
+        return;
+      }
+      
+      console.log('✅ [ConversationPane] Message saved successfully');
+    } catch (error) {
+      console.error('❌ [ConversationPane] Error saving message to DB:', error);
+      // NO bloquear la UI si falla la persistencia
+    }
+  }, []);
   
   const sourcingTranslations = useTranslations("sourcing.status");
   const chatTranslations = useTranslations("chat");
@@ -340,6 +384,9 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       createdAt: Date.now()
     };
     addMessage(newUserMessage);
+    // ✅ FASE 2.2: Guardar mensaje del usuario en BD
+    await saveMessageToDB(newUserMessage);
+    
     // Solo limpiar el input si no viene de parámetro
     if (!messageText) setValue("");
     setIsTyping(true);
@@ -376,6 +423,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         agent: { label: chatTranslations("agents.sourcing") },
       };
       addMessage(assistantResponse);
+      // ✅ FASE 2.2: Guardar respuesta del agente en BD
+      await saveMessageToDB(assistantResponse);
       
       if (!isSourcing) {
         startSourcing();
@@ -395,7 +444,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       setIsAnalyzing(false); // Detener indicador de análisis
       setIsTyping(false);
     }
-  }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value]);
+  }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value, saveMessageToDB]);
 
   // Efecto para el mensaje inicial - MOSTRAR RESPUESTA ESTÁTICA
   useEffect(() => {
@@ -414,9 +463,14 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         createdAt: Date.now()
       };
       setMessages([userMessage, agentResponse]);
+      
+      // ✅ FASE 2.3: Persistir mensajes iniciales en BD
+      saveMessageToDB(userMessage);
+      saveMessageToDB(agentResponse);
+      
       clearInitialMessage();
     }
-  }, [initialMessage, clearInitialMessage, setMessages]);
+  }, [initialMessage, clearInitialMessage, setMessages, saveMessageToDB]);
 
   // Efecto para mostrar mensaje de bienvenida automático cuando se accede desde el panel izquierdo
   useEffect(() => {
@@ -433,12 +487,15 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, [messages.length, initialMessage, setMessages]);
 
+  // ✅ ELIMINADO: useEffect problemático que causaba bucle infinito
+  // Los mensajes históricos se procesan directamente en SidebarChatPanel
+  // cuando se carga un caso histórico
+
   // Efecto para mostrar el botón de aprobación
   useEffect(() => {
-    // Usar la validación unificada del brief
-    const isValid = !!(brief.insurance_category?.trim());
-    setShowApprovalButton(isValid);
-  }, [brief]);
+    // ✅ CORRECCIÓN CRÍTICA: Usar valor reactivo calculado
+    setShowApprovalButton(isBriefValid);
+  }, [isBriefValid]); // ✅ Dependencia del valor reactivo
 
   // Función optimizada de validación de clientes con cache
   const validateClientWithCache = async (): Promise<string | null> => {
@@ -539,6 +596,23 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         // Establecer currentCaseId inmediatamente después de crear el caso
         useUI.getState().setCurrentCaseId(result.caseId);
         console.log('💾 currentCaseId establecido en:', result.caseId);
+        
+        // ✅ NUEVO: Marcar timestamp para HomeClient
+        (window as any).lastCaseCreation = Date.now();
+        
+        // ✅ NUEVO: Navegar al caso creado inmediatamente
+        const currentPath = window.location.pathname;
+        const localeMatch = currentPath.match(/\/(es|en)\//);
+        const locale = localeMatch ? localeMatch[1] : 'es';
+        
+        const targetUrl = `/${locale}/agent/${result.caseId}`;
+        console.log(`✅ [ConversationPane] Navigating to: ${targetUrl}`);
+        
+        // Usar window.location para navegar (más confiable en async)
+        window.location.href = targetUrl;
+        
+        // Salir aquí, el useEffect de HomeClient manejará el resto
+        return;
       } else {
         console.log('✅ Ya existe currentCaseId:', currentCaseId);
       }

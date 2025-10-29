@@ -13,8 +13,30 @@ export const runtime = 'nodejs';
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    
+    // ✅ CORRECCIÓN CRÍTICA: Intentar autenticación con cookies primero, luego con header
+    let user;
+    
+    // Método 1: Autenticación con cookies (método estándar)
+    const { data: { user: cookieUser } } = await supabase.auth.getUser();
+    user = cookieUser;
+    
+    // Método 2: Si no hay usuario con cookies, intentar con header Authorization
+    if (!user) {
+      const authHeader = req.headers.get('authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const { data: { user: tokenUser } } = await supabase.auth.getUser(token);
+        user = tokenUser;
+      }
+    }
+    
+    if (!user) {
+      console.error('❌ No user found with cookies or token');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    console.log('✅ User authenticated:', user.id);
 
     const body = await req.json();
     const message = (body?.message || '').toString();

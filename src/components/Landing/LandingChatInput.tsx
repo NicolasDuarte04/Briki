@@ -58,7 +58,7 @@ export function LandingChatInput() {
     const router = useRouter();
     
     // ✅ FUSIÓN CRÍTICA: Agregar setInitialMessage y openChatPanel que faltaban
-    const { setStep, setInitialMessage, setBrief, openChatPanel } = useUI();
+    const { setStep, setInitialMessage, setBrief, openChatPanel, setCurrentCaseId } = useUI();
     
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 90,
@@ -144,11 +144,57 @@ export function LandingChatInput() {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
+    // ✅ FASE 1.1: Función para crear case en BD con status "draft"
+    const createDraftCase = useCallback(async (message: string, tempUploads: any[], userId: string) => {
+        try {
+            console.log('🚀 [LandingChatInput] Creating draft case in BD...');
+            
+            const response = await fetch('/api/cases/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include', // ← CRÍTICO: Incluir cookies de autenticación
+                body: JSON.stringify({
+                    userId,
+                    briefData: { 
+                        freeText: message,
+                        initialMessage: message 
+                    },
+                    tempUploads,
+                    status: 'draft', // ← CRÍTICO: Case en modo borrador
+                    insurance_category: '', // Vacío hasta que se llene formulario
+                    stage: 'initial',
+                    priority: 'medium',
+                    clientName: '', // Pendiente hasta llenar formulario
+                    businessType: '', // Pendiente hasta llenar formulario
+                    employees: 0, // Pendiente hasta llenar formulario
+                    max_budget: null,
+                    budget_currency: 'COP',
+                    required_coverages: [],
+                    client_profile: ''
+                })
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('❌ Error creating case:', errorData);
+                throw new Error(errorData.error || 'Failed to create case');
+            }
+            
+            const data = await response.json();
+            console.log('✅ [LandingChatInput] Case created successfully:', data.caseId);
+            return data;
+        } catch (error) {
+            console.error('❌ [LandingChatInput] Error in createDraftCase:', error);
+            throw error;
+        }
+    }, []);
+
+    // ✅ FASE 1.2: handleSubmit actualizado para crear case en BD
     const handleSubmit = async () => {
         // La verificación de autenticación es crucial.
         if (!user) {
             console.error('❌ User not authenticated');
-            window.location.href = '/login'; // O mostrar un modal de login.
+            window.location.href = '/login';
             return;
         }
         
@@ -157,28 +203,67 @@ export function LandingChatInput() {
         const message = value.trim();
         if (!message && tempUploads.length === 0) return;
 
-        // ✅ CORRECCIÓN: Guardar PDFs en brief para que el agente los reciba
         console.log('📎 Preserving PDFs in brief:', tempUploads);
 
-        // Guarda el mensaje inicial y el brief (con PDFs) en el store de Zustand.
-        setInitialMessage(message);
-        setBrief({ 
-          freeText: message,
-          clientName: '',
-          insurance_category: 'Por definir', // Valor temporal para habilitar botón
-          ...(tempUploads.length > 0 && { tempUploads } as any), // ✅ Guardar PDFs en brief (temporal type)
-        });
-
-        // Limpiar estado local después de guardar en brief
-        setValue('');
-        setTempUploads([]);
-        trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
-        // Abre el panel izquierdo automáticamente
-        openChatPanel();
-        // Navega directamente a la vista de conversación del agente.
-        setStep("conversation");
-        // Redirige a la ruta del agente
-        router.push('/agent');
+        try {
+            // ✅ FASE 1.2: Crear case en BD con status "draft"
+            console.log('🚀 [LandingChatInput] Starting draft case creation...');
+            const { caseId } = await createDraftCase(message, tempUploads, user.id);
+            
+            console.log('✅ [LandingChatInput] Case created with ID:', caseId);
+            
+            // ✅ FASE 1.3: Guardar case-id en Zustand para navegación
+            setCurrentCaseId(caseId);
+            
+            // ✅ FASE 1.3: Guardar initialMessage y brief en Zustand
+            setInitialMessage(message);
+            setBrief({ 
+                freeText: message,
+                clientName: '',
+                // ✅ CORRECCIÓN: NO establecer insurance_category para que el botón permanezca deshabilitado
+                ...(tempUploads.length > 0 && { tempUploads } as any),
+            });
+            
+            // ✅ FASE 1.3: Redirigir a /agent/[caseId]
+            trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
+            
+            // Obtener locale de la URL actual
+            const currentPath = window.location.pathname;
+            const localeMatch = currentPath.match(/\/(es|en)\//);
+            const locale = localeMatch ? localeMatch[1] : 'es';
+            
+            const targetUrl = `/${locale}/agent/${caseId}`;
+            console.log(`✅ [LandingChatInput] Navigating to: ${targetUrl}`);
+            router.push(targetUrl);
+            
+            // Limpiar estado local
+            setValue('');
+            setTempUploads([]);
+            
+        } catch (error) {
+            console.error('❌ [LandingChatInput] Error in handleSubmit:', error);
+            
+            // FALLBACK: Comportamiento original sin BD
+            console.warn('⚠️ [LandingChatInput] Fallback to original flow without BD');
+            
+            setInitialMessage(message);
+            setBrief({ 
+                freeText: message,
+                clientName: '',
+                ...(tempUploads.length > 0 && { tempUploads } as any),
+            });
+            
+            setValue('');
+            setTempUploads([]);
+            trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
+            setStep("conversation");
+            
+            const currentPath = window.location.pathname;
+            const localeMatch = currentPath.match(/\/(es|en)\//);
+            const locale = localeMatch ? localeMatch[1] : 'es';
+            const targetUrl = `/${locale}/agent/new-thread-placeholder`;
+            router.push(targetUrl);
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

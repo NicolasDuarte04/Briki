@@ -2,6 +2,7 @@
 import { redirect } from 'next/navigation';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { getUserOrganizations } from '@/app/actions/organizationActions';
+import { reconnectPrisma, checkDatabaseHealth } from '@/lib/prisma';
 
 /**
  * Helper para obtener la organización actual del usuario autenticado.
@@ -33,7 +34,61 @@ export async function getCurrentOrg() {
             redirect('/login');
         }
         
-        const organizations = await getUserOrganizations();
+        // ✅ CORRECCIÓN INTEGRAL: Manejo robusto de errores de Prisma con múltiples estrategias
+        let organizations;
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount < maxRetries) {
+            try {
+                organizations = await getUserOrganizations();
+                break; // Éxito, salir del loop
+            } catch (prismaError: any) {
+                retryCount++;
+                
+                // ✅ Estrategia 1: Timeout de conexión (P2024) - reintentar con delay
+                if (prismaError.code === 'P2024') {
+                    console.warn(`⚠️ Prisma connection timeout (attempt ${retryCount}/${maxRetries}), retrying...`);
+                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Delay progresivo
+                    continue;
+                }
+                
+                // ✅ Estrategia 2: Servidor inaccesible (P1001) - reintentar con delay más largo
+                if (prismaError.code === 'P1001') {
+                    console.warn(`⚠️ Database server unreachable (attempt ${retryCount}/${maxRetries}), retrying...`);
+                    
+                    // ✅ CORRECCIÓN INTEGRAL: Intentar reconexión automática para P1001
+                    if (retryCount === 1) {
+                        console.log('🔄 [getCurrentOrg] Attempting automatic reconnection...');
+                        const reconnected = await reconnectPrisma();
+                        if (reconnected) {
+                            console.log('✅ [getCurrentOrg] Reconnection successful, retrying...');
+                        }
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, 2000 * retryCount)); // Delay más largo
+                    continue;
+                }
+                
+                // ✅ Estrategia 3: Otros errores de Prisma - reintentar una vez
+                if (prismaError.code?.startsWith('P')) {
+                    console.warn(`⚠️ Prisma error ${prismaError.code} (attempt ${retryCount}/${maxRetries}), retrying...`);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    continue;
+                }
+                
+                // ✅ Estrategia 4: Error no relacionado con Prisma - lanzar inmediatamente
+                console.error('❌ Non-Prisma error in getCurrentOrg:', prismaError);
+                throw prismaError;
+            }
+        }
+        
+        // ✅ Si llegamos aquí después de maxRetries, lanzar error con contexto
+        if (!organizations) {
+            const errorMsg = `Database connection failed after ${maxRetries} attempts. Please check your connection and try again.`;
+            console.error('❌', errorMsg);
+            throw new Error(errorMsg);
+        }
         
         if (!organizations || organizations.length === 0) {
             redirect('/onboarding/organization');

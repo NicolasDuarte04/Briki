@@ -73,9 +73,37 @@ const INSURANCE_CATEGORIES = [
   { value: 'otro', label: 'Otro' },
 ];
 
+// ✅ CORRECCIÓN CRÍTICA: Memoizar categorías para evitar re-renders
+const MemoizedSelectItems = React.memo(() => (
+  <>
+    {INSURANCE_CATEGORIES.map((category) => (
+      <SelectItem key={category.value} value={category.value}>
+        {category.label}
+      </SelectItem>
+    ))}
+  </>
+));
+
+// ✅ CORRECCIÓN: Función de comparación para BriefForm
+const briefFormAreEqual = (prevProps: BriefFormProps, nextProps: BriefFormProps): boolean => {
+  return (
+    prevProps.isSubmitting === nextProps.isSubmitting &&
+    prevProps.mode === nextProps.mode &&
+    prevProps.orgId === nextProps.orgId &&
+    prevProps.initialNotes === nextProps.initialNotes &&
+    JSON.stringify(prevProps.initialData) === JSON.stringify(nextProps.initialData)
+  );
+};
+
 const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) => {
-  // Hook para acceder al estado global
-  const { brief, setBrief, isBriefValid } = useUI();
+  // ✅ CORRECCIÓN CRÍTICA: Usar selector específico para brief (suscripción reactiva)
+  const brief = useUI((state) => state.brief);
+  const setBrief = useUI((state) => state.setBrief);
+  
+  // ✅ CORRECCIÓN CRÍTICA: Calcular validación reactiva basada en brief
+  const isBriefValid = useMemo(() => {
+    return !!(brief.insurance_category?.trim());
+  }, [brief.insurance_category]);
   
   // Hook para validación y creación de clientes
   const { validateAndResolveClient, isLoading: isClientValidationLoading } = useClientValidation();
@@ -368,11 +396,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 <SelectValue placeholder="Selecciona el tipo de seguro" />
               </SelectTrigger>
               <SelectContent>
-                {INSURANCE_CATEGORIES.map((category) => (
-                  <SelectItem key={category.value} value={category.value}>
-                    {category.label}
-                  </SelectItem>
-                ))}
+                <MemoizedSelectItems />
               </SelectContent>
             </Select>
           </div>
@@ -620,7 +644,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               type="submit"
               disabled={mode === 'edit' 
                 ? (isSubmitting || isClientValidationLoading) // En modo edición: solo deshabilitar si está procesando
-                : (isSubmitting || isClientValidationLoading || !brief.insurance_category?.trim())} // En modo creación: validar insurance_category
+                : (isSubmitting || isClientValidationLoading || !isBriefValid)} // ✅ CORRECCIÓN CRÍTICA: Usar valor reactivo calculado
               className="min-w-[140px]"
             >
               {isSubmitting || isClientValidationLoading ? 'Procesando...' : mode === 'edit' ? 'Guardar Cambios' : 'Buscar Planes'}
@@ -630,7 +654,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       </CardContent>
     </Card>
   );
-});
+}, briefFormAreEqual); // ✅ CORRECCIÓN: Agregar función de comparación
 
 BriefForm.displayName = "BriefForm";
 export { BriefForm };

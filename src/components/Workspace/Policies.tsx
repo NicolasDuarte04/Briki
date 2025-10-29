@@ -168,7 +168,12 @@ const moneySortingFn: SortingFn<PolicyView> = (rowA, rowB, columnId) => {
   return amountA - amountB;
 };
 
-export default function Policies() {
+interface PoliciesProps {
+  caseData?: any;
+  loading?: boolean;
+}
+
+export default function Policies({ caseData, loading }: PoliciesProps = {}) {
   // Get the selector function and call it with useMemo to avoid infinite loops
   const selectPoliciesView = useUI((s) => s.selectPoliciesView);
   const rows = React.useMemo(() => selectPoliciesView(), [selectPoliciesView]);

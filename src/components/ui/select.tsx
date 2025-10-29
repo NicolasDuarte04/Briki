@@ -25,18 +25,18 @@ function SelectValue({
   return <SelectPrimitive.Value data-slot="select-value" {...props} />
 }
 
-// Función de comparación personalizada para evitar re-renderizados innecesarios
+// ✅ CORRECCIÓN CRÍTICA: Función de comparación optimizada para evitar bucles infinitos
 const areEqual = (
   prevProps: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & { size?: "sm" | "default" },
   nextProps: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger> & { size?: "sm" | "default" }
 ): boolean => {
-  // Compara solo las props relevantes que afectan la apariencia o comportamiento
-  return prevProps.value === nextProps.value &&
-         prevProps.disabled === nextProps.disabled &&
-         prevProps.placeholder === nextProps.placeholder &&
-         prevProps.className === nextProps.className &&
-         prevProps.size === nextProps.size &&
-         prevProps.children === nextProps.children; // Simplificado, puede necesitar deep compare
+  // ✅ Solo comparar props críticas que realmente afectan el render
+  // ❌ NO comparar children, className, placeholder que cambian frecuentemente
+  return (
+    prevProps.value === nextProps.value &&
+    prevProps.size === nextProps.size &&
+    prevProps.disabled === nextProps.disabled
+  );
 };
 
 const SelectTrigger = React.memo(forwardRef<
@@ -114,13 +114,14 @@ function SelectLabel({
   )
 }
 
-function SelectItem({
-  className,
-  children,
-  ...props
-}: React.ComponentProps<typeof SelectPrimitive.Item>) {
+// ✅ CORRECCIÓN CRÍTICA: Optimizar SelectItem para evitar bucles infinitos
+const SelectItem = React.memo(forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Item>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
+>(({ className, children, ...props }, ref) => {
   return (
     <SelectPrimitive.Item
+      ref={ref}
       data-slot="select-item"
       className={cn(
         "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
@@ -136,7 +137,16 @@ function SelectItem({
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   )
-}
+}), (prevProps, nextProps) => {
+  // ✅ Función de comparación optimizada para evitar re-renders innecesarios
+  return (
+    prevProps.value === nextProps.value &&
+    prevProps.disabled === nextProps.disabled &&
+    prevProps.className === nextProps.className
+  );
+});
+
+SelectItem.displayName = "SelectItem"
 
 function SelectSeparator({
   className,

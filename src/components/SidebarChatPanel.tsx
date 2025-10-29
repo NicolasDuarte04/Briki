@@ -96,13 +96,94 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
   }, [closeChatPanel]);
 
   const handleNewChat = () => {
-    // ✅ FUSIÓN CRÍTICA: Crear nuevo Case en lugar de conversación
-    router.push('/workspace/cases/new');
+    // ✅ CORRECCIÓN: Limpiar estado y navegar a placeholder
+    const { setCurrentCaseId, setMessages, setBrief, setInitialMessage, closeChatPanel } = useUI.getState();
+    
+    // Limpiar estado global
+    setCurrentCaseId(null);
+    setMessages([]);
+    setBrief({
+      freeText: '', clientName: '', selectedClientId: null, insurance_category: '',
+      max_budget: undefined as any, budget_currency: 'COP', required_coverages: [],
+      client_profile: '', businessType: '', employees: undefined as any, coverage: ''
+    });
+    setInitialMessage('');
+    
+    closeChatPanel();
+    
+    // Navegar a placeholder para nuevo chat
+    const currentPath = window.location.pathname;
+    const localeMatch = currentPath.match(/\/(es|en)\//);
+    const locale = localeMatch ? localeMatch[1] : 'es';
+    router.push(`/${locale}/agent/new-thread-placeholder`);
   };
 
-  const handleChatClick = (caseId: string) => {
-    // ✅ FUSIÓN CRÍTICA: Navegar al Case en lugar de conversación
-    router.push(`/workspace/cases/${caseId}`);
+  const handleChatClick = async (caseId: string) => {
+    try {
+      // ✅ CORRECCIÓN CRÍTICA: Cargar contexto completo del caso
+      const { setCurrentCaseId, setBrief, setMessages, setStep, closeChatPanel } = useUI.getState();
+      
+      console.log(`🔄 [SidebarChatPanel] Loading historical case: ${caseId}`);
+
+      // ✅ OPTIMIZACIÓN: Mostrar indicador de carga
+      const loadingToast = document.createElement('div');
+      loadingToast.className = 'fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-md shadow-lg z-50';
+      loadingToast.textContent = 'Cargando caso histórico...';
+      document.body.appendChild(loadingToast);
+
+      try {
+        // --- PASO 1 & 2: Fetch Case Data and Messages IN PARALLEL ---
+        const [caseResponse, messagesResponse] = await Promise.all([
+          fetch(`/api/cases/${caseId}`),
+          fetch(`/api/cases/${caseId}/messages`)
+        ]);
+
+        // --- PASO 3A: Procesar Respuesta del Caso ---
+        if (!caseResponse.ok) {
+          const errorData = await caseResponse.json();
+          throw new Error(`Failed to fetch case data: ${errorData.error || caseResponse.statusText}`);
+        }
+        const { case: caseData } = await caseResponse.json();
+        if (!caseData || !caseData.briefData) {
+          throw new Error('Incomplete case data received.');
+        }
+
+        // --- PASO 3B: Procesar Respuesta de Mensajes ---
+        let historicalMessages: any[] = []; // Default a vacío
+        if (messagesResponse.ok) {
+          const messagesData = await messagesResponse.json();
+          historicalMessages = messagesData.messages || [];
+          console.log(`✅ [SidebarChatPanel] Loaded ${historicalMessages.length} historical messages for case ${caseId}`);
+        } else {
+          // No lanzar error si fallan los mensajes, pero loguear
+          console.warn(`⚠️ [SidebarChatPanel] Could not load historical messages for case ${caseId}. Status: ${messagesResponse.status}`);
+        }
+
+        // --- PASO 4: Actualizar Estado Global ---
+        setCurrentCaseId(caseId);
+        setBrief(caseData.briefData || {}); // Cargar brief histórico
+        setMessages(historicalMessages); // <-- CARGAR MENSAJES HISTÓRICOS
+        setStep("conversation");
+        closeChatPanel();
+        console.log(`✅ [SidebarChatPanel] Zustand updated for case ${caseId}`);
+
+        // --- PASO 5: Navegar al Agente ---
+        const currentPath = window.location.pathname;
+        const localeMatch = currentPath.match(/\/(es|en)\//);
+        const locale = localeMatch ? localeMatch[1] : 'es';
+        const targetUrl = `/${locale}/agent/${caseId}`;
+        console.log(`✅ [SidebarChatPanel] Navigating to: ${targetUrl}`);
+        router.push(targetUrl); // Usar router.push para navegación SPA
+
+      } finally {
+        // ✅ OPTIMIZACIÓN: Remover indicador de carga
+        document.body.removeChild(loadingToast);
+      }
+
+    } catch (error: any) {
+      console.error(`❌ [SidebarChatPanel] Failed to load case ${caseId}:`, error);
+      alert(`Error al cargar el caso histórico: ${error.message}`); // Feedback al usuario
+    }
   };
 
   const handleRenameStart = (caseId: string, currentTitle: string) => {

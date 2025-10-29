@@ -6,19 +6,39 @@ import { recordAuditLog } from '@/lib/audit';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabase();
-    const { data: { user } } = await supabase.auth.getUser();
+    console.log('🔍 [API/cases/create] Received POST request');
     
-    if (!user) {
+    // ✅ CORRECCIÓN: Usar createServerSupabase que lee cookies automáticamente
+    const supabase = await createServerSupabase();
+    
+    // Verificar cookies disponibles
+    const cookieStore = await import('next/headers').then(m => m.cookies());
+    const allCookies = cookieStore.getAll();
+    console.log('🍪 [API] Available cookies:', allCookies.map(c => c.name).join(', '));
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError) {
+      console.error('❌ [API] Error getting user:', authError.message);
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: `Authentication error: ${authError.message}` },
         { status: 401 }
       );
     }
     
+    if (!user) {
+      console.error('❌ [API] No user found in session');
+      return NextResponse.json(
+        { error: 'Unauthorized - No user session found' },
+        { status: 401 }
+      );
+    }
+    
+    console.log('✅ [API] User authenticated:', user.id);
+    
     const body = await request.json();
     const {
-      orgId,
+      orgId: providedOrgId, // orgId puede venir del frontend
       userId,
       clientName,
       clientRef,
@@ -37,21 +57,36 @@ export async function POST(request: NextRequest) {
       client_profile,
     } = body;
     
-    // Validaciones básicas
+    // ✅ CORRECCIÓN FASE 1: Obtener orgId del usuario si no se proporciona
+    let orgId = providedOrgId;
+    
     if (!orgId) {
-      return NextResponse.json(
-        { error: 'Organization ID is required' },
-        { status: 400 }
-      );
+      // Obtener orgId del usuario desde la BD
+      const { prisma } = await import('@/lib/prisma');
+      const member = await prisma.org_members.findFirst({
+        where: { user_id: user.id },
+        select: { org_id: true }
+      });
+      
+      if (!member) {
+        return NextResponse.json(
+          { error: 'User is not a member of any organization' },
+          { status: 403 }
+        );
+      }
+      
+      orgId = member.org_id;
+      console.log('✅ [API] Resolved orgId from user membership:', orgId);
     }
     
     // clientName es opcional - usar valor por defecto si no se proporciona
     const finalClientName = clientName || 'Cliente Nuevo';
     
-    // Validar que el caso tenga al menos insurance_category
-    if (!insurance_category) {
+    // ✅ FASE 1: Validar insurance_category solo si NO es draft
+    // Los casos en modo "draft" pueden no tener insurance_category todavía
+    if (status !== 'draft' && !insurance_category) {
       return NextResponse.json(
-        { error: 'Insurance category is required' },
+        { error: 'Insurance category is required for active cases' },
         { status: 400 }
       );
     }

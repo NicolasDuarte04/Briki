@@ -25,5 +25,5 @@ export default async function AgentThreadPage({
 
     // Renderizar HomeClient con el hilo específico
     // El mensaje inicial se maneja dentro de HomeClient
-    return <HomeClient initialStep="conversation" />;
+    return <HomeClient initialStep="conversation" threadId={threadId} />;
 }

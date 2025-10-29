@@ -1,19 +1,21 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useUI } from "@/lib/ui/state";
 import SidebarChatPanel from "@/components/SidebarChatPanel";
 import SidebarNav from "@/components/SidebarNav";
 
 export default function AgentSidebar() {
   const { cases, chatPanelOpen, fetchCases, casesLoaded } = useUI();
+  const hasInitialized = useRef(false);
   
-  // Cargar casos cuando el componente se monta
+  // ✅ CORRECCIÓN CRÍTICA: Cargar casos solo una vez al montar
   useEffect(() => {
-    if (!casesLoaded) {
+    if (!hasInitialized.current && !casesLoaded) {
+      hasInitialized.current = true;
       fetchCases();
     }
-  }, [fetchCases, casesLoaded]);
+  }, [casesLoaded]); // ✅ Solo casesLoaded como dependencia
   
   return chatPanelOpen ? <SidebarChatPanel cases={cases} /> : <SidebarNav />;
 }

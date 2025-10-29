@@ -1091,8 +1091,16 @@ export const useUI = create<UIState>()(
       },
       startSourcing: () => set(() => ({ isSourcing: true, step: "conversation" })),
       stopSourcing: () => set(() => ({ isSourcing: false })),
-      setBrief: (brief) =>
-        set((state) => ({ brief: { ...state.brief, ...brief } })),
+      setBrief: (brief) => {
+        set((state) => {
+          // ✅ CORRECCIÓN CRÍTICA: Evitar actualizaciones innecesarias
+          const newBrief = { ...state.brief, ...brief };
+          if (JSON.stringify(state.brief) === JSON.stringify(newBrief)) {
+            return state; // No hay cambios, retornar estado actual
+          }
+          return { brief: newBrief };
+        });
+      },
       setFollowupCadenceDays: (days) =>
         set((state) => {
           const next = sanitizeFollowupCadenceDays(days);
@@ -1220,16 +1228,17 @@ export const useUI = create<UIState>()(
           throw error;
         }
       },
-      fetchCases: async () => {
+      fetchCases: async (force = false) => {
         const { casesLoading, casesLoaded } = get();
-        if (casesLoading || casesLoaded) {
+        if (!force && (casesLoading || casesLoaded)) {
           return;
         }
-        set(() => ({ casesLoading: true } satisfies Partial<UIState>));
+        set(() => ({ casesLoading: true, casesLoaded: false } satisfies Partial<UIState>));
         try {
           // Usar API route para evitar problemas de server/client components
           const response = await fetch('/api/cases');
           const data = await response.json();
+          console.log('✅ [fetchCases] Loaded cases:', data.cases.length);
           set(() => ({ cases: data.cases, casesLoaded: true, casesLoading: false } satisfies Partial<UIState>));
         } catch (error) {
           console.error("Error loading cases:", error);
