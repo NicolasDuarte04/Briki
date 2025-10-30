@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
-import { login } from "../actions";
+import { login, signInWithOAuth } from "../actions";
 
 export default function LoginForm({ next }: { next: string }) {
   const params = useParams();
@@ -159,8 +159,29 @@ export default function LoginForm({ next }: { next: string }) {
         </Button>
 
         {/* Secondary Action */}
-        <Button type="button" variant="outline" className="w-full h-11" disabled={isLoading}>
-          Continue with Google
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full h-11"
+          disabled={isLoading}
+          onClick={async () => {
+            if (isLoading) return;
+            setServerError(null);
+            setIsLoading(true);
+            try {
+              const result = await signInWithOAuth('google');
+              if (result && !result.success) {
+                setServerError(result.error || 'Failed to start Google sign-in');
+                setIsLoading(false);
+              }
+              // On success, the server action redirects automatically
+            } catch (err) {
+              setServerError('Failed to start Google sign-in');
+              setIsLoading(false);
+            }
+          }}
+        >
+          {isLoading ? 'Opening Google…' : 'Continue with Google'}
         </Button>
       </div>
 
