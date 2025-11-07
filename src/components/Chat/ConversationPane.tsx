@@ -700,18 +700,22 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         
         console.log('✅ [ConversationPane] Caso aprobado exitosamente, caseApproved=', currentState.caseApproved, 'navegando...');
         
-        // Paso 4: Navegar DESPUÉS de aprobar exitosamente
+        // ✅ CORRECCIÓN CRÍTICA: Establecer y persistir caseApproved ANTES de navegar
+        // Esto asegura que el estado se mantenga durante la navegación
+        useUI.getState().setCaseApproved(true);
+        // Esperar un momento para que la persistencia se complete
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // Paso 4: Navegar DESPUÉS de aprobar exitosamente y persistir estado
         const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
         const localeMatch = currentPath.match(/\/(es|en)\//);
         const locale = localeMatch ? localeMatch[1] : 'es';
         const targetUrl = `/${locale}/agent/${finalCaseId}`;
-        console.log(`✅ [ConversationPane] Navegando a: ${targetUrl} (después de aprobar)`);
+        console.log(`✅ [ConversationPane] Navegando a: ${targetUrl} (después de aprobar y persistir)`);
         
         router.push(targetUrl);
         
-        // ✅ CORRECCIÓN: Asegurar que caseApproved se mantenga en true y resetear caseApproving
-        // Usar setCaseApproved para que se persista correctamente
-        useUI.getState().setCaseApproved(true);
+        // Resetear otros estados después de navegar
         useUI.setState({ caseApproving: false });
         setIsResolvingClient(false);
         console.log('✅ [ConversationPane] Estado final: caseApproved=true (persistido), caseApproving=false');

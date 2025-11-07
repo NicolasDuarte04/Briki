@@ -414,14 +414,14 @@ model Artifact {
 
 model AuditLog {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  caseId      String   @map("case_id") @db.Uuid
+  caseId      String?  @map("case_id") @db.Uuid  // ✅ Opcional: NULL para eventos de clients u otros recursos sin caso
   actor       String   @db.VarChar(255)
   action      String   @db.VarChar(100)
   tool        String?  @db.VarChar(50)
   payloadHash String?  @map("payload_hash") @db.VarChar(64)
   payload     Json?
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  case        Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case        Case?    @relation(fields: [caseId], references: [id], onDelete: Cascade)  // ✅ Opcional: NULL para eventos sin caso
 
   @@map("audit_log")
   @@schema("public")
