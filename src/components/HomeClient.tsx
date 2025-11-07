@@ -7,7 +7,7 @@ import Landing from "@/components/Landing";
 import FooterNav from "@/components/FooterNav";
 import { useUI, type UIStep } from "@/lib/ui/state";
 import { motion, AnimatePresence } from "framer-motion";
-import { WorkspaceTabs } from "@/components/Workspace/Tabs";
+import WorkspaceTabs from "@/components/Workspace/Tabs";
 import CaseBrief from "@/components/Workspace/CaseBrief";
 import SourcingProgressWidget from "@/components/Sourcing/SourcingProgressWidget";
 import HotkeysGuide from "@/components/HotkeysGuide";
@@ -81,8 +81,11 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
         });
         state.setInitialMessage('');
         state.setStep('conversation');
+        // ✅ CORRECCIÓN CRÍTICA: Resetear caseApproved a false para new-thread-placeholder
+        // Esto asegura que el formulario se muestre abierto (no el resumen)
+        state.setCaseApproved(false);
         
-        console.log('✅ [HomeClient] Estado completamente limpiado (con delay)');
+        console.log('✅ [HomeClient] Estado completamente limpiado (con delay), caseApproved reseteado a false');
       }, 100); // Delay de 100ms para que se ejecute después de la sincronización
     } else if (threadId && threadId !== 'new-thread-placeholder') {
       // ✅ CORRECCIÓN CRÍTICA: Establecer currentCaseId desde threadId cuando es un caseId real
@@ -90,21 +93,13 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
       const currentState = useUI.getState();
       if (currentState.currentCaseId !== threadId) {
         console.log(`🔄 [HomeClient] Estableciendo currentCaseId desde threadId: ${threadId}`);
-        
-        // ✅ CORRECCIÓN: Limpiar tempUploads del brief antes de establecer currentCaseId
-        // Esto previene tempUploads residuales desde LandingPage (reutilizando lógica de new-thread-placeholder)
-        const currentBrief = currentState.brief;
-        if ((currentBrief as any).tempUploads && (currentBrief as any).tempUploads.length > 0) {
-          console.warn('🧹 [HomeClient] Limpiando tempUploads residuales antes de cargar caso:', threadId);
-          // Limpiar solo tempUploads, mantener otros campos del brief
-          currentState.setBrief({
-            ...currentBrief,
-            tempUploads: []
-          } as any);
-        }
-        
         setCurrentCaseId(threadId);
         setStep('conversation');
+        
+        // ✅ CORRECCIÓN: Resetear caseApproving al cargar caso desde URL
+        // IMPORTANTE: NO resetear caseApproved aquí, se sincronizará desde BD en WorkspaceTabs
+        useUI.setState({ caseApproving: false });
+        console.log('✅ [HomeClient] caseApproving reseteado al cargar caso desde URL (caseApproved se mantiene)');
       }
     }
   }, [threadId, setCurrentCaseId, setStep]);

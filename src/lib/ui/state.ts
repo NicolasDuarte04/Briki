@@ -536,8 +536,6 @@ export interface UIState {
   dashboardViewTime?: number;
   step: UIStep;
   isSourcing: boolean;
-  formVisible: boolean;
-  formCompleted: boolean;
   rightOpen: boolean;
   complianceOpen: boolean;
   chatPanelOpen: boolean;
@@ -702,8 +700,8 @@ const persistState = (state: Partial<UIState>) => {
         brief: state.brief,
         messages: state.messages,
         step: state.step,
-        formVisible: state.formVisible,
-        formCompleted: state.formCompleted
+        // ✅ CORRECCIÓN CRÍTICA: Persistir caseApproved para que se mantenga después de navegar
+        caseApproved: state.caseApproved
       };
       localStorage.setItem('briki-ui-state', JSON.stringify(stateToPersist));
       console.log('✅ [useUI] Estado persistido:', stateToPersist);
@@ -797,9 +795,6 @@ export const useUI = create<UIState>()(
       renewalsAuditLog: [],
       renewalsSequence: 0,
       renewalsViewLogged: false,
-      // Estado de visibilidad del formulario
-      formVisible: true,
-      formCompleted: false,
       // Estados para aprobación de casos
       caseApproving: false,
       caseApprovalError: null,
@@ -822,12 +817,6 @@ export const useUI = create<UIState>()(
         });
       },
       setDashboardViewTime: (timestamp: number) => set({ dashboardViewTime: timestamp }), // ✅ AÑADIDO
-      
-      // Form visibility control actions
-      showForm: () => set((state) => ({ ...state, formVisible: true })),
-      hideForm: () => set((state) => ({ ...state, formVisible: false })),
-      setFormCompleted: (completed: boolean) => set((state) => ({ ...state, formCompleted: completed })),
-      
       setStep: (step) =>
         set((state) => {
           if (state.isSourcing && step !== "conversation") {
@@ -881,7 +870,12 @@ export const useUI = create<UIState>()(
           console.log('✅ API Success:', result);
 
           // Si la API tiene éxito, activa el flujo de sourcing en la UI
-          set({ caseApproved: true, caseApproving: false });
+          set((state) => {
+            const newState = { ...state, caseApproved: true, caseApproving: false };
+            // ✅ CORRECCIÓN CRÍTICA: Persistir caseApproved inmediatamente después de aprobar
+            persistState(newState);
+            return newState;
+          });
           
           // Añadir el mensaje automático del usuario a la UI inmediatamente
           const autoMessageContent = brief.freeText || "Por favor, analiza este caso y proporciona recomendaciones de seguros.";
@@ -905,8 +899,21 @@ export const useUI = create<UIState>()(
           return false;
         }
       },
-      resetApprovalStatus: () => set({ caseApproved: false }),
-      setCaseApproved: (isApproved) => set({ caseApproved: isApproved }),
+      resetApprovalStatus: () => {
+        set((state) => {
+          const newState = { ...state, caseApproved: false };
+          persistState(newState);
+          return newState;
+        });
+      },
+      setCaseApproved: (isApproved) => {
+        set((state) => {
+          const newState = { ...state, caseApproved: isApproved };
+          // ✅ CORRECCIÓN CRÍTICA: Persistir caseApproved cuando se establece
+          persistState(newState);
+          return newState;
+        });
+      },
       // Funciones para manejo de mensajes del chat
       addMessage: (message) => set((state) => ({ 
         messages: [...state.messages, { ...message, id: message.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, createdAt: message.createdAt || Date.now() }] 

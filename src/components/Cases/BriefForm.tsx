@@ -15,6 +15,9 @@ import { cn } from '@/lib/utils';
 import { PdfUploader } from '@/components/Upload/PdfUploader';
 import { useUI } from '@/lib/ui/state';
 import { useClientValidation } from '@/hooks/useClientValidation';
+import { createCaseIfNeeded } from '@/lib/case-actions';
+import { ClientValidationModal } from '@/components/Workspace/ClientValidationModal';
+import { useRouter } from 'next/navigation';
 import type { CaseBrief } from '@/lib/types';
 
 // Define el tipo para uploads temporales
@@ -96,12 +99,19 @@ const briefFormAreEqual = (prevProps: BriefFormProps, nextProps: BriefFormProps)
 };
 
 const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) => {
+  const router = useRouter();
+  
   // ✅ CORRECCIÓN CRÍTICA: Usar selector específico para brief (suscripción reactiva)
   const brief = useUI((state) => state.brief);
   const setBrief = useUI((state) => state.setBrief);
+  // ✅ CORRECCIÓN CRÍTICA: Usar selectores individuales para evitar loops infinitos
+  // NO usar ({...}) porque crea un nuevo objeto en cada render
+  const currentCaseId = useUI((state) => state.currentCaseId);
+  const setCurrentCaseId = useUI((state) => state.setCurrentCaseId);
+  const setInitialMessage = useUI((state) => state.setInitialMessage);
   
-  // Hook para validación y creación de clientes
-  const { validateAndResolveClient, isLoading: isClientValidationLoading } = useClientValidation();
+  // ✅ FASE 5: Hook para validación con modal
+  const { validateAndResolveClient, isLoading: isClientValidationLoading, modalState, setModalState } = useClientValidation(true);
   
   // ✅ FASE 1: Obtener estado de aprobación para sincronización
   const caseApproving = useUI((state) => state.caseApproving);
@@ -406,6 +416,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         employees: formData.employees ?? undefined,
         coverage: formData.coverage,
         freeText: formData.notes,
+        tempUploads: tempUploads, // ✅ FASE 5: Incluir tempUploads en briefUpdate
       };
       console.log('📝 [BriefForm] Actualizando brief global con:', briefUpdate);
       setBrief(briefUpdate);
@@ -415,20 +426,56 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         console.log('✏️ [BriefForm] Edit mode: Calling onSubmit with formData + tempUploads');
         await onSubmit({ ...formData, tempUploads });
       } else {
-        // Modo creación: Si hay función de aprobación (con validación), usarla
-    if (onApprove) {
-          await onApprove(); // onApprove ahora leerá el brief actualizado
-    } else {
-      // Fallback: solo proceder con el envío del formulario
-      await onSubmit({ ...formData, tempUploads });
-    }
+        // ✅ FASE 5: Modo creación - Usar createCaseIfNeeded extendido
+        if (onApprove) {
+          // ✅ FASE 5: Usar función extendida con modal de validación
+          console.log('✅ [BriefForm] FASE 5: Usando createCaseIfNeeded extendido con modal');
+          
+          // ✅ FASE 5: Establecer estados de bloqueo (caseApproving ya se establece en createCaseIfNeeded)
+          useUI.setState({ caseApproving: true });
+          
+          try {
+            await createCaseIfNeeded(
+              briefUpdate,
+              router,
+              {
+                validateClient: validateAndResolveClient,
+                setInitialMessage,
+                setCurrentCaseId,
+                currentCaseId,
+                saveUserMessage: true, // ✅ FASE 5: Guardar mensaje del usuario como primer mensaje
+              }
+            );
+            console.log('✅ [BriefForm] Caso creado exitosamente con createCaseIfNeeded');
+            // Si createCaseIfNeeded navegó exitosamente, este código no se ejecutará
+            // La navegación SPA hace que el componente se desmonte o se actualice
+          } catch (error: any) {
+            console.error('❌ [BriefForm] Error en createCaseIfNeeded:', error);
+            
+            // ✅ FASE 5: Manejar cancelación de creación de cliente
+            if (error.message === 'CLIENT_CREATION_CANCELLED') {
+              console.log('ℹ️ [BriefForm] Usuario canceló creación de cliente');
+              // No mostrar error, solo resetear estados
+              useUI.setState({ caseApproving: false });
+              return; // No propagar error si es cancelación
+            } else {
+              // Mostrar error solo si no es cancelación
+              alert(error.message || 'Error al crear el caso. Por favor intenta de nuevo.');
+              useUI.setState({ caseApproving: false });
+              throw error;
+            }
+          }
+        } else {
+          // Fallback: solo proceder con el envío del formulario
+          await onSubmit({ ...formData, tempUploads });
+        }
       }
     } catch (error: any) {
       console.error('❌ [BriefForm] Error en handleSubmit:', error);
       // Re-lanzar el error para que se maneje en el componente padre
       throw error;
     }
-  }, [onApprove, onSubmit, formData, tempUploads, setBrief, mode, formData.insurance_category]);
+  }, [onApprove, onSubmit, formData, tempUploads, setBrief, mode, formData.insurance_category, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId]);
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
@@ -578,14 +625,14 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                       <div className="px-2 py-1.5 text-sm text-gray-500">No se encontraron clientes.</div>
                     ) : (
                       clientList
-                            .filter(client => 
-                              client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
-                            )
-                            .map((client) => (
-                            <div
+                        .filter(client => 
+                          client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
+                        )
+                        .map((client) => (
+                          <div
                             key={client.id}
-                              onClick={() => handleClientSelect(client)}
-                              className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded-sm"
+                            onClick={() => handleClientSelect(client)}
+                            className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded-sm"
                           >
                             <Check
                               className={cn(
@@ -594,7 +641,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                               )}
                             />
                             {client.name}
-                            </div>
+                          </div>
                         ))
                     )}
                   </div>
@@ -712,6 +759,22 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             </Button>
           </div>
         </form>
+        
+        {/* ✅ FASE 5: Modal de validación de cliente */}
+        {modalState && (
+          <ClientValidationModal
+            clientName={modalState.clientName}
+            isOpen={modalState.isOpen}
+            onClose={() => {
+              setModalState(null);
+              modalState.onCancel();
+            }}
+            onConfirm={(clientId) => {
+              setModalState(null);
+              modalState.onConfirm(clientId);
+            }}
+          />
+        )}
       </CardContent>
     </Card>
   );

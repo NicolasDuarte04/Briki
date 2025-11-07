@@ -12,9 +12,8 @@ import Policies from "./Policies";
 import Comparison from "./Comparison";
 import Proposal from "./Proposal";
 import Renewals from "./Renewals";
-import { ArtifactsList } from './ArtifactsList'; // ✅ FASE 2: Import nuevo componente
 
-export type WorkspaceTab = "case-brief" | "artifacts" | "policies" | "comparisons" | "proposal" | "compliance" | "renewals"; // ✅ FASE 2: Agregar "artifacts"
+export type WorkspaceTab = "case-brief" | "policies" | "comparisons" | "proposal" | "compliance" | "renewals";
 
 interface CaseData {
   id: string;
@@ -37,27 +36,14 @@ export function WorkspaceTabs() {
   const { caseApproved, brief, setCaseApproved, currentCaseId } = useUI();
   const [activeCaseData, setActiveCaseData] = useState<CaseData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const tabLabels = useMemo(() => {
-    // ✅ CORRECCIÓN: Agregar try-catch para manejar errores de traducción temporalmente
-    const getArtifactsLabel = () => {
-      try {
-        return t("artifacts");
-      } catch (error) {
-        // Fallback si la traducción no está disponible (problema de caché de next-intl)
-        return "Artefactos";
-      }
-    };
-    
-    return {
+  const tabLabels = useMemo(() => ({
       "case-brief": t("caseBrief"),
-      "artifacts": getArtifactsLabel(), // ✅ FASE 2: Agregar traducción con fallback
       policies: t("policies"),
       comparisons: t("comparisons"),
       proposal: t("proposal"),
       compliance: t("compliance"),
       renewals: t("renewals"),
-    } satisfies Record<WorkspaceTab, string>;
-  }, [t]);
+    } satisfies Record<WorkspaceTab, string>), [t]);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("case-brief");
   const logRenewalsEvent = useUI((state) => state.logRenewalsEvent);
 
@@ -82,6 +68,27 @@ export function WorkspaceTabs() {
               const { case: caseData } = await response.json();
               setActiveCaseData(caseData);
               console.log(`✅ [WorkspaceTabs] Cargados datos del caso ${currentCaseId}`);
+              
+              // ✅ CORRECCIÓN: Sincronizar caseApproved y resetear caseApproving cuando se carga caso desde BD
+              // IMPORTANTE: NO resetear caseApproved a false si ya está en true (evita condiciones de carrera)
+              useUI.setState({ caseApproving: false });
+              
+              if (caseData.status === 'active') {
+                // Si el caso está activo, asegurar que caseApproved sea true
+                setCaseApproved(true);
+                console.log('✅ [WorkspaceTabs] Caso aprobado sincronizado desde BD, caseApproved=true, caseApproving=false');
+              } else {
+                // Si el caso es 'draft', solo resetear caseApproved si NO está ya en true
+                // Esto previene que se resetee después de aprobar pero antes de que BD se actualice
+                const currentCaseApproved = useUI.getState().caseApproved;
+                if (!currentCaseApproved) {
+                  setCaseApproved(false);
+                  console.log('✅ [WorkspaceTabs] Caso draft sincronizado, caseApproved=false, caseApproving=false');
+                } else {
+                  console.log('⚠️ [WorkspaceTabs] Caso en draft pero caseApproved=true (probablemente recién aprobado), manteniendo true');
+                }
+              }
+              
               break; // Éxito, salir del loop
             } else {
               // ✅ CORRECCIÓN: Manejo graceful de errores HTTP
@@ -124,7 +131,16 @@ export function WorkspaceTabs() {
   }, [currentCaseId, activeCaseData?.id]); // ✅ CORRECCIÓN: Agregar activeCaseData?.id para evitar llamadas innecesarias
 
   // ✅ FASE 2: Determinar si mostrar resumen o formulario
+  // Lógica: 
+  // - new-thread-placeholder (currentCaseId === null) → mostrar formulario (shouldShowSummary = false)
+  // - case-id con status='active' → mostrar resumen (shouldShowSummary = true)
+  // - case-id con status='draft' → mostrar formulario (shouldShowSummary = false)
   const shouldShowSummary = useMemo(() => {
+    // ✅ CORRECCIÓN: Si no hay currentCaseId (new-thread-placeholder), SIEMPRE mostrar formulario
+    if (!currentCaseId) {
+      return false; // Mostrar formulario abierto para nuevo caso
+    }
+    
     // Si caseApproved es true, siempre mostrar resumen
     if (caseApproved) return true;
     
@@ -135,11 +151,11 @@ export function WorkspaceTabs() {
       return true;
     }
     
-    // Caso contrario: mostrar formulario
+    // Caso contrario: mostrar formulario (caso draft o sin datos)
     return false;
-  }, [caseApproved, activeCaseData]);
+  }, [caseApproved, activeCaseData, currentCaseId]);
 
-  // ✅ FASE 2: Sincronizar caseApproved con status de BD cuando activeCaseData cambia
+  // ✅ CORRECCIÓN DOCUMENTADA: Sincronizar caseApproved con status de BD cuando activeCaseData cambia
   useEffect(() => {
     if (activeCaseData && activeCaseData.status === 'active' && !caseApproved) {
       console.log('🔄 [WorkspaceTabs] Sincronizando caseApproved con status de BD');
@@ -147,32 +163,32 @@ export function WorkspaceTabs() {
     }
   }, [activeCaseData, caseApproved, setCaseApproved]);
 
-  // ✅ CORRECCIÓN CRÍTICA: Recargar activeCaseData cuando caseApproved cambia a true
-  // Esto asegura que después de aprobar, activeCaseData refleje status='active' inmediatamente
+  // ✅ CORRECCIÓN DOCUMENTADA: Recargar activeCaseData cuando caseApproved cambia a true
+  // Esto asegura que activeCaseData refleje el estado actualizado (status: 'active') después de aprobar
   useEffect(() => {
     if (caseApproved && currentCaseId) {
+      // Evitar recarga si ya tenemos los datos y el status es 'active'
+      if (activeCaseData?.id === currentCaseId && activeCaseData.status === 'active') {
+        console.log('✅ [WorkspaceTabs] activeCaseData ya está sincronizado, omitiendo recarga');
+        return;
+      }
+      
       console.log('🔄 [WorkspaceTabs] Recargando activeCaseData después de aprobación');
-      // Forzar recarga de activeCaseData para sincronizar con BD
       const fetchCaseData = async () => {
-        setIsLoading(true);
         try {
           const response = await fetch(`/api/cases/${currentCaseId}`);
           if (response.ok) {
             const { case: caseData } = await response.json();
             setActiveCaseData(caseData);
-            console.log(`✅ [WorkspaceTabs] Datos del caso recargados después de aprobación (status: ${caseData.status})`);
-          } else {
-            console.error(`❌ [WorkspaceTabs] Error recargando datos después de aprobación: ${response.status}`);
+            console.log(`✅ [WorkspaceTabs] Datos del caso recargados después de aprobación, status: ${caseData.status}`);
           }
         } catch (error: any) {
           console.error('❌ [WorkspaceTabs] Error recargando datos después de aprobación:', error);
-        } finally {
-          setIsLoading(false);
         }
       };
       fetchCaseData();
     }
-  }, [caseApproved, currentCaseId]);
+  }, [caseApproved, currentCaseId, activeCaseData?.id, activeCaseData?.status]);
 
   // Función para volver al modo de edición (resetea el estado de aprobación)
   const handleEditBrief = () => {
@@ -214,9 +230,6 @@ export function WorkspaceTabs() {
               />
             )}
           </TabsContent>
-          <TabsContent value="artifacts" className="py-6"> {/* ✅ FASE 2: Nuevo tab */}
-            <ArtifactsList caseData={activeCaseData} loading={isLoading} />
-          </TabsContent>
           <TabsContent value="policies" className="py-6">
             <Policies caseData={activeCaseData} loading={isLoading} />
           </TabsContent>
@@ -237,4 +250,7 @@ export function WorkspaceTabs() {
     </div>
   );
 }
+
+export default WorkspaceTabs;
+
 

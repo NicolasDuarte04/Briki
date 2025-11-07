@@ -1,17 +1,40 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-## Getting Started
+## 📦 Gestor de Paquetes
 
-First, run the development server:
+**Este proyecto usa [pnpm](https://pnpm.io/) como gestor de paquetes principal.**
+
+### ¿Por qué pnpm?
+
+- **Mejor rendimiento**: Instalación más rápida y uso eficiente del espacio en disco
+- **Resolución estricta de dependencias**: Evita problemas de "phantom dependencies"
+- **Compatibilidad con monorepos**: Mejor soporte para proyectos grandes
+- **Consistencia**: Garantiza que todos los desarrolladores usen las mismas versiones
+
+### Instalación de pnpm
+
+Si no tienes pnpm instalado:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+npm install -g pnpm
+# o
+curl -fsSL https://get.pnpm.io/install.sh | sh -
+```
+
+## Getting Started
+
+### 1. Instalar dependencias
+
+```bash
+pnpm install
+```
+
+**⚠️ Importante**: Este proyecto está configurado para usar **pnpm únicamente**. El uso de `npm` o `yarn` está bloqueado por el script `preinstall` para mantener la consistencia del proyecto.
+
+### 2. Iniciar servidor de desarrollo
+
+```bash
 pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.

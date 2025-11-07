@@ -42,16 +42,38 @@ export async function POST(request: NextRequest) {
     };
 
     // 3. Guardar mensaje del usuario en la tabla messages
+    // ✅ FASE 4: Verificar si el mensaje ya fue guardado (últimos 10 segundos)
+    // Esto previene duplicación cuando createCaseIfNeeded ya guardó el mensaje
     try {
-      await prisma.message.create({
-        data: {
+      const tenSecondsAgo = new Date(Date.now() - 10000);
+      const existingUserMessage = await prisma.message.findFirst({
+        where: {
           caseId: caseId,
           role: 'user',
-          content: message,
-          metadata: { timestamp: new Date().toISOString() }
+          content: message, // Exact match del contenido
+          createdAt: {
+            gte: tenSecondsAgo // Últimos 10 segundos
+          }
+        },
+        orderBy: {
+          createdAt: 'desc' // El más reciente primero
         }
       });
-      console.log(`✅ API: Mensaje de usuario para caso ${caseId} guardado.`);
+
+      if (existingUserMessage) {
+        console.log(`⚠️ API: Mensaje de usuario ya existe para caso ${caseId} (ID: ${existingUserMessage.id}), omitiendo creación duplicada.`);
+      } else {
+        // Solo crear si no existe
+        await prisma.message.create({
+          data: {
+            caseId: caseId,
+            role: 'user',
+            content: message,
+            metadata: { timestamp: new Date().toISOString() }
+          }
+        });
+        console.log(`✅ API: Mensaje de usuario para caso ${caseId} guardado.`);
+      }
     } catch (dbError) {
       console.error(`❌ API: Error guardando mensaje de usuario para caso ${caseId}:`, dbError);
       // Continuar pero loguear el error

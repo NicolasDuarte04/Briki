@@ -4,6 +4,8 @@
 /node_modules
 /.pnpm
 .pnpm-store
+package-lock.json
+yarn.lock
 
 # Build artifacts
 /.next/

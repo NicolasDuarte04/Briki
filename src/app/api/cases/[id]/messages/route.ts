@@ -88,7 +88,34 @@ export async function POST(
       return NextResponse.json({ error: 'Role and content are required' }, { status: 400 });
     }
 
-    // Crear mensaje
+    // ✅ FASE 4: Verificar si existe mensaje duplicado (últimos 5 segundos)
+    // Esto previene duplicación cuando múltiples fuentes intentan guardar el mismo mensaje
+    const fiveSecondsAgo = new Date(Date.now() - 5000);
+    const existingMessage = await prisma.message.findFirst({
+      where: {
+        caseId: caseId,
+        role: role,
+        content: content, // Exact match del contenido
+        createdAt: {
+          gte: fiveSecondsAgo // Últimos 5 segundos
+        }
+      },
+      orderBy: {
+        createdAt: 'desc' // El más reciente primero
+      }
+    });
+
+    // Si existe mensaje duplicado, retornar el existente en lugar de crear uno nuevo
+    if (existingMessage) {
+      console.log(`⚠️ [API/CASES/${caseId}/MESSAGES] POST: Mensaje duplicado detectado, retornando existente (ID: ${existingMessage.id})`);
+      return NextResponse.json({ 
+        success: true, 
+        message: existingMessage,
+        duplicate: true // Indicador de que es un duplicado
+      });
+    }
+
+    // Crear mensaje solo si no existe duplicado
     const newMessage = await prisma.message.create({
       data: {
         caseId: caseId,
@@ -98,7 +125,8 @@ export async function POST(
       }
     });
 
-    return NextResponse.json({ success: true, message: newMessage });
+    console.log(`✅ [API/CASES/${caseId}/MESSAGES] POST: Mensaje creado exitosamente (ID: ${newMessage.id})`);
+    return NextResponse.json({ success: true, message: newMessage, duplicate: false });
   } catch (error: any) {
     console.error(`❌ [API/CASES/${caseId || 'unknown'}/MESSAGES] POST:`, error);
     return NextResponse.json({ error: 'Failed to save message' }, { status: 500 });

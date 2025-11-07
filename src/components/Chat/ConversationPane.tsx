@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
-import { useUI } from "@/lib/ui/state";
+import { useUI, type UIState } from "@/lib/ui/state";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,9 @@ import Message, { type MessageRole, type MessageAgentMeta } from "@/components/C
 import { useTranslations } from "next-intl";
 import { ProvenanceChip, type ProvenanceTag } from "@/components/Sourcing/ProvenanceChip";
 import { useClientValidation } from "@/hooks/useClientValidation";
+import { createCaseIfNeeded } from "@/lib/case-actions";
+import { ClientValidationModal } from "@/components/Workspace/ClientValidationModal";
+import { useRouter } from "next/navigation";
 import { ChatMessage as BaseChatMessage } from "@/store/useChatStore";
 // Removemos el import que no funciona en el browser
 // import { processChatMessage } from "@/lib/database";
@@ -22,25 +25,29 @@ type ChatMessage = Omit<BaseChatMessage, 'content'> & {
 const SOURCING_PROVENANCE: ProvenanceTag[] = ["API", "Portal", "PDF"];
 
 const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
-  const brief = useUI((state) => state.brief);
-  const isSourcing = useUI((state) => state.isSourcing);
-  const startSourcing = useUI((state) => state.startSourcing);
-  const initialMessage = useUI((state) => state.initialMessage);
-  const clearInitialMessage = useUI((state) => state.clearInitialMessage);
-  const setInitialMessage = useUI((state) => state.setInitialMessage);
-  const approveCurrentCase = useUI((state) => state.approveCurrentCase);
-  const caseApproving = useUI((state) => state.caseApproving);
-  const caseApproved = useUI((state) => state.caseApproved);
-  const briefingCase = useUI((state) => state.briefingCase);
+  const brief = useUI((state: UIState) => state.brief);
+  const isSourcing = useUI((state: UIState) => state.isSourcing);
+  const startSourcing = useUI((state: UIState) => state.startSourcing);
+  const initialMessage = useUI((state: UIState) => state.initialMessage);
+  const clearInitialMessage = useUI((state: UIState) => state.clearInitialMessage);
+  const setInitialMessage = useUI((state: UIState) => state.setInitialMessage);
+  const approveCurrentCase = useUI((state: UIState) => state.approveCurrentCase);
+  const caseApproving = useUI((state: UIState) => state.caseApproving);
+  const caseApproved = useUI((state: UIState) => state.caseApproved);
+  const briefingCase = useUI((state: UIState) => state.briefingCase);
+  // ✅ CORRECCIÓN CRÍTICA: Usar selectores individuales para evitar loops infinitos
+  // NO usar ({...}) porque crea un nuevo objeto en cada render
+  const currentCaseId = useUI((state: UIState) => state.currentCaseId);
+  const setCurrentCaseId = useUI((state: UIState) => state.setCurrentCaseId);
   
   // ✅ CORRECCIÓN CRÍTICA: Calcular validación reactiva basada en brief
   const isBriefValid = useMemo(() => {
     return !!(brief.insurance_category?.trim());
   }, [brief.insurance_category]);
   // Usar estado global de mensajes
-  const messages = useUI((state) => state.messages);
-  const addMessage = useUI((state) => state.addMessage);
-  const setMessages = useUI((state) => state.setMessages);
+  const messages = useUI((state: UIState) => state.messages);
+  const addMessage = useUI((state: UIState) => state.addMessage);
+  const setMessages = useUI((state: UIState) => state.setMessages);
   // setValidateAndApproveClient removido para evitar bucles infinitos
   
   // Estado local para manejar la validación de clientes
@@ -50,7 +57,9 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   // Hook para validación de clientes (movido al nivel superior)
-  const { validateAndResolveClient } = useClientValidation();
+  // ✅ FASE 7: Hook para validación con modal (unificado con BriefForm y CaseBriefForm)
+  const { validateAndResolveClient, modalState, setModalState } = useClientValidation(true);
+  const router = useRouter();
   
   // Cache para evitar validaciones repetidas del mismo cliente
   const [validatedClientCache, setValidatedClientCache] = useState<Map<string, string>>(new Map());
@@ -257,11 +266,11 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     if (isSourcing && !prevIsSourcingRef.current) {
       const currentMessages = messages;
       const hasStatusMessage = currentMessages.some(
-        (message) => message.role === "assistant" && message.id === "sourcing-status"
+        (message: ChatMessage) => message.role === "assistant" && message.id === "sourcing-status"
       );
 
       if (hasStatusMessage) {
-        const updatedMessages = currentMessages.map((message) =>
+        const updatedMessages = currentMessages.map((message: ChatMessage) =>
           message.id === "sourcing-status"
             ? {
                 ...message,
@@ -506,7 +515,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // Recicla la lógica de LandingPage: cuando viene del formulario, llamar a process-message
   // IMPORTANTE: Este useEffect debe estar después de la declaración de sendMessage
   // ✅ CORRECCIÓN CRÍTICA: Esperar a que currentCaseId esté disponible antes de procesar
-  const currentCaseId = useUI((state) => state.currentCaseId);
+  // Nota: currentCaseId ya está obtenido del store en la línea 38
   
   useEffect(() => {
     if (initialMessage && initialMessage.trim() !== '' && sendMessage) {
@@ -583,11 +592,13 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // Los mensajes históricos se procesan directamente en SidebarChatPanel
   // cuando se carga un caso histórico
 
-  // Efecto para mostrar el botón de aprobación
+  // ✅ CORRECCIÓN DOCUMENTADA: Efecto para mostrar el botón de aprobación
+  // Solo mostrar botón si el brief es válido Y el caso NO está aprobado
   useEffect(() => {
-    // ✅ CORRECCIÓN CRÍTICA: Usar valor reactivo calculado
-    setShowApprovalButton(isBriefValid);
-  }, [isBriefValid]); // ✅ Dependencia del valor reactivo
+    const shouldShow = isBriefValid && !caseApproved;
+    setShowApprovalButton(shouldShow);
+    console.log('🔍 [ConversationPane] showApprovalButton actualizado:', { isBriefValid, caseApproved, shouldShow });
+  }, [isBriefValid, caseApproved]);
 
   // Función optimizada de validación de clientes con cache
   const validateClientWithCache = async (): Promise<string | null> => {
@@ -629,120 +640,119 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     }
   };
 
-  // Función de orquestación que maneja la validación y creación de clientes
-  const handleApprovalOrchestration = async () => {
+  // ✅ FASE 7: Función simplificada usando createCaseIfNeeded extendido (elimina código duplicado)
+  const handleApprovalOrchestrationAsync = useCallback(async () => {
     setIsResolvingClient(true);
+    useUI.setState({ caseApproving: true });
+    console.log('🔒 [ConversationPane] FASE 7: Botones bloqueados para sincronización');
+    
     try {
-      // PASO 0: Verificar y crear el caso SI no existe
-      const currentCaseId = useUI.getState().currentCaseId;
-      if (!currentCaseId) {
-        console.log('📝 No hay currentCaseId, creando caso...');
-        
-        // Obtener información del usuario
-        const authResponse = await fetch('/api/auth/me');
-        if (!authResponse.ok) {
-          throw new Error('No se pudo obtener información del usuario');
+      // ✅ CORRECCIÓN CRÍTICA: Crear caso SIN navegar primero, luego aprobar, luego navegar
+      const caseId = await createCaseIfNeeded(
+        brief,
+        router,
+        {
+          validateClient: validateAndResolveClient, // ✅ FASE 7: Modal habilitado
+          setInitialMessage,
+          setCurrentCaseId,
+          currentCaseId,
+          saveUserMessage: false, // ✅ CORRECCIÓN: NO guardar mensaje aquí, approveCurrentCase lo enviará y guardará
+          skipNavigation: true, // ✅ CORRECCIÓN: Omitir navegación para aprobar antes
         }
-        const { orgId, userId } = await authResponse.json();
-        console.log('👤 Usuario autenticado:', { orgId, userId });
+      );
+      
+      // ✅ CORRECCIÓN CRÍTICA: Aprobar el caso ANTES de navegar
+      if (caseId) {
+        // Obtener el currentCaseId actualizado (puede haber cambiado después de createCaseIfNeeded)
+        const updatedCurrentCaseId = useUI.getState().currentCaseId;
+        const finalCaseId = updatedCurrentCaseId || caseId;
         
-        // Crear el caso con tempUploads si existen
-        const tempUploads = (brief as any).tempUploads || [];
-        console.log('📎 [ConversationPane] Creating case with tempUploads:', tempUploads);
+        console.log('✅ [ConversationPane] Aprobando caso antes de navegar:', finalCaseId);
         
-        const response = await fetch('/api/cases/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orgId,
-            userId,
-            clientName: brief.clientName,
-            businessType: brief.businessType,
-            employees: brief.employees,
-            status: 'draft',
-            stage: 'initial',
-            priority: 'medium',
-            briefData: {
-              freeText: brief.freeText,
-              businessType: brief.businessType,
-              employees: brief.employees,
-              coverage: brief.coverage,
-            },
-            insurance_category: brief.insurance_category,
-            max_budget: brief.max_budget,
-            budget_currency: brief.budget_currency,
-            required_coverages: brief.required_coverages,
-            client_profile: brief.client_profile,
-            tempUploads: tempUploads, // ✅ Incluir PDFs
-          }),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Error al crear el caso');
+        // Paso 1: Asegurar que currentCaseId esté establecido antes de aprobar
+        if (finalCaseId !== updatedCurrentCaseId) {
+          setCurrentCaseId(finalCaseId);
+          // Esperar un momento para que el estado se sincronice
+          await new Promise(resolve => setTimeout(resolve, 50));
         }
         
-        const result = await response.json();
-        console.log('✅ Caso creado exitosamente:', result.caseId);
+        // Paso 2: Validar y resolver cliente (con cache)
+        const clientId = await validateClientWithCache();
+        console.log('✅ [ConversationPane] Cliente validado/resuelto para aprobación:', clientId);
         
-        // Establecer currentCaseId inmediatamente después de crear el caso
-        useUI.getState().setCurrentCaseId(result.caseId);
-        console.log('💾 currentCaseId establecido en:', result.caseId);
+        // Paso 3: Aprobar el caso con el clientId
+        // ✅ CORRECCIÓN: approveCurrentCase ya establece caseApproved: true internamente
+        const success = await approveCurrentCase(clientId);
         
-        // ✅ NUEVO: Marcar timestamp para HomeClient
-        (window as any).lastCaseCreation = Date.now();
+        if (!success) {
+          console.log('❌ [ConversationPane] Aprobación falló');
+          useUI.setState({ caseApproving: false });
+          setIsResolvingClient(false);
+          return; // No navegar si la aprobación falla
+        }
         
-        // ✅ NUEVO: Navegar al caso creado inmediatamente
-        const currentPath = window.location.pathname;
+        // ✅ CORRECCIÓN: Verificar que caseApproved se estableció correctamente
+        const currentState = useUI.getState();
+        if (!currentState.caseApproved) {
+          console.warn('⚠️ [ConversationPane] caseApproved no se estableció, forzando a true');
+          useUI.setState({ caseApproved: true });
+        }
+        
+        console.log('✅ [ConversationPane] Caso aprobado exitosamente, caseApproved=', currentState.caseApproved, 'navegando...');
+        
+        // Paso 4: Navegar DESPUÉS de aprobar exitosamente
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
         const localeMatch = currentPath.match(/\/(es|en)\//);
         const locale = localeMatch ? localeMatch[1] : 'es';
+        const targetUrl = `/${locale}/agent/${finalCaseId}`;
+        console.log(`✅ [ConversationPane] Navegando a: ${targetUrl} (después de aprobar)`);
         
-        const targetUrl = `/${locale}/agent/${result.caseId}`;
-        console.log(`✅ [ConversationPane] Navigating to: ${targetUrl}`);
+        router.push(targetUrl);
         
-        // Usar window.location para navegar (más confiable en async)
-        window.location.href = targetUrl;
-        
-        // Salir aquí, el useEffect de HomeClient manejará el resto
-        return;
-      } else {
-        console.log('✅ Ya existe currentCaseId:', currentCaseId);
+        // ✅ CORRECCIÓN: Asegurar que caseApproved se mantenga en true y resetear caseApproving
+        // Usar setCaseApproved para que se persista correctamente
+        useUI.getState().setCaseApproved(true);
+        useUI.setState({ caseApproving: false });
+        setIsResolvingClient(false);
+        console.log('✅ [ConversationPane] Estado final: caseApproved=true (persistido), caseApproving=false');
       }
-
-      // Paso 1: Validar y resolver cliente (con cache)
-      const clientId = await validateClientWithCache();
-      console.log('✅ Cliente validado/resuelto:', clientId);
-      
-      // Paso 2: Si la validación es exitosa, aprobar el caso con el clientId
-      const success = await approveCurrentCase(clientId);
-      
-      if (!success) {
-        // El error ya se maneja en approveCurrentCase
-        return;
-      }
-      
-      // El envío automático del mensaje se maneja en approveCurrentCase
-      
     } catch (error: any) {
-      console.error('Error en orquestación de aprobación:', error);
+      console.error('❌ [ConversationPane] FASE 7: Error en aprobación con validación:', error);
       
-      // Manejar errores específicos del hook de validación
-      if (error.message === "CLIENT_CREATION_CANCELLED") {
-        // Usuario canceló la creación del cliente
-        console.log('Usuario canceló la creación del cliente');
-        // No hacer nada, el usuario puede intentar de nuevo
-      } else if (error.message === "CLIENT_CREATION_FAILED") {
-        // Error al crear el cliente
-        console.error('Error al crear el cliente');
+      // ✅ FASE 7: Manejar cancelación de creación de cliente
+      if (error.message === 'CLIENT_CREATION_CANCELLED') {
+        console.log('ℹ️ [ConversationPane] Usuario canceló creación de cliente');
+        // No mostrar error, solo resetear estados
+        useUI.setState({ caseApproving: false });
+        setIsResolvingClient(false);
+        return; // No propagar error si es cancelación
+      }
+      
+      // ✅ FASE 7: Manejar otros errores
+      if (error.message === "CLIENT_CREATION_FAILED") {
+        console.error('❌ [ConversationPane] Error al crear el cliente');
         // Aquí podrías mostrar un mensaje de error al usuario
       } else {
-        // Otros errores
-        console.error('Error inesperado:', error);
+        console.error('❌ [ConversationPane] Error inesperado:', error);
       }
-    } finally {
+      
+      // Resetear estados en caso de error
+      useUI.setState({ caseApproving: false });
       setIsResolvingClient(false);
+    } finally {
+      // ✅ FASE 7: Resetear estados de carga solo si no navegó
+      // Si createCaseIfNeeded navegó exitosamente, este código puede no ejecutarse
+      setIsResolvingClient(false);
+      useUI.setState({ caseApproving: false });
     }
-  };
+  }, [brief, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId, validateClientWithCache, approveCurrentCase]);
+
+  // ✅ CORRECCIÓN: Wrapper síncrono para onApprove (que espera () => void, no async)
+  const handleApprovalOrchestration = useCallback(() => {
+    handleApprovalOrchestrationAsync().catch((error) => {
+      console.error('❌ [ConversationPane] Error en handleApprovalOrchestration:', error);
+    });
+  }, [handleApprovalOrchestrationAsync]);
 
   // Función pública para validación de clientes (para usar desde otros componentes)
   const validateAndApproveClient = async (): Promise<boolean> => {
@@ -797,17 +807,26 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
         >
           <div ref={contentRef} className="space-y-4">
-            {messages.map((m, idx) => {
-              const isLast = idx === messages.length - 1;
-              const prevMessage = messages[idx - 1];
-              const nextMessage = messages[idx + 1];
-              const isGroupStart = !prevMessage || prevMessage.role !== m.role;
-              const isGroupEnd = !nextMessage || nextMessage.role !== m.role;
-              const messageTabIndex = isLast ? -1 : undefined;
-              const displayTimestamp = new Date().toLocaleTimeString([], {
-                hour: "numeric",
-                minute: "2-digit",
-              });
+            {/* ✅ CORRECCIÓN: Calcular el índice del primer mensaje del agente una sola vez */}
+            {(() => {
+              const firstAssistantMessageIndex = messages.findIndex(
+                (msg: ChatMessage) => msg.role === 'assistant'
+              );
+              return messages.map((m: ChatMessage, idx: number) => {
+                const isLast = idx === messages.length - 1;
+                const prevMessage = messages[idx - 1];
+                const nextMessage = messages[idx + 1];
+                const isGroupStart = !prevMessage || prevMessage.role !== m.role;
+                const isGroupEnd = !nextMessage || nextMessage.role !== m.role;
+                const messageTabIndex = isLast ? -1 : undefined;
+                const displayTimestamp = new Date().toLocaleTimeString([], {
+                  hour: "numeric",
+                  minute: "2-digit",
+                });
+
+                // ✅ CORRECCIÓN: Solo pasar onApprove al primer mensaje del agente y si el caso no está aprobado
+                const isFirstAssistantMessage = idx === firstAssistantMessageIndex && m.role === 'assistant';
+                const shouldShowApproveButton = isFirstAssistantMessage && !caseApproved;
 
               return (
                 <div
@@ -836,12 +855,13 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
                       isGroupStart={isGroupStart}
                       isGroupEnd={isGroupEnd}
                       timestamp={displayTimestamp}
-                      onApprove={handleApprovalOrchestration}
+                      {...(shouldShowApproveButton ? { onApprove: handleApprovalOrchestration } : {})}
                     />
                   </div>
                 </div>
               );
-            })}
+            });
+            })()}
              {isTyping && (
               <div className="flex justify-start mb-4">
                 <div className="w-full max-w-[95%] pr-4">
@@ -1028,6 +1048,22 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           </div>
         )}
       </div>
+      
+      {/* ✅ FASE 7: Modal de validación de cliente */}
+      {modalState && (
+        <ClientValidationModal
+          clientName={modalState.clientName}
+          isOpen={modalState.isOpen}
+          onClose={() => {
+            setModalState(null);
+            modalState.onCancel();
+          }}
+          onConfirm={(clientId) => {
+            setModalState(null);
+            modalState.onConfirm(clientId);
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -1098,4 +1134,3 @@ function SourcingStatusMessage({
     </div>
   );
 }
-

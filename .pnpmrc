@@ -1,0 +1,12 @@
+# Configuración de pnpm para el proyecto Briki
+# Este archivo optimiza el comportamiento de pnpm
+
+# Auto-instalar peer dependencies
+auto-install-peers=true
+
+# Excluir links del lockfile para mejor rendimiento
+exclude-links-from-lockfile=false
+
+# Configuración de store (opcional, para optimización)
+# store-dir=~/.pnpm-store
+
