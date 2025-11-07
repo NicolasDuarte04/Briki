@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import Canvas from "@/components/Canvas";
 import Hotkeys from "@/components/Hotkeys";
 import Landing from "@/components/Landing";
@@ -28,6 +29,7 @@ interface HomeClientProps {
 
 export default function HomeClient({ initialStep = "landing", threadId }: HomeClientProps) {
   const initializedRef = useRef(false);
+  const pathname = usePathname(); // ✅ FASE 2: Obtener pathname para verificación de ruta
   const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage, currentCaseId, setCurrentCaseId, setMessages, setBrief } = useUI();
   // Usar el valor del store como fuente de verdad para la lógica de renderizado
   const currentStep = step; // Leer siempre desde Zustand después de la sincronización
@@ -281,7 +283,15 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
               </div>
               </motion.div>
             </div>
-          ) : currentStep === "landing" ? (
+          ) : (() => {
+            // ✅ FASE 2: Verificación de ruta para prevenir renderizado incorrecto
+            // Estamos en una ruta de agente si el pathname incluye '/agent'
+            const isAgentRoute = pathname?.includes('/agent') || false;
+            // Solo mostrar Landing si el step es "landing" Y NO estamos en una ruta de agente
+            const shouldRenderLanding = currentStep === "landing" && !isAgentRoute;
+            
+            return shouldRenderLanding;
+          })() ? (
             <div className="landing-scroll relative flex-1 overflow-auto">
               <motion.div
                 key="landing"

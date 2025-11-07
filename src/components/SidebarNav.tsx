@@ -13,14 +13,13 @@ import type { Locale } from "@/lib/routes/workspace";
 import { motion } from "framer-motion";
 
 export default function SidebarNav() {
-  const { setStep, openChatPanel } = useUI();
+  // ✅ FASE 1: Eliminado setStep - ya no se necesita para navegación
+  const { openChatPanel } = useUI();
   const { open, animate } = useSidebar();
   const pathname = usePathname();
   const locale = useLocale() as Locale;
 
-  const handleLogoClick = () => {
-    setStep("landing");
-  };
+  // ✅ FASE 1: Eliminado handleLogoClick - la navegación se maneja completamente por Next.js
 
   // Get locale-aware links with icons
   const links = getWorkspaceLinks(locale);
@@ -49,7 +48,6 @@ export default function SidebarNav() {
       <div>
         <Link
           href="/landing"
-          onClick={handleLogoClick}
           aria-label="Home"
           className="group flex items-center rounded-md py-2 pr-2 pl-0 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
