@@ -8,6 +8,7 @@
  */
 
 import { useState, useCallback } from 'react';
+import { useUI } from '@/lib/ui/state';
 
 /**
  * Estado del modal de validación de cliente
@@ -69,6 +70,7 @@ export function useClientValidation(useModal: boolean = false) {
         }
 
         setIsLoading(true);
+        useUI.setState({ caseResolvingClient: true }); // ✅ Sincronizar estado global
         
         try {
             // 1. Buscar cliente existente (igual que antes)
@@ -83,6 +85,7 @@ export function useClientValidation(useModal: boolean = false) {
                 if (existingClient) {
                     console.log('✅ Cliente existente encontrado:', existingClient.name);
                     setIsLoading(false);
+                    useUI.setState({ caseResolvingClient: false }); // ✅ Sincronizar estado global
                     return existingClient.id;
                 }
             }
@@ -97,11 +100,13 @@ export function useClientValidation(useModal: boolean = false) {
                         onConfirm: (clientId) => {
                             setModalState(null);
                             setIsLoading(false);
+                            useUI.setState({ caseResolvingClient: false }); // ✅ Sincronizar estado global
                             resolve(clientId);
                         },
                         onCancel: () => {
                             setModalState(null);
                             setIsLoading(false);
+                            useUI.setState({ caseResolvingClient: false }); // ✅ Sincronizar estado global
                             reject(new Error('CLIENT_CREATION_CANCELLED'));
                         }
                     });
@@ -114,6 +119,7 @@ export function useClientValidation(useModal: boolean = false) {
                 
                 if (!confirmed) {
                     setIsLoading(false);
+                    useUI.setState({ caseResolvingClient: false }); // ✅ Sincronizar estado global
                     throw new Error('CLIENT_CREATION_CANCELLED');
                 }
             }
@@ -137,6 +143,7 @@ export function useClientValidation(useModal: boolean = false) {
                 const data = await createResponse.json();
                 console.log('✅ Cliente creado exitosamente:', data.id);
                 setIsLoading(false);
+                useUI.setState({ caseResolvingClient: false }); // ✅ Sincronizar estado global
                 return data.id;
             }
 
@@ -147,6 +154,7 @@ export function useClientValidation(useModal: boolean = false) {
         } catch (error: any) {
             console.error('Error en validación de cliente:', error);
             setIsLoading(false);
+            useUI.setState({ caseResolvingClient: false }); // ✅ Sincronizar estado global
             throw error;
         }
     }, [useModal]);

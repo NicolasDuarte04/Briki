@@ -593,6 +593,7 @@ export interface UIState {
   caseApproving: boolean;
   caseApprovalError: string | null;
   caseApproved: boolean;
+  caseResolvingClient: boolean; // ✅ NUEVO: Estado global para sincronizar validación de cliente entre los 3 botones
   // Función de validación unificada del brief
   isBriefValid: () => boolean;
   // Estado de mensajes del chat
@@ -799,6 +800,7 @@ export const useUI = create<UIState>()(
       caseApproving: false,
       caseApprovalError: null,
       caseApproved: false,
+      caseResolvingClient: false, // ✅ NUEVO: Estado global para sincronizar validación de cliente
       // Estado de mensajes del chat
       messages: [],
       // Función de validación unificada del brief

@@ -115,6 +115,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   
   // ✅ FASE 1: Obtener estado de aprobación para sincronización
   const caseApproving = useUI((state) => state.caseApproving);
+  const caseResolvingClient = useUI((state) => state.caseResolvingClient); // ✅ NUEVO: Estado global para sincronización
 
   // Estado para todos los campos del formulario
   const [formData, setFormData] = useState<CaseBriefData>({
@@ -751,11 +752,11 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             <Button
               type="submit"
               disabled={mode === 'edit' 
-                ? (isSubmitting || isClientValidationLoading || caseApproving) // ✅ FASE 1: Agregar caseApproving para sincronización
-                : (isSubmitting || isClientValidationLoading || caseApproving || !isBriefValid)} // ✅ FASE 1: Agregar caseApproving para sincronización
+                ? (isSubmitting || caseResolvingClient || caseApproving) // ✅ Sincronización: usar caseResolvingClient global
+                : (isSubmitting || caseResolvingClient || caseApproving || !isBriefValid)} // ✅ Sincronización: usar caseResolvingClient global
               className="min-w-[140px]"
             >
-              {(isSubmitting || isClientValidationLoading || caseApproving) ? 'Procesando...' : mode === 'edit' ? 'Guardar Cambios' : 'Buscar Planes'}
+              {caseResolvingClient ? 'Validando cliente...' : (isSubmitting || caseApproving) ? 'Procesando...' : mode === 'edit' ? 'Guardar Cambios' : 'Buscar Planes'}
             </Button>
           </div>
         </form>

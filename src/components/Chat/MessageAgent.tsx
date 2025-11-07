@@ -33,7 +33,7 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
   ...rest
 }) => {
   const t = useTranslations("chat.agent");
-  const { caseApproving, caseApproved, isBriefValid } = useUI();
+  const { caseApproving, caseApproved, caseResolvingClient, isBriefValid } = useUI(); // ✅ NUEVO: caseResolvingClient para sincronización
   const headerId = useId();
   const isoTimestamp = React.useMemo(() => {
     if (!timestamp) return undefined;
@@ -106,10 +106,10 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
               size="sm"
               aria-label={t("actions.approve.aria")}
               onClick={onApprove}
-              disabled={caseApproving || !isBriefValid()}
+              disabled={caseApproving || caseResolvingClient || !isBriefValid()}
               className="w-full sm:w-auto"
             >
-              {caseApproving ? 'Aprobando...' : t("actions.approve.label")}
+              {caseResolvingClient ? 'Validando cliente...' : caseApproving ? 'Aprobando...' : t("actions.approve.label")}
             </Button>
           </div>
         )}

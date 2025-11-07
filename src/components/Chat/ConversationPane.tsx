@@ -34,6 +34,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const approveCurrentCase = useUI((state: UIState) => state.approveCurrentCase);
   const caseApproving = useUI((state: UIState) => state.caseApproving);
   const caseApproved = useUI((state: UIState) => state.caseApproved);
+  const caseResolvingClient = useUI((state: UIState) => state.caseResolvingClient); // ✅ NUEVO: Estado global para sincronización
   const briefingCase = useUI((state: UIState) => state.briefingCase);
   // ✅ CORRECCIÓN CRÍTICA: Usar selectores individuales para evitar loops infinitos
   // NO usar ({...}) porque crea un nuevo objeto en cada render
@@ -50,8 +51,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const setMessages = useUI((state: UIState) => state.setMessages);
   // setValidateAndApproveClient removido para evitar bucles infinitos
   
-  // Estado local para manejar la validación de clientes
-  const [isResolvingClient, setIsResolvingClient] = useState(false);
+  // ✅ ELIMINADO: Estado local isResolvingClient - ahora se usa caseResolvingClient global de Zustand
   
   // Estado local para indicador de análisis de OpenAI
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -592,13 +592,13 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // Los mensajes históricos se procesan directamente en SidebarChatPanel
   // cuando se carga un caso histórico
 
-  // ✅ CORRECCIÓN DOCUMENTADA: Efecto para mostrar el botón de aprobación
-  // Solo mostrar botón si el brief es válido Y el caso NO está aprobado
+  // ✅ CORRECCIÓN CRÍTICA: Mostrar botón SIEMPRE si !caseApproved (no depende de isBriefValid)
+  // isBriefValid solo se usa para DESHABILITAR, no para OCULTAR
   useEffect(() => {
-    const shouldShow = isBriefValid && !caseApproved;
+    const shouldShow = !caseApproved;
     setShowApprovalButton(shouldShow);
-    console.log('🔍 [ConversationPane] showApprovalButton actualizado:', { isBriefValid, caseApproved, shouldShow });
-  }, [isBriefValid, caseApproved]);
+    console.log('🔍 [ConversationPane] showApprovalButton actualizado:', { caseApproved, shouldShow });
+  }, [caseApproved]);
 
   // Función optimizada de validación de clientes con cache
   const validateClientWithCache = async (): Promise<string | null> => {
@@ -642,9 +642,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
   // ✅ FASE 7: Función simplificada usando createCaseIfNeeded extendido (elimina código duplicado)
   const handleApprovalOrchestrationAsync = useCallback(async () => {
-    setIsResolvingClient(true);
-    useUI.setState({ caseApproving: true });
-    console.log('🔒 [ConversationPane] FASE 7: Botones bloqueados para sincronización');
+    useUI.setState({ caseResolvingClient: true, caseApproving: true }); // ✅ Sincronizar estado global
+    console.log('🔒 [ConversationPane] Botones bloqueados para sincronización (caseResolvingClient=true, caseApproving=true)');
     
     try {
       // ✅ CORRECCIÓN CRÍTICA: Crear caso SIN navegar primero, luego aprobar, luego navegar
@@ -686,8 +685,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         
         if (!success) {
           console.log('❌ [ConversationPane] Aprobación falló');
-          useUI.setState({ caseApproving: false });
-          setIsResolvingClient(false);
+          useUI.setState({ caseApproving: false, caseResolvingClient: false }); // ✅ Sincronizar estado global
           return; // No navegar si la aprobación falla
         }
         
@@ -716,23 +714,21 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         router.push(targetUrl);
         
         // Resetear otros estados después de navegar
-        useUI.setState({ caseApproving: false });
-        setIsResolvingClient(false);
-        console.log('✅ [ConversationPane] Estado final: caseApproved=true (persistido), caseApproving=false');
+        useUI.setState({ caseApproving: false, caseResolvingClient: false }); // ✅ Sincronizar estado global
+        console.log('✅ [ConversationPane] Estado final: caseApproved=true (persistido), caseApproving=false, caseResolvingClient=false');
       }
     } catch (error: any) {
       console.error('❌ [ConversationPane] FASE 7: Error en aprobación con validación:', error);
       
-      // ✅ FASE 7: Manejar cancelación de creación de cliente
+      // ✅ Manejar cancelación de creación de cliente
       if (error.message === 'CLIENT_CREATION_CANCELLED') {
         console.log('ℹ️ [ConversationPane] Usuario canceló creación de cliente');
         // No mostrar error, solo resetear estados
-        useUI.setState({ caseApproving: false });
-        setIsResolvingClient(false);
+        useUI.setState({ caseApproving: false, caseResolvingClient: false }); // ✅ Sincronizar estado global
         return; // No propagar error si es cancelación
       }
       
-      // ✅ FASE 7: Manejar otros errores
+      // ✅ Manejar otros errores
       if (error.message === "CLIENT_CREATION_FAILED") {
         console.error('❌ [ConversationPane] Error al crear el cliente');
         // Aquí podrías mostrar un mensaje de error al usuario
@@ -741,13 +737,11 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       }
       
       // Resetear estados en caso de error
-      useUI.setState({ caseApproving: false });
-      setIsResolvingClient(false);
+      useUI.setState({ caseApproving: false, caseResolvingClient: false }); // ✅ Sincronizar estado global
     } finally {
-      // ✅ FASE 7: Resetear estados de carga solo si no navegó
+      // ✅ Resetear estados de carga solo si no navegó
       // Si createCaseIfNeeded navegó exitosamente, este código puede no ejecutarse
-      setIsResolvingClient(false);
-      useUI.setState({ caseApproving: false });
+      useUI.setState({ caseApproving: false, caseResolvingClient: false }); // ✅ Sincronizar estado global
     }
   }, [brief, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId, validateClientWithCache, approveCurrentCase]);
 
@@ -1045,8 +1039,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
               <p className="text-sm text-secondary-foreground mb-3">
                 El brief del caso está listo. ¿Deseas que proceda con el análisis?
               </p>
-              <Button onClick={handleApprovalOrchestration} className="w-full" disabled={isTyping || caseApproving || isResolvingClient}>
-                {isResolvingClient ? 'Validando cliente...' : caseApproving ? 'Aprobando...' : 'Aprobar y Continuar Análisis'}
+              <Button onClick={handleApprovalOrchestration} className="w-full" disabled={isTyping || caseApproving || caseResolvingClient || !isBriefValid}>
+                {caseResolvingClient ? 'Validando cliente...' : caseApproving ? 'Aprobando...' : 'Aprobar y Continuar Análisis'}
               </Button>
             </div>
           </div>
