@@ -222,7 +222,7 @@ export function WorkspaceTabs() {
         <div className="flex-1 overflow-y-auto px-6 md:px-8">
           <TabsContent value="case-brief" className="py-6 h-full">
             {shouldShowSummary ? (
-              <CaseSummary brief={brief} onEdit={handleEditBrief} />
+              <CaseSummary brief={brief} activeCaseData={activeCaseData} onEdit={handleEditBrief} />
             ) : (
               <CaseBriefForm 
                 initialData={activeCaseData?.briefData || brief} 

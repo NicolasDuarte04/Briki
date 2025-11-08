@@ -63,32 +63,48 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
     if (threadId === 'new-thread-placeholder') {
       console.warn('🧹 [HomeClient] Limpieza exhaustiva para new-thread-placeholder');
       
-      // ✅ BATCH UPDATE con delay para que se ejecute después de la sincronización
+      // ✅ CORRECCIÓN CRÍTICA: Limpiar estado INMEDIATAMENTE (sin delay) para evitar contaminación
+      // Esto asegura que cuando los componentes se rendericen, el estado ya esté limpio
+      const state = useUI.getState();
+      
+      // 1. Resetear caseApproved INMEDIATAMENTE
+      if (state.caseApproved) {
+        state.setCaseApproved(false);
+        console.log('✅ [HomeClient] caseApproved reseteado a false INMEDIATAMENTE');
+      }
+      
+      // 2. Limpiar currentCaseId INMEDIATAMENTE
+      if (state.currentCaseId) {
+        state.setCurrentCaseId(null);
+        console.log('✅ [HomeClient] currentCaseId limpiado INMEDIATAMENTE');
+      }
+      
+      // 3. Limpiar brief INMEDIATAMENTE (CRÍTICO para evitar contaminación en BriefForm)
+      state.setBrief({
+        freeText: '',
+        clientName: '',
+        selectedClientId: null,
+        insurance_category: '',
+        max_budget: null,         // ✅ FASE 3: Explícitamente null
+        budget_currency: 'COP',
+        required_coverages: [],
+        client_profile: '',
+        businessType: '',
+        employees: null,          // ✅ FASE 3: Explícitamente null
+        coverage: '',
+        tempUploads: [] // ✅ CORRECCIÓN: Limpiar PDFs residuales
+      });
+      console.log('✅ [HomeClient] brief limpiado INMEDIATAMENTE');
+      
+      // 4. Limpiar mensajes y otros estados con delay (menos crítico)
       setTimeout(() => {
         const state = useUI.getState();
-        state.setCurrentCaseId(null);
         state.setMessages([]);
-        state.setBrief({
-          freeText: '',
-          clientName: '',
-          selectedClientId: null,
-          insurance_category: '',
-          budget_currency: 'COP',
-          required_coverages: [],
-          client_profile: '',
-          businessType: '',
-          coverage: '',
-          tempUploads: [] // ✅ CORRECCIÓN: Limpiar PDFs residuales
-          // Omitimos employees y max_budget en lugar de establecerlos como undefined
-        });
         state.setInitialMessage('');
         state.setStep('conversation');
-        // ✅ CORRECCIÓN CRÍTICA: Resetear caseApproved a false para new-thread-placeholder
-        // Esto asegura que el formulario se muestre abierto (no el resumen)
-        state.setCaseApproved(false);
         
-        console.log('✅ [HomeClient] Estado completamente limpiado (con delay), caseApproved reseteado a false');
-      }, 100); // Delay de 100ms para que se ejecute después de la sincronización
+        console.log('✅ [HomeClient] Estado completamente limpiado (mensajes y step con delay)');
+      }, 50); // Delay reducido a 50ms ya que lo crítico se limpia inmediatamente
     } else if (threadId && threadId !== 'new-thread-placeholder') {
       // ✅ CORRECCIÓN CRÍTICA: Establecer currentCaseId desde threadId cuando es un caseId real
       // Esto es necesario después de recarga de página (window.location.href)

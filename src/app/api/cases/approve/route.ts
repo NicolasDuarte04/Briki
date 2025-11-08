@@ -28,25 +28,44 @@ export async function PUT(request: NextRequest) {
         }
 
         // 2. Ejecutar la actualización atómica: guardar datos Y cambiar estado.
+        // ✅ FASE 1: CORRECCIÓN CRÍTICA - Guardar TODOS los campos explícitamente
+        // Usamos '?? null' o '?? []' para asegurar que si el frontend envía
+        // 'undefined' (porque se limpió), la BD reciba 'null' (o '[]')
+        // en lugar de que el campo se omita y retenga su valor anterior.
         const updateData: any = {
-            // Actualizar campos básicos del brief (con valores por defecto si no están presentes)
-            businessType: briefData.businessType || 'Por definir',
-            employees: briefData.employees || 0,
-            briefData: briefData, // Actualizar el campo JSON también
-
             // La acción principal: cambiar el estado y la etapa
             status: 'active',
             stage: 'sourcing',
+            
+            // ✅ FASE 1: Asignación explícita de TODOS los campos del brief
+            // Campos de nivel superior (directos en la tabla cases)
+            clientName: briefData.clientName ?? null,
+            clientRef: briefData.selectedClientId ?? null,
+            insurance_category: briefData.insurance_category ?? null,
+            max_budget: briefData.max_budget ?? null,
+            budget_currency: briefData.budget_currency ?? 'COP',
+            required_coverages: briefData.required_coverages ?? [],
+            client_profile: briefData.client_profile ?? null,
+            businessType: briefData.businessType ?? null,
+            employees: briefData.employees ?? null,
+            
+            // Actualizar el briefData JSON también con todos los campos
+            briefData: {
+                ...briefData, // Incluir todos los campos del briefData
+                // Forzar valores limpios si son nulos/undefined en el objeto principal
+                clientName: briefData.clientName ?? null,
+                selectedClientId: briefData.selectedClientId ?? null,
+                insurance_category: briefData.insurance_category ?? null,
+                max_budget: briefData.max_budget ?? null,
+                employees: briefData.employees ?? null,
+                businessType: briefData.businessType ?? null,
+                client_profile: briefData.client_profile ?? null,
+                required_coverages: briefData.required_coverages ?? [],
+                budget_currency: briefData.budget_currency ?? 'COP',
+                freeText: briefData.freeText ?? null,
+                coverage: briefData.coverage ?? null,
+            }
         };
-
-        // Actualizar campos opcionales solo si están presentes
-        if (briefData.clientName) updateData.clientName = briefData.clientName;
-        if (briefData.selectedClientId) updateData.clientRef = briefData.selectedClientId; // CORRECCIÓN: client_id → clientRef
-        if (briefData.insurance_category) updateData.insurance_category = briefData.insurance_category;
-        if (briefData.max_budget) updateData.max_budget = briefData.max_budget;
-        if (briefData.budget_currency) updateData.budget_currency = briefData.budget_currency;
-        if (briefData.required_coverages) updateData.required_coverages = briefData.required_coverages;
-        if (briefData.client_profile) updateData.client_profile = briefData.client_profile;
         
         console.log('🔧 Updating case with data:', updateData);
 

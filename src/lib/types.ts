@@ -228,7 +228,7 @@ export interface CaseBrief {
   /** Business type description */
   businessType?: string;
   /** Number of employees */
-  employees?: number;
+  employees?: number | null;
   /** Coverage types needed */
   coverage?: string;
   /** Free text notes */
@@ -240,7 +240,7 @@ export interface CaseBrief {
   /** Insurance category */
   insurance_category?: string;
   /** Maximum budget for insurance */
-  max_budget?: number;
+  max_budget?: number | null;
   /** Budget currency */
   budget_currency?: CurrencyCode;
   /** Required coverages list */

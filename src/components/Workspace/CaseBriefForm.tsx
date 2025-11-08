@@ -136,15 +136,19 @@ export default function CaseBriefForm({ initialData, activeCaseData }: CaseBrief
     useEffect(() => {
         if (!currentCaseId) {
             console.log('🧹 [CaseBriefForm] Limpiando brief para new-thread-placeholder');
+            // ✅ FASE 3: Limpieza explícita y completa del estado
+            // TODOS los campos deben establecerse explícitamente, incluyendo null para employees y max_budget
             setBrief({
                 freeText: '',
                 clientName: '',
                 selectedClientId: null,
                 insurance_category: '',
+                max_budget: null,         // ✅ FASE 3: Explícitamente null
                 budget_currency: 'COP',
                 required_coverages: [],
                 client_profile: '',
                 businessType: '',
+                employees: null,          // ✅ FASE 3: Explícitamente null
                 coverage: '',
                 tempUploads: [] // ✅ CORRECCIÓN: Limpiar PDFs residuales
             });

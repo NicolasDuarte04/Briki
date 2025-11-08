@@ -646,9 +646,14 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     console.log('🔒 [ConversationPane] Botones bloqueados para sincronización (caseResolvingClient=true, caseApproving=true)');
     
     try {
+      // ✅ CORRECCIÓN CRÍTICA: Obtener brief actualizado del estado global
+      // El brief debe estar sincronizado con formData desde BriefForm antes de llegar aquí
+      const currentBrief = useUI.getState().brief;
+      console.log('📋 [ConversationPane] Brief actual para aprobación:', currentBrief);
+      
       // ✅ CORRECCIÓN CRÍTICA: Crear caso SIN navegar primero, luego aprobar, luego navegar
       const caseId = await createCaseIfNeeded(
-        brief,
+        currentBrief, // ✅ CORRECCIÓN: Usar brief actualizado del estado global
         router,
         {
           validateClient: validateAndResolveClient, // ✅ FASE 7: Modal habilitado

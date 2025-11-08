@@ -117,20 +117,50 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   const caseApproving = useUI((state) => state.caseApproving);
   const caseResolvingClient = useUI((state) => state.caseResolvingClient); // ✅ NUEVO: Estado global para sincronización
 
+  // ✅ FASE 3: CORRECCIÓN DE INICIALIZACIÓN
+  // Solo usar el 'brief' global como fallback SI estamos en un caso existente.
+  // Para 'new-thread-placeholder', NO usar brief (evitar contaminación).
+  const shouldUseBriefFallback = !!currentCaseId && currentCaseId !== 'new-thread-placeholder';
+
   // Estado para todos los campos del formulario
   const [formData, setFormData] = useState<CaseBriefData>({
-    insurance_category: initialData?.insurance_category || '',
-    max_budget: initialData?.max_budget || null,
-    budget_currency: initialData?.budget_currency || 'COP',
-    required_coverages: initialData?.required_coverages || [],
-    client_profile: initialData?.client_profile || '',
-    notes: initialNotes,
-    clientName: initialData?.clientName || brief?.clientName || '',
-    businessType: initialData?.businessType || brief?.businessType || '',
-    employees: initialData?.employees || brief?.employees || null,
-    coverage: brief?.coverage || '',
-    freeText: initialData?.briefData?.freeText || brief?.freeText || '',
+    // Prioridad 1: initialData (cargado de BD en modo 'edit')
+    // Prioridad 2: brief global (si estamos en un caso existente)
+    // Prioridad 3: Valor por defecto vacío (si es 'new-thread-placeholder')
+    insurance_category: initialData?.insurance_category || (shouldUseBriefFallback ? brief?.insurance_category : '') || '',
+    max_budget: initialData?.max_budget ?? (shouldUseBriefFallback ? brief?.max_budget : null) ?? null,
+    budget_currency: initialData?.budget_currency || (shouldUseBriefFallback ? brief?.budget_currency : 'COP') || 'COP',
+    required_coverages: initialData?.required_coverages || (shouldUseBriefFallback ? brief?.required_coverages : []) || [],
+    client_profile: initialData?.client_profile || (shouldUseBriefFallback ? brief?.client_profile : '') || '',
+    notes: initialNotes || '',
+    // initialNotes viene del primer mensaje de landing
+    clientName: initialData?.clientName || (shouldUseBriefFallback ? brief?.clientName : '') || '',
+    businessType: initialData?.businessType || (shouldUseBriefFallback ? brief?.businessType : '') || '',
+    employees: initialData?.employees ?? (shouldUseBriefFallback ? brief?.employees : null) ?? null,
+    coverage: (shouldUseBriefFallback ? brief?.coverage : '') || '',
+    freeText: initialData?.briefData?.freeText || (shouldUseBriefFallback ? brief?.freeText : '') || '',
   });
+  
+  // ✅ CORRECCIÓN CRÍTICA: Limpiar formData cuando currentCaseId cambia a null (navegación a new-thread-placeholder)
+  // Esto asegura que si se navega desde un caso histórico, el formulario se limpie inmediatamente
+  useEffect(() => {
+    if (!currentCaseId || currentCaseId === 'new-thread-placeholder') {
+      console.log('🧹 [BriefForm] Limpiando formData para new-thread-placeholder');
+      setFormData({
+        insurance_category: '',
+        max_budget: null,
+        budget_currency: 'COP',
+        required_coverages: [],
+        client_profile: '',
+        notes: '',
+        clientName: '',
+        businessType: '',
+        employees: null,
+        coverage: '',
+        freeText: '',
+      });
+    }
+  }, [currentCaseId]);
   
   // ✅ CORRECCIÓN CRÍTICA: Calcular validación reactiva basada en formData (estado local)
   // IMPORTANTE: Declarar DESPUÉS de formData para evitar "Cannot access before initialization"
@@ -270,17 +300,41 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   }, [isClientComboboxOpen]);
 
   // Handlers para actualizar el estado - MEMOIZADO
+  // ✅ CORRECCIÓN CRÍTICA: Sincronizar TODOS los campos con el estado global
   const updateField = useCallback((field: keyof CaseBriefData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // TODO: Considerar si la actualización global (setBrief)
-    // puede moverse a onBlur o onSubmit para optimizar re-renders.
-    // Sincronizar con el estado global para campos que existen en brief
-    if (field === 'clientName' || field === 'businessType' || field === 'coverage' || field === 'freeText' || field === 'insurance_category') {
-      // Usar actualización funcional para evitar dependencia de 'brief'
-      setBrief({ [field]: value } as Partial<CaseBrief>);
+    // ✅ CORRECCIÓN CRÍTICA: Sincronizar TODOS los campos con el estado global
+    // Esto asegura que cuando se hace click en los botones, todos los valores estén disponibles
+    const briefUpdate: Partial<CaseBrief> = {};
+    
+    if (field === 'clientName') {
+      briefUpdate.clientName = value;
+    } else if (field === 'businessType') {
+      briefUpdate.businessType = value;
+    } else if (field === 'coverage') {
+      briefUpdate.coverage = value;
+    } else if (field === 'freeText') {
+      briefUpdate.freeText = value;
+    } else if (field === 'insurance_category') {
+      briefUpdate.insurance_category = value;
+    } else if (field === 'max_budget') {
+      briefUpdate.max_budget = value;
+    } else if (field === 'employees') {
+      briefUpdate.employees = value;
+    } else if (field === 'client_profile') {
+      briefUpdate.client_profile = value;
+    } else if (field === 'required_coverages') {
+      briefUpdate.required_coverages = value;
+    } else if (field === 'budget_currency') {
+      briefUpdate.budget_currency = value;
     }
-  }, [setBrief]); // <-- ELIMINAR 'brief' del array de dependencias
+    
+    // Sincronizar con el estado global
+    if (Object.keys(briefUpdate).length > 0) {
+      setBrief(briefUpdate);
+    }
+  }, [setBrief]);
 
   // Handlers para el Combobox de clientes - MEMOIZADO
   const handleClientSelect = useCallback((client: ClientOption | null) => {
@@ -429,6 +483,26 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       } else {
         // ✅ FASE 5: Modo creación - Usar createCaseIfNeeded extendido
         if (onApprove) {
+          // ✅ CORRECCIÓN CRÍTICA: Sincronizar TODOS los campos de formData con brief ANTES de enviar
+          // Esto asegura que todos los valores del formulario estén disponibles en el estado global
+          console.log('✅ [BriefForm] Sincronizando formData completo con brief antes de enviar');
+          const completeBriefUpdate: Partial<CaseBrief> = {
+            ...brief, // Mantener valores existentes
+            clientName: formData.clientName || brief.clientName || '',
+            businessType: formData.businessType || brief.businessType || '',
+            coverage: formData.coverage || brief.coverage || '',
+            freeText: formData.notes || brief.freeText || '', // notes se mapea a freeText
+            insurance_category: formData.insurance_category || brief.insurance_category || '',
+            max_budget: formData.max_budget ?? brief.max_budget ?? null,
+            employees: formData.employees ?? brief.employees ?? null,
+            client_profile: formData.client_profile || brief.client_profile || '',
+            required_coverages: formData.required_coverages || brief.required_coverages || [],
+            budget_currency: formData.budget_currency || brief.budget_currency || 'COP',
+          };
+          
+          // Sincronizar con el estado global
+          setBrief(completeBriefUpdate);
+          
           // ✅ FASE 5: Usar función extendida con modal de validación
           console.log('✅ [BriefForm] FASE 5: Usando createCaseIfNeeded extendido con modal');
           
@@ -437,7 +511,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           
           try {
             await createCaseIfNeeded(
-              briefUpdate,
+              completeBriefUpdate, // ✅ CORRECCIÓN: Usar brief completo sincronizado
               router,
               {
                 validateClient: validateAndResolveClient,

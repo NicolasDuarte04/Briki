@@ -692,18 +692,30 @@ export interface UIState {
   selectFilteredSortedRenewalsView: () => RenewalView[];
 }
 
-// ✅ FASE 5: Persistencia de estado
+// ✅ FASE 3: Persistencia de estado (con corrección de contaminación)
 const persistState = (state: Partial<UIState>) => {
   if (typeof window !== 'undefined') {
     try {
-      const stateToPersist = {
-        currentCaseId: state.currentCaseId,
-        brief: state.brief,
-        messages: state.messages,
-        step: state.step,
+      // Obtener el ID de caso actual o del estado que se está guardando
+      const currentCaseId = state.currentCaseId ?? useUI.getState().currentCaseId;
+      
+      const stateToPersist: any = {
+        currentCaseId: currentCaseId,
+        messages: state.messages ?? useUI.getState().messages,
+        step: state.step ?? useUI.getState().step,
         // ✅ CORRECCIÓN CRÍTICA: Persistir caseApproved para que se mantenga después de navegar
-        caseApproved: state.caseApproved
+        caseApproved: state.caseApproved ?? useUI.getState().caseApproved,
       };
+      
+      // ✅ FASE 3: CORRECCIÓN DE PERSISTENCIA
+      // Solo persistir el 'brief' si estamos en un caso activo (NO 'new-thread-placeholder')
+      if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
+        stateToPersist.brief = state.brief ?? useUI.getState().brief;
+      } else {
+        // Si no hay caseId o es 'new-thread-placeholder', no persistir el brief para evitar contaminación.
+        console.log('⏭️ [useUI] Omitiendo persistencia de brief: currentCaseId es null o new-thread-placeholder.');
+      }
+      
       localStorage.setItem('briki-ui-state', JSON.stringify(stateToPersist));
       console.log('✅ [useUI] Estado persistido:', stateToPersist);
     } catch (error) {
@@ -719,6 +731,12 @@ const loadPersistedState = (): Partial<UIState> => {
       const persisted = localStorage.getItem('briki-ui-state');
       if (persisted) {
         const parsed = JSON.parse(persisted);
+        // ✅ CORRECCIÓN CRÍTICA: Si currentCaseId es null o 'new-thread-placeholder',
+        // resetear caseApproved a false para que los botones aparezcan correctamente
+        if (!parsed.currentCaseId || parsed.currentCaseId === 'new-thread-placeholder') {
+          parsed.caseApproved = false;
+          console.log('✅ [useUI] caseApproved reseteado a false (currentCaseId es null o new-thread-placeholder)');
+        }
         console.log('✅ [useUI] Estado cargado desde localStorage:', parsed);
         return parsed;
       }
@@ -849,14 +867,31 @@ export const useUI = create<UIState>()(
         set({ caseApproving: true, caseApprovalError: null });
 
         try {
-          console.log('🚀 Calling /api/cases/approve with:', { caseId: currentCaseId, briefData: { ...brief, selectedClientId: clientId } });
+          // ✅ CORRECCIÓN CRÍTICA: Asegurar que brief tenga todos los campos necesarios
+          // Si algún campo está undefined, establecerlo explícitamente como null o valor por defecto
+          const completeBriefData = {
+            ...brief,
+            selectedClientId: clientId ?? brief.selectedClientId ?? null,
+            clientName: brief.clientName ?? null,
+            businessType: brief.businessType ?? null,
+            insurance_category: brief.insurance_category ?? null,
+            max_budget: brief.max_budget ?? null,
+            employees: brief.employees ?? null,
+            client_profile: brief.client_profile ?? null,
+            required_coverages: brief.required_coverages ?? [],
+            budget_currency: brief.budget_currency ?? 'COP',
+            coverage: brief.coverage ?? null,
+            freeText: brief.freeText ?? null,
+          };
+          
+          console.log('🚀 Calling /api/cases/approve with:', { caseId: currentCaseId, briefData: completeBriefData });
           
           const response = await fetch('/api/cases/approve', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               caseId: currentCaseId,
-              briefData: { ...brief, selectedClientId: clientId } // Incluir el clientId resuelto
+              briefData: completeBriefData // ✅ CORRECCIÓN: Usar brief completo con todos los campos
             }),
           });
 

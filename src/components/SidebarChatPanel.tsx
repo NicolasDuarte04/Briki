@@ -102,10 +102,21 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
     // Limpiar estado global
     setCurrentCaseId(null);
     setMessages([]);
+    // ✅ FASE 3: Limpieza explícita y completa del estado
+    // TODOS los campos deben establecerse explícitamente, incluyendo null para employees y max_budget
     setBrief({
-      freeText: '', clientName: '', selectedClientId: null, insurance_category: '',
-      max_budget: undefined as any, budget_currency: 'COP', required_coverages: [],
-      client_profile: '', businessType: '', employees: undefined as any, coverage: ''
+      freeText: '',
+      clientName: '',
+      selectedClientId: null,
+      insurance_category: '',
+      max_budget: null,         // ✅ FASE 3: Explícitamente null (no undefined)
+      budget_currency: 'COP',
+      required_coverages: [],
+      client_profile: '',
+      businessType: '',
+      employees: null,          // ✅ FASE 3: Explícitamente null (no undefined)
+      coverage: '',
+      tempUploads: []
     });
     setInitialMessage('');
     
