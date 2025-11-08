@@ -511,8 +511,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, []); // Solo ejecutar una vez al montar
 
-  // ✅ CORRECCIÓN INTEGRAL: Procesar mensaje inicial - GENERAR RESPUESTA REAL DEL AGENTE
-  // Recicla la lógica de LandingPage: cuando viene del formulario, llamar a process-message
+  // ✅ SIMPLIFICACIÓN: Procesar mensaje inicial SOLO si viene del formulario
+  // Desde LandingPage ya NO se procesa initialMessage - el agente siempre saluda primero
   // IMPORTANTE: Este useEffect debe estar después de la declaración de sendMessage
   // ✅ CORRECCIÓN CRÍTICA: Esperar a que currentCaseId esté disponible antes de procesar
   // Nota: currentCaseId ya está obtenido del store en la línea 38
@@ -521,8 +521,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     if (initialMessage && initialMessage.trim() !== '' && sendMessage) {
       const isFromForm = initialMessage.includes('He completado el formulario');
       
-      // ✅ CORRECCIÓN CRÍTICA: Si viene del formulario, NECESITA currentCaseId para procesar
-      // (sendMessage requiere currentCaseId para llamar a /api/chat/process-message)
+      // ✅ SOLO procesar si viene del formulario (no desde LandingPage)
       if (isFromForm) {
         // ✅ ESPERAR a que currentCaseId esté disponible (después de recarga)
         if (!currentCaseId) {
@@ -541,32 +540,12 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         return;
       }
       
-      // Si viene de LandingPage (mensaje de texto simple), mostrar respuesta estática
-      // No requiere currentCaseId porque no llama a sendMessage
-      const userMessage: ChatMessage = { 
-        role: "user", 
-        content: initialMessage, 
-        id: `initial-user-${Date.now()}`,
-        createdAt: Date.now()
-      };
-      const agentResponse: ChatMessage = {
-        role: "assistant",
-        content: "Estoy analizando tu solicitud, pero para darte la mejor recomendación, por favor completa los detalles (Que tengas a disposicion) del caso en el formulario del panel derecho.",
-        agent: { label: "Sourcing" },
-        id: `initial-agent-${Date.now()}`,
-        createdAt: Date.now()
-      };
-      setMessages([userMessage, agentResponse]);
-      
-      // ✅ FASE 2.3: Persistir mensajes iniciales en BD (solo si hay currentCaseId)
-      if (currentCaseId) {
-        saveMessageToDB(userMessage);
-        saveMessageToDB(agentResponse);
-      }
-      
+      // ✅ SIMPLIFICACIÓN: Si NO viene del formulario, limpiar initialMessage sin procesar
+      // Desde LandingPage, el agente siempre saludará primero (igual que desde panel izquierdo)
+      console.log('⏭️ [ConversationPane] Ignorando initialMessage desde LandingPage - el agente saludará primero');
       clearInitialMessage();
     }
-  }, [initialMessage, currentCaseId, clearInitialMessage, setMessages, saveMessageToDB, sendMessage]);
+  }, [initialMessage, currentCaseId, clearInitialMessage, sendMessage]);
 
   // ✅ FASE 3: Mensaje de bienvenida para placeholder
   useEffect(() => {

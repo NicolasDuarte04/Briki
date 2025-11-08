@@ -205,69 +205,35 @@ export function LandingChatInput() {
 
         console.log('📎 Preserving PDFs in brief:', tempUploads);
 
-        try {
-            // ✅ FASE 1.2: Crear case en BD con status "draft"
-            console.log('🚀 [LandingChatInput] Starting draft case creation...');
-            const { caseId } = await createDraftCase(message, tempUploads, user.id);
-            
-            console.log('✅ [LandingChatInput] Case created with ID:', caseId);
-            
-            // ✅ FASE 1.3: Guardar case-id en Zustand para navegación
-            setCurrentCaseId(caseId);
-            
-            // ✅ FASE 1.3: Guardar initialMessage y brief en Zustand
-            setInitialMessage(message);
-            setBrief({ 
-                freeText: message,
-                clientName: '',
-                // ✅ CORRECCIÓN: NO establecer insurance_category para que el botón permanezca deshabilitado
-                // ✅ CORRECCIÓN CRÍTICA: NO establecer tempUploads en brief
-                // Los PDFs ya se procesaron y movieron a artifacts en BD (createDraftCase línea 162)
-                // Establecer tempUploads causa residuales cuando se navega a /agent/[caseId]
-                // Los PDFs deben cargarse desde artifacts (tab "Artefactos"), no desde brief.tempUploads
-            });
-            
-            // ✅ FASE 1.3: Redirigir a /agent/[caseId]
-            trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
-            
-            // Obtener locale de la URL actual
-            const currentPath = window.location.pathname;
-            const localeMatch = currentPath.match(/\/(es|en)\//);
-            const locale = localeMatch ? localeMatch[1] : 'es';
-            
-            const targetUrl = `/${locale}/agent/${caseId}`;
-            console.log(`✅ [LandingChatInput] Navigating to: ${targetUrl}`);
-            router.push(targetUrl);
-            
-            // Limpiar estado local
-            setValue('');
-            setTempUploads([]);
-            
-        } catch (error) {
-            console.error('❌ [LandingChatInput] Error in handleSubmit:', error);
-            
-            // FALLBACK: Comportamiento original sin BD
-            console.warn('⚠️ [LandingChatInput] Fallback to original flow without BD');
-            
-            setInitialMessage(message);
-            setBrief({ 
-                freeText: message,
-                clientName: '',
-                // ✅ CORRECCIÓN CRÍTICA: NO establecer tempUploads en brief (igual que flujo principal)
-                // Los tempUploads deben manejarse localmente o moverse a artifacts en BD
-            });
-            
-            setValue('');
-            setTempUploads([]);
-            trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
-            setStep("conversation");
-            
-            const currentPath = window.location.pathname;
-            const localeMatch = currentPath.match(/\/(es|en)\//);
-            const locale = localeMatch ? localeMatch[1] : 'es';
-            const targetUrl = `/${locale}/agent/new-thread-placeholder`;
-            router.push(targetUrl);
-        }
+        // ✅ SIMPLIFICACIÓN: NO crear caso en BD (igual que desde panel izquierdo)
+        // El caso se creará cuando el usuario haga click en los botones sincronizados
+        // Solo guardar el mensaje en brief.freeText para autocompletar "Notas Adicionales"
+        // Y guardar tempUploads en brief.tempUploads para cargar en "Documentos Adjuntos"
+        setBrief({ 
+            freeText: message, // ✅ Para autocompletar "Notas Adicionales"
+            tempUploads: tempUploads, // ✅ Para cargar en "Documentos Adjuntos"
+            clientName: '',
+            // ✅ NO establecer insurance_category para que el botón permanezca deshabilitado
+        });
+        
+        // ✅ NO establecer initialMessage - el agente siempre saludará primero (igual que panel izquierdo)
+        // ✅ NO establecer currentCaseId - navegamos a new-thread-placeholder
+        
+        trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
+        
+        // Obtener locale de la URL actual
+        const currentPath = window.location.pathname;
+        const localeMatch = currentPath.match(/\/(es|en)\//);
+        const locale = localeMatch ? localeMatch[1] : 'es';
+        
+        // ✅ SIMPLIFICACIÓN: Navegar a new-thread-placeholder (igual que desde panel izquierdo)
+        const targetUrl = `/${locale}/agent/new-thread-placeholder`;
+        console.log(`✅ [LandingChatInput] Navigating to: ${targetUrl} (igual que desde panel izquierdo)`);
+        router.push(targetUrl);
+        
+        // Limpiar estado local
+        setValue('');
+        setTempUploads([]);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

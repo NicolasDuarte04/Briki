@@ -80,21 +80,44 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
       }
       
       // 3. Limpiar brief INMEDIATAMENTE (CRÍTICO para evitar contaminación en BriefForm)
-      state.setBrief({
-        freeText: '',
-        clientName: '',
-        selectedClientId: null,
-        insurance_category: '',
-        max_budget: null,         // ✅ FASE 3: Explícitamente null
-        budget_currency: 'COP',
-        required_coverages: [],
-        client_profile: '',
-        businessType: '',
-        employees: null,          // ✅ FASE 3: Explícitamente null
-        coverage: '',
-        tempUploads: [] // ✅ CORRECCIÓN: Limpiar PDFs residuales
-      });
-      console.log('✅ [HomeClient] brief limpiado INMEDIATAMENTE');
+      // PERO preservar freeText y tempUploads si vienen desde LandingPage
+      const currentBrief = state.brief;
+      const hasLandingData = currentBrief?.freeText || (currentBrief as any)?.tempUploads?.length > 0;
+      
+      if (hasLandingData) {
+        console.log('📋 [HomeClient] Preservando datos desde LandingPage (freeText y tempUploads)');
+        // Limpiar solo los campos que NO vienen de LandingPage
+        state.setBrief({
+          ...currentBrief, // Preservar freeText y tempUploads
+          clientName: '',
+          selectedClientId: null,
+          insurance_category: '',
+          max_budget: null,
+          budget_currency: 'COP',
+          required_coverages: [],
+          client_profile: '',
+          businessType: '',
+          employees: null,
+          coverage: '',
+        });
+      } else {
+        // Limpiar completamente si NO viene de LandingPage
+        state.setBrief({
+          freeText: '',
+          clientName: '',
+          selectedClientId: null,
+          insurance_category: '',
+          max_budget: null,         // ✅ FASE 3: Explícitamente null
+          budget_currency: 'COP',
+          required_coverages: [],
+          client_profile: '',
+          businessType: '',
+          employees: null,          // ✅ FASE 3: Explícitamente null
+          coverage: '',
+          tempUploads: [] // ✅ CORRECCIÓN: Limpiar PDFs residuales
+        });
+      }
+      console.log('✅ [HomeClient] brief limpiado INMEDIATAMENTE (preservando datos de Landing si existen)');
       
       // 4. Limpiar mensajes y otros estados con delay (menos crítico)
       setTimeout(() => {
