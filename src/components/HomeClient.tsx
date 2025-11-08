@@ -30,7 +30,8 @@ interface HomeClientProps {
 export default function HomeClient({ initialStep = "landing", threadId }: HomeClientProps) {
   const initializedRef = useRef(false);
   const pathname = usePathname(); // ✅ FASE 2: Obtener pathname para verificación de ruta
-  const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage, currentCaseId, setCurrentCaseId, setMessages, setBrief } = useUI();
+  // ✅ FASE 3: Agregar landingDataPending para detectar origen desde LandingPage
+  const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage, currentCaseId, setCurrentCaseId, setMessages, setBrief, landingDataPending } = useUI();
   // Usar el valor del store como fuente de verdad para la lógica de renderizado
   const currentStep = step; // Leer siempre desde Zustand después de la sincronización
   
@@ -59,6 +60,7 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
   }, [initialStep, setStep]);
 
   // --- LÓGICA CONDICIONAL BASADA EN threadId ---
+  // ✅ CORRECCIÓN CRÍTICA: Agregar landingDataPending a dependencias para ejecutarse cuando cambie
   useEffect(() => {
     if (threadId === 'new-thread-placeholder') {
       console.warn('🧹 [HomeClient] Limpieza exhaustiva para new-thread-placeholder');
@@ -79,16 +81,35 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
         console.log('✅ [HomeClient] currentCaseId limpiado INMEDIATAMENTE');
       }
       
-      // 3. Limpiar brief INMEDIATAMENTE (CRÍTICO para evitar contaminación en BriefForm)
-      // PERO preservar freeText y tempUploads si vienen desde LandingPage
-      const currentBrief = state.brief;
-      const hasLandingData = currentBrief?.freeText || (currentBrief as any)?.tempUploads?.length > 0;
+      // 3. ✅ FASE 3: Limpiar brief SIEMPRE primero (sin excepciones)
+      // Esto asegura que no haya residuales de casos históricos
+      console.log('🧹 [HomeClient] Limpiando brief completamente (sin excepciones)');
+      state.setBrief({
+        freeText: '',
+        clientName: '',
+        selectedClientId: null,
+        insurance_category: '',
+        max_budget: null,
+        budget_currency: 'COP',
+        required_coverages: [],
+        client_profile: '',
+        businessType: '',
+        employees: null,
+        coverage: '',
+        tempUploads: [] // ✅ Limpiar PDFs residuales
+      });
       
-      if (hasLandingData) {
-        console.log('📋 [HomeClient] Preservando datos desde LandingPage (freeText y tempUploads)');
-        // Limpiar solo los campos que NO vienen de LandingPage
+      // 4. ✅ FASE 3: Después de limpiar, verificar landingDataPending
+      // Si existe, cargar temporalmente freeText y tempUploads en brief (para que BriefForm los lea)
+      // IMPORTANTE: NO limpiar landingDataPending aquí - BriefForm lo hará después de cargar
+      if (state.landingDataPending) {
+        console.log('📋 [HomeClient] Detectado landingDataPending, cargando datos temporalmente al brief:', {
+          freeText: state.landingDataPending.freeText?.substring(0, 50) + '...',
+          tempUploadsCount: state.landingDataPending.tempUploads?.length || 0
+        });
         state.setBrief({
-          ...currentBrief, // Preservar freeText y tempUploads
+          freeText: state.landingDataPending.freeText || '',
+          tempUploads: state.landingDataPending.tempUploads || [],
           clientName: '',
           selectedClientId: null,
           insurance_category: '',
@@ -100,24 +121,10 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
           employees: null,
           coverage: '',
         });
+        console.log('✅ [HomeClient] Datos de Landing cargados temporalmente al brief (landingDataPending NO se limpia aquí)');
       } else {
-        // Limpiar completamente si NO viene de LandingPage
-        state.setBrief({
-          freeText: '',
-          clientName: '',
-          selectedClientId: null,
-          insurance_category: '',
-          max_budget: null,         // ✅ FASE 3: Explícitamente null
-          budget_currency: 'COP',
-          required_coverages: [],
-          client_profile: '',
-          businessType: '',
-          employees: null,          // ✅ FASE 3: Explícitamente null
-          coverage: '',
-          tempUploads: [] // ✅ CORRECCIÓN: Limpiar PDFs residuales
-        });
+        console.log('✅ [HomeClient] No hay landingDataPending - brief permanece limpio');
       }
-      console.log('✅ [HomeClient] brief limpiado INMEDIATAMENTE (preservando datos de Landing si existen)');
       
       // 4. Limpiar mensajes y otros estados con delay (menos crítico)
       setTimeout(() => {
@@ -143,7 +150,7 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
         console.log('✅ [HomeClient] caseApproving reseteado al cargar caso desde URL (caseApproved se mantiene)');
       }
     }
-  }, [threadId, setCurrentCaseId, setStep]);
+  }, [threadId, landingDataPending, setCurrentCaseId, setStep]); // ✅ CORRECCIÓN: Agregar landingDataPending a dependencias
 
   // --- MENSAJE DE BIENVENIDA DEL AGENTE ---
   // Este mensaje se maneja directamente en ConversationPane, no aquí

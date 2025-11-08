@@ -97,11 +97,14 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
 
   const handleNewChat = () => {
     // ✅ CORRECCIÓN: Limpiar estado y navegar a placeholder
-    const { setCurrentCaseId, setMessages, setBrief, setInitialMessage, closeChatPanel } = useUI.getState();
+    // ✅ FASE 5: Limpiar landingDataPending para evitar autocompletado accidental
+    const { setCurrentCaseId, setMessages, setBrief, setInitialMessage, setLandingDataPending, closeChatPanel } = useUI.getState();
     
     // Limpiar estado global
     setCurrentCaseId(null);
     setMessages([]);
+    // ✅ FASE 5: Limpiar landingDataPending para evitar autocompletado accidental
+    setLandingDataPending(null);
     // ✅ FASE 3: Limpieza explícita y completa del estado
     // TODOS los campos deben establecerse explícitamente, incluyendo null para employees y max_budget
     setBrief({

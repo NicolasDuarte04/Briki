@@ -594,6 +594,8 @@ export interface UIState {
   caseApprovalError: string | null;
   caseApproved: boolean;
   caseResolvingClient: boolean; // ✅ NUEVO: Estado global para sincronizar validación de cliente entre los 3 botones
+  // ✅ FASE 1: Flag temporal para detectar datos desde LandingPage
+  landingDataPending: { freeText?: string; tempUploads?: any[] } | null;
   // Función de validación unificada del brief
   isBriefValid: () => boolean;
   // Estado de mensajes del chat
@@ -642,6 +644,8 @@ export interface UIState {
   startSourcing: () => void;
   stopSourcing: () => void;
   setBrief: (brief: Partial<CaseBrief>) => void;
+  // ✅ FASE 1: Setter para landingDataPending
+  setLandingDataPending: (data: { freeText?: string; tempUploads?: any[] } | null) => void;
   setFollowupCadenceDays: (days: number[]) => void;
   addFollowupDay: (day: number) => void;
   removeFollowupDay: (day: number) => void;
@@ -819,6 +823,8 @@ export const useUI = create<UIState>()(
       caseApprovalError: null,
       caseApproved: false,
       caseResolvingClient: false, // ✅ NUEVO: Estado global para sincronizar validación de cliente
+      // ✅ FASE 1: Inicializar landingDataPending en null
+      landingDataPending: null,
       // Estado de mensajes del chat
       messages: [],
       // Función de validación unificada del brief
@@ -1197,6 +1203,8 @@ export const useUI = create<UIState>()(
       },
       startSourcing: () => set(() => ({ isSourcing: true, step: "conversation" })),
       stopSourcing: () => set(() => ({ isSourcing: false })),
+      // ✅ FASE 1: Setter para landingDataPending (NO se persiste en localStorage)
+      setLandingDataPending: (data) => set({ landingDataPending: data }),
       setBrief: (brief) => {
         set((state) => {
           // ✅ CORRECCIÓN CRÍTICA: Evitar actualizaciones innecesarias

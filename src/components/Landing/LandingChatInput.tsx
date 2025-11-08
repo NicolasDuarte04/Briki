@@ -58,7 +58,8 @@ export function LandingChatInput() {
     const router = useRouter();
     
     // ✅ FUSIÓN CRÍTICA: Agregar setInitialMessage y openChatPanel que faltaban
-    const { setStep, setInitialMessage, setBrief, openChatPanel, setCurrentCaseId } = useUI();
+    // ✅ FASE 2: Agregar setLandingDataPending para establecer flag antes de navegar
+    const { setStep, setInitialMessage, setBrief, openChatPanel, setCurrentCaseId, setLandingDataPending } = useUI();
     
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 90,
@@ -144,50 +145,9 @@ export function LandingChatInput() {
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
-    // ✅ FASE 1.1: Función para crear case en BD con status "draft"
-    const createDraftCase = useCallback(async (message: string, tempUploads: any[], userId: string) => {
-        try {
-            console.log('🚀 [LandingChatInput] Creating draft case in BD...');
-            
-            const response = await fetch('/api/cases/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include', // ← CRÍTICO: Incluir cookies de autenticación
-                body: JSON.stringify({
-                    userId,
-                    briefData: { 
-                        freeText: message,
-                        initialMessage: message 
-                    },
-                    tempUploads,
-                    status: 'draft', // ← CRÍTICO: Case en modo borrador
-                    insurance_category: '', // Vacío hasta que se llene formulario
-                    stage: 'initial',
-                    priority: 'medium',
-                    clientName: '', // Pendiente hasta llenar formulario
-                    businessType: '', // Pendiente hasta llenar formulario
-                    employees: 0, // Pendiente hasta llenar formulario
-                    max_budget: null,
-                    budget_currency: 'COP',
-                    required_coverages: [],
-                    client_profile: ''
-                })
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error('❌ Error creating case:', errorData);
-                throw new Error(errorData.error || 'Failed to create case');
-            }
-            
-            const data = await response.json();
-            console.log('✅ [LandingChatInput] Case created successfully:', data.caseId);
-            return data;
-        } catch (error) {
-            console.error('❌ [LandingChatInput] Error in createDraftCase:', error);
-            throw error;
-        }
-    }, []);
+    // ✅ ELIMINADO: createDraftCase ya no se usa
+    // El caso se creará cuando el usuario haga click en los botones sincronizados
+    // (igual que desde el panel izquierdo)
 
     // ✅ FASE 1.2: handleSubmit actualizado para crear case en BD
     const handleSubmit = async () => {
@@ -209,12 +169,30 @@ export function LandingChatInput() {
         // El caso se creará cuando el usuario haga click en los botones sincronizados
         // Solo guardar el mensaje en brief.freeText para autocompletar "Notas Adicionales"
         // Y guardar tempUploads en brief.tempUploads para cargar en "Documentos Adjuntos"
-        setBrief({ 
-            freeText: message, // ✅ Para autocompletar "Notas Adicionales"
-            tempUploads: tempUploads, // ✅ Para cargar en "Documentos Adjuntos"
+        
+        // ✅ CORRECCIÓN CRÍTICA: Guardar brief ANTES de navegar y asegurar que se persista
+        const briefUpdate = { 
+            freeText: message || '', // ✅ Para autocompletar "Notas Adicionales"
+            tempUploads: tempUploads || [], // ✅ Para cargar en "Documentos Adjuntos"
             clientName: '',
             // ✅ NO establecer insurance_category para que el botón permanezca deshabilitado
+        };
+        
+        console.log('💾 [LandingChatInput] Guardando brief antes de navegar:', briefUpdate);
+        
+        // ✅ FASE 2: Establecer landingDataPending ANTES de navegar (fuente de verdad única)
+        setLandingDataPending({
+            freeText: message || '',
+            tempUploads: tempUploads || []
         });
+        console.log('✅ [LandingChatInput] Flag landingDataPending establecido');
+        
+        // ✅ CORRECCIÓN: Mantener setBrief para compatibilidad temporal
+        setBrief(briefUpdate);
+        
+        // ✅ CORRECCIÓN CRÍTICA: Esperar un momento para que setBrief se complete y persista
+        // Esto asegura que los datos estén disponibles cuando HomeClient se monte
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         // ✅ NO establecer initialMessage - el agente siempre saludará primero (igual que panel izquierdo)
         // ✅ NO establecer currentCaseId - navegamos a new-thread-placeholder
@@ -229,11 +207,13 @@ export function LandingChatInput() {
         // ✅ SIMPLIFICACIÓN: Navegar a new-thread-placeholder (igual que desde panel izquierdo)
         const targetUrl = `/${locale}/agent/new-thread-placeholder`;
         console.log(`✅ [LandingChatInput] Navigating to: ${targetUrl} (igual que desde panel izquierdo)`);
-        router.push(targetUrl);
         
-        // Limpiar estado local
+        // Limpiar estado local ANTES de navegar (para evitar que se vea en la UI)
         setValue('');
         setTempUploads([]);
+        
+        // Navegar después de limpiar estado local
+        router.push(targetUrl);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

@@ -133,8 +133,16 @@ export default function CaseBriefForm({ initialData, activeCaseData }: CaseBrief
     }, [activeCaseData, currentCaseId, initialData, setBrief]);
     
     // ✅ FASE 2 REFORMULADA: Limpieza cuando no hay currentCaseId (new-thread-placeholder)
+    // PERO NO limpiar si hay landingDataPending (HomeClient ya cargó los datos al brief)
     useEffect(() => {
         if (!currentCaseId) {
+            // ✅ CORRECCIÓN: Verificar landingDataPending antes de limpiar
+            const landingDataPending = useUI.getState().landingDataPending;
+            if (landingDataPending) {
+                console.log('⏭️ [CaseBriefForm] Omitiendo limpieza - hay landingDataPending (HomeClient ya cargó los datos)');
+                return;
+            }
+            
             console.log('🧹 [CaseBriefForm] Limpiando brief para new-thread-placeholder');
             // ✅ FASE 3: Limpieza explícita y completa del estado
             // TODOS los campos deben establecerse explícitamente, incluyendo null para employees y max_budget

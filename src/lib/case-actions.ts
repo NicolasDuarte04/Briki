@@ -166,6 +166,10 @@ export async function createCaseIfNeeded(
         const result = await response.json();
         const caseId = result.caseId;
         console.log('✅ Caso creado exitosamente:', caseId);
+        
+        // ✅ FASE 6: Limpiar brief.tempUploads después de crear caso (ya se convirtieron en artifacts)
+        useUI.getState().setBrief({ tempUploads: [] } as any);
+        console.log('🧹 [case-actions] brief.tempUploads limpiado después de crear caso');
 
         // 4. Establecer estado
         if (options?.setCurrentCaseId) {

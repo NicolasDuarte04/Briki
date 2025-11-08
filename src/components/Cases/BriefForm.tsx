@@ -104,6 +104,9 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // ✅ CORRECCIÓN CRÍTICA: Usar selector específico para brief (suscripción reactiva)
   const brief = useUI((state) => state.brief);
   const setBrief = useUI((state) => state.setBrief);
+  // ✅ FASE 4: Agregar selectores para landingDataPending
+  const landingDataPending = useUI((state) => state.landingDataPending);
+  const setLandingDataPending = useUI((state) => state.setLandingDataPending);
   // ✅ CORRECCIÓN CRÍTICA: Usar selectores individuales para evitar loops infinitos
   // NO usar ({...}) porque crea un nuevo objeto en cada render
   const currentCaseId = useUI((state) => state.currentCaseId);
@@ -133,7 +136,8 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     required_coverages: initialData?.required_coverages || (shouldUseBriefFallback ? brief?.required_coverages : []) || [],
     client_profile: initialData?.client_profile || (shouldUseBriefFallback ? brief?.client_profile : '') || '',
     // ✅ SIMPLIFICACIÓN: Cargar freeText desde brief para autocompletar "Notas Adicionales" (desde LandingPage)
-    notes: initialNotes || (brief?.freeText || ''),
+    // Prioridad: initialNotes > brief.freeText > ''
+    notes: initialNotes || (brief?.freeText && brief.freeText.trim() !== '' ? brief.freeText : ''),
     // initialNotes viene del primer mensaje de landing
     clientName: initialData?.clientName || (shouldUseBriefFallback ? brief?.clientName : '') || '',
     businessType: initialData?.businessType || (shouldUseBriefFallback ? brief?.businessType : '') || '',
@@ -142,22 +146,11 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     freeText: initialData?.briefData?.freeText || (shouldUseBriefFallback ? brief?.freeText : '') || '',
   });
   
-  // ✅ CORRECCIÓN CRÍTICA: Limpiar formData cuando currentCaseId cambia a null (navegación a new-thread-placeholder)
-  // PERO preservar freeText y tempUploads si vienen desde LandingPage
-  // Esto asegura que si se navega desde un caso histórico, el formulario se limpie inmediatamente
-  // Pero si viene desde LandingPage, se preserven los datos para autocompletar
+  // ✅ FASE 4: Limpiar formData SIEMPRE cuando currentCaseId cambia a null (navegación a new-thread-placeholder)
+  // Los datos de Landing se cargarán después de la limpieza en otro useEffect
   useEffect(() => {
     if (!currentCaseId || currentCaseId === 'new-thread-placeholder') {
-      const currentBrief = useUI.getState().brief;
-      const hasLandingData = currentBrief?.freeText || (currentBrief as any)?.tempUploads?.length > 0;
-      
-      if (hasLandingData) {
-        console.log('📋 [BriefForm] Preservando datos desde LandingPage (freeText y tempUploads)');
-        // NO limpiar - los datos de Landing se cargarán en el useState inicial
-        return;
-      }
-      
-      console.log('🧹 [BriefForm] Limpiando formData para new-thread-placeholder (sin datos de Landing)');
+      console.log('🧹 [BriefForm] Limpiando formData para new-thread-placeholder (siempre)');
       setFormData({
         insurance_category: '',
         max_budget: null,
@@ -174,6 +167,47 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     }
   }, [currentCaseId]);
   
+  // ✅ FASE 4: Cargar datos de Landing desde brief (HomeClient ya los cargó temporalmente)
+  // Leer desde brief.freeText y brief.tempUploads en lugar de landingDataPending directamente
+  useEffect(() => {
+    if (!currentCaseId || currentCaseId === 'new-thread-placeholder') {
+      // Solo cargar si hay landingDataPending (indica que vienen datos de Landing)
+      // Y si brief tiene los datos (HomeClient ya los cargó temporalmente)
+      if (landingDataPending) {
+        const briefFreeText = brief?.freeText;
+        const briefTempUploads = (brief as any)?.tempUploads;
+        
+        // Cargar freeText desde brief a formData.notes
+        if (briefFreeText && briefFreeText.trim() !== '') {
+          console.log('📝 [BriefForm] Cargando notes desde brief.freeText (datos de Landing):', briefFreeText.substring(0, 50) + '...');
+          setFormData(prev => {
+            if (prev.notes !== briefFreeText) {
+              return { ...prev, notes: briefFreeText };
+            }
+            return prev;
+          });
+        }
+        
+        // Cargar tempUploads desde brief
+        if (briefTempUploads && Array.isArray(briefTempUploads) && briefTempUploads.length > 0) {
+          console.log('📎 [BriefForm] Cargando tempUploads desde brief.tempUploads (datos de Landing):', briefTempUploads.length, 'archivos');
+          setTempUploads(briefTempUploads);
+        }
+        
+        // ✅ FASE 4: Eliminar datos del brief global y del flag después de cargar
+        // IMPORTANTE: Hacer esto en un setTimeout para asegurar que los datos se carguen primero
+        setTimeout(() => {
+          setBrief({
+            freeText: '',
+            tempUploads: []
+          } as any);
+          setLandingDataPending(null);
+          console.log('✅ [BriefForm] Datos de Landing cargados y eliminados del brief global y flag');
+        }, 100);
+      }
+    }
+  }, [landingDataPending, brief, currentCaseId, setBrief, setLandingDataPending]);
+  
   // ✅ CORRECCIÓN CRÍTICA: Calcular validación reactiva basada en formData (estado local)
   // IMPORTANTE: Declarar DESPUÉS de formData para evitar "Cannot access before initialization"
   const isBriefValid = useMemo(() => {
@@ -186,29 +220,34 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // Estado para uploads temporales
   const [tempUploads, setTempUploads] = useState<TempUpload[]>([]);
 
-  // ✅ SIMPLIFICACIÓN: Cargar tempUploads desde brief para casos nuevos (new-thread-placeholder)
-  // Esto permite que los PDFs desde LandingPage se carguen automáticamente en "Documentos Adjuntos"
-  // Para casos históricos, los PDFs vienen de la BD (artifacts), no de tempUploads
+  // ✅ FASE 4: Cargar tempUploads desde brief SOLO si hay landingDataPending
+  // Esto evita cargar PDFs residuales de casos históricos
+  // NOTA: Este useEffect es redundante ahora que cargamos desde el useEffect anterior,
+  // pero lo mantenemos como respaldo para casos edge
   useEffect(() => {
     const currentCaseId = useUI.getState().currentCaseId;
     if (!currentCaseId) {
-      // Solo cargar tempUploads para casos nuevos (new-thread-placeholder)
-      const briefTempUploads = (brief as any).tempUploads || [];
-      if (briefTempUploads.length > 0) {
-        console.log('📎 [BriefForm] Cargando tempUploads desde brief global (desde LandingPage):', briefTempUploads);
-        setTempUploads(briefTempUploads);
+      // Solo cargar tempUploads si hay landingDataPending (datos vienen de Landing)
+      // Y si no están ya cargados en el estado local
+      if (landingDataPending && tempUploads.length === 0) {
+        const briefTempUploads = (brief as any)?.tempUploads;
+        if (briefTempUploads && Array.isArray(briefTempUploads) && briefTempUploads.length > 0) {
+          console.log('📎 [BriefForm] Cargando tempUploads desde brief global (fallback):', briefTempUploads.length, 'archivos');
+          setTempUploads(briefTempUploads);
+        }
       }
+      // Si no hay landingDataPending, no cargar (evitar residuales)
     } else {
       // Para casos históricos, limpiar tempUploads para evitar PDFs residuales
       console.log('🧹 [BriefForm] Limpiando tempUploads para caso histórico:', currentCaseId);
       setTempUploads([]);
       // También limpiar del brief global
       const currentBrief = useUI.getState().brief;
-      if ((currentBrief as any).tempUploads && (currentBrief as any).tempUploads.length > 0) {
+      if ((currentBrief as any)?.tempUploads && (currentBrief as any).tempUploads.length > 0) {
         setBrief({ tempUploads: [] } as any);
       }
     }
-  }, [brief, setBrief]); // ✅ CORRECCIÓN: Depender de brief para detectar cambios desde LandingPage
+  }, [brief, landingDataPending, tempUploads.length, setBrief]); // ✅ FASE 4: Incluir tempUploads.length para evitar loops
 
   // ✅ FASE 2 REFORMULADA QUIRÚRGICA: Limpiar estado local cuando no hay currentCaseId
   // ✅ CORRECCIÓN: También limpiar tempUploads del brief global
