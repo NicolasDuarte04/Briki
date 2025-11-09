@@ -368,6 +368,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       briefUpdate.coverage = value;
     } else if (field === 'freeText') {
       briefUpdate.freeText = value;
+    } else if (field === 'notes') {
+      // ✅ CORRECCIÓN CRÍTICA: Sincronizar 'notes' con 'brief.freeText' en tiempo real
+      // Esto asegura que las "Notas Adicionales" estén disponibles para el agente inmediatamente
+      briefUpdate.freeText = value;
     } else if (field === 'insurance_category') {
       briefUpdate.insurance_category = value;
     } else if (field === 'max_budget') {

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { updateProfile, updateNotificationSettings, requestPasswordReset, type FormState } from './actions';
 import { toast } from 'sonner';
 
-type Tab = 'personal' | 'security' | 'notifications' | 'audit';
+type Tab = 'personal' | 'security' | 'notifications' | 'team' | 'audit';
 
 type EditableField = 'name' | 'phone' | 'address';
 
@@ -228,6 +228,7 @@ export function AccountSettings({
     { id: 'personal' as Tab, label: 'Personal info' },
     { id: 'security' as Tab, label: 'Security' },
     { id: 'notifications' as Tab, label: 'Notifications' },
+    { id: 'team' as Tab, label: 'Dashboard de equipo' },
     // ✅ Solo mostrar pestaña de auditoría si el usuario es admin u owner
     ...(isAdmin ? [{ id: 'audit' as Tab, label: 'Auditoría (Admins)' }] : []),
   ];
@@ -554,6 +555,28 @@ export function AccountSettings({
                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'team' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">Dashboard de equipo</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Aquí se mostrará la lista de miembros de la organización y otros aspectos compartidos del equipo.
+            </p>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <p className="text-sm text-gray-500">
+                🚧 Funcionalidad en desarrollo
+              </p>
+              <p className="text-xs text-gray-400 mt-2">
+                Esta sección mostrará:
+              </p>
+              <ul className="text-xs text-gray-400 mt-2 list-disc list-inside space-y-1">
+                <li>Lista de miembros de la organización</li>
+                <li>Información compartida del equipo</li>
+                <li>Opciones de administración (solo para admins/owners)</li>
+              </ul>
             </div>
           </div>
         )}
