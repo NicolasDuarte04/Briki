@@ -277,44 +277,65 @@ function MyComponent() {
 
 ```prisma
 model Case {
-  id          String   @id @default(cuid())
-  orgId       String   // Organización (multi-tenant)
-  clientName  String?  // Nombre del cliente
-  status      String   @default("draft") // draft, active, completed
-  stage       String   @default("initial") // initial, brief, sourcing, etc.
-  briefData   Json?    // Datos del formulario
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId              String?    @map("org_id") @db.Uuid
+  clientName         String?    @map("client_name") @db.VarChar(255)
+  status             String     @default("draft") @db.VarChar(50)
+  stage              String     @default("initial") @db.VarChar(50)
+  briefData          Json?      @map("brief_data")
+  insurance_category String?
+  max_budget         Decimal?   @map("max_budget") @db.Decimal(10, 2) // Validado: -99,999,999.99 a 99,999,999.99
+  budget_currency    String?    @default("COP") @map("budget_currency") @db.VarChar(3)
+  required_coverages String[]   @default([]) @map("required_coverages")
+  client_profile     String?    @map("client_profile")
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   
   // Relaciones
-  org         Organization @relation(fields: [orgId], references: [id])
-  messages    Message[]    // Mensajes del chat
-  artifacts   Artifact[]   // PDFs y documentos
+  messages    Message[]
+  artifacts   Artifact[]
 }
 
 model Message {
-  id        String   @id @default(cuid())
-  caseId    String   // Referencia al caso
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId    String   @map("case_id") @db.Uuid
   role      String   // "user" | "assistant" | "system"
-  content   String   // Contenido del mensaje
-  metadata  Json?    // Metadatos adicionales
-  createdAt DateTime @default(now())
+  content   Bytes    // ✅ ENCRIPTADO (BYTEA) - Usar encryptMessageContent()/decryptMessages()
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   
   // Relaciones
-  case      Case @relation(fields: [caseId], references: [id])
+  case      Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 }
 
 model Artifact {
-  id          String   @id @default(cuid())
-  caseId      String   // Referencia al caso
-  fileName    String   // Nombre del archivo
-  contentText String?  // Texto extraído del PDF
-  createdAt   DateTime @default(now())
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId      String     @map("case_id") @db.Uuid
+  sourceType  SourceType @map("source_type")
+  fileName    String?    @map("file_name") @db.VarChar(255)
+  contentText String?    @map("content_text")
+  provenance  Json?
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   
   // Relaciones
-  case        Case @relation(fields: [caseId], references: [id])
+  case        Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model Profile {
+  id        String   @id @db.Uuid
+  name      Bytes?   @map("name_enc") // ✅ ENCRIPTADO (BYTEA) - Usar encryptProfileName()/decryptProfileName()
+  phone     Bytes?   // ✅ ENCRIPTADO (BYTEA) - Usar encryptProfilePhone()/decryptProfilePhone()
+  address   Bytes?   // ✅ ENCRIPTADO (BYTEA) - Usar encryptProfileAddress()/decryptProfileAddress()
+  locale    String   @default("en")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 }
 ```
+
+**Notas importantes**:
+- **Encriptación**: Los campos `Message.content`, `Profile.name`, `Profile.phone`, y `Profile.address` están encriptados usando pgcrypto
+- **Helpers**: Usar funciones de `messageEncryption.ts` y `profileEncryption.ts` para encriptar/desencriptar
+- **Validación**: `max_budget` se valida automáticamente en APIs (rango DECIMAL(10,2))
 
 ### **Operaciones Comunes**
 
@@ -692,9 +713,10 @@ useUI.getState().setStep('landing');
 - [Zustand Docs](https://zustand-demo.pmnd.rs/)
 
 ### **Archivos de Referencia**
-- `docs/PROJECT_ARCHITECTURE_COMPLETE.md` - Arquitectura completa
-- `docs/API_DOCUMENTATION.md` - Documentación de APIs
-- `docs/DEVELOPER_ONBOARDING.md` - Esta guía
+- **`docs/PROJECT_ARCHITECTURE_COMPLETE.md`** - Arquitectura completa con análisis línea por línea
+- **`docs/API_DOCUMENTATION.md`** - Documentación completa de todos los endpoints API
+- **`docs/ESTRUCTURA_BD_REAL.md`** - Estructura actual de la base de datos y encriptación
+- **`docs/DEVELOPER_ONBOARDING_GUIDE.md`** - Esta guía
 
 ### **Comandos Útiles**
 ```bash

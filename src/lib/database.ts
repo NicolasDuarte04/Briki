@@ -460,13 +460,13 @@ export async function createCaseWithOrg(
   
   // ✅ CORRECCIÓN: Construir objeto de datos sin undefined para cumplir con exactOptionalPropertyTypes
   const caseData: any = {
-    orgId,
-    briefData: briefData || {},
+      orgId,
+      briefData: briefData || {},
     status: additionalData.status || 'draft',
     stage: additionalData.stage || 'initial',
     priority: additionalData.priority || 'medium',
-    budget_currency: additionalData.budget_currency || 'COP',
-    required_coverages: additionalData.required_coverages || [],
+      budget_currency: additionalData.budget_currency || 'COP',
+      required_coverages: additionalData.required_coverages || [],
   };
   
   // Solo agregar campos si tienen valor (evitar undefined)
