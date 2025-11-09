@@ -199,14 +199,12 @@ export function LandingChatInput() {
         
         trackEvent("hero_chat_start", { hasText: Boolean(message), hasPDF: tempUploads.length > 0 });
         
-        // Obtener locale de la URL actual
-        const currentPath = window.location.pathname;
-        const localeMatch = currentPath.match(/\/(es|en)\//);
-        const locale = localeMatch ? localeMatch[1] : 'es';
-        
-        // ✅ SIMPLIFICACIÓN: Navegar a new-thread-placeholder (igual que desde panel izquierdo)
-        const targetUrl = `/${locale}/agent/new-thread-placeholder`;
-        console.log(`✅ [LandingChatInput] Navigating to: ${targetUrl} (igual que desde panel izquierdo)`);
+        // ✅ CORRECCIÓN CRÍTICA: Construir URL sin prefijo de locale para respetar localePrefix: 'as-needed'
+        // El middleware de next-intl manejará automáticamente el locale según la configuración
+        // Para el locale por defecto ('es'), no se incluye el prefijo en la URL
+        // Esto evita navegación incorrecta a rutas como /landing/agent/new-thread-placeholder
+        const targetUrl = '/agent/new-thread-placeholder';
+        console.log(`✅ [LandingChatInput] Navigating to: ${targetUrl} (sin prefijo de locale, middleware lo maneja)`);
         
         // Limpiar estado local ANTES de navegar (para evitar que se vea en la UI)
         setValue('');

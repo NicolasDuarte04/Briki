@@ -118,6 +118,16 @@ export async function createCaseIfNeeded(
         const tempUploads = (briefData as any).tempUploads || [];
         console.log('📎 [case-actions] Creando caso con tempUploads:', tempUploads.length);
 
+        // ✅ CORRECCIÓN CRÍTICA: Asegurar que freeText esté presente en briefData
+        // Si no está en briefData, intentar obtenerlo del estado global como último recurso
+        let finalFreeText = briefData.freeText;
+        if (!finalFreeText || finalFreeText.trim() === '') {
+          const globalBrief = useUI.getState().brief;
+          finalFreeText = globalBrief.freeText || '';
+          console.log('⚠️ [case-actions] freeText no encontrado en briefData, usando del estado global:', finalFreeText);
+        }
+        console.log('📝 [case-actions] freeText final que se enviará al API:', finalFreeText);
+
         const response = await fetch('/api/cases/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -132,7 +142,7 @@ export async function createCaseIfNeeded(
                 stage: 'initial',
                 priority: 'medium',
                 briefData: {
-                    freeText: briefData.freeText,
+                    freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText garantizado
                     businessType: briefData.businessType,
                     employees: briefData.employees,
                     coverage: briefData.coverage,

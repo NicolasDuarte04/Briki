@@ -627,8 +627,11 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     try {
       // ✅ CORRECCIÓN CRÍTICA: Obtener brief actualizado del estado global
       // El brief debe estar sincronizado con formData desde BriefForm antes de llegar aquí
+      // IMPORTANTE: Esperar un momento para asegurar que BriefForm haya sincronizado el brief
+      await new Promise(resolve => setTimeout(resolve, 100));
       const currentBrief = useUI.getState().brief;
       console.log('📋 [ConversationPane] Brief actual para aprobación:', currentBrief);
+      console.log('📝 [ConversationPane] freeText en brief:', currentBrief.freeText);
       
       // ✅ CORRECCIÓN CRÍTICA: Crear caso SIN navegar primero, luego aprobar, luego navegar
       const caseId = await createCaseIfNeeded(
