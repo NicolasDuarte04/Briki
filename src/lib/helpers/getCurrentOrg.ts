@@ -13,10 +13,16 @@ import { reconnectPrisma, checkDatabaseHealth } from '@/lib/prisma';
  * @throws {redirect} Redirige a /onboarding/organization si no hay organización
  */
 export async function getCurrentOrg() {
-    // Verificación de variables de entorno para un diagnóstico rápido
+    // ✅ CORRECCIÓN CRÍTICA: Verificación exhaustiva de variables de entorno
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
         console.error('❌ Supabase environment variables are not configured.');
         throw new Error('Supabase environment variables are not configured.');
+    }
+    
+    // ✅ CORRECCIÓN CRÍTICA: Verificar variables de base de datos
+    if (!process.env.DATABASE_URL && !process.env.DIRECT_URL) {
+        console.error('❌ Database connection variables (DATABASE_URL or DIRECT_URL) are not configured.');
+        throw new Error('Database connection variables are not configured. Please check your .env.local file.');
     }
 
     const supabase = await createServerSupabase();
@@ -46,6 +52,16 @@ export async function getCurrentOrg() {
             } catch (prismaError: any) {
                 retryCount++;
                 
+                // ✅ CORRECCIÓN CRÍTICA: Detectar errores de conexión por código Y por mensaje
+                // PrismaClientInitializationError puede no tener código P1001, pero tiene el mensaje específico
+                const isConnectionError = 
+                    prismaError.code === 'P1001' || 
+                    prismaError.code === 'P2024' ||
+                    prismaError.name === 'PrismaClientInitializationError' ||
+                    prismaError.message?.includes('Can\'t reach database server') ||
+                    prismaError.message?.includes('Can\'t reach database') ||
+                    prismaError.message?.includes('database server is running');
+                
                 // ✅ Estrategia 1: Timeout de conexión (P2024) - reintentar con delay
                 if (prismaError.code === 'P2024') {
                     console.warn(`⚠️ Prisma connection timeout (attempt ${retryCount}/${maxRetries}), retrying...`);
@@ -53,11 +69,15 @@ export async function getCurrentOrg() {
                     continue;
                 }
                 
-                // ✅ Estrategia 2: Servidor inaccesible (P1001) - reintentar con delay más largo
-                if (prismaError.code === 'P1001') {
-                    console.warn(`⚠️ Database server unreachable (attempt ${retryCount}/${maxRetries}), retrying...`);
+                // ✅ Estrategia 2: Servidor inaccesible (P1001 o PrismaClientInitializationError) - reintentar con delay más largo
+                if (isConnectionError) {
+                    console.warn(`⚠️ Database server unreachable (attempt ${retryCount}/${maxRetries}):`, {
+                        code: prismaError.code,
+                        name: prismaError.name,
+                        message: prismaError.message?.substring(0, 100)
+                    });
                     
-                    // ✅ CORRECCIÓN INTEGRAL: Intentar reconexión automática para P1001
+                    // ✅ CORRECCIÓN INTEGRAL: Intentar reconexión automática para errores de conexión
                     // Solo en el primer intento para evitar múltiples reconexiones innecesarias
                     if (retryCount === 1) {
                         console.log('🔄 [getCurrentOrg] Attempting automatic reconnection...');

@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { redirect } from 'next/navigation';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { getCaseStatsByOrg } from '@/lib/database';
 import { 
@@ -196,15 +197,73 @@ export default async function DashboardPage({
 }: {
   params: { locale: string };
 }) {
-  const { user, currentOrg } = await getCurrentOrg();
-  const awaitedParams = await params;
-  const orgId = currentOrg.id;
-  const userId = user.id;
-  const locale = awaitedParams.locale as 'en' | 'es';
+  // ✅ CORRECCIÓN CRÍTICA: Manejo robusto de errores de conexión
+  let user, currentOrg, orgId, userId, locale, stats, hasContent;
+  
+  try {
+    const orgData = await getCurrentOrg();
+    user = orgData.user;
+    currentOrg = orgData.currentOrg;
+    const awaitedParams = await params;
+    orgId = currentOrg.id;
+    userId = user.id;
+    locale = awaitedParams.locale as 'en' | 'es';
 
-  // Obtener estadísticas para detectar zero-state
-  const stats = await getCaseStatsByOrg(orgId);
-  const hasContent = stats.total > 0;
+    // Obtener estadísticas para detectar zero-state
+    stats = await getCaseStatsByOrg(orgId);
+    hasContent = stats.total > 0;
+  } catch (error: any) {
+    // ✅ CORRECCIÓN: Detectar errores de conexión a la base de datos
+    const isDatabaseError = 
+      error.message?.includes('Database connection') ||
+      error.message?.includes('Can\'t reach database server') ||
+      error.message?.includes('database server is running') ||
+      error.name === 'PrismaClientInitializationError' ||
+      error.code === 'P1001' ||
+      error.code === 'P2024';
+    
+    if (isDatabaseError) {
+      console.error('❌ [Dashboard] Error de conexión a la base de datos:', error.message);
+      
+      // Obtener locale para el redirect
+      const awaitedParams = await params;
+      const errorLocale = awaitedParams.locale as 'en' | 'es';
+      const dashboardPath = `/${errorLocale}/dashboard`;
+      
+      // Mostrar página de error amigable
+      return (
+        <div className="container mx-auto py-8 px-4 md:px-6">
+          <div className="rounded-card shadow-elev-sm bg-[var(--card)] p-8 text-center">
+            <h1 className="text-2xl font-bold mb-4 text-[var(--foreground)]">
+              Error de Conexión
+            </h1>
+            <p className="text-[var(--muted-foreground)] mb-6">
+              No se pudo conectar con la base de datos. Esto puede ser un problema temporal.
+            </p>
+            <div className="space-y-2 text-sm text-[var(--muted-foreground)] mb-6">
+              <p>Por favor, intenta:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Esperar unos segundos y recargar la página</li>
+                <li>Verificar tu conexión a internet</li>
+                <li>Contactar al administrador si el problema persiste</li>
+              </ul>
+            </div>
+            <form action={async () => { redirect(dashboardPath); }}>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-[var(--primary)] text-[var(--primary-foreground)] rounded-md hover:opacity-90"
+              >
+                Reintentar
+              </button>
+            </form>
+          </div>
+        </div>
+      );
+    }
+    
+    // Para otros errores, lanzar normalmente para que Next.js los maneje
+    throw error;
+  }
   
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">

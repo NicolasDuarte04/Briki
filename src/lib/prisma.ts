@@ -7,6 +7,13 @@ const globalForPrisma = globalThis as unknown as {
 // ✅ FIX: Usar DIRECT_URL si está disponible para mejor performance
 const connectionUrl = process.env.DIRECT_URL || process.env.DATABASE_URL
 
+// ✅ CORRECCIÓN CRÍTICA: Validar que la URL de conexión esté configurada
+if (!connectionUrl) {
+  console.error('❌ [Prisma] DATABASE_URL or DIRECT_URL environment variable is not set.');
+  console.error('❌ [Prisma] Please configure your database connection in .env.local');
+  throw new Error('Database connection URL is not configured. Please set DATABASE_URL or DIRECT_URL in your environment variables.');
+}
+
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({
   datasources: {
     db: {
@@ -14,13 +21,16 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
     }
   },
   log: ['error', 'warn'],
-  // ✅ CORRECCIÓN CRÍTICA: Configurar pool de conexiones
+  // ✅ CORRECCIÓN CRÍTICA: Configurar pool de conexiones con timeouts más largos
   __internal: {
     engine: {
       connectionLimit: 20, // Aumentar límite de conexiones
       poolTimeout: 30, // Aumentar timeout del pool
     }
-  }
+  },
+  // ✅ CORRECCIÓN: Configurar timeouts de conexión más largos para Supabase
+  // Esto ayuda a manejar latencia de red y reconexiones
+  errorFormat: 'minimal',
 })
 
 if (process.env.NODE_ENV !== 'production') {

@@ -4,10 +4,12 @@ import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const filePath = params.path.join('/');
+    // Obtener el path del parámetro de ruta (Next.js 15+ requiere await)
+    const { path } = await params;
+    const filePath = path.join('/');
     
     console.log('📎 [API /api/storage] Generating signed URL for:', filePath);
     

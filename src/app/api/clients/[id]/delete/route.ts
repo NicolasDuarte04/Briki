@@ -5,7 +5,7 @@ import { deleteClient } from '@/lib/clientsDb';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createServerSupabase();
@@ -71,8 +71,11 @@ export async function POST(
       );
     }
     
+    // Obtener el id del parámetro de ruta (Next.js 15+ requiere await)
+    const { id } = await params;
+    
     // Eliminar el cliente
-    await deleteClient(params.id, currentOrgId);
+    await deleteClient(id, currentOrgId);
     
     return NextResponse.json({ success: true });
     
@@ -96,7 +99,7 @@ export async function POST(
 // También soportar DELETE method
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   return POST(request, { params });
 }

@@ -5,7 +5,7 @@ import { updateClient, getClientById } from '@/lib/clientsDb';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = await createServerSupabase();
@@ -43,8 +43,11 @@ export async function POST(
       );
     }
     
+    // Obtener el id del parámetro de ruta (Next.js 15+ requiere await)
+    const { id } = await params;
+    
     // Verificar que el cliente existe y pertenece a la organización
-    const existingClient = await getClientById(params.id, orgId);
+    const existingClient = await getClientById(id, orgId);
     
     if (!existingClient) {
       return NextResponse.json(
@@ -54,7 +57,7 @@ export async function POST(
     }
     
     // Actualizar el cliente (los datos se cifrarán automáticamente)
-    await updateClient(params.id, orgId, {
+    await updateClient(id, orgId, {
       name: name?.trim(),
       email: email?.trim() || undefined,
       phone: phone?.trim() || undefined,

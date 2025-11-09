@@ -4,13 +4,14 @@
 import { useState } from 'react';
 import { BriefForm, CaseBriefData } from '@/components/Cases/BriefForm';
 import { useRouter } from 'next/navigation';
-import { Case } from '@prisma/client';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 
 interface CaseEditContentProps {
-  caseData: Case;
+  // getCaseById retorna un Case con max_budget convertido a number | null
+  // en lugar de Decimal | null, por lo que usamos 'any' para compatibilidad
+  caseData: any;
   caseId: string;
   orgId: string;
 }
