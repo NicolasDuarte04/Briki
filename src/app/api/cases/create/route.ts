@@ -51,11 +51,30 @@ export async function POST(request: NextRequest) {
       tempUploads = [], // PDFs temporales del formulario
       // Nuevos campos del Brief detallado
       insurance_category,
-      max_budget,
+      max_budget: rawMaxBudget, // ✅ Validar antes de usar
       budget_currency,
       required_coverages,
       client_profile,
     } = body;
+    
+    // ✅ CORRECCIÓN CRÍTICA: Validar y normalizar max_budget
+    // DECIMAL(10,2) permite valores de -99,999,999.99 a 99,999,999.99
+    let max_budget: number | null = null;
+    if (rawMaxBudget !== null && rawMaxBudget !== undefined) {
+      const numValue = typeof rawMaxBudget === 'string' ? parseFloat(rawMaxBudget) : rawMaxBudget;
+      if (!isNaN(numValue) && isFinite(numValue)) {
+        const MAX_VALUE = 99999999.99;
+        const MIN_VALUE = -99999999.99;
+        // Limitar al rango permitido
+        const clampedValue = Math.max(MIN_VALUE, Math.min(MAX_VALUE, numValue));
+        // Redondear a 2 decimales
+        max_budget = Math.round(clampedValue * 100) / 100;
+        
+        if (numValue !== clampedValue) {
+          console.warn(`⚠️ [API/cases/create] max_budget (${numValue}) ajustado a ${clampedValue} para cumplir con DECIMAL(10,2)`);
+        }
+      }
+    }
     
     // ✅ CORRECCIÓN FASE 1: Obtener orgId del usuario si no se proporciona
     let orgId = providedOrgId;

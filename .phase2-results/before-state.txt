@@ -1,0 +1,11 @@
+  tabla   | column_name | data_type 
+----------+-------------+-----------
+ messages | content_enc | bytea
+(1 row)
+
+  tabla   | column_name | data_type 
+----------+-------------+-----------
+ profiles | address_enc | bytea
+ profiles | phone_enc   | bytea
+(2 rows)
+

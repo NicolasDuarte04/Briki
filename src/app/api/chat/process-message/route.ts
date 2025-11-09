@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { analyzeInsuranceDocuments, AnalysisRequest } from '@/lib/openai';
 import { CaseBrief } from '@/lib/types';
+import { encryptMessageContent, decryptMessages } from '@/lib/helpers/messageEncryption';
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,33 +43,46 @@ export async function POST(request: NextRequest) {
     };
 
     // 3. Guardar mensaje del usuario en la tabla messages
-    // ✅ FASE 4: Verificar si el mensaje ya fue guardado (últimos 10 segundos)
+    // ✅ FASE 3: Usar encriptación para guardar mensajes
+    // Verificar si el mensaje ya fue guardado (últimos 10 segundos)
     // Esto previene duplicación cuando createCaseIfNeeded ya guardó el mensaje
     try {
       const tenSecondsAgo = new Date(Date.now() - 10000);
-      const existingUserMessage = await prisma.message.findFirst({
+      // Obtener mensajes recientes para comparar contenido desencriptado
+      const recentMessages = await prisma.message.findMany({
         where: {
           caseId: caseId,
           role: 'user',
-          content: message, // Exact match del contenido
           createdAt: {
             gte: tenSecondsAgo // Últimos 10 segundos
           }
         },
         orderBy: {
           createdAt: 'desc' // El más reciente primero
+        },
+        select: {
+          id: true,
+          content: true, // Buffer encriptado
+          role: true,
+          createdAt: true
         }
       });
+
+      // Desencriptar mensajes para comparar contenido
+      const decryptedRecent = await decryptMessages(recentMessages);
+      const existingUserMessage = decryptedRecent.find(msg => msg.content === message);
 
       if (existingUserMessage) {
         console.log(`⚠️ API: Mensaje de usuario ya existe para caso ${caseId} (ID: ${existingUserMessage.id}), omitiendo creación duplicada.`);
       } else {
+        // Encriptar contenido antes de guardar
+        const encryptedContent = await encryptMessageContent(message);
         // Solo crear si no existe
         await prisma.message.create({
           data: {
             caseId: caseId,
             role: 'user',
-            content: message,
+            content: Buffer.from(encryptedContent), // ✅ Contenido encriptado (Buffer)
             metadata: { timestamp: new Date().toISOString() }
           }
         });
@@ -86,11 +100,13 @@ export async function POST(request: NextRequest) {
 
     // 5. Guardar respuesta del asistente en la tabla messages
     try {
+      // Encriptar contenido antes de guardar
+      const encryptedAssistantContent = await encryptMessageContent(analysisResult);
       await prisma.message.create({
         data: {
           caseId: caseId,
           role: 'assistant',
-          content: analysisResult,
+          content: Buffer.from(encryptedAssistantContent), // ✅ Contenido encriptado (Buffer)
           metadata: { timestamp: new Date().toISOString(), agent: 'sourcing' }
         }
       });

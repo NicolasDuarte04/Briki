@@ -647,8 +647,27 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 id="max_budget"
                 type="number"
                 placeholder="0"
+                min="0"
+                max="99999999.99"
+                step="0.01"
                 value={formData.max_budget || ''}
-                onChange={(e) => updateField('max_budget', e.target.value ? Number(e.target.value) : null)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (!value || value === '') {
+                    updateField('max_budget', null);
+                    return;
+                  }
+                  const numValue = parseFloat(value);
+                  if (isNaN(numValue) || !isFinite(numValue)) {
+                    return; // Ignorar valores inválidos
+                  }
+                  // Limitar al rango permitido para DECIMAL(10,2): máximo 99,999,999.99
+                  const MAX_BUDGET = 99999999.99;
+                  const normalizedValue = Math.min(Math.max(0, numValue), MAX_BUDGET);
+                  // Redondear a 2 decimales
+                  const roundedValue = Math.round(normalizedValue * 100) / 100;
+                  updateField('max_budget', roundedValue);
+                }}
                 className="flex-1"
               />
               <div className="flex">

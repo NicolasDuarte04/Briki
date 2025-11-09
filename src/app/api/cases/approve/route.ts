@@ -32,6 +32,24 @@ export async function PUT(request: NextRequest) {
         // Usamos '?? null' o '?? []' para asegurar que si el frontend envía
         // 'undefined' (porque se limpió), la BD reciba 'null' (o '[]')
         // en lugar de que el campo se omita y retenga su valor anterior.
+        
+        // ✅ CORRECCIÓN CRÍTICA: Validar y normalizar max_budget
+        // DECIMAL(10,2) permite valores de -99,999,999.99 a 99,999,999.99
+        let normalizedMaxBudget: number | null = null;
+        if (briefData.max_budget !== null && briefData.max_budget !== undefined) {
+            const numValue = typeof briefData.max_budget === 'string' ? parseFloat(briefData.max_budget) : briefData.max_budget;
+            if (!isNaN(numValue) && isFinite(numValue)) {
+                const MAX_VALUE = 99999999.99;
+                const MIN_VALUE = -99999999.99;
+                const clampedValue = Math.max(MIN_VALUE, Math.min(MAX_VALUE, numValue));
+                normalizedMaxBudget = Math.round(clampedValue * 100) / 100;
+                
+                if (numValue !== clampedValue) {
+                    console.warn(`⚠️ [API/cases/approve] max_budget (${numValue}) ajustado a ${clampedValue} para cumplir con DECIMAL(10,2)`);
+                }
+            }
+        }
+        
         const updateData: any = {
             // La acción principal: cambiar el estado y la etapa
             status: 'active',
@@ -42,7 +60,7 @@ export async function PUT(request: NextRequest) {
             clientName: briefData.clientName ?? null,
             clientRef: briefData.selectedClientId ?? null,
             insurance_category: briefData.insurance_category ?? null,
-            max_budget: briefData.max_budget ?? null,
+            max_budget: normalizedMaxBudget, // ✅ Validado y normalizado
             budget_currency: briefData.budget_currency ?? 'COP',
             required_coverages: briefData.required_coverages ?? [],
             client_profile: briefData.client_profile ?? null,

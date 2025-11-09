@@ -396,6 +396,42 @@ export async function getCaseById(caseId: string, orgId: string) {
  * @param additionalData - Datos adicionales opcionales del caso.
  * @returns Promise<Case> - El caso creado.
  */
+/**
+ * Valida y normaliza max_budget para DECIMAL(10,2)
+ * Rango permitido: -99,999,999.99 a 99,999,999.99
+ */
+function validateAndNormalizeMaxBudget(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  
+  // Convertir a número si es string
+  const numValue = typeof value === 'string' ? parseFloat(value) : value;
+  
+  // Validar que sea un número válido
+  if (isNaN(numValue) || !isFinite(numValue)) {
+    return null;
+  }
+  
+  // Rango máximo para DECIMAL(10,2): -99,999,999.99 a 99,999,999.99
+  const MAX_VALUE = 99999999.99;
+  const MIN_VALUE = -99999999.99;
+  
+  // Limitar al rango permitido
+  if (numValue > MAX_VALUE) {
+    console.warn(`⚠️ max_budget (${numValue}) excede el máximo permitido (${MAX_VALUE}). Se limitará al máximo.`);
+    return MAX_VALUE;
+  }
+  
+  if (numValue < MIN_VALUE) {
+    console.warn(`⚠️ max_budget (${numValue}) es menor que el mínimo permitido (${MIN_VALUE}). Se limitará al mínimo.`);
+    return MIN_VALUE;
+  }
+  
+  // Redondear a 2 decimales para cumplir con la escala
+  return Math.round(numValue * 100) / 100;
+}
+
 export async function createCaseWithOrg(
   orgId: string,
   briefData: any,
@@ -419,24 +455,31 @@ export async function createCaseWithOrg(
   if (!orgId) throw new DatabaseError("Organization ID is required.");
   if (!userId) throw new DatabaseError("User ID is required.");
   
+  // ✅ CORRECCIÓN CRÍTICA: Validar y normalizar max_budget antes de guardar
+  const normalizedMaxBudget = validateAndNormalizeMaxBudget(additionalData.max_budget);
+  
+  // ✅ CORRECCIÓN: Construir objeto de datos sin undefined para cumplir con exactOptionalPropertyTypes
+  const caseData: any = {
+    orgId,
+    briefData: briefData || {},
+    status: additionalData.status || 'draft',
+    stage: additionalData.stage || 'initial',
+    priority: additionalData.priority || 'medium',
+    budget_currency: additionalData.budget_currency || 'COP',
+    required_coverages: additionalData.required_coverages || [],
+  };
+  
+  // Solo agregar campos si tienen valor (evitar undefined)
+  if (additionalData.clientRef !== undefined) caseData.clientRef = additionalData.clientRef;
+  if (additionalData.clientName !== undefined) caseData.clientName = additionalData.clientName;
+  if (additionalData.businessType !== undefined) caseData.businessType = additionalData.businessType;
+  if (additionalData.employees !== undefined) caseData.employees = additionalData.employees;
+  if (additionalData.insurance_category !== undefined) caseData.insurance_category = additionalData.insurance_category;
+  if (normalizedMaxBudget !== null) caseData.max_budget = normalizedMaxBudget;
+  if (additionalData.client_profile !== undefined) caseData.client_profile = additionalData.client_profile;
+  
   return prisma.case.create({
-    data: {
-      orgId,
-      briefData: briefData || {},
-      clientRef: additionalData.clientRef,
-      clientName: additionalData.clientName,
-      businessType: additionalData.businessType,
-      employees: additionalData.employees,
-      status: additionalData.status || 'draft', // Default a 'draft'
-      stage: additionalData.stage || 'initial',   // Default a 'initial'
-      priority: additionalData.priority || 'medium', // Default a 'medium'
-      // Nuevos campos del Brief detallado
-      insurance_category: additionalData.insurance_category,
-      max_budget: additionalData.max_budget,
-      budget_currency: additionalData.budget_currency || 'COP',
-      required_coverages: additionalData.required_coverages || [],
-      client_profile: additionalData.client_profile,
-    }
+    data: caseData
   });
 }
 
@@ -494,9 +537,10 @@ export async function assignClientToCase(caseId: string, clientId: string, orgId
     throw new DatabaseError("Case ID, Client ID and Organization ID are required.");
   }
   
+  // ✅ CORRECCIÓN: clientId no existe en el schema, usar clientRef en su lugar
   return prisma.case.update({
     where: { id: caseId },
-    data: { clientId }
+    data: { clientRef: clientId } // Usar clientRef que es el campo correcto
   });
 }
 

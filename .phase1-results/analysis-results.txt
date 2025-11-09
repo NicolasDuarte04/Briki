@@ -1,0 +1,224 @@
+            seccion             
+--------------------------------
+ === ESTRUCTURA DE messages ===
+(1 row)
+
+ column_name |        data_type         | is_nullable | column_default | character_maximum_length 
+-------------+--------------------------+-------------+----------------+--------------------------
+ id          | uuid                     | NO          |                |                         
+ case_id     | uuid                     | NO          |                |                         
+ role        | text                     | NO          |                |                         
+ metadata    | jsonb                    | YES         | '{}'::jsonb    |                         
+ created_at  | timestamp with time zone | NO          | now()          |                         
+ updated_at  | timestamp with time zone | NO          |                |                         
+ content     | bytea                    | YES         |                |                         
+(7 rows)
+
+                     seccion                     
+-------------------------------------------------
+ === TIPO DE content/content_enc EN messages ===
+(1 row)
+
+ column_name | data_type | udt_name |   tipo_detectado   
+-------------+-----------+----------+--------------------
+ content     | bytea     | bytea    | ENCRIPTADO (BYTEA)
+(1 row)
+
+               seccion                
+--------------------------------------
+ === DATOS EXISTENTES EN messages ===
+(1 row)
+
+psql:scripts/analyze-db-structure.sql:59: ERROR:  column "content_enc" does not exist
+LINE 3:     COUNT(CASE WHEN content_enc IS NULL THEN 1 END) as mensa...
+                            ^
+                 seccion                  
+------------------------------------------
+ === MUESTRA DE MENSAJES (primeros 5) ===
+(1 row)
+
+psql:scripts/analyze-db-structure.sql:82: ERROR:  column "content_enc" does not exist
+LINE 6:         WHEN pg_typeof(content_enc)::text = 'bytea' THEN 'EN...
+                               ^
+            seccion             
+--------------------------------
+ === ESTRUCTURA DE profiles ===
+(1 row)
+
+          column_name          |        data_type         | is_nullable | column_default | character_maximum_length 
+-------------------------------+--------------------------+-------------+----------------+--------------------------
+ id                            | uuid                     | NO          |                |                         
+ onboarding_completed          | boolean                  | NO          | false          |                         
+ created_at                    | timestamp with time zone | NO          | now()          |                         
+ updated_at                    | timestamp with time zone | NO          | now()          |                         
+ locale                        | text                     | NO          | 'en'::text     |                         
+ notifications_product_updates | boolean                  | NO          | false          |                         
+ notifications_policy_alerts   | boolean                  | NO          | false          |                         
+ name_enc                      | bytea                    | YES         |                |                         
+ phone                         | bytea                    | YES         |                |                         
+ address                       | bytea                    | YES         |                |                         
+(10 rows)
+
+                              seccion                               
+--------------------------------------------------------------------
+ === TIPOS DE phone/phone_enc Y address/address_enc EN profiles ===
+(1 row)
+
+ column_name | data_type | udt_name |   tipo_detectado   
+-------------+-----------+----------+--------------------
+ phone       | bytea     | bytea    | ENCRIPTADO (BYTEA)
+ address     | bytea     | bytea    | ENCRIPTADO (BYTEA)
+(2 rows)
+
+               seccion                
+--------------------------------------
+ === DATOS EXISTENTES EN profiles ===
+(1 row)
+
+psql:scripts/analyze-db-structure.sql:129: ERROR:  column "phone_enc" does not exist
+LINE 3:     COUNT(CASE WHEN phone_enc IS NOT NULL THEN 1 END) as pro...
+                            ^
+              seccion              
+-----------------------------------
+ === FUNCIONES DE ENCRIPTACIÓN ===
+(1 row)
+
+  routine_name   | routine_type | return_type | routine_schema 
+-----------------+--------------+-------------+----------------
+ decrypt_api_key | FUNCTION     | text        | public
+ decrypt_pii     | FUNCTION     | text        | public
+ encrypt_api_key | FUNCTION     | bytea       | public
+ encrypt_pii     | FUNCTION     | bytea       | public
+(4 rows)
+
+              seccion              
+-----------------------------------
+ === DEFINICIONES DE FUNCIONES ===
+(1 row)
+
+  function_name  |      arguments      | return_type |                                          function_definition                                          
+-----------------+---------------------+-------------+-------------------------------------------------------------------------------------------------------
+ decrypt_api_key | encrypted_key bytea | text        | CREATE OR REPLACE FUNCTION public.decrypt_api_key(encrypted_key bytea)                               +
+                 |                     |             |  RETURNS text                                                                                        +
+                 |                     |             |  LANGUAGE plpgsql                                                                                    +
+                 |                     |             |  SECURITY DEFINER                                                                                    +
+                 |                     |             | AS $function$                                                                                        +
+                 |                     |             | DECLARE                                                                                              +
+                 |                     |             |   encryption_key text;                                                                               +
+                 |                     |             | BEGIN                                                                                                +
+                 |                     |             |   -- Get encryption key from session variable                                                        +
+                 |                     |             |   encryption_key := current_setting('app.encryption_key', true);                                     +
+                 |                     |             |                                                                                                      +
+                 |                     |             |   IF encryption_key IS NULL OR encryption_key = '' THEN                                              +
+                 |                     |             |     RAISE EXCEPTION 'Encryption key not configured. Please set app.encryption_key session variable.';+
+                 |                     |             |   END IF;                                                                                            +
+                 |                     |             |                                                                                                      +
+                 |                     |             |   -- Decrypt using pgcrypto                                                                          +
+                 |                     |             |   RETURN pgp_sym_decrypt(encrypted_key, encryption_key);                                             +
+                 |                     |             | END;                                                                                                 +
+                 |                     |             | $function$                                                                                           +
+                 |                     |             | 
+ decrypt_pii     | data bytea          | text        | CREATE OR REPLACE FUNCTION public.decrypt_pii(data bytea)                                            +
+                 |                     |             |  RETURNS text                                                                                        +
+                 |                     |             |  LANGUAGE plpgsql                                                                                    +
+                 |                     |             |  SECURITY DEFINER                                                                                    +
+                 |                     |             | AS $function$                                                                                        +
+                 |                     |             | BEGIN                                                                                                +
+                 |                     |             |     IF data IS NULL THEN                                                                             +
+                 |                     |             |         RETURN NULL;                                                                                 +
+                 |                     |             |     END IF;                                                                                          +
+                 |                     |             |     RETURN pgp_sym_decrypt(data, current_setting('app.encryption_key'));                             +
+                 |                     |             | END;                                                                                                 +
+                 |                     |             | $function$                                                                                           +
+                 |                     |             | 
+ encrypt_api_key | plain_key text      | bytea       | CREATE OR REPLACE FUNCTION public.encrypt_api_key(plain_key text)                                    +
+                 |                     |             |  RETURNS bytea                                                                                       +
+                 |                     |             |  LANGUAGE plpgsql                                                                                    +
+                 |                     |             |  SECURITY DEFINER                                                                                    +
+                 |                     |             | AS $function$                                                                                        +
+                 |                     |             | DECLARE                                                                                              +
+                 |                     |             |   encryption_key text;                                                                               +
+                 |                     |             | BEGIN                                                                                                +
+                 |                     |             |   -- Get encryption key from session variable                                                        +
+                 |                     |             |   encryption_key := current_setting('app.encryption_key', true);                                     +
+                 |                     |             |                                                                                                      +
+                 |                     |             |   IF encryption_key IS NULL OR encryption_key = '' THEN                                              +
+                 |                     |             |     RAISE EXCEPTION 'Encryption key not configured. Please set app.encryption_key session variable.';+
+                 |                     |             |   END IF;                                                                                            +
+                 |                     |             |                                                                                                      +
+                 |                     |             |   -- Encrypt using pgcrypto                                                                          +
+                 |                     |             |   RETURN pgp_sym_encrypt(plain_key, encryption_key);                                                 +
+                 |                     |             | END;                                                                                                 +
+                 |                     |             | $function$                                                                                           +
+                 |                     |             | 
+ encrypt_pii     | data text           | bytea       | CREATE OR REPLACE FUNCTION public.encrypt_pii(data text)                                             +
+                 |                     |             |  RETURNS bytea                                                                                       +
+                 |                     |             |  LANGUAGE plpgsql                                                                                    +
+                 |                     |             |  SECURITY DEFINER                                                                                    +
+                 |                     |             | AS $function$                                                                                        +
+                 |                     |             | BEGIN                                                                                                +
+                 |                     |             |     IF data IS NULL THEN                                                                             +
+                 |                     |             |         RETURN NULL;                                                                                 +
+                 |                     |             |     END IF;                                                                                          +
+                 |                     |             |     RETURN pgp_sym_encrypt(data, current_setting('app.encryption_key'));                             +
+                 |                     |             | END;                                                                                                 +
+                 |                     |             | $function$                                                                                           +
+                 |                     |             | 
+(4 rows)
+
+                  seccion                   
+--------------------------------------------
+ === ESTRUCTURA DE clients (REFERENCIA) ===
+(1 row)
+
+ column_name | data_type | is_nullable |   tipo_detectado   
+-------------+-----------+-------------+--------------------
+ name_enc    | bytea     | NO          | ENCRIPTADO (BYTEA)
+ email_enc   | bytea     | YES         | ENCRIPTADO (BYTEA)
+ phone_enc   | bytea     | YES         | ENCRIPTADO (BYTEA)
+ address_enc | bytea     | YES         | ENCRIPTADO (BYTEA)
+(4 rows)
+
+                seccion                
+---------------------------------------
+ === CONFIGURACIÓN DE ENCRIPTACIÓN ===
+(1 row)
+
+ name | setting | estado 
+------+---------+--------
+(0 rows)
+
+          seccion           
+----------------------------
+ === EXTENSIÓN pgcrypto ===
+(1 row)
+
+ extension_name | version 
+----------------+---------
+ pgcrypto       | 1.3
+(1 row)
+
+           seccion            
+------------------------------
+ === RESUMEN DE HALLAZGOS ===
+(1 row)
+
+  tabla   | column_name | data_type | estado_encriptacion 
+----------+-------------+-----------+---------------------
+ messages | content     | bytea     | ENCRIPTADO
+(1 row)
+
+  tabla   | column_name | data_type | estado_encriptacion 
+----------+-------------+-----------+---------------------
+ profiles | address     | bytea     | ENCRIPTADO
+ profiles | phone       | bytea     | ENCRIPTADO
+(2 rows)
+
+  tabla  | column_name | data_type | estado_encriptacion 
+---------+-------------+-----------+---------------------
+ clients | address_enc | bytea     | ENCRIPTADO
+ clients | email_enc   | bytea     | ENCRIPTADO
+ clients | name_enc    | bytea     | ENCRIPTADO
+ clients | phone_enc   | bytea     | ENCRIPTADO
+(4 rows)
+

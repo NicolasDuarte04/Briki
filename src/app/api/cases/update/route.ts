@@ -12,10 +12,27 @@ export async function PUT(request: NextRequest) {
             return NextResponse.json({ error: 'Case ID is required' }, { status: 400 });
         }
 
+        // ✅ CORRECCIÓN CRÍTICA: Validar y normalizar max_budget
+        // DECIMAL(10,2) permite valores de -99,999,999.99 a 99,999,999.99
+        let normalizedMaxBudget: number | null = null;
+        if (updateData.max_budget !== null && updateData.max_budget !== undefined) {
+            const numValue = typeof updateData.max_budget === 'string' ? parseFloat(updateData.max_budget) : updateData.max_budget;
+            if (!isNaN(numValue) && isFinite(numValue)) {
+                const MAX_VALUE = 99999999.99;
+                const MIN_VALUE = -99999999.99;
+                const clampedValue = Math.max(MIN_VALUE, Math.min(MAX_VALUE, numValue));
+                normalizedMaxBudget = Math.round(clampedValue * 100) / 100;
+                
+                if (numValue !== clampedValue) {
+                    console.warn(`⚠️ [API/cases/update] max_budget (${numValue}) ajustado a ${clampedValue} para cumplir con DECIMAL(10,2)`);
+                }
+            }
+        }
+        
         // Mapea los datos del formulario a los campos de la base de datos.
-        const caseUpdatePayload = {
+        const caseUpdatePayload: any = {
             insurance_category: updateData.insurance_category,
-            max_budget: updateData.max_budget,
+            max_budget: normalizedMaxBudget, // ✅ Validado y normalizado
             budget_currency: updateData.budget_currency,
             required_coverages: updateData.required_coverages || [],
             client_profile: updateData.client_profile || '',

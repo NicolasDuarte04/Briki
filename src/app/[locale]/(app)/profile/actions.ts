@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
+import { encryptProfilePhone, encryptProfileAddress, encryptProfileName } from '@/lib/helpers/profileEncryption'
 
 import { type LocaleValue } from './schema'
 
@@ -84,19 +85,60 @@ export async function updateProfile(
       select: { id: true, locale: true },
     })
 
+    // Preparar datos para actualización/creación con encriptación
+    const profileData: {
+      name?: Buffer | null | undefined
+      phone?: Buffer | null | undefined
+      address?: Buffer | null | undefined
+      locale?: LocaleValue
+    } = {}
+
+    if (updates.name !== undefined) {
+      // Encriptar name antes de guardarlo
+      const encryptedName = await encryptProfileName(updates.name);
+      profileData.name = encryptedName ?? undefined;
+    }
+
+    if (updates.phone !== undefined) {
+      // Encriptar phone antes de guardarlo
+      const encryptedPhone = await encryptProfilePhone(updates.phone);
+      profileData.phone = encryptedPhone ?? undefined;
+    }
+
+    if (updates.address !== undefined) {
+      // Encriptar address antes de guardarlo
+      const encryptedAddress = await encryptProfileAddress(updates.address);
+      profileData.address = encryptedAddress ?? undefined;
+    }
+
+    if (updates.locale !== undefined) {
+      profileData.locale = updates.locale
+    }
+
     if (existingProfile) {
-      if (Object.keys(updates).length > 0) {
+      if (Object.keys(profileData).length > 0) {
+        // Filtrar undefined para cumplir con exactOptionalPropertyTypes
+        const updateData: any = {};
+        if (profileData.name !== undefined) updateData.name = profileData.name;
+        if (profileData.phone !== undefined) updateData.phone = profileData.phone;
+        if (profileData.address !== undefined) updateData.address = profileData.address;
+        if (profileData.locale !== undefined) updateData.locale = profileData.locale;
+        
         await prisma.profile.update({
           where: { id: userId },
-          data: updates,
+          data: updateData,
         })
       }
     } else {
+      // Filtrar undefined para cumplir con exactOptionalPropertyTypes
+      const createData: any = { id: userId };
+      if (profileData.name !== undefined) createData.name = profileData.name;
+      if (profileData.phone !== undefined) createData.phone = profileData.phone;
+      if (profileData.address !== undefined) createData.address = profileData.address;
+      if (profileData.locale !== undefined) createData.locale = profileData.locale;
+      
       await prisma.profile.create({
-        data: {
-          id: userId,
-          ...updates,
-        },
+        data: createData,
       })
     }
 
@@ -140,7 +182,7 @@ export async function updateNotificationSettings(
       },
       create: {
         id: userId,
-        name: '',
+        name: null, // name es opcional y encriptado (BYTEA)
         notificationsProductUpdates: productUpdates,
         notificationsPolicyAlerts: policyAlerts,
       },

@@ -1,0 +1,36 @@
+{
+  "messages": {
+    "column_name": "content",
+    "data_type": "bytea",
+    "udt_name": "bytea",
+    "tipo_detectado": "ENCRIPTADO",
+    "encrypted": true,
+    "scenario": "C"
+  },
+  "profiles": {
+    "scenario": "C",
+    "encrypted": true,
+    "phone_column": "phone",
+    "phone_type": "bytea",
+    "phone_udt": "bytea",
+    "phone_tipo_detectado": "ENCRIPTADO",
+    "phone_encrypted": true,
+    "address_column": "address",
+    "address_type": "bytea",
+    "address_udt": "bytea",
+    "address_tipo_detectado": "ENCRIPTADO",
+    "address_encrypted": true
+  },
+  "functions": [
+    "decrypt_pii",
+    "encrypt_api_key",
+    "decrypt_api_key",
+    "encrypt_pii"
+  ],
+  "clients": {},
+  "configuration": {
+    "pgcrypto_installed": true,
+    "pgcrypto_version": "1.3"
+  },
+  "raw_data": {}
+}

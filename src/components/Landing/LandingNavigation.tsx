@@ -69,20 +69,17 @@ export function LandingNavigation() {
         return;
       }
 
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('display_name')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        console.error('Error fetching profile name:', profileError);
+      // Usar API route para obtener nombre desencriptado
+      let dbName: string | null = null;
+      try {
+        const response = await fetch('/api/profile/name');
+        if (response.ok) {
+          const data = await response.json();
+          dbName = typeof data.name === 'string' ? data.name.trim() : null;
+        }
+      } catch (error) {
+        console.error('Error fetching profile name:', error);
       }
-
-      const dbName =
-        typeof profileData?.display_name === 'string'
-          ? profileData.display_name.trim()
-          : null;
 
       setProfileName(
         dbName && dbName.length > 0 ? dbName : deriveMetadataName()

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
+import { encryptMessageContent, decryptMessages } from '@/lib/helpers/messageEncryption';
 
 export async function GET(
   request: NextRequest,
@@ -31,7 +32,7 @@ export async function GET(
     }
 
     // 2. Obtener mensajes ordenados por fecha de creación
-    const messages = await prisma.message.findMany({
+    const messagesRaw = await prisma.message.findMany({
       where: {
         caseId: caseId
       },
@@ -42,11 +43,14 @@ export async function GET(
       select: {
         id: true,
         role: true,
-        content: true,
+        content: true, // Buffer encriptado (BYTEA)
         createdAt: true,
         metadata: true // Opcional, si la UI lo necesita
       }
     });
+
+    // 3. Desencriptar todos los mensajes
+    const messages = await decryptMessages(messagesRaw);
 
     console.log(`✅ API: Cargados ${messages.length} mensajes para caso ${caseId}`);
     return NextResponse.json({ messages });
@@ -88,42 +92,74 @@ export async function POST(
       return NextResponse.json({ error: 'Role and content are required' }, { status: 400 });
     }
 
-    // ✅ FASE 4: Verificar si existe mensaje duplicado (últimos 5 segundos)
-    // Esto previene duplicación cuando múltiples fuentes intentan guardar el mismo mensaje
+    // 1. Encriptar el contenido del mensaje antes de guardarlo
+    const encryptedContent = await encryptMessageContent(content);
+
+    // 2. Verificar si existe mensaje duplicado (últimos 5 segundos)
+    // NOTA: La verificación de duplicados ahora compara contenido encriptado
+    // Esto es menos eficiente pero necesario para mantener la funcionalidad
     const fiveSecondsAgo = new Date(Date.now() - 5000);
-    const existingMessage = await prisma.message.findFirst({
+    const existingMessages = await prisma.message.findMany({
       where: {
         caseId: caseId,
         role: role,
-        content: content, // Exact match del contenido
         createdAt: {
           gte: fiveSecondsAgo // Últimos 5 segundos
         }
       },
       orderBy: {
         createdAt: 'desc' // El más reciente primero
+      },
+      select: {
+        id: true,
+        content: true, // Para comparar contenido encriptado
+        role: true,
+        createdAt: true,
+        metadata: true
       }
     });
 
+    // Desencriptar mensajes existentes para comparar contenido
+    const decryptedExisting = await decryptMessages(existingMessages);
+    const existingMessage = decryptedExisting.find((msg, idx) => msg.content === content);
+
     // Si existe mensaje duplicado, retornar el existente en lugar de crear uno nuevo
     if (existingMessage) {
-      console.log(`⚠️ [API/CASES/${caseId}/MESSAGES] POST: Mensaje duplicado detectado, retornando existente (ID: ${existingMessage.id})`);
+      const originalIndex = decryptedExisting.findIndex(msg => msg.content === content);
+      const originalMessage = existingMessages[originalIndex];
+      console.log(`⚠️ [API/CASES/${caseId}/MESSAGES] POST: Mensaje duplicado detectado, retornando existente (ID: ${originalMessage?.id})`);
       return NextResponse.json({ 
         success: true, 
-        message: existingMessage,
+        message: existingMessage, // Retornar desencriptado para consistencia
         duplicate: true // Indicador de que es un duplicado
       });
     }
 
-    // Crear mensaje solo si no existe duplicado
-    const newMessage = await prisma.message.create({
+    // 3. Crear mensaje solo si no existe duplicado
+    const newMessageRaw = await prisma.message.create({
       data: {
         caseId: caseId,
         role: role,
-        content: content,
+        content: Buffer.from(encryptedContent), // ✅ Contenido encriptado (Buffer)
         metadata: metadata || {}
+      },
+      select: {
+        id: true,
+        role: true,
+        content: true,
+        createdAt: true,
+        metadata: true
       }
     });
+
+    // 4. Desencriptar el mensaje creado para retornarlo
+    const decryptedNewMessage = await decryptMessages([newMessageRaw]);
+    const newMessage = {
+      ...decryptedNewMessage[0]!,
+      id: newMessageRaw.id,
+      createdAt: newMessageRaw.createdAt,
+      metadata: newMessageRaw.metadata
+    };
 
     console.log(`✅ [API/CASES/${caseId}/MESSAGES] POST: Mensaje creado exitosamente (ID: ${newMessage.id})`);
     return NextResponse.json({ success: true, message: newMessage, duplicate: false });
