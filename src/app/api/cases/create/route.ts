@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { createCaseWithOrg } from '@/lib/database';
 import { recordAuditLog } from '@/lib/audit';
+import { moveTempToPersistent } from '@/lib/storage/moveTempToPersistent';
+import { findDuplicateArtifact } from '@/lib/storage/findDuplicateArtifact';
 
 export async function POST(request: NextRequest) {
   try {
@@ -243,17 +245,106 @@ export async function POST(request: NextRequest) {
           );
         }
         
+        // ✅ FASE 3: Mover archivo temporal a ruta persistente
+        console.log('🔄 [API/cases/create] Moviendo archivo temporal a persistente:', tempUpload.fileName);
+        const moveResult = await moveTempToPersistent({
+          tempPath: tempUpload.storagePath,
+          orgId: orgId,
+          caseId: newCase.id,
+          fileName: tempUpload.fileName,
+          userId: user.id
+        });
+        
+        if (!moveResult.success) {
+          console.error('❌ [API/cases/create] Error moviendo archivo temporal:', moveResult.error);
+          // ⚠️ FALLBACK: Mantener ruta temporal si falla el movimiento (compatibilidad)
+          console.warn('⚠️ [API/cases/create] Usando ruta temporal como fallback');
+        }
+        
         console.log('📎 [API] Creating artifact:', tempUpload.fileName);
+        
+        // ✅ FASE 5: Verificar duplicados antes de crear artifact
+        if (tempUpload.fileHash) {
+          // 1. Verificar duplicado local (mismo caso)
+          const localArtifacts = await prisma.artifact.findMany({
+            where: { caseId: newCase.id }
+          });
+          
+          const localDuplicate = localArtifacts.find((a: any) => 
+            a.provenance && typeof a.provenance === 'object' && 
+            (a.provenance as any).fileHash === tempUpload.fileHash
+          );
+          
+          if (localDuplicate) {
+            console.log('⚠️ [FASE 5] Archivo duplicado detectado en el mismo caso, saltando:', tempUpload.fileName);
+            continue; // Saltar este archivo, continuar con el siguiente
+          }
+          
+          // 2. Verificar duplicado global (otros casos)
+          console.log('🔍 [FASE 5] Verificando duplicado globalmente...');
+          const globalDuplicate = await findDuplicateArtifact(tempUpload.fileHash, newCase.id);
+          
+          if (globalDuplicate.exists && globalDuplicate.artifact) {
+            console.log('⚠️ [FASE 5] Archivo duplicado detectado globalmente:', {
+              existingArtifactId: globalDuplicate.artifact.id,
+              existingCaseId: globalDuplicate.artifact.caseId,
+              fileName: tempUpload.fileName
+            });
+            
+            // ✅ FASE 5: Reutilizar archivo existente (crear artifact nuevo apuntando al mismo fileId)
+            console.log('♻️ [FASE 5] Reutilizando archivo existente...');
+            
+            // Obtener artifact original completo para reutilizar contentText
+            const originalArtifact = await prisma.artifact.findUnique({
+              where: { id: globalDuplicate.artifact.id },
+              select: {
+                contentText: true,
+                contentType: true,
+                provenance: true
+              }
+            });
+            
+            if (originalArtifact && globalDuplicate.artifact.fileId) {
+              // Crear artifact reutilizando el archivo existente
+              await prisma.artifact.create({
+                data: {
+                  caseId: newCase.id,
+                  sourceType: 'pdf',
+                  fileId: globalDuplicate.artifact.fileId, // ✅ Reutilizar fileId existente
+                  fileName: tempUpload.fileName,
+                  contentType: originalArtifact.contentType || 'application/pdf',
+                  contentText: originalArtifact.contentText, // ✅ Reutilizar contentText
+                  provenance: {
+                    uploadedBy: user.id,
+                    uploadedAt: new Date().toISOString(),
+                    fileSize: tempUpload.fileSize,
+                    fileHash: tempUpload.fileHash,
+                    pageCount: tempUpload.pageCount,
+                    reusedFrom: globalDuplicate.artifact.id, // ✅ Metadata: indica que es reutilizado
+                    originalFileName: globalDuplicate.artifact.fileName,
+                    originalCaseId: globalDuplicate.artifact.caseId,
+                    originalUploadedAt: globalDuplicate.artifact.createdAt.toISOString(),
+                  },
+                },
+              });
+              
+              console.log('✅ [FASE 5] Artifact creado reutilizando archivo existente');
+              continue; // Saltar movimiento de archivo, ya existe
+            }
+          }
+        }
+        
         // ✅ Limpiar bytes nulos de contentText para evitar errores de encoding UTF8
         const cleanedContentText = tempUpload.extractedText 
           ? tempUpload.extractedText.replace(/\0/g, '') 
           : null;
         
+        // ✅ FASE 3: Crear artifact con ruta persistente (o temporal como fallback)
         await prisma.artifact.create({
           data: {
             caseId: newCase.id,
             sourceType: 'pdf',
-            fileId: tempUpload.storagePath,
+            fileId: moveResult.persistentPath || tempUpload.storagePath, // ✅ Ruta persistente (fallback a temp si falla)
             fileName: tempUpload.fileName,
             contentType: 'application/pdf',
             contentText: cleanedContentText,
@@ -263,9 +354,15 @@ export async function POST(request: NextRequest) {
               fileSize: tempUpload.fileSize,
               fileHash: tempUpload.fileHash,
               pageCount: tempUpload.pageCount,
+              migratedToPersistent: moveResult.success, // ✅ Metadata: indica si se movió correctamente
+              migrationError: moveResult.error || null,
             },
           },
         });
+        
+        if (moveResult.success) {
+          console.log('✅ [API/cases/create] Archivo movido a ruta persistente:', moveResult.persistentPath);
+        }
         console.log('✅ [API] Artifact created successfully');
       }
     }

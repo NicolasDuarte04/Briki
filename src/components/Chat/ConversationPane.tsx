@@ -40,11 +40,12 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // NO usar ({...}) porque crea un nuevo objeto en cada render
   const currentCaseId = useUI((state: UIState) => state.currentCaseId);
   const setCurrentCaseId = useUI((state: UIState) => state.setCurrentCaseId);
+  // ✅ CORRECCIÓN CRÍTICA: Usar isBriefValid del estado global para sincronización perfecta
+  // Esto asegura que todos los botones usen la misma fuente de verdad
+  const isBriefValid = useUI((state: UIState) => state.isBriefValid);
   
-  // ✅ CORRECCIÓN CRÍTICA: Calcular validación reactiva basada en brief
-  const isBriefValid = useMemo(() => {
-    return !!(brief.insurance_category?.trim());
-  }, [brief.insurance_category]);
+  // ❌ ELIMINADO: Cálculo local de isBriefValid
+  // ✅ CORRECCIÓN: Usar isBriefValid() del estado global (ya declarado arriba)
   // Usar estado global de mensajes
   const messages = useUI((state: UIState) => state.messages);
   const addMessage = useUI((state: UIState) => state.addMessage);
@@ -575,10 +576,27 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // Si caseApproved es true, es un caso histórico aprobado - NO mostrar botones de aprobar
   // isBriefValid solo se usa para DESHABILITAR, no para OCULTAR
   useEffect(() => {
-    // ✅ CORRECCIÓN: Si caseApproved es true, es un caso histórico - NO mostrar botones de aprobar
-    const shouldShow = !caseApproved;
-    setShowApprovalButton(shouldShow);
-    console.log('🔍 [ConversationPane] showApprovalButton actualizado:', { caseApproved, shouldShow, currentCaseId });
+    // ✅ CORRECCIÓN CRÍTICA: Verificar explícitamente si estamos en new-thread-placeholder
+    // Si estamos en new-thread-placeholder, SIEMPRE mostrar botones (forzar caseApproved=false)
+    const isNewThreadPlaceholder = !currentCaseId || currentCaseId === 'new-thread-placeholder';
+    
+    if (isNewThreadPlaceholder) {
+      // ✅ FORZAR: En new-thread-placeholder, SIEMPRE mostrar botones de aprobar
+      // Esto asegura que los botones aparezcan incluso si caseApproved está en true por error
+      setShowApprovalButton(true);
+      // ✅ CORRECCIÓN CRÍTICA: Si estamos en new-thread-placeholder y caseApproved es true, forzar a false
+      // Esto corrige cualquier estado persistido incorrecto
+      if (caseApproved) {
+        console.warn('⚠️ [ConversationPane] caseApproved=true en new-thread-placeholder - FORZANDO a false');
+        useUI.getState().setCaseApproved(false);
+      }
+      console.log('🔍 [ConversationPane] showApprovalButton=true (new-thread-placeholder detectado)');
+    } else {
+      // ✅ Para casos históricos, mostrar botones solo si !caseApproved
+      const shouldShow = !caseApproved;
+      setShowApprovalButton(shouldShow);
+      console.log('🔍 [ConversationPane] showApprovalButton actualizado:', { caseApproved, shouldShow, currentCaseId });
+    }
   }, [caseApproved, currentCaseId]);
 
   // Función optimizada de validación de clientes con cache
@@ -623,14 +641,16 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
   // ✅ FASE 7: Función simplificada usando createCaseIfNeeded extendido (elimina código duplicado)
   const handleApprovalOrchestrationAsync = useCallback(async () => {
+    // ✅ CORRECCIÓN CRÍTICA: Establecer estados ANTES de esperar para que BriefForm detecte el cambio
+    // BriefForm tiene un useEffect que detecta caseApproving/caseResolvingClient y sincroniza formData
     useUI.setState({ caseResolvingClient: true, caseApproving: true }); // ✅ Sincronizar estado global
     console.log('🔒 [ConversationPane] Botones bloqueados para sincronización (caseResolvingClient=true, caseApproving=true)');
     
     try {
-      // ✅ CORRECCIÓN CRÍTICA: Obtener brief actualizado del estado global
-      // El brief debe estar sincronizado con formData desde BriefForm antes de llegar aquí
-      // IMPORTANTE: Esperar un momento para asegurar que BriefForm haya sincronizado el brief
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // ✅ CORRECCIÓN CRÍTICA: Esperar un momento para que BriefForm sincronice formData con brief global
+      // BriefForm tiene un useEffect que detecta caseApproving/caseResolvingClient y sincroniza automáticamente
+      // Necesitamos dar tiempo para que React ejecute el useEffect de BriefForm
+      await new Promise(resolve => setTimeout(resolve, 150)); // ✅ Aumentado a 150ms para asegurar sincronización
       const currentBrief = useUI.getState().brief;
       console.log('📋 [ConversationPane] Brief actual para aprobación:', currentBrief);
       console.log('📝 [ConversationPane] freeText en brief:', currentBrief.freeText);
@@ -1028,7 +1048,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
               <p className="text-sm text-secondary-foreground mb-3">
                 El brief del caso está listo. ¿Deseas que proceda con el análisis?
               </p>
-              <Button onClick={handleApprovalOrchestration} className="w-full" disabled={isTyping || caseApproving || caseResolvingClient || !isBriefValid}>
+              <Button onClick={handleApprovalOrchestration} className="w-full" disabled={isTyping || caseApproving || caseResolvingClient || !isBriefValid()}>
                 {caseResolvingClient ? 'Validando cliente...' : caseApproving ? 'Aprobando...' : 'Aprobar y Continuar Análisis'}
               </Button>
             </div>

@@ -119,6 +119,9 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // ✅ FASE 1: Obtener estado de aprobación para sincronización
   const caseApproving = useUI((state) => state.caseApproving);
   const caseResolvingClient = useUI((state) => state.caseResolvingClient); // ✅ NUEVO: Estado global para sincronización
+  // ✅ CORRECCIÓN CRÍTICA: Usar isBriefValid del estado global para sincronización perfecta
+  // Esto asegura que todos los botones usen la misma fuente de verdad
+  const isBriefValid = useUI((state) => state.isBriefValid);
 
   // ✅ FASE 3: CORRECCIÓN DE INICIALIZACIÓN
   // Solo usar el 'brief' global como fallback SI estamos en un caso existente.
@@ -208,11 +211,11 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     }
   }, [landingDataPending, brief, currentCaseId, setBrief, setLandingDataPending]);
   
-  // ✅ CORRECCIÓN CRÍTICA: Calcular validación reactiva basada en formData (estado local)
-  // IMPORTANTE: Declarar DESPUÉS de formData para evitar "Cannot access before initialization"
-  const isBriefValid = useMemo(() => {
-    return !!(formData.insurance_category?.trim());
-  }, [formData.insurance_category]);
+  // ❌ ELIMINADO: Cálculo local de isBriefValid
+  // ✅ CORRECCIÓN CRÍTICA: Usar isBriefValid del estado global (ya declarado arriba)
+  // Esto asegura sincronización perfecta con los otros botones
+  // La función isBriefValid() del estado global lee brief.insurance_category
+  // IMPORTANTE: brief.insurance_category se actualiza en tiempo real cuando se selecciona
 
   // Estado para el input de coberturas
   const [currentCoverage, setCurrentCoverage] = useState('');
@@ -269,6 +272,42 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
   // Estado para uploads temporales - inicializado con artifacts convertidos si estamos en modo edición
   const [tempUploads, setTempUploads] = useState<TempUpload[]>(initialTempUploads);
+  
+  // ✅ CORRECCIÓN CRÍTICA: Sincronizar automáticamente formData con brief global cuando se va a aprobar
+  // Esto asegura que cuando se hace click en "Aprobar" o "Aprobar y Continuar Análisis",
+  // todos los datos del formulario estén disponibles en el brief global ANTES de aprobar
+  useEffect(() => {
+    // Detectar cuando se inicia el proceso de aprobación (caseApproving o caseResolvingClient cambian a true)
+    if (caseApproving || caseResolvingClient) {
+      console.log('🔄 [BriefForm] Detectado inicio de aprobación, sincronizando formData con brief global...');
+      
+      // Capturar TODOS los datos del formulario en el momento actual
+      const finalFreeText = formData.notes || formData.freeText || '';
+      
+      const briefUpdate: Partial<CaseBrief> = {
+        insurance_category: formData.insurance_category,
+        max_budget: formData.max_budget ?? null,
+        budget_currency: formData.budget_currency || 'COP',
+        required_coverages: formData.required_coverages || [],
+        client_profile: formData.client_profile || '',
+        clientName: formData.clientName || '',
+        businessType: formData.businessType || '',
+        employees: formData.employees ?? null,
+        coverage: formData.coverage || '',
+        freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
+        tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
+      };
+      
+      console.log('📝 [BriefForm] Sincronizando brief global con TODOS los datos del formulario:', {
+        ...briefUpdate,
+        freeText: briefUpdate.freeText?.substring(0, 50) + '...',
+        tempUploadsCount: briefUpdate.tempUploads?.length || 0
+      });
+      
+      // Sincronizar con el estado global
+      setBrief(briefUpdate);
+    }
+  }, [caseApproving, caseResolvingClient, formData, tempUploads, setBrief]);
 
   // ✅ CORRECCIÓN CRÍTICA FASE 2.2: useEffect para sincronizar cuando artifacts cambian
   // FORZAR conversión inmediatamente cuando mode === 'edit' y hay artifacts
@@ -446,44 +485,25 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   }, [isClientComboboxOpen]);
 
   // Handlers para actualizar el estado - MEMOIZADO
-  // ✅ CORRECCIÓN CRÍTICA: Sincronizar TODOS los campos con el estado global
+  // ✅ CORRECCIÓN CRÍTICA: Actualizar solo el estado local (NO guardar en tiempo real)
+  // EXCEPCIÓN: insurance_category se actualiza en tiempo real para sincronizar los botones
+  // El guardado del resto de campos se hará SOLO cuando el usuario haga click en los botones sincronizados
+  // Esto asegura que los datos autollenados del Landing se capturen correctamente
   const updateField = useCallback((field: keyof CaseBriefData, value: any) => {
+    // ✅ Actualizar estado local
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // ✅ CORRECCIÓN CRÍTICA: Sincronizar TODOS los campos con el estado global
-    // Esto asegura que cuando se hace click en los botones, todos los valores estén disponibles
-    const briefUpdate: Partial<CaseBrief> = {};
-    
-    if (field === 'clientName') {
-      briefUpdate.clientName = value;
-    } else if (field === 'businessType') {
-      briefUpdate.businessType = value;
-    } else if (field === 'coverage') {
-      briefUpdate.coverage = value;
-    } else if (field === 'freeText') {
-      briefUpdate.freeText = value;
-    } else if (field === 'notes') {
-      // ✅ CORRECCIÓN CRÍTICA: Sincronizar 'notes' con 'brief.freeText' en tiempo real
-      // Esto asegura que las "Notas Adicionales" estén disponibles para el agente inmediatamente
-      briefUpdate.freeText = value;
-    } else if (field === 'insurance_category') {
-      briefUpdate.insurance_category = value;
-    } else if (field === 'max_budget') {
-      briefUpdate.max_budget = value;
-    } else if (field === 'employees') {
-      briefUpdate.employees = value;
-    } else if (field === 'client_profile') {
-      briefUpdate.client_profile = value;
-    } else if (field === 'required_coverages') {
-      briefUpdate.required_coverages = value;
-    } else if (field === 'budget_currency') {
-      briefUpdate.budget_currency = value;
+    // ✅ EXCEPCIÓN CRÍTICA: Actualizar insurance_category en brief global en tiempo real
+    // Esto es necesario para sincronizar los 3 botones (Buscar Planes, Aprobar, Aprobar y Continuar)
+    // Todos los botones usan isBriefValid() que lee brief.insurance_category del estado global
+    if (field === 'insurance_category') {
+      setBrief({ insurance_category: value } as Partial<CaseBrief>);
+      console.log('✅ [BriefForm] insurance_category actualizado en brief global para sincronización de botones:', value);
     }
     
-    // Sincronizar con el estado global
-    if (Object.keys(briefUpdate).length > 0) {
-      setBrief(briefUpdate);
-    }
+    // ❌ ELIMINADO: Actualización en tiempo real del resto de campos en brief global
+    // Esto era ineficiente y causaba que los datos autollenados no se guardaran
+    // El brief se actualizará SOLO cuando se haga click en los botones (handleSubmit)
   }, [setBrief]);
 
   // Handlers para el Combobox de clientes - MEMOIZADO
@@ -632,7 +652,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     e.preventDefault();
     
     console.log('🚀 [BriefForm] handleSubmit triggered. Mode:', mode);
-    console.log('📦 [BriefForm] formData:', formData);
+    console.log('📦 [BriefForm] formData completo:', formData);
     console.log('📎 [BriefForm] tempUploads:', tempUploads);
     
     // ✅ VALIDACIÓN TEMPRANA: Prevenir envío sin categoría de seguro
@@ -643,21 +663,32 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     }
     
     try {
-      // ACTUALIZAR brief explícitamente con todos los datos del formulario
-      const briefUpdate: any = {
+      // ✅ CORRECCIÓN CRÍTICA: Capturar TODOS los datos del formulario en el momento del click
+      // Esto incluye datos autollenados del Landing que pueden no haberse guardado en tiempo real
+      // Mapear formData.notes a freeText (las "Notas Adicionales")
+      const finalFreeText = formData.notes || formData.freeText || '';
+      
+      // ✅ ACTUALIZAR brief explícitamente con TODOS los datos del formulario
+      // Esto se hace SOLO cuando el usuario hace click en los botones sincronizados
+      const briefUpdate: Partial<CaseBrief> = {
         insurance_category: formData.insurance_category,
-        max_budget: formData.max_budget ?? undefined,
-        budget_currency: formData.budget_currency,
-        required_coverages: formData.required_coverages,
-        client_profile: formData.client_profile,
-        clientName: formData.clientName,
-        businessType: formData.businessType,
-        employees: formData.employees ?? undefined,
-        coverage: formData.coverage,
-        freeText: formData.notes,
-        tempUploads: tempUploads, // ✅ FASE 5: Incluir tempUploads en briefUpdate
+        max_budget: formData.max_budget ?? null,
+        budget_currency: formData.budget_currency || 'COP',
+        required_coverages: formData.required_coverages || [],
+        client_profile: formData.client_profile || '',
+        clientName: formData.clientName || '',
+        businessType: formData.businessType || '',
+        employees: formData.employees ?? null,
+        coverage: formData.coverage || '',
+        freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
+        tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
       };
-      console.log('📝 [BriefForm] Actualizando brief global con:', briefUpdate);
+      
+      console.log('📝 [BriefForm] Actualizando brief global con TODOS los datos del formulario:', {
+        ...briefUpdate,
+        freeText: briefUpdate.freeText?.substring(0, 50) + '...',
+        tempUploadsCount: briefUpdate.tempUploads?.length || 0
+      });
       setBrief(briefUpdate);
 
       // En modo edición: llamar onSubmit con todos los datos
@@ -691,34 +722,14 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       } else {
         // ✅ FASE 5: Modo creación - Usar createCaseIfNeeded extendido
         if (onApprove) {
-          // ✅ CORRECCIÓN CRÍTICA: Sincronizar TODOS los campos de formData con brief ANTES de enviar
-          // Esto asegura que todos los valores del formulario estén disponibles en el estado global
-          // IMPORTANTE: Mapear formData.notes a freeText para asegurar que las notas se incluyan
-          const finalFreeText = formData.notes || brief.freeText || '';
-          console.log('✅ [BriefForm] Sincronizando formData completo con brief antes de enviar', {
-            notes: formData.notes?.substring(0, 50) + '...',
-            briefFreeText: brief.freeText?.substring(0, 50) + '...',
-            finalFreeText: finalFreeText.substring(0, 50) + '...',
-            tempUploadsCount: tempUploads.length
+          // ✅ CORRECCIÓN CRÍTICA: Usar briefUpdate que ya contiene TODOS los datos del formulario
+          // No necesitamos mezclar con brief anterior porque ya capturamos todo desde formData
+          // Esto asegura que los datos autollenados del Landing se incluyan correctamente
+          console.log('✅ [BriefForm] Usando briefUpdate completo (ya contiene todos los datos del formulario)', {
+            freeText: briefUpdate.freeText?.substring(0, 50) + '...',
+            tempUploadsCount: briefUpdate.tempUploads?.length || 0,
+            insurance_category: briefUpdate.insurance_category
           });
-          
-          const completeBriefUpdate: Partial<CaseBrief> = {
-            ...brief, // Mantener valores existentes
-            clientName: formData.clientName || brief.clientName || '',
-            businessType: formData.businessType || brief.businessType || '',
-            coverage: formData.coverage || brief.coverage || '',
-            freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
-            insurance_category: formData.insurance_category || brief.insurance_category || '',
-            max_budget: formData.max_budget ?? brief.max_budget ?? null,
-            employees: formData.employees ?? brief.employees ?? null,
-            client_profile: formData.client_profile || brief.client_profile || '',
-            required_coverages: formData.required_coverages || brief.required_coverages || [],
-            budget_currency: formData.budget_currency || brief.budget_currency || 'COP',
-            tempUploads: tempUploads, // ✅ CORRECCIÓN: Incluir tempUploads para que generateInitialMessageFromBrief los incluya
-          };
-          
-          // Sincronizar con el estado global
-          setBrief(completeBriefUpdate);
           
           // ✅ FASE 5: Usar función extendida con modal de validación
           console.log('✅ [BriefForm] FASE 5: Usando createCaseIfNeeded extendido con modal');
@@ -728,7 +739,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           
           try {
             await createCaseIfNeeded(
-              completeBriefUpdate, // ✅ CORRECCIÓN: Usar brief completo sincronizado
+              briefUpdate, // ✅ CORRECCIÓN: Usar briefUpdate que contiene TODOS los datos del formulario
               router,
               {
                 validateClient: validateAndResolveClient,
@@ -1028,7 +1039,8 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               </div>
               
               <PdfUploader
-                caseId={undefined} // ✅ CORRECCIÓN: Siempre usar tempUploads, incluso en modo edición
+                // ✅ CORRECCIÓN: Omitir caseId para usar tempUploads (no pasar undefined explícitamente)
+                // Esto permite que PdfUploader funcione en modo temporal, incluso en modo edición
                 orgId={orgId}
                 onFileSelected={handleFileUpload}
                 onUploadComplete={(upload) => {
@@ -1087,7 +1099,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               type="submit"
               disabled={mode === 'edit' 
                 ? (isSubmitting || caseResolvingClient || caseApproving) // ✅ Sincronización: usar caseResolvingClient global
-                : (isSubmitting || caseResolvingClient || caseApproving || !isBriefValid)} // ✅ Sincronización: usar caseResolvingClient global
+                : (isSubmitting || caseResolvingClient || caseApproving || !isBriefValid())} // ✅ CORRECCIÓN: Usar isBriefValid() del estado global para sincronización perfecta
               className="min-w-[140px]"
             >
               {caseResolvingClient ? 'Validando cliente...' : (isSubmitting || caseApproving) ? 'Procesando...' : mode === 'edit' ? 'Guardar Datos' : 'Buscar Planes'}

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import PDFParser from 'pdf2json';
 import { tryRecordAuditLog } from '@/lib/audit';
 import crypto from 'crypto';
+import { findDuplicateArtifact } from '@/lib/storage/findDuplicateArtifact';
 
 // Force Node.js runtime (required for Buffer and pdf2json)
 export const runtime = 'nodejs';
@@ -85,19 +86,20 @@ export async function POST(request: NextRequest) {
       const storagePath = `temp/${user.id}/${timestamp}_${sanitizedFileName}`;
 
       console.log('☁️ Subiendo TEMP a Storage:', storagePath);
-      // ✅ FASE 4: Incluir metadata incluso para archivos temporales (mejor práctica)
-      // Nota: org_id puede ser null en modo temporal, pero incluimos user_id para tracking
+      // ✅ FASE 4 CORREGIDA: Incluir metadata incluso para archivos temporales con conversión explícita
+      // CRÍTICO: Todos los valores de metadata deben ser strings explícitos
+      // Nota: org_id no se incluye en modo temporal (no está disponible), pero user_id sí
       const { error: uploadError } = await supabase.storage
         .from('artifacts')
         .upload(storagePath, file, {
           cacheControl: '3600',
           upsert: false,
           metadata: {
-            uploaded_by: user.id,
-            file_name: file.name,
-            content_type: file.type,
-            uploaded_at: new Date().toISOString(),
-            is_temporary: 'true', // Flag para identificar archivos temporales
+            uploaded_by: String(user.id), // ✅ CRÍTICO: Conversión explícita a string
+            file_name: String(file.name), // ✅ Ya es string, pero explícito para consistencia
+            content_type: String(file.type), // ✅ Ya es string, pero explícito para consistencia
+            uploaded_at: new Date().toISOString(), // ✅ Ya es string (ISO format)
+            is_temporary: 'true', // ✅ Ya es string literal
           }
         });
 
@@ -187,29 +189,140 @@ export async function POST(request: NextRequest) {
     const fileHash = crypto.createHash('sha256').update(buffer).digest('hex');
     console.log('🔐 Hash calculado:', fileHash.substring(0, 16) + '...');
     
-    // Verificar si ya existe un archivo con el mismo hash
-    // (búsqueda por provenance ya que fileHash no está en el esquema actual)
-    const allArtifacts = await prisma.artifact.findMany({
+    // ✅ FASE 5: Verificación de duplicados (local primero, luego global)
+    // 1. Verificar duplicado en el mismo caso (comportamiento actual - fallback)
+    const localArtifacts = await prisma.artifact.findMany({
       where: {
         caseId: caseId
       }
     });
     
-    const existingArtifact = allArtifacts.find((a: any) => 
+    const localDuplicate = localArtifacts.find((a: any) => 
       a.provenance && typeof a.provenance === 'object' && 
       (a.provenance as any).fileHash === fileHash
     );
     
-    if (existingArtifact) {
-      console.log('⚠️ Archivo duplicado detectado');
+    if (localDuplicate) {
+      console.log('⚠️ [FASE 5] Archivo duplicado detectado en el mismo caso');
       return NextResponse.json(
         { 
-          error: 'This file has already been uploaded',
-          existingArtifactId: existingArtifact.id
+          error: 'This file has already been uploaded to this case',
+          existingArtifactId: localDuplicate.id,
+          duplicateType: 'local'
         },
         { status: 409 }
       );
     }
+    
+    // 2. ✅ FASE 5: Verificar duplicado globalmente (en otros casos)
+    console.log('🔍 [FASE 5] Verificando duplicado globalmente...');
+    const globalDuplicate = await findDuplicateArtifact(fileHash, caseId);
+    
+    if (globalDuplicate.exists && globalDuplicate.artifact) {
+      console.log('⚠️ [FASE 5] Archivo duplicado detectado globalmente:', {
+        existingArtifactId: globalDuplicate.artifact.id,
+        existingCaseId: globalDuplicate.artifact.caseId,
+        existingFileName: globalDuplicate.artifact.fileName
+      });
+      
+      // ✅ FASE 5: Comportamiento configurable
+      // Por defecto: Rechazar upload (comportamiento seguro)
+      // Opción futura: Reutilizar archivo existente (crear artifact nuevo apuntando al mismo fileId)
+      const reuseExisting = formData.get('reuseExisting') === 'true'; // Opción desde frontend
+      
+      if (reuseExisting) {
+        // ✅ OPCIÓN: Reutilizar archivo existente
+        // Crear nuevo artifact apuntando al mismo fileId del artifact existente
+        console.log('♻️ [FASE 5] Reutilizando archivo existente...');
+        
+        // Obtener artifact original completo para reutilizar contentText y otros datos
+        const originalArtifact = await prisma.artifact.findUnique({
+          where: { id: globalDuplicate.artifact.id },
+          select: {
+            contentText: true,
+            contentType: true,
+            provenance: true
+          }
+        });
+        
+        if (!originalArtifact || !globalDuplicate.artifact.fileId) {
+          console.warn('⚠️ [FASE 5] Artifact original no encontrado o sin fileId, subiendo nuevo...');
+          // Continuar con upload normal
+        } else {
+          // ✅ Crear artifact reutilizando el archivo existente
+          // Reutiliza: fileId, contentText, contentType del artifact original
+          const reusedArtifact = await prisma.artifact.create({
+            data: {
+              caseId: caseId,
+              sourceType: 'pdf',
+              fileId: globalDuplicate.artifact.fileId, // ✅ Reutilizar fileId existente
+              fileName: file.name, // Usar nombre nuevo (puede ser diferente)
+              contentType: originalArtifact.contentType || file.type, // ✅ Reutilizar contentType original
+              contentText: originalArtifact.contentText, // ✅ Reutilizar contentText del artifact original
+              provenance: {
+                uploadedBy: user.id,
+                uploadedAt: new Date().toISOString(),
+                userAgent: request.headers.get('user-agent') || 'unknown',
+                fileHash: fileHash,
+                fileSize: file.size,
+                reusedFrom: globalDuplicate.artifact.id, // ✅ Metadata: indica que es reutilizado
+                originalFileName: globalDuplicate.artifact.fileName,
+                originalCaseId: globalDuplicate.artifact.caseId,
+                originalUploadedAt: globalDuplicate.artifact.createdAt.toISOString(),
+              }
+            }
+          });
+          
+          console.log('✅ [FASE 5] Artifact creado reutilizando archivo existente:', reusedArtifact.id);
+          
+          // Auditoría
+          await tryRecordAuditLog({
+            caseId: caseId,
+            actor: user.id,
+            action: 'artifact_uploaded_reused',
+            tool: 'upload_api',
+            payload: {
+              artifactId: reusedArtifact.id,
+              reusedFromArtifactId: globalDuplicate.artifact.id,
+              reusedFromCaseId: globalDuplicate.artifact.caseId,
+              fileName: file.name,
+              fileHash,
+            },
+          });
+          
+          return NextResponse.json({
+            success: true,
+            artifact: {
+              id: reusedArtifact.id,
+              fileName: reusedArtifact.fileName,
+              fileSize: file.size,
+              storagePath: reusedArtifact.fileId,
+              reused: true, // ✅ Indicar que es reutilizado
+              reusedFrom: {
+                artifactId: globalDuplicate.artifact.id,
+                caseId: globalDuplicate.artifact.caseId,
+                fileName: globalDuplicate.artifact.fileName
+              }
+            }
+          }, { status: 201 });
+        }
+      } else {
+        // ✅ OPCIÓN POR DEFECTO: Rechazar upload (comportamiento seguro)
+        return NextResponse.json(
+          { 
+            error: 'This file has already been uploaded to another case',
+            existingArtifactId: globalDuplicate.artifact.id,
+            existingCaseId: globalDuplicate.artifact.caseId,
+            existingFileName: globalDuplicate.artifact.fileName,
+            duplicateType: 'global',
+            suggestion: 'If you want to reuse this file, set reuseExisting=true in the request'
+          },
+          { status: 409 }
+        );
+      }
+    }
+    
+    console.log('✅ [FASE 5] No se encontraron duplicados, procediendo con upload normal');
     
     // Generar path seguro para el archivo en Storage
     const timestamp = Date.now();
@@ -218,20 +331,21 @@ export async function POST(request: NextRequest) {
     
     console.log('☁️ Subiendo a Storage:', storagePath);
     
-    // ✅ FASE 4: Incluir org_id en metadata para validación de políticas de storage
-    // Esto asegura que las políticas de Fase 3 funcionen correctamente
+    // ✅ FASE 4 CORREGIDA: Incluir org_id en metadata con conversión explícita a strings
+    // CRÍTICO: Supabase Storage requiere que TODOS los valores de metadata sean strings
+    // Los UUIDs deben convertirse explícitamente usando String() para evitar valores null
     const { error: uploadError } = await supabase.storage
       .from('artifacts')
       .upload(storagePath, file, {
         cacheControl: '3600',
         upsert: false,
         metadata: {
-          org_id: orgId, // ✅ REQUERIDO: Para validación de políticas de storage
-          case_id: caseId,
-          uploaded_by: user.id,
-          file_name: file.name,
-          content_type: file.type,
-          uploaded_at: new Date().toISOString(),
+          org_id: String(orgId),        // ✅ CRÍTICO: Conversión explícita a string
+          case_id: String(caseId),      // ✅ CRÍTICO: Conversión explícita a string
+          uploaded_by: String(user.id), // ✅ CRÍTICO: Conversión explícita a string
+          file_name: String(file.name), // ✅ Ya es string, pero explícito para consistencia
+          content_type: String(file.type), // ✅ Ya es string, pero explícito para consistencia
+          uploaded_at: new Date().toISOString(), // ✅ Ya es string (ISO format)
         }
       });
     

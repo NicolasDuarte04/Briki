@@ -69,16 +69,25 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
       // Esto asegura que cuando los componentes se rendericen, el estado ya esté limpio
       const state = useUI.getState();
       
-      // 1. Resetear caseApproved INMEDIATAMENTE
-      if (state.caseApproved) {
-        state.setCaseApproved(false);
-        console.log('✅ [HomeClient] caseApproved reseteado a false INMEDIATAMENTE');
-      }
-      
-      // 2. Limpiar currentCaseId INMEDIATAMENTE
+      // 1. ✅ CORRECCIÓN CRÍTICA: Limpiar currentCaseId PRIMERO para que setCaseApproved pueda resetear correctamente
+      // Esto es crítico porque setCaseApproved verifica currentCaseId antes de permitir el reset
       if (state.currentCaseId) {
         state.setCurrentCaseId(null);
-        console.log('✅ [HomeClient] currentCaseId limpiado INMEDIATAMENTE');
+        console.log('✅ [HomeClient] currentCaseId limpiado INMEDIATAMENTE (ANTES de resetear caseApproved)');
+      }
+      
+      // 2. Resetear caseApproved INMEDIATAMENTE (después de limpiar currentCaseId)
+      // ✅ CORRECCIÓN CRÍTICA: Forzar reset incluso si la regla de negocio lo bloquea
+      // Esto asegura que en new-thread-placeholder, caseApproved SIEMPRE sea false
+      if (state.caseApproved) {
+        // ✅ FORZAR reset: establecer currentCaseId a null primero (ya hecho arriba)
+        // Luego resetear caseApproved (ahora debería permitirse porque currentCaseId es null)
+        state.setCaseApproved(false);
+        console.log('✅ [HomeClient] caseApproved reseteado a false INMEDIATAMENTE (después de limpiar currentCaseId)');
+      } else {
+        // ✅ Asegurar que caseApproved sea false incluso si ya es false (por si acaso)
+        state.setCaseApproved(false);
+        console.log('✅ [HomeClient] caseApproved forzado a false (ya era false, pero asegurando)');
       }
       
       // 3. ✅ FASE 3: Limpiar brief SIEMPRE primero (sin excepciones)

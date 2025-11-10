@@ -870,24 +870,34 @@ export const useUI = create<UIState>()(
           return false;
         }
 
+        // ✅ CORRECCIÓN CRÍTICA: Establecer caseApproving ANTES de esperar
+        // Esto permite que BriefForm detecte el cambio y sincronice formData con brief global
         set({ caseApproving: true, caseApprovalError: null });
+        
+        // ✅ CORRECCIÓN CRÍTICA: Esperar un momento para que BriefForm sincronice formData con brief global
+        // BriefForm tiene un useEffect que detecta caseApproving y sincroniza automáticamente
+        await new Promise(resolve => setTimeout(resolve, 150));
+        
+        // ✅ CORRECCIÓN CRÍTICA: Obtener brief actualizado después de la sincronización
+        const updatedBrief = get().brief;
+        console.log('📋 [approveCurrentCase] Brief actualizado después de sincronización:', updatedBrief);
 
         try {
           // ✅ CORRECCIÓN CRÍTICA: Asegurar que brief tenga todos los campos necesarios
-          // Si algún campo está undefined, establecerlo explícitamente como null o valor por defecto
+          // Usar updatedBrief que ya tiene todos los datos sincronizados desde BriefForm
           const completeBriefData = {
-            ...brief,
-            selectedClientId: clientId ?? brief.selectedClientId ?? null,
-            clientName: brief.clientName ?? null,
-            businessType: brief.businessType ?? null,
-            insurance_category: brief.insurance_category ?? null,
-            max_budget: brief.max_budget ?? null,
-            employees: brief.employees ?? null,
-            client_profile: brief.client_profile ?? null,
-            required_coverages: brief.required_coverages ?? [],
-            budget_currency: brief.budget_currency ?? 'COP',
-            coverage: brief.coverage ?? null,
-            freeText: brief.freeText ?? null,
+            ...updatedBrief,
+            selectedClientId: clientId ?? updatedBrief.selectedClientId ?? null,
+            clientName: updatedBrief.clientName ?? null,
+            businessType: updatedBrief.businessType ?? null,
+            insurance_category: updatedBrief.insurance_category ?? null,
+            max_budget: updatedBrief.max_budget ?? null,
+            employees: updatedBrief.employees ?? null,
+            client_profile: updatedBrief.client_profile ?? null,
+            required_coverages: updatedBrief.required_coverages ?? [],
+            budget_currency: updatedBrief.budget_currency ?? 'COP',
+            coverage: updatedBrief.coverage ?? null,
+            freeText: updatedBrief.freeText ?? null,
           };
           
           console.log('🚀 Calling /api/cases/approve with:', { caseId: currentCaseId, briefData: completeBriefData });
@@ -952,18 +962,23 @@ export const useUI = create<UIState>()(
       setCaseApproved: (isApproved) => {
         set((state) => {
           // ✅ CORRECCIÓN CRÍTICA: REGLA DE NEGOCIO - Si caseApproved ya es true, NUNCA puede volverse false
-          // Esto protege contra resets accidentales en casos históricos aprobados
-          // Solo permitir establecer false si actualmente es false (casos nuevos/draft)
+          // EXCEPCIÓN: Si estamos en new-thread-placeholder (currentCaseId es null o 'new-thread-placeholder'),
+          // SIEMPRE permitir resetear a false para que los botones aparezcan correctamente
           if (state.caseApproved === true && isApproved === false) {
-            console.warn('⚠️ [useUI] Intento de resetear caseApproved a false cuando ya es true - BLOQUEADO (regla de negocio)');
-            // Verificar si hay un currentCaseId válido (caso histórico)
-            if (state.currentCaseId && state.currentCaseId !== 'new-thread-placeholder') {
+            // ✅ CORRECCIÓN CRÍTICA: Verificar PRIMERO si estamos en new-thread-placeholder
+            // Si estamos en new-thread-placeholder, SIEMPRE permitir el reset (no bloquear)
+            const isNewThreadPlaceholder = !state.currentCaseId || state.currentCaseId === 'new-thread-placeholder';
+            
+            if (isNewThreadPlaceholder) {
+              // ✅ EXCEPCIÓN: En new-thread-placeholder, SIEMPRE permitir resetear caseApproved a false
+              console.log('✅ [useUI] Permitiendo reset de caseApproved (new-thread-placeholder detectado)');
+            } else {
+              // ✅ REGLA DE NEGOCIO: Si hay un currentCaseId válido (caso histórico), BLOQUEAR el reset
+              console.warn('⚠️ [useUI] Intento de resetear caseApproved a false cuando ya es true - BLOQUEADO (regla de negocio)');
               console.warn('⚠️ [useUI] Caso histórico detectado - caseApproved NO puede volverse false');
               // NO cambiar el estado - mantener caseApproved en true
               return state;
             }
-            // Si no hay currentCaseId o es 'new-thread-placeholder', permitir el cambio
-            console.log('✅ [useUI] Permitiendo reset de caseApproved (caso nuevo o sin caseId)');
           }
           
           const newState = { ...state, caseApproved: isApproved };
