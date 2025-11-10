@@ -31,9 +31,11 @@ interface CaseData {
 interface CaseBriefFormProps {
     initialData?: any;
     activeCaseData?: CaseData | null; // ✅ FASE 1: Recibir activeCaseData para detectar casos históricos
+    onEditComplete?: () => void; // ✅ CORRECCIÓN: Callback para volver al resumen después de guardar
+    isEditingMode?: boolean; // ✅ CORRECCIÓN: Prop para forzar modo edición desde WorkspaceTabs
 }
 
-export default function CaseBriefForm({ initialData, activeCaseData }: CaseBriefFormProps = {}) {
+export default function CaseBriefForm({ initialData, activeCaseData, onEditComplete, isEditingMode = false }: CaseBriefFormProps = {}) {
     const router = useRouter();
     const { brief, setBrief, currentCaseId, approveCurrentCase, caseApproving, caseApproved, setCaseApproved, setInitialMessage } = useUI();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,25 +46,34 @@ export default function CaseBriefForm({ initialData, activeCaseData }: CaseBrief
     const { validateAndResolveClient, isLoading: isClientValidationLoading, modalState, setModalState } = useClientValidation(true);
     
     // ✅ CORRECCIÓN DOCUMENTADA: Detectar casos recién creados vs históricos
-    // isEditing determina si mostrar botones de aprobar
-    // Priorizar caseApproved: si es true, NUNCA mostrar botones de aprobar
+    // isEditing determina si estamos editando un caso histórico (ya creado y aprobado)
+    // Cuando isEditing es true, NO deben aparecer los botones de aprobar (solo "Guardar Datos")
     const isEditing = useMemo(() => {
+        // ✅ CORRECCIÓN CRÍTICA: Si isEditingMode está activo desde WorkspaceTabs, forzar modo edición
+        if (isEditingMode && currentCaseId) {
+            console.log('✅ [CaseBriefForm] isEditingMode activo - forzando modo edición', { isEditingMode, currentCaseId });
+            return true;
+        }
+        
         if (!currentCaseId) return false;
         
-        // ✅ CORRECCIÓN: Si caseApproved es true, NUNCA mostrar botones de aprobar
-        // (el caso ya fue aprobado, solo se puede editar)
-        if (caseApproved) return false;
-        
-        // Si hay datos del caso en BD, es caso histórico
+        // Si hay datos del caso en BD y el caso está activo, es caso histórico
+        // En este caso, isEditing debe ser true (independientemente de caseApproved)
         if (activeCaseData && activeCaseData.id === currentCaseId) {
-            // Solo editar si el caso está activo Y el usuario quiere editar
-            return activeCaseData.status === 'active';
+            // Si el caso está activo, es un caso histórico que se puede editar
+            const result = activeCaseData.status === 'active';
+            console.log('✅ [CaseBriefForm] isEditing calculado desde activeCaseData', { 
+                status: activeCaseData.status, 
+                result,
+                artifactsCount: activeCaseData.artifacts?.length || 0
+            });
+            return result;
         }
         
         // Si NO hay activeCaseData pero hay currentCaseId, es caso recién creado
-        // NO mostrar botones de aprobar después de crear (solo conversación)
+        // NO es modo edición (es creación), así que isEditing = false
         return false;
-    }, [currentCaseId, activeCaseData, caseApproved]);
+    }, [currentCaseId, activeCaseData, isEditingMode]);
     
     // ✅ Obtener orgId al montar el componente
     useEffect(() => {
@@ -164,14 +175,18 @@ export default function CaseBriefForm({ initialData, activeCaseData }: CaseBrief
     }, [currentCaseId, setBrief]);
     
     // Función para volver al modo de edición
+    // ✅ CORRECCIÓN: NO resetear caseApproved - mantener el estado original
+    // El estado isEditing se calcula desde activeCaseData, no desde caseApproved
     const handleEdit = () => {
-        setCaseApproved(false);
+        // No hacer nada - isEditing se calcula automáticamente desde activeCaseData
+        // Solo necesitamos forzar un re-render si es necesario
+        console.log('✏️ [CaseBriefForm] Modo edición activado (caso histórico)');
     };
 
     // ✅ FASE 3: Usar función extendida desde lib/case-actions.ts
     // La función local createCaseIfNeeded ha sido movida a lib/case-actions.ts
 
-    // ✅ CORRECCIÓN: handleFormSubmit ahora también crea caso si no existe (unifica con handleApproveWithValidation)
+    // ✅ CORRECCIÓN: handleFormSubmit ahora maneja creación Y actualización según el modo
     const handleFormSubmit = useCallback(async (data: CaseBriefData) => {
         // ✅ CORRECCIÓN CRÍTICA: Bloquear botones INMEDIATAMENTE antes de cualquier async
         setIsSubmitting(true);
@@ -190,24 +205,100 @@ export default function CaseBriefForm({ initialData, activeCaseData }: CaseBrief
             }
             
             // ✅ ACTUALIZAR BRIEF con validación
+            // ✅ CORRECCIÓN CRÍTICA: Usar data.freeText || data.notes para asegurar que las notas se incluyan
+            // BriefForm mapea notes a freeText, pero como fallback usamos notes si freeText está vacío
+            const finalFreeText = data.freeText || data.notes || '';
+            console.log('📝 [CaseBriefForm] freeText final para actualización:', {
+              freeText: data.freeText?.substring(0, 50) + '...',
+              notes: data.notes?.substring(0, 50) + '...',
+              finalFreeText: finalFreeText.substring(0, 50) + '...'
+            });
+            
+            // ✅ CORRECCIÓN CRÍTICA: Incluir TODOS los campos del formulario en briefUpdate
+            // Esto asegura que generateInitialMessageFromBrief incluya TODA la información
             const briefUpdate: Partial<CaseBrief> = {
-                businessType: data.businessType,
-                coverage: data.coverage,
-                freeText: data.freeText,
-                insurance_category: data.insurance_category,
-                budget_currency: data.budget_currency,
-                required_coverages: data.required_coverages,
-                client_profile: data.client_profile,
-                clientName: data.clientName,
+                businessType: data.businessType || '',
+                coverage: data.coverage || '',
+                freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que incluye notes como fallback
+                insurance_category: data.insurance_category || '',
+                budget_currency: data.budget_currency || 'COP',
+                required_coverages: data.required_coverages || [],
+                client_profile: data.client_profile || '',
+                clientName: data.clientName || '',
+                // ✅ CORRECCIÓN CRÍTICA: Incluir campos numéricos (null es válido)
+                employees: data.employees ?? null,
+                max_budget: data.max_budget ?? null,
+                // ✅ CORRECCIÓN CRÍTICA: Incluir tempUploads para que generateInitialMessageFromBrief los incluya en el mensaje al agente
+                tempUploads: data.tempUploads || [],
             };
             
-            // Solo incluir campos numéricos si no son null
-            if (data.employees !== null) briefUpdate.employees = data.employees;
-            if (data.max_budget !== null) briefUpdate.max_budget = data.max_budget;
+            console.log('📝 [CaseBriefForm] briefUpdate completo para mensaje al agente:', {
+                freeText: briefUpdate.freeText?.substring(0, 50) + '...',
+                insurance_category: briefUpdate.insurance_category,
+                clientName: briefUpdate.clientName,
+                max_budget: briefUpdate.max_budget,
+                required_coverages: briefUpdate.required_coverages?.length || 0,
+                tempUploadsCount: (briefUpdate as any).tempUploads?.length || 0
+            });
             
             setBrief(briefUpdate);
             
-            // ✅ FASE 3: Usar función extendida desde lib/case-actions.ts
+            // ✅ CORRECCIÓN: Si estamos en modo edición, actualizar caso y comunicar con agente
+            if (isEditing && currentCaseId && orgId) {
+                console.log('✏️ [CaseBriefForm] Modo edición detectado - Actualizando caso y comunicando con agente', {
+                    isEditing,
+                    currentCaseId,
+                    orgId,
+                    hasActiveCaseData: !!activeCaseData,
+                    artifactsCount: activeCaseData?.artifacts?.length || 0
+                });
+                
+                // 1. Actualizar el caso en BD
+                const updateResponse = await fetch('/api/cases/update', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        caseId: currentCaseId,
+                        orgId: orgId,
+                        ...briefUpdate,
+                        tempUploads: data.tempUploads || []
+                    })
+                });
+                
+                if (!updateResponse.ok) {
+                    const errorData = await updateResponse.json();
+                    throw new Error(errorData.error || 'Error al actualizar el caso');
+                }
+                
+                console.log('✅ [CaseBriefForm] Caso actualizado exitosamente');
+                
+                // 2. Comunicar con el agente para que responda a la información actualizada
+                // ✅ CORRECCIÓN CRÍTICA: Generar mensaje completo con TODA la información del formulario
+                // Usar generateInitialMessageFromBrief para incluir TODOS los campos, no solo freeText
+                const { startSourcing, sendAutoMessage } = useUI.getState();
+                const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
+                const autoMessageContent = generateInitialMessageFromBrief(briefUpdate) || "He actualizado la información del caso. Por favor, analiza los cambios y proporciona recomendaciones actualizadas.";
+                console.log('📝 [CaseBriefForm] Mensaje generado para agente:', autoMessageContent.substring(0, 100) + '...');
+                
+                // Activar sourcing y enviar mensaje automático
+                startSourcing();
+                await sendAutoMessage(autoMessageContent);
+                
+                console.log('✅ [CaseBriefForm] Mensaje enviado al agente para responder a la información actualizada');
+                
+                // ✅ CORRECCIÓN: Volver al resumen después de guardar exitosamente
+                // handleEditComplete en WorkspaceTabs recargará los datos del caso automáticamente
+                if (onEditComplete) {
+                    onEditComplete();
+                }
+                
+                // Resetear estados
+                setIsSubmitting(false);
+                useUI.setState({ caseApproving: false });
+                return;
+            }
+            
+            // ✅ Modo creación: Usar función extendida desde lib/case-actions.ts
             await createCaseIfNeeded(
                 briefUpdate,
                 router,
@@ -244,7 +335,7 @@ export default function CaseBriefForm({ initialData, activeCaseData }: CaseBrief
             setIsSubmitting(false);
             useUI.setState({ caseApproving: false });
         }
-    }, [setBrief, router, setInitialMessage]);
+    }, [setBrief, router, setInitialMessage, isEditing, currentCaseId, orgId]);
 
     // ✅ FASE 6: Simplificado para usar createCaseIfNeeded extendido (elimina código duplicado)
     const handleApproveWithValidation = useCallback(async () => {
@@ -363,11 +454,20 @@ export default function CaseBriefForm({ initialData, activeCaseData }: CaseBrief
                 {/* Mostrar BriefForm SIEMPRE (creación o edición) */}
                     <BriefForm
                         onSubmit={handleFormSubmit}
-                        onApprove={handleApproveWithValidation}
+                        onApprove={isEditing ? undefined : handleApproveWithValidation} // ✅ CORRECCIÓN: NO pasar onApprove en modo edición
                         isSubmitting={isSubmitting || caseApproving || isClientValidationLoading}
                     initialNotes={currentCaseId ? (brief.freeText || '') : ''} // ✅ CORRECCIÓN QUIRÚRGICA: Limpiar initialNotes cuando no hay currentCaseId
                     orgId={orgId || ''} // ✅ Pasar orgId
                     mode={isEditing ? 'edit' : 'create'} // ✅ Pasar el modo
+                    initialData={isEditing ? (activeCaseData ? {
+                        ...activeCaseData,
+                        artifacts: activeCaseData.artifacts || [], // ✅ CORRECCIÓN: Incluir artifacts en initialData para modo edición
+                        id: activeCaseData.id // ✅ CORRECCIÓN: Asegurar que id esté presente para modo edición
+                    } : (initialData ? {
+                        ...initialData,
+                        artifacts: initialData.artifacts || [],
+                        id: initialData.id
+                    } : initialData)) : initialData} // ✅ CORRECCIÓN: Pasar activeCaseData completo con artifacts en modo edición
                     />
                     
                     {/* ✅ FASE 6: Modal de validación de cliente */}

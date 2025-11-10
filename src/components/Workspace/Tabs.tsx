@@ -36,6 +36,8 @@ export function WorkspaceTabs() {
   const { caseApproved, brief, setCaseApproved, currentCaseId } = useUI();
   const [activeCaseData, setActiveCaseData] = useState<CaseData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // ✅ CORRECCIÓN: Estado local para forzar modo edición sin afectar caseApproved
+  const [isEditingMode, setIsEditingMode] = useState(false);
   const tabLabels = useMemo(() => ({
       "case-brief": t("caseBrief"),
       policies: t("policies"),
@@ -46,6 +48,11 @@ export function WorkspaceTabs() {
     } satisfies Record<WorkspaceTab, string>), [t]);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("case-brief");
   const logRenewalsEvent = useUI((state) => state.logRenewalsEvent);
+
+  // ✅ CORRECCIÓN: Resetear isEditingMode cuando cambia el caso
+  useEffect(() => {
+    setIsEditingMode(false);
+  }, [currentCaseId]);
 
   // ✅ FASE B.2: Cargar datos del caso cuando currentCaseId cambia
   useEffect(() => {
@@ -74,12 +81,13 @@ export function WorkspaceTabs() {
               useUI.setState({ caseApproving: false });
               
               if (caseData.status === 'active') {
-                // Si el caso está activo, asegurar que caseApproved sea true
+                // ✅ CORRECCIÓN CRÍTICA: Si el caso está activo, caseApproved DEBE ser true y NUNCA puede volverse false
+                // Esto es una regla de negocio: casos activos siempre están aprobados
                 setCaseApproved(true);
-                console.log('✅ [WorkspaceTabs] Caso aprobado sincronizado desde BD, caseApproved=true, caseApproving=false');
+                console.log('✅ [WorkspaceTabs] Caso activo sincronizado desde BD, caseApproved=true (NUNCA puede volverse false)');
               } else {
                 // Si el caso es 'draft', solo resetear caseApproved si NO está ya en true
-                // Esto previene que se resetee después de aprobar pero antes de que BD se actualice
+                // IMPORTANTE: Si caseApproved ya es true, NO resetearlo (puede ser un caso que se aprobó pero BD aún no se actualizó)
                 const currentCaseApproved = useUI.getState().caseApproved;
                 if (!currentCaseApproved) {
                   setCaseApproved(false);
@@ -133,15 +141,20 @@ export function WorkspaceTabs() {
   // ✅ FASE 2: Determinar si mostrar resumen o formulario
   // Lógica: 
   // - new-thread-placeholder (currentCaseId === null) → mostrar formulario (shouldShowSummary = false)
-  // - case-id con status='active' → mostrar resumen (shouldShowSummary = true)
+  // - case-id con status='active' → mostrar resumen (shouldShowSummary = true) EXCEPTO si isEditingMode = true
   // - case-id con status='draft' → mostrar formulario (shouldShowSummary = false)
   const shouldShowSummary = useMemo(() => {
+    // ✅ CORRECCIÓN: Si isEditingMode es true, SIEMPRE mostrar formulario (forzar edición)
+    if (isEditingMode) {
+      return false; // Mostrar formulario en modo edición
+    }
+    
     // ✅ CORRECCIÓN: Si no hay currentCaseId (new-thread-placeholder), SIEMPRE mostrar formulario
     if (!currentCaseId) {
       return false; // Mostrar formulario abierto para nuevo caso
     }
     
-    // Si caseApproved es true, siempre mostrar resumen
+    // Si caseApproved es true, mostrar resumen (a menos que isEditingMode sea true, ya verificado arriba)
     if (caseApproved) return true;
     
     // Si activeCaseData existe y status es 'active', mostrar resumen
@@ -153,7 +166,7 @@ export function WorkspaceTabs() {
     
     // Caso contrario: mostrar formulario (caso draft o sin datos)
     return false;
-  }, [caseApproved, activeCaseData, currentCaseId]);
+  }, [caseApproved, activeCaseData, currentCaseId, isEditingMode]);
 
   // ✅ CORRECCIÓN DOCUMENTADA: Sincronizar caseApproved con status de BD cuando activeCaseData cambia
   useEffect(() => {
@@ -190,10 +203,37 @@ export function WorkspaceTabs() {
     }
   }, [caseApproved, currentCaseId, activeCaseData?.id, activeCaseData?.status]);
 
-  // Función para volver al modo de edición (resetea el estado de aprobación)
+  // Función para volver al modo de edición
+  // ✅ CORRECCIÓN: Activar modo edición sin afectar caseApproved
+  // Usamos isEditingMode para forzar el formulario sin resetear caseApproved
   const handleEditBrief = () => {
-    setCaseApproved(false);
+    setIsEditingMode(true);
+    console.log('✏️ [WorkspaceTabs] Modo edición activado (isEditingMode=true) - mostrando formulario');
   };
+  
+  // ✅ CORRECCIÓN: Función para desactivar modo edición después de guardar
+  // Esta función se pasará a CaseBriefForm para que pueda volver al resumen después de guardar
+  const handleEditComplete = useCallback(() => {
+    setIsEditingMode(false);
+    console.log('✅ [WorkspaceTabs] Modo edición completado (isEditingMode=false) - mostrando resumen');
+    
+    // ✅ CORRECCIÓN: Recargar datos del caso para incluir nuevos artifacts y datos actualizados
+    if (currentCaseId) {
+      const fetchCaseData = async () => {
+        try {
+          const response = await fetch(`/api/cases/${currentCaseId}`);
+          if (response.ok) {
+            const { case: caseData } = await response.json();
+            setActiveCaseData(caseData);
+            console.log('✅ [WorkspaceTabs] Datos del caso recargados después de editar, incluyendo nuevos artifacts');
+          }
+        } catch (error) {
+          console.warn('⚠️ [WorkspaceTabs] Error recargando datos después de editar:', error);
+        }
+      };
+      fetchCaseData();
+    }
+  }, [currentCaseId]);
 
   const handleTabChange = useCallback((value: string) => {
     const nextTab = value as WorkspaceTab;
@@ -227,6 +267,8 @@ export function WorkspaceTabs() {
               <CaseBriefForm 
                 initialData={activeCaseData?.briefData || brief} 
                 activeCaseData={activeCaseData} 
+                onEditComplete={isEditingMode ? handleEditComplete : undefined}
+                isEditingMode={isEditingMode} // ✅ CORRECCIÓN: Pasar isEditingMode para forzar modo edición
               />
             )}
           </TabsContent>

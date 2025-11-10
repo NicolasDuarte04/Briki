@@ -58,6 +58,15 @@ export async function POST(req: NextRequest) {
       orgId = memberships[0]?.org_id as string;
     }
 
+    // ✅ VALIDACIÓN EXPLÍCITA: Asegurar que orgId nunca sea null
+    if (!orgId || orgId === null) {
+      console.error('❌ [API/chat/start] orgId is null after resolution');
+      return NextResponse.json(
+        { error: 'Organization ID is required and could not be resolved from user membership' },
+        { status: 400 }
+      );
+    }
+
     // Crear Case
     const newCase = await prisma.case.create({
       data: {
@@ -71,6 +80,21 @@ export async function POST(req: NextRequest) {
 
     // Mover/registrar artifacts desde temp
     for (const t of tempUploads) {
+      // ✅ VALIDACIÓN EXPLÍCITA: Asegurar que storagePath sea válido
+      if (!t.storagePath || t.storagePath.trim() === '' || 
+          t.storagePath.includes('null') || t.storagePath.includes('undefined')) {
+        console.error('❌ [API/chat/start] Invalid tempUpload.storagePath:', t);
+        return NextResponse.json(
+          { error: `Invalid storage path for file ${t.fileName}. Please re-upload the file.` },
+          { status: 400 }
+        );
+      }
+      
+      // ✅ Limpiar bytes nulos de contentText para evitar errores de encoding UTF8
+      const cleanedContentText = t.extractedText 
+        ? t.extractedText.replace(/\0/g, '') 
+        : null;
+      
       await prisma.artifact.create({
         data: {
           caseId: newCase.id,
@@ -78,7 +102,7 @@ export async function POST(req: NextRequest) {
           fileId: t.storagePath, // mantenemos la ruta; si luego quieres mover, podemos copiar en Storage
           fileName: t.fileName,
           contentType: 'application/pdf',
-          contentText: t.extractedText || null,  // ← MODIFICADO: Usar texto extraído
+          contentText: cleanedContentText,  // ← MODIFICADO: Usar texto extraído y limpiado
           provenance: {
             uploadedBy: user.id,
             origin: 'landing_temp',

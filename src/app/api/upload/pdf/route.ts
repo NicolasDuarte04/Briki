@@ -227,6 +227,15 @@ export async function POST(request: NextRequest) {
     
     console.log('✅ Archivo subido a Storage');
     
+    // ✅ VALIDACIÓN EXPLÍCITA: Asegurar que storagePath sea válido antes de crear artifact
+    if (!storagePath || storagePath.trim() === '' || storagePath.includes('null') || storagePath.includes('undefined')) {
+      console.error('❌ [API/upload/pdf] Invalid storagePath:', storagePath);
+      return NextResponse.json(
+        { error: 'Invalid storage path generated. Please try again.' },
+        { status: 500 }
+      );
+    }
+    
     // Extraer texto del PDF
     console.log('📚 Extrayendo texto del PDF...');
     let pdfText = '';
@@ -245,6 +254,9 @@ export async function POST(request: NextRequest) {
     // Crear registro en la tabla artifacts
     console.log('💾 Creando registro en artifacts...');
     
+    // ✅ Limpiar bytes nulos de contentText para evitar errores de encoding UTF8
+    const cleanedPdfText = pdfText ? pdfText.replace(/\0/g, '') : null;
+    
     const artifact = await prisma.artifact.create({
       data: {
         caseId: caseId,
@@ -252,7 +264,7 @@ export async function POST(request: NextRequest) {
         fileId: storagePath,
         fileName: file.name,
         contentType: file.type,
-        contentText: pdfText || null,
+        contentText: cleanedPdfText,
         provenance: {
           uploadedBy: user.id,
           uploadedAt: new Date().toISOString(),

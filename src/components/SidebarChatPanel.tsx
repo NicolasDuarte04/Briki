@@ -176,6 +176,14 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
         // --- PASO 4: Actualizar Estado Global ---
         setCurrentCaseId(caseId);
         
+        // ✅ CORRECCIÓN CRÍTICA: Sincronizar caseApproved desde BD inmediatamente
+        // REGLA DE NEGOCIO: Si el caso tiene status: 'active', caseApproved DEBE ser true y NUNCA puede volverse false
+        if (caseData.status === 'active') {
+          const { setCaseApproved } = useUI.getState();
+          setCaseApproved(true);
+          console.log(`✅ [SidebarChatPanel] Caso activo detectado, caseApproved=true (NUNCA puede volverse false)`);
+        }
+        
         // ✅ CORRECCIÓN: Limpiar tempUploads al cargar caso histórico (PDFs vienen de artifacts, no de tempUploads)
         const briefData = caseData.briefData || {};
         if ((briefData as any).tempUploads) {

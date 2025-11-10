@@ -57,6 +57,20 @@ export async function POST(request: NextRequest) {
       client_profile,
     } = body;
     
+    // ✅ CORRECCIÓN CRÍTICA: Asegurar que briefData.freeText esté presente
+    // Prioridad: briefData.freeText > briefData.notes > '' (nunca null)
+    const finalBriefData = briefData || {};
+    if (!finalBriefData.freeText || finalBriefData.freeText.trim() === '') {
+      // Si no hay freeText en briefData, intentar obtenerlo de briefData.notes como fallback
+      finalBriefData.freeText = finalBriefData.notes || '';
+      console.log('📝 [API/cases/create] freeText no encontrado en briefData, usando notes como fallback:', finalBriefData.freeText?.substring(0, 50) + '...');
+    }
+    console.log('📝 [API/cases/create] briefData final para creación:', {
+      freeText: finalBriefData.freeText?.substring(0, 50) + '...',
+      notes: finalBriefData.notes?.substring(0, 50) + '...',
+      hasFreeText: !!finalBriefData.freeText
+    });
+    
     // ✅ CORRECCIÓN CRÍTICA: Validar y normalizar max_budget
     // DECIMAL(10,2) permite valores de -99,999,999.99 a 99,999,999.99
     let max_budget: number | null = null;
@@ -98,6 +112,15 @@ export async function POST(request: NextRequest) {
       console.log('✅ [API] Resolved orgId from user membership:', orgId);
     }
     
+    // ✅ VALIDACIÓN EXPLÍCITA: Asegurar que orgId nunca sea null
+    if (!orgId || orgId === null) {
+      console.error('❌ [API/cases/create] orgId is null or undefined after resolution');
+      return NextResponse.json(
+        { error: 'Organization ID is required and could not be resolved from user membership' },
+        { status: 400 }
+      );
+    }
+    
     // clientName es opcional - usar valor por defecto si no se proporciona
     const finalClientName = clientName || 'Cliente Nuevo';
     
@@ -134,7 +157,7 @@ export async function POST(request: NextRequest) {
       try {
         newCase = await createCaseWithOrg(
           orgId,
-          briefData || {},
+          finalBriefData, // ✅ CORRECCIÓN: Usar finalBriefData que incluye freeText garantizado
           user.id,
           {
             clientName: finalClientName,  // Usar el valor final (con fallback)
@@ -210,7 +233,22 @@ export async function POST(request: NextRequest) {
       console.log('📎 [API] Creating artifacts for caseId:', newCase.id);
       
       for (const tempUpload of tempUploads) {
+        // ✅ VALIDACIÓN EXPLÍCITA: Asegurar que storagePath sea válido
+        if (!tempUpload.storagePath || tempUpload.storagePath.trim() === '' || 
+            tempUpload.storagePath.includes('null') || tempUpload.storagePath.includes('undefined')) {
+          console.error('❌ [API/cases/create] Invalid tempUpload.storagePath:', tempUpload);
+          return NextResponse.json(
+            { error: `Invalid storage path for file ${tempUpload.fileName}. Please re-upload the file.` },
+            { status: 400 }
+          );
+        }
+        
         console.log('📎 [API] Creating artifact:', tempUpload.fileName);
+        // ✅ Limpiar bytes nulos de contentText para evitar errores de encoding UTF8
+        const cleanedContentText = tempUpload.extractedText 
+          ? tempUpload.extractedText.replace(/\0/g, '') 
+          : null;
+        
         await prisma.artifact.create({
           data: {
             caseId: newCase.id,
@@ -218,7 +256,7 @@ export async function POST(request: NextRequest) {
             fileId: tempUpload.storagePath,
             fileName: tempUpload.fileName,
             contentType: 'application/pdf',
-            contentText: tempUpload.extractedText || null,
+            contentText: cleanedContentText,
             provenance: {
               uploadedBy: user.id,
               uploadedAt: new Date().toISOString(),

@@ -951,6 +951,21 @@ export const useUI = create<UIState>()(
       },
       setCaseApproved: (isApproved) => {
         set((state) => {
+          // ✅ CORRECCIÓN CRÍTICA: REGLA DE NEGOCIO - Si caseApproved ya es true, NUNCA puede volverse false
+          // Esto protege contra resets accidentales en casos históricos aprobados
+          // Solo permitir establecer false si actualmente es false (casos nuevos/draft)
+          if (state.caseApproved === true && isApproved === false) {
+            console.warn('⚠️ [useUI] Intento de resetear caseApproved a false cuando ya es true - BLOQUEADO (regla de negocio)');
+            // Verificar si hay un currentCaseId válido (caso histórico)
+            if (state.currentCaseId && state.currentCaseId !== 'new-thread-placeholder') {
+              console.warn('⚠️ [useUI] Caso histórico detectado - caseApproved NO puede volverse false');
+              // NO cambiar el estado - mantener caseApproved en true
+              return state;
+            }
+            // Si no hay currentCaseId o es 'new-thread-placeholder', permitir el cambio
+            console.log('✅ [useUI] Permitiendo reset de caseApproved (caso nuevo o sin caseId)');
+          }
+          
           const newState = { ...state, caseApproved: isApproved };
           // ✅ CORRECCIÓN CRÍTICA: Persistir caseApproved cuando se establece
           persistState(newState);

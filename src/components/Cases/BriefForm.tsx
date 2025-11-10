@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -62,7 +62,7 @@ interface BriefFormProps {
   onApprove?: () => Promise<void>; // Nueva prop para aprobación con validación
   initialNotes?: string;
   isSubmitting: boolean;
-  initialData?: any; // Datos del caso para modo edición
+  initialData?: any; // Datos del caso para modo edición (puede incluir artifacts)
   mode?: 'create' | 'edit';
   orgId?: string;
 }
@@ -217,15 +217,64 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // Estado para el input de coberturas
   const [currentCoverage, setCurrentCoverage] = useState('');
   
-  // Estado para uploads temporales
-  const [tempUploads, setTempUploads] = useState<TempUpload[]>([]);
+  // ✅ CORRECCIÓN CRÍTICA: Convertir artifacts a tempUploads INMEDIATAMENTE al inicializar el estado
+  // Esto evita que se muestren los artifacts en su formato original antes de la conversión
+  const convertArtifactsToTempUploads = useCallback((artifacts: any[]): TempUpload[] => {
+    if (!Array.isArray(artifacts) || artifacts.length === 0) return [];
+    
+    return artifacts
+      .filter((artifact: any) => artifact.sourceType === 'pdf' && artifact.fileId)
+      .map((artifact: any) => {
+        const provenance = artifact.provenance || {};
+        return {
+          id: artifact.id,
+          storagePath: artifact.fileId,
+          fileName: artifact.fileName || 'Sin nombre',
+          fileSize: provenance.fileSize || 0,
+          pageCount: provenance.pageCount || undefined,
+          charactersExtracted: provenance.charactersExtracted || undefined,
+          fileHash: provenance.fileHash || undefined,
+          extractedText: artifact.contentText || undefined,
+        };
+      });
+  }, []);
 
-  // ✅ FASE 4: Cargar tempUploads desde brief SOLO si hay landingDataPending
-  // Esto evita cargar PDFs residuales de casos históricos
-  // NOTA: Este useEffect es redundante ahora que cargamos desde el useEffect anterior,
-  // pero lo mantenemos como respaldo para casos edge
+  // ✅ CORRECCIÓN CRÍTICA FASE 2.2: Inicializar tempUploads directamente desde artifacts si estamos en modo edición
+  // Esto asegura que los artifacts se conviertan ANTES del primer render
+  // Usar JSON.stringify para comparar artifacts de manera estable y evitar recálculos innecesarios
+  const artifactsKey = useMemo(() => {
+    if (mode === 'edit' && initialData?.artifacts) {
+      const artifacts = Array.isArray(initialData.artifacts) ? initialData.artifacts : [];
+      if (artifacts.length > 0) {
+        // Crear una clave estable basada en los IDs de los artifacts
+        return artifacts.map((a: any) => a.id || a.fileId).filter(Boolean).sort().join(',');
+      }
+    }
+    return '';
+  }, [mode, initialData?.artifacts]);
+
+  const initialTempUploads = useMemo(() => {
+    if (mode === 'edit' && initialData?.artifacts && artifactsKey) {
+      const artifacts = Array.isArray(initialData.artifacts) ? initialData.artifacts : [];
+      if (artifacts.length > 0) {
+        const converted = convertArtifactsToTempUploads(artifacts);
+        if (converted.length > 0) {
+          console.log('✅ [BriefForm] Inicializando tempUploads desde artifacts (ANTES del primer render):', converted.length);
+          return converted;
+        }
+      }
+    }
+    return [];
+  }, [mode, artifactsKey, convertArtifactsToTempUploads]);
+
+  // Estado para uploads temporales - inicializado con artifacts convertidos si estamos en modo edición
+  const [tempUploads, setTempUploads] = useState<TempUpload[]>(initialTempUploads);
+
+  // ✅ CORRECCIÓN CRÍTICA FASE 2.2: useEffect para sincronizar cuando artifacts cambian
+  // FORZAR conversión inmediatamente cuando mode === 'edit' y hay artifacts
   useEffect(() => {
     const currentCaseId = useUI.getState().currentCaseId;
+    
     if (!currentCaseId) {
       // Solo cargar tempUploads si hay landingDataPending (datos vienen de Landing)
       // Y si no están ya cargados en el estado local
@@ -237,9 +286,54 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         }
       }
       // Si no hay landingDataPending, no cargar (evitar residuales)
-    } else {
-      // Para casos históricos, limpiar tempUploads para evitar PDFs residuales
-      console.log('🧹 [BriefForm] Limpiando tempUploads para caso histórico:', currentCaseId);
+    } else if (mode === 'edit' && initialData?.artifacts) {
+      // ✅ CORRECCIÓN CRÍTICA: En modo edición, convertir artifacts a tempUploads INMEDIATAMENTE
+      // IMPORTANTE: MERGEAR con tempUploads existentes para preservar nuevos PDFs agregados por el usuario
+      const artifacts = Array.isArray(initialData.artifacts) ? initialData.artifacts : [];
+      if (artifacts.length > 0) {
+        const convertedTempUploads = convertArtifactsToTempUploads(artifacts);
+        
+        // ✅ CORRECCIÓN CRÍTICA: MERGEAR artifacts convertidos con tempUploads nuevos (no sobrescribir)
+        // Esto preserva los nuevos PDFs que el usuario ha agregado mientras mantiene los históricos
+        if (convertedTempUploads.length > 0) {
+          // Obtener los storagePaths de los artifacts convertidos
+          const convertedPaths = new Set(convertedTempUploads.map(u => u.storagePath));
+          
+          // Identificar tempUploads nuevos que NO vienen de artifacts (agregados por el usuario)
+          const newTempUploads = tempUploads.filter(u => !convertedPaths.has(u.storagePath));
+          
+          // MERGEAR: artifacts convertidos + nuevos tempUploads
+          const mergedTempUploads = [...convertedTempUploads, ...newTempUploads];
+          
+          // Verificar si hay cambios (nuevos artifacts o nuevos tempUploads)
+          const currentPaths = tempUploads.map(u => u.storagePath).sort().join(',');
+          const mergedPaths = mergedTempUploads.map(u => u.storagePath).sort().join(',');
+          
+          // ✅ ACTUALIZAR solo si hay cambios (nuevos artifacts o nuevos tempUploads)
+          if (tempUploads.length === 0 || currentPaths !== mergedPaths) {
+            console.log('✅ [BriefForm] Sincronizando tempUploads (MERGE):', {
+              artifacts: convertedTempUploads.length,
+              nuevos: newTempUploads.length,
+              total: mergedTempUploads.length
+            });
+            setTempUploads(mergedTempUploads);
+            
+            // Sincronizar con brief global
+            const currentBrief = useUI.getState().brief;
+            setBrief({
+              ...currentBrief,
+              tempUploads: mergedTempUploads
+            } as any);
+          }
+        }
+      } else if (tempUploads.length > 0) {
+        // Si no hay artifacts pero hay tempUploads, mantenerlos (pueden ser nuevos PDFs agregados)
+        // NO limpiar - el usuario puede haber agregado nuevos PDFs
+        console.log('✅ [BriefForm] Manteniendo tempUploads nuevos (no hay artifacts históricos):', tempUploads.length);
+      }
+    } else if (currentCaseId && mode !== 'edit') {
+      // Para casos históricos en modo creación, limpiar tempUploads para evitar PDFs residuales
+      console.log('🧹 [BriefForm] Limpiando tempUploads para caso histórico (modo creación):', currentCaseId);
       setTempUploads([]);
       // También limpiar del brief global
       const currentBrief = useUI.getState().brief;
@@ -247,7 +341,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         setBrief({ tempUploads: [] } as any);
       }
     }
-  }, [brief, landingDataPending, tempUploads.length, setBrief]); // ✅ FASE 4: Incluir tempUploads.length para evitar loops
+  }, [brief, landingDataPending, setBrief, mode, artifactsKey, convertArtifactsToTempUploads, initialData?.artifacts]); // ✅ Usar artifactsKey en lugar de tempUploads.length para evitar loops
 
   // ✅ FASE 2 REFORMULADA QUIRÚRGICA: Limpiar estado local cuando no hay currentCaseId
   // ✅ CORRECCIÓN: También limpiar tempUploads del brief global
@@ -433,6 +527,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     updateField('required_coverages', formData.required_coverages.filter(c => c !== coverageToRemove));
   }, [formData.required_coverages, updateField]);
 
+  // ✅ CORRECCIÓN CRÍTICA: Ref para almacenar onUploadComplete de PdfUploader
+  // Esto permite llamar a onUploadComplete desde handleFileUpload para que PdfUploader limpie selectedFile
+  const onUploadCompleteRef = useRef<((upload: TempUpload) => void) | null>(null);
+
   // Handlers para uploads
   const handleFileUpload = async (file: File) => {
     console.log('📄 [BriefForm] Iniciando subida de PDF temporal:', file.name);
@@ -454,15 +552,15 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       if (result.success && result.mode === 'temp' && result.tempUpload) {
         console.log('✅ [BriefForm] PDF subido como temp con storagePath real:', result.tempUpload);
         
-        // Agregar a estado local
-        setTempUploads(prev => [...prev, result.tempUpload]);
-        
-        // ✅ Sincronizar con Zustand global
-        const currentBrief = useUI.getState().brief;
-        setBrief({
-          ...currentBrief,
-          tempUploads: [...(currentBrief.tempUploads || []), result.tempUpload]
-        });
+        // ✅ CORRECCIÓN CRÍTICA: Llamar a onUploadComplete (que pasa por wrappedOnUploadComplete en PdfUploader)
+        // Esto permite que PdfUploader limpie selectedFile ANTES de agregar a tempUploads
+        // onUploadCompleteRef.current es handleUploadComplete que se pasa a PdfUploader
+        if (onUploadCompleteRef.current) {
+          onUploadCompleteRef.current(result.tempUpload);
+        } else {
+          // Fallback: si no hay ref, llamar directamente a handleUploadComplete
+          handleUploadComplete(result.tempUpload);
+        }
       } else {
         console.error('❌ [BriefForm] Error al subir PDF:', result.error);
         alert(`Error: ${result.error || 'Error desconocido'}`);
@@ -473,15 +571,45 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     }
   };
 
-  const handleUploadComplete = (upload: TempUpload) => {
-    setTempUploads(prev => [...prev, upload]);
+  const handleUploadComplete = useCallback((upload: TempUpload) => {
+    // ✅ CORRECCIÓN CRÍTICA: Verificar que el upload no esté ya en tempUploads (evitar duplicados)
+    setTempUploads(prev => {
+      const exists = prev.some(u => u.storagePath === upload.storagePath);
+      if (exists) {
+        console.log('⚠️ [BriefForm] Upload ya existe en tempUploads, omitiendo:', upload.storagePath);
+        return prev;
+      }
+      console.log('✅ [BriefForm] Agregando nuevo upload a tempUploads:', upload.fileName);
+      return [...prev, upload];
+    });
+    
     // ✅ Sincronizar con Zustand global
     const currentBrief = useUI.getState().brief;
+    const currentTempUploads = currentBrief.tempUploads || [];
+    const existsInBrief = currentTempUploads.some((u: any) => u.storagePath === upload.storagePath);
+    if (!existsInBrief) {
     setBrief({
       ...currentBrief,
-      tempUploads: [...(currentBrief.tempUploads || []), upload]
-    });
-  };
+        tempUploads: [...currentTempUploads, upload]
+      });
+    }
+    
+    // ✅ CORRECCIÓN CRÍTICA: Notificar a PdfUploader para que limpie selectedFile
+    // Esto se hace llamando a onUploadComplete que se pasa a PdfUploader
+    // PdfUploader usará handleUploadCompleteWrapper para limpiar selectedFile
+  }, [setBrief]);
+  
+  // ✅ CORRECCIÓN CRÍTICA: Función wrapper que combina handleUploadComplete con notificación a PdfUploader
+  // Esta función se pasa a PdfUploader como onUploadComplete
+  // Cuando se llama desde handleFileUpload, agrega el upload a tempUploads
+  // PdfUploader usa wrappedOnUploadComplete que limpia selectedFile automáticamente cuando onUploadComplete se llama
+  const handleUploadCompleteWithCleanup = useCallback((upload: TempUpload) => {
+    // Agregar a tempUploads (handleUploadComplete)
+    handleUploadComplete(upload);
+    // Nota: La limpieza de selectedFile en PdfUploader se hace automáticamente
+    // porque PdfUploader usa wrappedOnUploadComplete que intercepta onUploadComplete cuando no hay caseId
+    // wrappedOnUploadComplete se ejecuta cuando onUploadComplete (que es handleUploadCompleteWithCleanup) se llama
+  }, [handleUploadComplete]);
 
   const handleRemoveUpload = (storagePath: string) => {
     setTempUploads(prev => prev.filter(upload => upload.storagePath !== storagePath));
@@ -534,26 +662,59 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
       // En modo edición: llamar onSubmit con todos los datos
       if (mode === 'edit') {
-        console.log('✏️ [BriefForm] Edit mode: Calling onSubmit with formData + tempUploads');
-        await onSubmit({ ...formData, tempUploads });
+        // ✅ CORRECCIÓN: En modo edición, filtrar tempUploads para enviar solo los nuevos (no los que ya están en artifacts)
+        // Los artifacts históricos ya están en BD, solo necesitamos enviar los nuevos
+        const existingArtifactPaths = initialData?.artifacts
+          ?.filter((a: any) => a.sourceType === 'pdf' && a.fileId)
+          .map((a: any) => a.fileId) || [];
+        
+        const newTempUploads = tempUploads.filter(
+          upload => !existingArtifactPaths.includes(upload.storagePath)
+        );
+        
+        // ✅ CORRECCIÓN CRÍTICA: Mapear formData.notes a freeText ANTES de llamar a onSubmit
+        // Esto asegura que las "Notas Adicionales" se envíen correctamente como freeText
+        const formDataWithFreeText = {
+          ...formData,
+          freeText: formData.notes || formData.freeText || '', // ✅ Prioridad: notes > freeText > ''
+          tempUploads: newTempUploads
+        };
+        
+        console.log('✏️ [BriefForm] Edit mode: Calling onSubmit with formData + newTempUploads', {
+          totalTempUploads: tempUploads.length,
+          existingArtifacts: existingArtifactPaths.length,
+          newTempUploads: newTempUploads.length,
+          freeText: formDataWithFreeText.freeText?.substring(0, 50) + '...',
+          notes: formData.notes?.substring(0, 50) + '...'
+        });
+        await onSubmit(formDataWithFreeText);
       } else {
         // ✅ FASE 5: Modo creación - Usar createCaseIfNeeded extendido
         if (onApprove) {
           // ✅ CORRECCIÓN CRÍTICA: Sincronizar TODOS los campos de formData con brief ANTES de enviar
           // Esto asegura que todos los valores del formulario estén disponibles en el estado global
-          console.log('✅ [BriefForm] Sincronizando formData completo con brief antes de enviar');
+          // IMPORTANTE: Mapear formData.notes a freeText para asegurar que las notas se incluyan
+          const finalFreeText = formData.notes || brief.freeText || '';
+          console.log('✅ [BriefForm] Sincronizando formData completo con brief antes de enviar', {
+            notes: formData.notes?.substring(0, 50) + '...',
+            briefFreeText: brief.freeText?.substring(0, 50) + '...',
+            finalFreeText: finalFreeText.substring(0, 50) + '...',
+            tempUploadsCount: tempUploads.length
+          });
+          
           const completeBriefUpdate: Partial<CaseBrief> = {
             ...brief, // Mantener valores existentes
             clientName: formData.clientName || brief.clientName || '',
             businessType: formData.businessType || brief.businessType || '',
             coverage: formData.coverage || brief.coverage || '',
-            freeText: formData.notes || brief.freeText || '', // notes se mapea a freeText
+            freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
             insurance_category: formData.insurance_category || brief.insurance_category || '',
             max_budget: formData.max_budget ?? brief.max_budget ?? null,
             employees: formData.employees ?? brief.employees ?? null,
             client_profile: formData.client_profile || brief.client_profile || '',
             required_coverages: formData.required_coverages || brief.required_coverages || [],
             budget_currency: formData.budget_currency || brief.budget_currency || 'COP',
+            tempUploads: tempUploads, // ✅ CORRECCIÓN: Incluir tempUploads para que generateInitialMessageFromBrief los incluya
           };
           
           // Sincronizar con el estado global
@@ -597,8 +758,18 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             }
           }
         } else {
-          // Fallback: solo proceder con el envío del formulario
-          await onSubmit({ ...formData, tempUploads });
+          // ✅ CORRECCIÓN CRÍTICA: Mapear formData.notes a freeText ANTES de llamar a onSubmit
+          // Esto asegura que las "Notas Adicionales" se envíen correctamente como freeText
+          const formDataWithFreeText = {
+            ...formData,
+            freeText: formData.notes || formData.freeText || '', // ✅ Prioridad: notes > freeText > ''
+            tempUploads: tempUploads
+          };
+          console.log('📝 [BriefForm] Fallback mode: Calling onSubmit with formData (notes mapeado a freeText)', {
+            freeText: formDataWithFreeText.freeText?.substring(0, 50) + '...',
+            notes: formData.notes?.substring(0, 50) + '...'
+          });
+          await onSubmit(formDataWithFreeText);
         }
       }
     } catch (error: any) {
@@ -857,26 +1028,35 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               </div>
               
               <PdfUploader
-                caseId={mode === 'edit' ? initialData?.id : undefined}
+                caseId={undefined} // ✅ CORRECCIÓN: Siempre usar tempUploads, incluso en modo edición
                 orgId={orgId}
                 onFileSelected={handleFileUpload}
-                onUploadComplete={handleUploadComplete}
+                onUploadComplete={(upload) => {
+                  // ✅ CORRECCIÓN CRÍTICA: Almacenar la función en ref para poder llamarla desde handleFileUpload
+                  onUploadCompleteRef.current = handleUploadComplete;
+                  // Llamar a handleUploadComplete (que agrega a tempUploads)
+                  // PdfUploader intercepta esta llamada con wrappedOnUploadComplete que limpia selectedFile
+                  handleUploadComplete(upload);
+                }}
               />
               
-              {/* Lista de archivos subidos */}
+              {/* ✅ CORRECCIÓN CRÍTICA FASE 2.3: SOLO renderizar tempUploads, NUNCA artifacts directamente */}
+              {/* IMPORTANTE: NO renderizar initialData?.artifacts bajo ninguna circunstancia */}
+              {/* El único renderizado permitido es la lista simple de tempUploads */}
               {tempUploads.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Archivos subidos:</Label>
+                <div className="space-y-2 mt-4">
+                  <Label className="text-sm font-medium">Documentos asociados:</Label>
                   <div className="space-y-2">
                     {tempUploads.map((upload) => (
                       <div key={upload.storagePath} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-muted-foreground" />
-                          <div>
+                          <div className="flex-1">
                             <p className="text-sm font-medium">{upload.fileName}</p>
                             <p className="text-xs text-muted-foreground">
-                              {upload.pageCount && `${upload.pageCount} páginas`}
-                              {upload.fileSize && ` • ${(upload.fileSize / 1024 / 1024).toFixed(2)} MB`}
+                              {upload.pageCount ? `${upload.pageCount} páginas` : ''}
+                              {upload.pageCount && upload.fileSize ? ' • ' : ''}
+                              {upload.fileSize ? `${Math.round(upload.fileSize / 1024)} KB` : ''}
                             </p>
                           </div>
                         </div>
@@ -885,6 +1065,8 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                           variant="ghost"
                           size="sm"
                           onClick={() => handleRemoveUpload(upload.storagePath)}
+                          className="flex-shrink-0"
+                          aria-label="Eliminar archivo"
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -893,6 +1075,9 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                   </div>
                 </div>
               )}
+              
+              {/* ✅ CORRECCIÓN CRÍTICA FASE 2.3: NO renderizar artifacts directamente bajo ninguna circunstancia */}
+              {/* Si tempUploads está vacío, NO mostrar nada - la conversión se realizará automáticamente en el useEffect */}
             </div>
           )}
 
@@ -905,7 +1090,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 : (isSubmitting || caseResolvingClient || caseApproving || !isBriefValid)} // ✅ Sincronización: usar caseResolvingClient global
               className="min-w-[140px]"
             >
-              {caseResolvingClient ? 'Validando cliente...' : (isSubmitting || caseApproving) ? 'Procesando...' : mode === 'edit' ? 'Guardar Cambios' : 'Buscar Planes'}
+              {caseResolvingClient ? 'Validando cliente...' : (isSubmitting || caseApproving) ? 'Procesando...' : mode === 'edit' ? 'Guardar Datos' : 'Buscar Planes'}
             </Button>
           </div>
         </form>

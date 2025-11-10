@@ -1,7 +1,7 @@
 // /src/components/Upload/PdfUploader.tsx
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +26,34 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
+  // ✅ CORRECCIÓN CRÍTICA: Wrapper para onUploadComplete que limpia selectedFile cuando no hay caseId
+  // Esto permite que el PDF se mueva del "recuadro inicial" a "Documentos asociados"
+  // La limpieza se hace cuando BriefForm llama a handleUploadComplete después de subir el PDF
+  // IMPORTANTE: Reemplazar onUploadComplete con este wrapper cuando no hay caseId
+  // para que todas las llamadas (incluidas las externas desde BriefForm) pasen por el wrapper
+  const wrappedOnUploadComplete = useCallback((upload: any) => {
+    // Si no hay caseId (modo temp upload), limpiar selectedFile ANTES de llamar al callback
+    if (!caseId && selectedFile && upload) {
+      console.log('✅ [PdfUploader] Limpiando selectedFile después de upload exitoso:', upload.fileName);
+      setSelectedFile(null);
+      setError(null);
+      setSuccessMessage(`✓ ${upload.fileName || 'Archivo'} agregado exitosamente`);
+      // Limpiar mensaje después de 2 segundos
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 2000);
+    }
+    // Llamar al callback original (que agrega a tempUploads en BriefForm)
+    if (onUploadComplete) {
+      onUploadComplete(upload);
+    }
+  }, [caseId, selectedFile, onUploadComplete]);
+  
+  // ✅ CORRECCIÓN CRÍTICA: Usar wrappedOnUploadComplete cuando no hay caseId (modo temp upload)
+  // Esto asegura que selectedFile se limpie cuando BriefForm llama a handleUploadComplete
+  // Reemplazar onUploadComplete con wrappedOnUploadComplete para interceptar todas las llamadas
+  const effectiveOnUploadComplete = !caseId && onUploadComplete ? wrappedOnUploadComplete : onUploadComplete;
+  
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
       const file = acceptedFiles[0];
@@ -41,10 +69,13 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
       setUploadResult(null);
       setSuccessMessage(null);
       
-      // Si no hay caseId, notificar inmediatamente (para BriefForm con tempUploads)
+      // ✅ CORRECCIÓN: Si no hay caseId, usar tempUploads (modo edición o creación)
+      // En modo edición, siempre usar tempUploads (no crear artifacts directamente)
       if (!caseId && onFileSelected) {
+        // Llamar a onFileSelected de forma asíncrona para que BriefForm maneje el upload
+        // onUploadComplete se llamará cuando el upload termine exitosamente
         onFileSelected(file);
-        return; // No hacer upload, solo notificar
+        return; // No hacer upload aquí, BriefForm manejará el upload
       }
     }
   }, [caseId, onFileSelected]);
@@ -97,9 +128,9 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
       setUploadResult(data.artifact);
       setSuccessMessage(`${data.artifact.fileName} se ha procesado correctamente.`);
       
-      // Llamar callback si existe
-      if (onUploadComplete && data.artifact) {
-        onUploadComplete(data.artifact);
+      // Llamar callback si existe (usar effectiveOnUploadComplete para limpiar selectedFile en modo temp)
+      if (effectiveOnUploadComplete && data.artifact) {
+        effectiveOnUploadComplete(data.artifact);
       }
       
       // Actualizar la página después de un breve delay

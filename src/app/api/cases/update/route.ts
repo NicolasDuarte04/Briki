@@ -29,6 +29,31 @@ export async function PUT(request: NextRequest) {
             }
         }
         
+        // ✅ CORRECCIÓN CRÍTICA: Obtener el caso actual para preservar el status
+        // REGLA DE NEGOCIO: Un caso aprobado (status='active') NUNCA puede volverse 'draft'
+        const existingCase = await prisma.case.findUnique({
+            where: {
+                id: caseId,
+                orgId: currentOrg.id,
+            },
+            select: {
+                status: true,
+            },
+        });
+        
+        if (!existingCase) {
+            return NextResponse.json({ error: 'Case not found or access denied' }, { status: 404 });
+        }
+        
+        // ✅ CORRECCIÓN CRÍTICA: Asegurar que freeText se incluya correctamente
+        // Prioridad: updateData.freeText > updateData.notes > '' (nunca null)
+        const finalFreeText = updateData.freeText || updateData.notes || '';
+        console.log('📝 [API/cases/update] freeText final para actualización:', {
+          freeText: updateData.freeText?.substring(0, 50) + '...',
+          notes: updateData.notes?.substring(0, 50) + '...',
+          finalFreeText: finalFreeText.substring(0, 50) + '...'
+        });
+        
         // Mapea los datos del formulario a los campos de la base de datos.
         const caseUpdatePayload: any = {
             insurance_category: updateData.insurance_category,
@@ -39,8 +64,10 @@ export async function PUT(request: NextRequest) {
             clientName: updateData.clientName,
             businessType: updateData.businessType,
             employees: updateData.employees,
+            // ✅ CORRECCIÓN CRÍTICA: Preservar el status actual - NUNCA cambiar 'active' a 'draft'
+            status: existingCase.status, // Preservar el status original
             briefData: { // También actualizamos el JSON por coherencia
-                freeText: updateData.freeText || updateData.notes || '',
+                freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que incluye notes como fallback
                 businessType: updateData.businessType,
                 employees: updateData.employees,
                 coverage: updateData.coverage || '',
@@ -61,7 +88,22 @@ export async function PUT(request: NextRequest) {
         console.log(`📎 [API /api/cases/update] Procesando ${tempUploads?.length || 0} tempUploads para caseId: ${caseId}`);
         if (tempUploads && tempUploads.length > 0) {
             for (const tempUpload of tempUploads) {
+                // ✅ VALIDACIÓN EXPLÍCITA: Asegurar que storagePath sea válido
+                if (!tempUpload.storagePath || tempUpload.storagePath.trim() === '' || 
+                    tempUpload.storagePath.includes('null') || tempUpload.storagePath.includes('undefined')) {
+                    console.error('❌ [API/cases/update] Invalid tempUpload.storagePath:', tempUpload);
+                    return NextResponse.json(
+                        { error: `Invalid storage path for file ${tempUpload.fileName}. Please re-upload the file.` },
+                        { status: 400 }
+                    );
+                }
+                
                 console.log(`📎 [API /api/cases/update] Creando artifact: ${tempUpload.fileName}`);
+                // ✅ Limpiar bytes nulos de contentText para evitar errores de encoding UTF8
+                const cleanedContentText = tempUpload.extractedText 
+                    ? tempUpload.extractedText.replace(/\0/g, '') 
+                    : null;
+                
                 await prisma.artifact.create({
                     data: {
                         caseId: caseId,
@@ -69,7 +111,7 @@ export async function PUT(request: NextRequest) {
                         fileId: tempUpload.storagePath,
                         fileName: tempUpload.fileName,
                         contentType: 'application/pdf',
-                        contentText: tempUpload.extractedText || null,
+                        contentText: cleanedContentText,
                         provenance: {
                             uploadedBy: user.id,
                             uploadedAt: new Date().toISOString(),

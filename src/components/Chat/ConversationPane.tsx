@@ -571,13 +571,15 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // Los mensajes históricos se procesan directamente en SidebarChatPanel
   // cuando se carga un caso histórico
 
-  // ✅ CORRECCIÓN CRÍTICA: Mostrar botón SIEMPRE si !caseApproved (no depende de isBriefValid)
+  // ✅ CORRECCIÓN CRÍTICA: Mostrar botón SOLO si !caseApproved Y es un caso nuevo (no histórico)
+  // Si caseApproved es true, es un caso histórico aprobado - NO mostrar botones de aprobar
   // isBriefValid solo se usa para DESHABILITAR, no para OCULTAR
   useEffect(() => {
+    // ✅ CORRECCIÓN: Si caseApproved es true, es un caso histórico - NO mostrar botones de aprobar
     const shouldShow = !caseApproved;
     setShowApprovalButton(shouldShow);
-    console.log('🔍 [ConversationPane] showApprovalButton actualizado:', { caseApproved, shouldShow });
-  }, [caseApproved]);
+    console.log('🔍 [ConversationPane] showApprovalButton actualizado:', { caseApproved, shouldShow, currentCaseId });
+  }, [caseApproved, currentCaseId]);
 
   // Función optimizada de validación de clientes con cache
   const validateClientWithCache = async (): Promise<string | null> => {

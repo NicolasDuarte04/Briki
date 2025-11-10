@@ -128,12 +128,31 @@ export async function createCase(input: CreateCaseInput) {
 }
 
 /**
+ * Limpia bytes nulos (0x00) de un string para evitar errores de encoding UTF8 en PostgreSQL
+ * @param text - Texto a limpiar
+ * @returns Texto limpio sin bytes nulos, o null si el input es null/undefined
+ */
+function cleanTextForDatabase(text: string | null | undefined): string | null {
+  if (!text) return null;
+  // Remover bytes nulos (0x00) que PostgreSQL no acepta en campos UTF8
+  return text.replace(/\0/g, '');
+}
+
+/**
  * Creates a new artifact in the database
  * @param input - Artifact creation data
  * @returns Promise<Artifact> - The created artifact
  */
 export async function createArtifact(input: CreateArtifactInput) {
   try {
+    // ✅ VALIDACIÓN ROBUSTA: fileId es requerido para sourceType 'pdf' o 'api'
+    if ((input.sourceType === 'pdf' || input.sourceType === 'api') && 
+        (!input.fileId || input.fileId.trim() === '')) {
+      throw new DatabaseError(
+        `fileId is required for artifacts with sourceType '${input.sourceType}'`
+      );
+    }
+    
     const newArtifact = await prisma.artifact.create({
       data: {
         caseId: input.caseId,
@@ -141,7 +160,7 @@ export async function createArtifact(input: CreateArtifactInput) {
         fileId: input.fileId || null,
         fileName: input.fileName || null,
         contentType: input.contentType || null,
-        contentText: input.contentText || null,
+        contentText: cleanTextForDatabase(input.contentText), // ✅ Limpiar bytes nulos
         provenance: input.provenance ? JSON.parse(JSON.stringify(input.provenance)) : null,
       }
     });
@@ -452,7 +471,10 @@ export async function createCaseWithOrg(
     client_profile?: string;
   } = {} // <-- Añadir valor por defecto para seguridad
 ) {
-  if (!orgId) throw new DatabaseError("Organization ID is required.");
+  // ✅ VALIDACIÓN ROBUSTA: Verificar que orgId no sea null, undefined, o string vacío
+  if (!orgId || orgId === null || orgId === undefined || orgId.trim() === '') {
+    throw new DatabaseError("Organization ID is required and cannot be null, undefined, or empty.");
+  }
   if (!userId) throw new DatabaseError("User ID is required.");
   
   // ✅ CORRECCIÓN CRÍTICA: Validar y normalizar max_budget antes de guardar

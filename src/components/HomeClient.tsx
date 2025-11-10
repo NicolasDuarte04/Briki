@@ -146,8 +146,30 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
         
         // ✅ CORRECCIÓN: Resetear caseApproving al cargar caso desde URL
         // IMPORTANTE: NO resetear caseApproved aquí, se sincronizará desde BD en WorkspaceTabs
+        // Si el caso tiene status: 'active', caseApproved se establecerá en true y NUNCA puede volverse false
         useUI.setState({ caseApproving: false });
-        console.log('✅ [HomeClient] caseApproving reseteado al cargar caso desde URL (caseApproved se mantiene)');
+        
+        // ✅ CORRECCIÓN CRÍTICA: Sincronizar caseApproved desde BD inmediatamente si es un caso histórico
+        // Esto asegura que si el caso tiene status: 'active', caseApproved se establece en true
+        const syncCaseApproved = async () => {
+          try {
+            const response = await fetch(`/api/cases/${threadId}`);
+            if (response.ok) {
+              const { case: caseData } = await response.json();
+              if (caseData.status === 'active') {
+                // ✅ REGLA DE NEGOCIO: Casos activos SIEMPRE tienen caseApproved=true y NUNCA puede volverse false
+                useUI.getState().setCaseApproved(true);
+                console.log('✅ [HomeClient] Caso activo detectado desde URL, caseApproved=true (NUNCA puede volverse false)');
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ [HomeClient] Error sincronizando caseApproved desde BD:', error);
+            // No bloquear el flujo si falla la sincronización
+          }
+        };
+        syncCaseApproved();
+        
+        console.log('✅ [HomeClient] caseApproving reseteado al cargar caso desde URL (caseApproved se mantiene o se sincroniza desde BD)');
       }
     }
   }, [threadId, landingDataPending, setCurrentCaseId, setStep]); // ✅ CORRECCIÓN: Agregar landingDataPending a dependencias
