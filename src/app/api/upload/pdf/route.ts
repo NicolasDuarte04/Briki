@@ -85,11 +85,20 @@ export async function POST(request: NextRequest) {
       const storagePath = `temp/${user.id}/${timestamp}_${sanitizedFileName}`;
 
       console.log('☁️ Subiendo TEMP a Storage:', storagePath);
+      // ✅ FASE 4: Incluir metadata incluso para archivos temporales (mejor práctica)
+      // Nota: org_id puede ser null en modo temporal, pero incluimos user_id para tracking
       const { error: uploadError } = await supabase.storage
         .from('artifacts')
         .upload(storagePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
+          metadata: {
+            uploaded_by: user.id,
+            file_name: file.name,
+            content_type: file.type,
+            uploaded_at: new Date().toISOString(),
+            is_temporary: 'true', // Flag para identificar archivos temporales
+          }
         });
 
       if (uploadError) {
@@ -209,12 +218,21 @@ export async function POST(request: NextRequest) {
     
     console.log('☁️ Subiendo a Storage:', storagePath);
     
-    // Subir archivo a Supabase Storage
+    // ✅ FASE 4: Incluir org_id en metadata para validación de políticas de storage
+    // Esto asegura que las políticas de Fase 3 funcionen correctamente
     const { error: uploadError } = await supabase.storage
       .from('artifacts')
       .upload(storagePath, file, {
         cacheControl: '3600',
-        upsert: false
+        upsert: false,
+        metadata: {
+          org_id: orgId, // ✅ REQUERIDO: Para validación de políticas de storage
+          case_id: caseId,
+          uploaded_by: user.id,
+          file_name: file.name,
+          content_type: file.type,
+          uploaded_at: new Date().toISOString(),
+        }
       });
     
     if (uploadError) {
