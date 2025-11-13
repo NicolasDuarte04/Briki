@@ -252,11 +252,42 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
     setOpenMenuId(null);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deleteConfirmId) return;
-    // ✅ FUSIÓN CRÍTICA: TODO - Implementar API para eliminar Case
-    console.log('Delete case:', deleteConfirmId);
-    setDeleteConfirmId(null);
+    
+    try {
+      // ✅ OPTIMIZACIÓN CRÍTICA: Eliminar case y actualizar lista INMEDIATAMENTE
+      const response = await fetch('/api/cases/delete', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ caseId: deleteConfirmId }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al eliminar el caso');
+      }
+      
+      console.log('✅ [SidebarChatPanel] Caso eliminado exitosamente:', deleteConfirmId);
+      
+      // ✅ OPTIMIZACIÓN CRÍTICA: Actualizar lista de cases INMEDIATAMENTE después de eliminar
+      // Esto asegura que el case eliminado desaparezca inmediatamente del panel izquierdo
+      const { refreshCases } = useUI.getState();
+      try {
+        await refreshCases();
+        console.log('✅ [SidebarChatPanel] Lista de cases actualizada después de eliminar caso');
+      } catch (refreshError) {
+        console.warn('⚠️ [SidebarChatPanel] Error actualizando lista de cases (no crítico):', refreshError);
+        // No fallar el flujo completo si solo falla la actualización de la lista
+      }
+      
+      setDeleteConfirmId(null);
+    } catch (error: any) {
+      console.error('❌ [SidebarChatPanel] Error eliminando caso:', error);
+      alert(`Error al eliminar el caso: ${error.message}`);
+    }
   };
 
   const handleDeleteCancel = () => {

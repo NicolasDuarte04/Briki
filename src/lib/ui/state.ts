@@ -657,7 +657,8 @@ export interface UIState {
   fetchPricingBands: () => Promise<void>;
   fetchEligibilities: () => Promise<void>;
   fetchProvenance: () => Promise<void>;
-  fetchCases: () => Promise<void>;
+  fetchCases: (force?: boolean) => Promise<void>;
+  refreshCases: () => Promise<void>;
   setComparisonWeights: (weights: Partial<ComparisonWeights>) => void;
   resetComparisonWeights: () => void;
   setComparisonPlaybook: (playbook: ComparisonPlaybook) => void;
@@ -1376,20 +1377,35 @@ export const useUI = create<UIState>()(
       },
       fetchCases: async (force = false) => {
         const { casesLoading, casesLoaded } = get();
-        if (!force && (casesLoading || casesLoaded)) {
+        // ✅ OPTIMIZACIÓN: Si ya está cargando, no iniciar otra carga (evitar duplicados)
+        if (casesLoading && !force) {
+          console.log('⏭️ [fetchCases] Ya está cargando, omitiendo...');
+          return;
+        }
+        // ✅ OPTIMIZACIÓN: Si ya está cargado y no se fuerza, no recargar
+        if (!force && casesLoaded) {
+          console.log('⏭️ [fetchCases] Ya está cargado, omitiendo (usa refreshCases para forzar)');
           return;
         }
         set(() => ({ casesLoading: true, casesLoaded: false } satisfies Partial<UIState>));
         try {
           // Usar API route para evitar problemas de server/client components
           const response = await fetch('/api/cases');
+          if (!response.ok) {
+            throw new Error(`Failed to fetch cases: ${response.statusText}`);
+          }
           const data = await response.json();
           console.log('✅ [fetchCases] Loaded cases:', data.cases.length);
           set(() => ({ cases: data.cases, casesLoaded: true, casesLoading: false } satisfies Partial<UIState>));
         } catch (error) {
-          console.error("Error loading cases:", error);
+          console.error("❌ [fetchCases] Error loading cases:", error);
           set(() => ({ cases: [], casesLoaded: false, casesLoading: false } satisfies Partial<UIState>));
         }
+      },
+      // ✅ NUEVA FUNCIÓN: refreshCases - Fuerza recarga inmediata de cases
+      refreshCases: async () => {
+        console.log('🔄 [refreshCases] Forzando recarga de cases...');
+        await get().fetchCases(true);
       },
       setComparisonWeights: (weights) =>
         set((state) => computeNextComparisonState(state, weights)),

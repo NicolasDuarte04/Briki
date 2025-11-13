@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, UserPlus, Equal, Check, Circle } from 'lucide-react';
-import { pathForNewEntity, type Locale } from '@/lib/routes/workspace';
+import { pathForNewEntity, pathForAgent, type Locale } from '@/lib/routes/workspace';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -73,8 +73,7 @@ export function ZeroState({
       description: 'Arrastra un PDF o haz clic para seleccionar. Te ayudaremos a extraer la información clave.',
       icon: <FileText className="size-6 text-primary" aria-hidden="true" />,
       actionLabel: 'Subir PDF',
-      actionOnClick: onUploadClick,
-      // If no onClick handler, we'd need a route - for now handled by parent
+      actionHref: pathForAgent(locale),
       isCompleted: completedSteps >= 1,
     },
     {

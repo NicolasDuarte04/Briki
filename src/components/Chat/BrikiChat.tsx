@@ -450,6 +450,16 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
             if (response.ok) {
                 const result = await response.json();
                 if (result.caseId) {
+                    // ✅ OPTIMIZACIÓN CRÍTICA: Actualizar lista de cases INMEDIATAMENTE después de crear
+                    // Esto asegura que el nuevo case aparezca inmediatamente en el panel izquierdo
+                    try {
+                        const { refreshCases } = useUI.getState();
+                        await refreshCases();
+                        console.log('✅ [BrikiChat] Lista de cases actualizada después de crear caso desde landing');
+                    } catch (refreshError) {
+                        console.warn('⚠️ [BrikiChat] Error actualizando lista de cases (no crítico):', refreshError);
+                    }
+                    
                     // Navegar al caso creado usando la ruta correcta
                     router.push(pathForEntity('case', result.caseId, locale));
                     return;

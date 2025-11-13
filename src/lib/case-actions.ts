@@ -177,6 +177,16 @@ export async function createCaseIfNeeded(
         const caseId = result.caseId;
         console.log('✅ Caso creado exitosamente:', caseId);
         
+        // ✅ OPTIMIZACIÓN CRÍTICA: Actualizar lista de cases INMEDIATAMENTE después de crear
+        // Esto asegura que el nuevo case aparezca inmediatamente en el panel izquierdo
+        try {
+          await useUI.getState().refreshCases();
+          console.log('✅ [case-actions] Lista de cases actualizada después de crear caso');
+        } catch (refreshError) {
+          console.warn('⚠️ [case-actions] Error actualizando lista de cases (no crítico):', refreshError);
+          // No fallar el flujo completo si solo falla la actualización de la lista
+        }
+        
         // ✅ FASE 6: Limpiar brief.tempUploads después de crear caso (ya se convirtieron en artifacts)
         useUI.getState().setBrief({ tempUploads: [] } as any);
         console.log('🧹 [case-actions] brief.tempUploads limpiado después de crear caso');
