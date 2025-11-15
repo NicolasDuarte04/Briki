@@ -153,6 +153,44 @@ export async function updateProfile(
   }
 }
 
+/**
+ * NOTA ARQUITECTÓNICA:
+ * 
+ * - updateProfile: Diseñada para useActionState (React 19 Server Actions)
+ *   Requiere parámetro _prevState: FormState
+ * 
+ * - updateProfileDirect: Para llamadas programáticas directas
+ *   No requiere estado previo, útil para handlers de eventos
+ * 
+ * CUÁNDO USAR CADA UNA:
+ * - useActionState(...) → updateProfile
+ * - await en event handler → updateProfileDirect
+ */
+
+/**
+ * Versión directa de updateProfile para llamadas sin useActionState.
+ * Útil para llamadas programáticas donde no hay un estado previo real.
+ * 
+ * @param formData - Datos del formulario a actualizar
+ * @returns Promise<FormState> - Estado del resultado
+ * 
+ * @example
+ * // En event handler:
+ * const result = await updateProfileDirect(formData);
+ * if (result.ok) {
+ *   toast.success('Updated successfully');
+ * } else {
+ *   toast.error(result.message);
+ * }
+ */
+export async function updateProfileDirect(
+  formData: FormData
+): Promise<FormState> {
+  // Llamar a updateProfile con un estado inicial dummy
+  // El parámetro _prevState no se usa en la implementación
+  return updateProfile({ ok: true }, formData);
+}
+
 export async function updateNotificationSettings(
   formData: FormData
 ): Promise<{ status: 'success' | 'error'; error?: string }> {

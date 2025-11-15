@@ -377,7 +377,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                         clientId = (currentBrief as any).selectedClientId || null;
                         
                         // Si no existe en brief, validar nuevamente (puede ser necesario si el caso ya existía)
-                        if (!clientId) {
+                         if (!clientId) {
                             clientId = await validateAndResolveClient(currentBrief.clientName);
                             console.log('✅ [CaseBriefForm] Cliente validado/resuelto para aprobación:', clientId);
                         }
@@ -452,9 +452,12 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto">
                 {/* Mostrar BriefForm SIEMPRE (creación o edición) */}
+                {/* ✅ CORRECCIÓN: Spread condicional para respetar exactOptionalPropertyTypes
+                    - En modo creación (!isEditing): onApprove está presente en props
+                    - En modo edición (isEditing): onApprove no existe en props (omitida completamente) */}
                     <BriefForm
                         onSubmit={handleFormSubmit}
-                        onApprove={isEditing ? undefined : handleApproveWithValidation} // ✅ CORRECCIÓN: NO pasar onApprove en modo edición
+                        {...(!isEditing && { onApprove: handleApproveWithValidation })}
                         isSubmitting={isSubmitting || caseApproving || isClientValidationLoading}
                     initialNotes={currentCaseId ? (brief.freeText || '') : ''} // ✅ CORRECCIÓN QUIRÚRGICA: Limpiar initialNotes cuando no hay currentCaseId
                     orgId={orgId || ''} // ✅ Pasar orgId

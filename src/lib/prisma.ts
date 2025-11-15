@@ -21,17 +21,12 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
     }
   },
   log: ['error', 'warn'],
-  // ✅ CORRECCIÓN CRÍTICA: Configurar pool de conexiones con timeouts más largos
-  __internal: {
-    engine: {
-      connectionLimit: 20, // Aumentar límite de conexiones
-      poolTimeout: 30, // Aumentar timeout del pool
-    }
-  },
-  // ✅ CORRECCIÓN: Configurar timeouts de conexión más largos para Supabase
-  // Esto ayuda a manejar latencia de red y reconexiones
   errorFormat: 'minimal',
 })
+
+// ℹ️  NOTA: Para configurar pool de conexiones y timeouts, usar parámetros en DATABASE_URL:
+//    Ejemplo: postgresql://...?connection_limit=20&pool_timeout=30&connect_timeout=10
+//    O configurar en Supabase Dashboard → Project Settings → Database → Connection pooling
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma

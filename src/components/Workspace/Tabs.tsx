@@ -264,11 +264,16 @@ export function WorkspaceTabs() {
             {shouldShowSummary ? (
               <CaseSummary brief={brief} activeCaseData={activeCaseData} onEdit={handleEditBrief} />
             ) : (
+              // ✅ CORRECCIÓN: Spread condicional para respetar exactOptionalPropertyTypes
+              // - Cuando isEditingMode=true: onEditComplete está presente en props
+              // - Cuando isEditingMode=false: onEditComplete no existe en props (omitida completamente)
+              // - Esto permite volver al resumen después de guardar en modo edición
+              // - Patrón consistente con CaseBriefForm pasando onApprove a BriefForm
               <CaseBriefForm 
                 initialData={activeCaseData?.briefData || brief} 
                 activeCaseData={activeCaseData} 
-                onEditComplete={isEditingMode ? handleEditComplete : undefined}
-                isEditingMode={isEditingMode} // ✅ CORRECCIÓN: Pasar isEditingMode para forzar modo edición
+                {...(isEditingMode && { onEditComplete: handleEditComplete })}
+                isEditingMode={isEditingMode}
               />
             )}
           </TabsContent>

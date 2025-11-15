@@ -76,9 +76,21 @@ export async function findDuplicateArtifact(
     }>>(query, ...params);
 
     if (results && results.length > 0) {
+      const firstResult = results[0];
+      
+      // ✅ CORRECCIÓN: Type guard explícito para results[0]
+      // Aunque la verificación de length > 0 garantiza lógicamente que existe un elemento,
+      // TypeScript no puede inferir esta garantía desde el análisis estático.
+      // Este check asegura type-safety completo y respeta exactOptionalPropertyTypes.
+      if (!firstResult) {
+        console.warn('[findDuplicateArtifact] Unexpected: results has length but first element is undefined');
+        return { exists: false };
+      }
+      
+      // Ahora TypeScript sabe que firstResult es definitivamente del tipo correcto, no undefined
       return {
         exists: true,
-        artifact: results[0]
+        artifact: firstResult
       };
     }
 

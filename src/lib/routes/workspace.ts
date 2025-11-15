@@ -8,6 +8,29 @@ export type Locale = 'en' | 'es';
 export type EntityType = 'case' | 'policy' | 'proposal' | 'analysis' | 'client' | 'comparison' | 'renewal';
 
 /**
+ * Safely converts a string locale from next-intl to typed Locale
+ * 
+ * This helper bridges the gap between next-intl's generic string type
+ * and Briki's specific Locale type ('en' | 'es').
+ * 
+ * @param locale - String locale from useLocale() hook
+ * @returns Typed Locale, falling back to 'es' if unsupported
+ * 
+ * @example
+ * const locale = useLocale(); // returns string
+ * const typedLocale = toLocale(locale); // returns 'en' | 'es'
+ * const path = pathForAgent(typedLocale); // type-safe
+ */
+export function toLocale(locale: string): Locale {
+  if (locale === 'en' || locale === 'es') {
+    return locale;
+  }
+  // Fallback to default locale if unsupported
+  console.warn(`[toLocale] Unsupported locale "${locale}", falling back to "es"`);
+  return 'es';
+}
+
+/**
  * Get the dashboard home route
  */
 export function getDashboardHome(locale: Locale): string {

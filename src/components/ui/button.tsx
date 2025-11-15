@@ -19,6 +19,10 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // ✅ CORRECCIÓN: Agregar variante gradient (usada en ComplianceGate y ComplianceModal)
+        // Estilos copiados desde resizable-navbar.tsx para consistencia visual con el diseño existente
+        gradient:
+          "bg-gradient-to-b from-[#0369A1] to-[#0C4A6E] text-white shadow-[0px_2px_0px_0px_rgba(255,255,255,0.3)_inset] hover:from-[#0284C7] hover:to-[#0369A1] transition-all",
       },
       size: {
         default: "h-9 px-4 py-2 has-[>svg]:px-3",

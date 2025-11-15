@@ -6,7 +6,7 @@
  */
 
 import { prisma } from './prisma';
-import type { Prisma, Case } from '@prisma/client';
+import type { Prisma, Case, SourceType } from '@prisma/client';
 import { 
   CaseBrief,
   Artifact,
@@ -40,7 +40,7 @@ export interface CreateCaseInput {
 
 export interface CreateArtifactInput {
   caseId: string;
-  sourceType: 'pdf' | 'whatsapp' | 'form' | 'api' | 'email';
+  sourceType: SourceType; // ✅ CORRECCIÓN: Usa el tipo generado por Prisma (api | portal | pdf | link)
   fileId?: string;
   fileName?: string;
   contentType?: string;

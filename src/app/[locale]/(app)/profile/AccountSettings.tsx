@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { updateProfile, updateNotificationSettings, requestPasswordReset, type FormState } from './actions';
+import { updateProfile, updateProfileDirect, updateNotificationSettings, requestPasswordReset, type FormState } from './actions';
 import { toast } from 'sonner';
 
 type Tab = 'personal' | 'security' | 'notifications' | 'team' | 'audit';
@@ -200,6 +200,13 @@ export function AccountSettings({
     }
   };
 
+  /**
+   * Maneja el cambio de idioma del usuario.
+   * Usa updateProfileDirect en lugar de updateProfile porque:
+   * - No se usa con useActionState
+   * - Es una llamada directa desde un event handler
+   * - No hay un estado previo real del formulario
+   */
   const handleLocaleChange = async (newLocale: 'en' | 'es') => {
     if (newLocale === currentLocale) return;
     
@@ -208,7 +215,8 @@ export function AccountSettings({
       formData.append('field', 'locale');
       formData.append('locale', newLocale);
       
-      const result = await updateProfile(null, formData);
+      // ✅ CORRECCIÓN: Usar updateProfileDirect para llamadas programáticas
+      const result = await updateProfileDirect(formData);
       
       if (result.ok) {
         setCurrentLocale(newLocale);
@@ -216,7 +224,8 @@ export function AccountSettings({
         // Redirect to apply the new locale
         window.location.href = `/${newLocale}/profile`;
       } else {
-        toast.error(result.error || 'Failed to update language');
+        // ✅ CORRECCIÓN: FormState usa 'message', no 'error'
+        toast.error(result.message || 'Failed to update language');
       }
     } catch (error) {
       console.error('Error updating language:', error);

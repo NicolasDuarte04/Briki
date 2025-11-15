@@ -253,7 +253,9 @@ export function ArtifactsList({ caseData, loading }: ArtifactsListProps) {
       {/* Lista de Artifacts - REUTILIZANDO ESTRUCTURA DE CaseDetailContent */}
       {artifacts.map((artifact) => {
         const storageUrl = artifact.fileId ? getStorageUrl(artifact.fileId) : null;
-        const isPDF = artifact.sourceType === 'pdf' && artifact.fileId;
+        // ✅ CORRECCIÓN: Convertir explícitamente a boolean para respetar el tipo de la prop isPDF
+        // El operador !! convierte el resultado (string | false | null | undefined) a boolean puro
+        const isPDF = !!(artifact.sourceType === 'pdf' && artifact.fileId);
 
         return (
           <ArtifactCard

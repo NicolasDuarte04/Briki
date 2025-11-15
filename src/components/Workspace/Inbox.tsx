@@ -37,38 +37,66 @@ interface InboxText {
 // ============================================================================
 
 /**
+ * Creates an InboxText object with type-safe optional link handling
+ * 
+ * ✅ CORRECCIÓN: Helper function para manejar exactOptionalPropertyTypes correctamente
+ * Con exactOptionalPropertyTypes: true, TypeScript diferencia entre:
+ * - Propiedad omitida (cuando link es undefined)
+ * - Propiedad presente con valor undefined (error de tipo)
+ * 
+ * Esta función usa spread condicional para omitir completamente la propiedad
+ * link cuando no está definida, en lugar de asignarla como undefined.
+ * 
+ * @param label - Texto descriptivo del item
+ * @param link - URL opcional para navegar (omitida si undefined)
+ * @returns InboxText object type-safe
+ * 
+ * @example
+ * createInboxText("Ver análisis", "/analysis/123")  // { label, link }
+ * createInboxText("Ver análisis", undefined)        // { label } (link omitido)
+ */
+function createInboxText(label: string, link?: string): InboxText {
+  return {
+    label,
+    // ✅ Spread condicional: solo añade link si existe
+    // Esto omite la propiedad completamente cuando link es undefined
+    ...(link && { link }),
+  };
+}
+
+/**
  * Maps inbox item kinds to verb-first Spanish text and links
  */
 const INBOX_TEXT: Record<string, (p: InboxPayload) => InboxText> = {
-  analysis_ready: (p) => ({
-    label: `Revisar análisis de ${p.policyLabel ?? 'póliza'} de ${p.clientName}`,
-    link: p.link,
-  }),
-  comparison_ready: (p) => ({
-    label: `Comparación lista para ${p.clientName}`,
-    link: p.link,
-  }),
-  policy_expiring: (p) => ({
-    label: `Renovación vence el ${p.expireDateFmt} — ${p.policyLabel} (${p.clientName})`,
-    link: p.link,
-  }),
-  proposal_sent_followup: (p) => ({
-    label: `Dar seguimiento a propuesta para ${p.clientName}`,
-    link: p.link,
-  }),
-  document_missing: (p) => ({
-    label: `Falta documento: ${p.docName ?? 'archivo'} — ${p.clientName}`,
-    link: p.link,
-  }),
+  analysis_ready: (p) => createInboxText(
+    `Revisar análisis de ${p.policyLabel ?? 'póliza'} de ${p.clientName}`,
+    p.link
+  ),
+  comparison_ready: (p) => createInboxText(
+    `Comparación lista para ${p.clientName}`,
+    p.link
+  ),
+  policy_expiring: (p) => createInboxText(
+    `Renovación vence el ${p.expireDateFmt} — ${p.policyLabel} (${p.clientName})`,
+    p.link
+  ),
+  proposal_sent_followup: (p) => createInboxText(
+    `Dar seguimiento a propuesta para ${p.clientName}`,
+    p.link
+  ),
+  document_missing: (p) => createInboxText(
+    `Falta documento: ${p.docName ?? 'archivo'} — ${p.clientName}`,
+    p.link
+  ),
 };
 
 /**
  * Fallback for unknown inbox item kinds
  */
-const fallback = (p: InboxPayload): InboxText => ({
-  label: `Tarea pendiente — ${p.clientName ?? 'cliente'}`,
-  link: p.link,
-});
+const fallback = (p: InboxPayload): InboxText => createInboxText(
+  `Tarea pendiente — ${p.clientName ?? 'cliente'}`,
+  p.link
+);
 
 /**
  * Gets text and link for an inbox item based on its kind

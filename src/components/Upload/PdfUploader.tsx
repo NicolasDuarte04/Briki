@@ -56,7 +56,14 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
   
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
+      // ✅ CORRECCIÓN: Type guard explícito para el archivo
+      // Aunque react-dropzone garantiza que acceptedFiles[0] existe cuando length > 0,
+      // TypeScript no puede inferir esta garantía desde el análisis estático.
+      // Este check asegura type-safety completo y previene errores en casos edge.
       const file = acceptedFiles[0];
+      if (!file) return; // Safety check (nunca debería ocurrir con validación de length)
+      
+      // ✅ Ahora TypeScript sabe que file es definitivamente File, no undefined
       
       // Validar tamaño (máximo 10MB)
       if (file.size > 10 * 1024 * 1024) {

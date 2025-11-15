@@ -280,10 +280,14 @@ export const CaseStatusSchema = z.enum([
 ]);
 export type CaseStatusParsed = z.infer<typeof CaseStatusSchema>;
 
+// ✅ CORRECCIÓN ARQUITECTÓNICA: Alinear con Prisma schema y CaseBrief interface
+// Prisma: employees Int? → number | null en TypeScript
+// CaseBrief: employees?: number | null
+// Por lo tanto, el schema debe aceptar null explícitamente
 export const CaseBriefSchema = z
   .object({
     businessType: z.string().optional(),
-    employees: z.number().optional(),
+    employees: z.number().nullable().optional(), // ✅ Acepta: number | null | undefined
     coverage: z.string().optional(),
     freeText: z.string().optional(),
   })

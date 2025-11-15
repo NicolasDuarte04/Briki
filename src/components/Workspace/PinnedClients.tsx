@@ -22,6 +22,25 @@ interface PinnedClientsProps {
 /**
  * Gets a tokenized color class for a client based on index
  * Uses the chart color palette for visual variety
+ * 
+ * ✅ CORRECCIÓN: Type guard con fallback para garantizar type-safety
+ * Aunque matemáticamente el operador módulo (%) garantiza que el índice
+ * calculado siempre estará en el rango 0-4, TypeScript no puede inferir
+ * esta garantía desde el análisis estático.
+ * 
+ * Esta implementación defensiva:
+ * - Valida explícitamente que el color existe
+ * - Proporciona fallback al primer color si algo falla
+ * - Registra warning para debugging en casos inesperados
+ * - Garantiza type-safety completo sin usar assertions
+ * 
+ * @param index - Índice del cliente (0-based, rotativo vía módulo)
+ * @returns String de clases Tailwind CSS para el Badge
+ * 
+ * @example
+ * getClientColorClass(0)  // → primer color (chart-1)
+ * getClientColorClass(5)  // → primer color (5 % 5 = 0)
+ * getClientColorClass(7)  // → tercer color (7 % 5 = 2)
  */
 function getClientColorClass(index: number): string {
   const colors = [
@@ -31,7 +50,32 @@ function getClientColorClass(index: number): string {
     'bg-chart-4/10 text-chart-4 border-chart-4/20 hover:bg-chart-4/20',
     'bg-chart-5/10 text-chart-5 border-chart-5/20 hover:bg-chart-5/20',
   ];
-  return colors[index % colors.length];
+  
+  // ✅ CORRECCIÓN: Calcular índice con módulo para rotación circular
+  // El operador % garantiza matemáticamente que colorIndex está en rango 0-4
+  const colorIndex = index % colors.length;
+  const color = colors[colorIndex];
+  
+  // ✅ CORRECCIÓN: Type guard explícito para garantizar que color existe
+  // Aunque el índice está garantizado matemáticamente, este check:
+  // 1. Satisface el sistema de tipos de TypeScript
+  // 2. Proporciona seguridad adicional ante modificaciones futuras del array
+  // 3. Permite debugging si algo inesperado ocurre
+  if (!color) {
+    // Fallback defensivo: nunca debería ejecutarse con el array actual
+    // Si se ejecuta, indica un bug en la lógica o modificación del array
+    console.warn(
+      `[PinnedClients.getClientColorClass] Unexpected: color not found for index ${index} (colorIndex: ${colorIndex}). ` +
+      `Array has ${colors.length} elements. Falling back to first color.`
+    );
+    
+    // Retornar primer color como fallback seguro
+    // El primer elemento siempre existe (array tiene 5 elementos constantes)
+    return colors[0]!;
+  }
+  
+  // ✅ Ahora TypeScript sabe que color es definitivamente string, no undefined
+  return color;
 }
 
 // ============================================================================

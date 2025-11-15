@@ -5,6 +5,7 @@ import { createCaseWithOrg } from '@/lib/database';
 import { recordAuditLog } from '@/lib/audit';
 import { moveTempToPersistent } from '@/lib/storage/moveTempToPersistent';
 import { findDuplicateArtifact } from '@/lib/storage/findDuplicateArtifact';
+import type { Case } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -75,7 +76,8 @@ export async function POST(request: NextRequest) {
     
     // ✅ CORRECCIÓN CRÍTICA: Validar y normalizar max_budget
     // DECIMAL(10,2) permite valores de -99,999,999.99 a 99,999,999.99
-    let max_budget: number | null = null;
+    // Usar undefined para compatibilidad con exactOptionalPropertyTypes y firma de createCaseWithOrg
+    let max_budget: number | undefined = undefined;
     if (rawMaxBudget !== null && rawMaxBudget !== undefined) {
       const numValue = typeof rawMaxBudget === 'string' ? parseFloat(rawMaxBudget) : rawMaxBudget;
       if (!isNaN(numValue) && isFinite(numValue)) {
@@ -151,31 +153,48 @@ export async function POST(request: NextRequest) {
     }
     
     // ✅ CORRECCIÓN: Crear el caso con manejo robusto de reconexión de Prisma
-    let newCase;
+    let newCase: Case | undefined;
     let retryCount = 0;
     const maxRetries = 3;
     
     while (retryCount < maxRetries) {
       try {
+        // ✅ CORRECCIÓN: Construir objeto additionalData de forma condicional
+        // para cumplir con exactOptionalPropertyTypes: solo incluir propiedades con valor
+        const additionalData: {
+          clientName?: string;
+          clientRef?: string;
+          businessType?: string;
+          employees?: number;
+          status?: 'draft' | 'active' | 'completed' | 'archived';
+          stage?: 'initial' | 'sourcing' | 'analysis' | 'proposal' | 'negotiation' | 'closed';
+          priority?: 'low' | 'medium' | 'high' | 'urgent';
+          insurance_category?: string;
+          max_budget?: number;
+          budget_currency?: 'COP' | 'USD';
+          required_coverages?: string[];
+          client_profile?: string;
+        } = {};
+        
+        // Solo agregar propiedades si tienen valor (no undefined)
+        if (finalClientName !== undefined) additionalData.clientName = finalClientName;
+        if (clientRef !== undefined) additionalData.clientRef = clientRef;
+        if (businessType !== undefined) additionalData.businessType = businessType;
+        if (employees !== undefined) additionalData.employees = employees;
+        if (status !== undefined) additionalData.status = status;
+        if (stage !== undefined) additionalData.stage = stage;
+        if (priority !== undefined) additionalData.priority = priority;
+        if (insurance_category !== undefined) additionalData.insurance_category = insurance_category;
+        if (max_budget !== undefined) additionalData.max_budget = max_budget;
+        if (budget_currency !== undefined) additionalData.budget_currency = budget_currency;
+        if (required_coverages !== undefined) additionalData.required_coverages = required_coverages;
+        if (client_profile !== undefined) additionalData.client_profile = client_profile;
+        
         newCase = await createCaseWithOrg(
           orgId,
           finalBriefData, // ✅ CORRECCIÓN: Usar finalBriefData que incluye freeText garantizado
           user.id,
-          {
-            clientName: finalClientName,  // Usar el valor final (con fallback)
-            clientRef,
-            businessType,
-            employees,
-            status,
-            stage,
-            priority,
-            // Nuevos campos del Brief detallado
-            insurance_category,
-            max_budget,
-            budget_currency,
-            required_coverages,
-            client_profile,
-          }
+          additionalData
         );
         break; // Éxito, salir del loop
       } catch (prismaError: any) {
@@ -207,6 +226,17 @@ export async function POST(request: NextRequest) {
         throw prismaError;
       }
     }
+    
+    // ✅ CORRECCIÓN: Validación explícita después del loop
+    // Si llegamos aquí sin que newCase esté asignado, significa que hubo un error
+    if (!newCase) {
+      console.error('❌ [API/cases/create] Failed to create case after all retries');
+      return NextResponse.json(
+        { error: 'Failed to create case after multiple attempts. Please try again.' },
+        { status: 500 }
+      );
+    }
+    // ✅ Ahora TypeScript sabe que newCase es definitivamente Case, no undefined
     
     // Registrar auditoría explícita (alta prioridad - compliance y trazabilidad)
     try {

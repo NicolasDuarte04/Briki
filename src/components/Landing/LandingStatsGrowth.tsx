@@ -34,7 +34,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { TrendingUp, Users, FileText, Clock, Zap } from 'lucide-react';
 import Link from 'next/link';
-import { pathForAgent } from '@/lib/routes/workspace';
+import { pathForAgent, toLocale } from '@/lib/routes/workspace';
 
 export function LandingStatsGrowth() {
   const { t } = useSafeTranslations('landing.statsGrowth');
@@ -54,18 +54,31 @@ export function LandingStatsGrowth() {
   const generateSmoothPath = () => {
     if (curvePoints.length === 0) return '';
     
-    let path = `M ${curvePoints[0].x} ${curvePoints[0].y}`;
+    // ✅ CORRECCIÓN: Type guard explícito para el primer punto
+    // Aunque curvePoints es constante, TypeScript no puede inferir que siempre tiene elementos
+    const firstPoint = curvePoints[0];
+    if (!firstPoint) return ''; // Safety check (nunca debería ocurrir con datos actuales)
+    
+    let path = `M ${firstPoint.x} ${firstPoint.y}`;
     
     for (let i = 0; i < curvePoints.length - 1; i++) {
       const current = curvePoints[i];
       const next = curvePoints[i + 1];
+      
+      // ✅ CORRECCIÓN: Type guard para verificar ambos puntos existen
+      // Previene errores si el array se modifica o tiene datos inesperados
+      if (!current || !next) continue; // Safety check
+      
       const midX = (current.x + next.x) / 2;
       const midY = (current.y + next.y) / 2;
       
       path += ` Q ${current.x} ${current.y}, ${midX} ${midY}`;
     }
     
+    // ✅ CORRECCIÓN: Type guard para el último punto
     const last = curvePoints[curvePoints.length - 1];
+    if (!last) return path; // Safety check (retorna path parcial si falla)
+    
     path += ` L ${last.x} ${last.y}`;
     
     return path;
@@ -118,7 +131,7 @@ export function LandingStatsGrowth() {
                 className="font-medium"
                 asChild
               >
-                <Link href={pathForAgent(locale)}>
+                <Link href={pathForAgent(toLocale(locale))}>
                   {t('cta.primary')}
                 </Link>
               </Button>
