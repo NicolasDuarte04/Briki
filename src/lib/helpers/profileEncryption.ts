@@ -23,7 +23,7 @@ import { Prisma } from '@prisma/client';
  * const encrypted = await encryptProfilePhone("+52 1234567890");
  * await prisma.profile.update({ data: { phone: encrypted, ... } });
  */
-export async function encryptProfilePhone(phone: string | null | undefined): Promise<Buffer | null> {
+export async function encryptProfilePhone(phone: string | null | undefined): Promise<Uint8Array | null> {
   if (!phone || phone.trim() === '') {
     return null;
   }
@@ -45,13 +45,15 @@ export async function encryptProfilePhone(phone: string | null | undefined): Pro
     `;
     
     const buffer = encrypted[0]?.encrypted || Buffer.from('');
-    // Prisma Bytes acepta Buffer directamente
-    return buffer;
+    // Convertir Buffer a Uint8Array - Buffer extiende Uint8Array en runtime
+    // Type assertion necesaria por diferencia ArrayBufferLike vs ArrayBuffer en Node.js
+    return new Uint8Array(buffer.buffer as ArrayBuffer, buffer.byteOffset, buffer.byteLength);
   }, {
     timeout: 30000,
   });
 
-  return result;
+  // Type assertion para satisfacer tipado estricto de Prisma
+  return result as Uint8Array<ArrayBuffer>;
 }
 
 /**
@@ -112,7 +114,7 @@ export async function decryptProfilePhone(encrypted: Buffer | Uint8Array | null)
  * const encrypted = await encryptProfileName("Juan Pérez");
  * await prisma.profile.update({ data: { name: encrypted, ... } });
  */
-export async function encryptProfileName(name: string | null | undefined): Promise<Buffer | null> {
+export async function encryptProfileName(name: string | null | undefined): Promise<Uint8Array | null> {
   if (!name || name.trim() === '') {
     return null;
   }
@@ -134,13 +136,15 @@ export async function encryptProfileName(name: string | null | undefined): Promi
     `;
     
     const buffer = encrypted[0]?.encrypted || Buffer.from('');
-    // Prisma Bytes acepta Buffer directamente
-    return buffer;
+    // Convertir Buffer a Uint8Array - Buffer extiende Uint8Array en runtime
+    // Type assertion necesaria por diferencia ArrayBufferLike vs ArrayBuffer en Node.js
+    return new Uint8Array(buffer.buffer as ArrayBuffer, buffer.byteOffset, buffer.byteLength);
   }, {
     timeout: 30000,
   });
 
-  return result;
+  // Type assertion para satisfacer tipado estricto de Prisma
+  return result as Uint8Array<ArrayBuffer>;
 }
 
 /**
@@ -201,7 +205,7 @@ export async function decryptProfileName(encrypted: Buffer | Uint8Array | null):
  * const encrypted = await encryptProfileAddress("Calle Principal 123");
  * await prisma.profile.update({ data: { address: encrypted, ... } });
  */
-export async function encryptProfileAddress(address: string | null | undefined): Promise<Buffer | null> {
+export async function encryptProfileAddress(address: string | null | undefined): Promise<Uint8Array | null> {
   if (!address || address.trim() === '') {
     return null;
   }
@@ -223,13 +227,15 @@ export async function encryptProfileAddress(address: string | null | undefined):
     `;
     
     const buffer = encrypted[0]?.encrypted || Buffer.from('');
-    // Prisma Bytes acepta Buffer directamente
-    return buffer;
+    // Convertir Buffer a Uint8Array - Buffer extiende Uint8Array en runtime
+    // Type assertion necesaria por diferencia ArrayBufferLike vs ArrayBuffer en Node.js
+    return new Uint8Array(buffer.buffer as ArrayBuffer, buffer.byteOffset, buffer.byteLength);
   }, {
     timeout: 30000,
   });
 
-  return result;
+  // Type assertion para satisfacer tipado estricto de Prisma
+  return result as Uint8Array<ArrayBuffer>;
 }
 
 /**

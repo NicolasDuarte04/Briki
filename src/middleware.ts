@@ -116,7 +116,11 @@ export async function middleware(request: NextRequest) {
   // If no user, redirect to login with next parameter
   if (!user) {
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('next', pathname);
+    // Only add 'next' parameter for routes that are valid post-login destinations
+    // Exclude agent routes (placeholders, temporary routes) from being added as 'next'
+    if (!pathname.includes('/agent')) {
+      loginUrl.searchParams.set('next', pathname);
+    }
     return NextResponse.redirect(loginUrl);
   }
 

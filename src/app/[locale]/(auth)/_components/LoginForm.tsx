@@ -18,15 +18,63 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
+  const [nextUrlWarning, setNextUrlWarning] = useState<string | null>(null);
 
-  // Read the 'next' query parameter on mount
+  // ✅ Whitelist de rutas permitidas (mismo que en actions.ts)
+  const ALLOWED_NEXT_ROUTES = [
+    '/dashboard',
+    '/profile',
+    '/workspace/cases',
+    '/workspace/clients',
+    '/workspace/policies',
+    '/workspace/proposals',
+    '/workspace/comparisons',
+    '/workspace/renewals',
+    '/workspace/analyses',
+  ];
+
+  /**
+   * Valida si una ruta es permitida como destino de ?next=
+   * @param nextPath - Ruta a validar
+   * @returns true si la ruta está en la whitelist, false en caso contrario
+   */
+  const isAllowedNextRoute = (nextPath: string | null): boolean => {
+    if (!nextPath || typeof nextPath !== 'string') {
+      return false;
+    }
+    
+    // Validación de sintaxis (prevenir open redirects)
+    if (!nextPath.startsWith('/') || nextPath.startsWith('//')) {
+      return false;
+    }
+    
+    // Normalizar ruta (remover locale prefix si existe)
+    const normalizedPath = nextPath.replace(/^\/(es|en)/, '');
+    
+    // Verificar contra whitelist (prefix matching para permitir subrutas)
+    return ALLOWED_NEXT_ROUTES.some(allowedRoute => 
+      normalizedPath === allowedRoute || normalizedPath.startsWith(allowedRoute + '/')
+    );
+  };
+
+  // Read and validate the 'next' query parameter on mount
   useEffect(() => {
     // Check if we're in the browser environment
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const next = params.get('next');
+      
       if (next) {
-        setNextUrl(next);
+        // ✅ Validar la URL de destino en el cliente
+        if (isAllowedNextRoute(next)) {
+          console.log(`✅ [LoginForm] Destino válido: ${next}`);
+          setNextUrl(next);
+        } else {
+          console.warn(`⚠️ [LoginForm] Destino no permitido: ${next}, será redirigido a /dashboard`);
+          setNextUrlWarning(`The requested destination "${next}" is not available. You will be redirected to the dashboard after login.`);
+          // No establecer nextUrl para que vaya al dashboard por defecto
+          setNextUrl(null);
+        }
       }
     }
   }, []);
@@ -160,6 +208,11 @@ export default function LoginForm() {
 
       {/* Primary Action */}
       <div className="space-y-3">
+        {nextUrlWarning && (
+          <p className="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3">
+            ⚠️ {nextUrlWarning}
+          </p>
+        )}
         {serverError && (
           <p className="text-sm text-destructive">
             {serverError}
