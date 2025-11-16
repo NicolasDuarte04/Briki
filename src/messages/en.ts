@@ -428,6 +428,7 @@ const en = {
       caseBrief: "Case Brief",
       artifacts: "Artifacts", // ✅ FASE 2: Agregar traducción
       policies: "Policies",
+      analysis: "Analysis", // ✅ FASE 5: Policy analysis tab
       comparisons: "Comparisons",
       proposal: "Proposal",
       compliance: "Compliance",
@@ -606,6 +607,7 @@ const en = {
         shortlist: "Shortlist",
         evidence: "Evidence",
         notes: "Notes",
+        viewInPdf: "View in PDF", // ✅ PHASE 6: Translation for "View in PDF" button
       },
       empty: {
         title: "No results",

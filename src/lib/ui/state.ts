@@ -20,6 +20,8 @@ import {
   type Eligibility,
   type NetworkLevel,
   type Policy,
+  type PolicyAnalysis,
+  type PolicyAnalysisView,
   type PolicyComparisonScore,
   type PolicyView,
   type PricingBand,
@@ -67,6 +69,48 @@ const policyToView = (policy: Policy): PolicyView => {
   };
 };
 
+/**
+ * Transform PolicyAnalysis to PolicyAnalysisView for UI consumption
+ * 
+ * FASE 4: Estado Global y Transformaciones
+ * Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.4
+ * 
+ * Extracts commonly accessed fields from the JSONB extracted_data
+ * and formats them for display in components.
+ * 
+ * @param analysis - Policy analysis from database
+ * @returns View model optimized for UI rendering
+ */
+const analysisToView = (analysis: PolicyAnalysis): PolicyAnalysisView => {
+  const { extractedData } = analysis;
+  
+  // Extract commonly used fields from JSONB
+  const policyNumber = extractedData?.policy_number || undefined;
+  const insuredName = extractedData?.insured_name || undefined;
+  const insurerName = extractedData?.insurer?.name || undefined;
+  
+  // Extract financial data
+  const premiumTotal = extractedData?.financials?.premium_total;
+  const currency = extractedData?.currency as any || 'USD';
+  
+  // Convert premium to minor units if it exists (API returns in major units)
+  const premiumTotalMinor = premiumTotal ? Math.round(premiumTotal * 100) : undefined;
+  
+  return {
+    id: analysis.id,
+    artifactId: analysis.artifactId,
+    fileName: analysis.artifact?.fileName || 'Unknown PDF',
+    policyNumber,
+    insuredName,
+    insurerName,
+    premiumTotal: premiumTotalMinor,
+    currency,
+    confidence: analysis.overallConfidence,
+    referencesCount: analysis.pageReferences?.length || 0,
+    extractedAt: analysis.extractedAt,
+  };
+};
+
 export type {
   BrokerProfile,
   Case,
@@ -76,6 +120,8 @@ export type {
   ComparisonWeights,
   Eligibility,
   Policy,
+  PolicyAnalysis,
+  PolicyAnalysisView,
   PolicyComparisonScore,
   PricingBand,
   Product,
@@ -600,10 +646,17 @@ export interface UIState {
   isBriefValid: () => boolean;
   // Estado de mensajes del chat
   messages: ChatMessage[];
+  // ✅ FASE 4: Policy Analysis States
+  policyAnalyses: PolicyAnalysis[];
+  policyAnalysesLoading: boolean;
+  policyAnalysesLoaded: boolean;
+  selectedPolicyAnalysisId: string | null;
+  selectedFieldName: string | null; // For auto-scroll to specific field
   // Cache properties (internal use)
   _cachedPoliciesView?: PolicyView[];
   _cachedRenewalsView?: RenewalView[];
   _cachedFilteredRenewalsView?: RenewalView[];
+  _cachedPolicyAnalysesView?: PolicyAnalysisView[];
   setInitialMessage: (message: string) => void;
   clearInitialMessage: () => void;
   setCurrentCaseId: (id: string | null) => void;
@@ -695,6 +748,13 @@ export interface UIState {
   selectPolicyView: (policyId: string) => PolicyView | undefined;
   selectRenewalsView: () => RenewalView[];
   selectFilteredSortedRenewalsView: () => RenewalView[];
+  // ✅ FASE 4: Policy Analysis Actions
+  fetchPolicyAnalyses: (caseId: string) => Promise<void>;
+  setPolicyAnalyses: (analyses: PolicyAnalysis[]) => void;
+  setSelectedPolicyAnalysis: (id: string | null) => void;
+  setSelectedField: (fieldName: string | null) => void;
+  analyzePolicyArtifact: (artifactId: string) => Promise<PolicyAnalysis>;
+  selectPolicyAnalysesView: () => PolicyAnalysisView[];
 }
 
 // ✅ FASE 3: Persistencia de estado (con corrección de contaminación)
@@ -828,6 +888,12 @@ export const useUI = create<UIState>()(
       landingDataPending: null,
       // Estado de mensajes del chat
       messages: [],
+      // ✅ FASE 4: Policy Analysis States
+      policyAnalyses: [],
+      policyAnalysesLoading: false,
+      policyAnalysesLoaded: false,
+      selectedPolicyAnalysisId: null,
+      selectedFieldName: null,
       // Función de validación unificada del brief
       isBriefValid: () => {
         const { brief } = get();
@@ -1592,6 +1658,114 @@ export const useUI = create<UIState>()(
         // Compute the view (don't call set here - it would update during render!)
         const filtered = computeFilteredSortedRenewals(state);
         const view = filtered.map(renewalToView);
+        return view;
+      },
+      // ✅ FASE 4: Policy Analysis Actions Implementation
+      fetchPolicyAnalyses: async (caseId: string) => {
+        const { policyAnalysesLoading } = get();
+        if (policyAnalysesLoading) {
+          console.log('⏭️ [fetchPolicyAnalyses] Already loading, skipping...');
+          return;
+        }
+        
+        console.log('📋 [fetchPolicyAnalyses] Fetching analyses for case:', caseId);
+        set({ policyAnalysesLoading: true });
+        
+        try {
+          const response = await fetch(`/api/policies/analyses?caseId=${caseId}`);
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+          }
+          
+          const data = await response.json();
+          console.log('✅ [fetchPolicyAnalyses] Loaded:', data.count, 'analyses');
+          
+          set({
+            policyAnalyses: data.analyses || [],
+            policyAnalysesLoaded: true,
+            policyAnalysesLoading: false,
+            _cachedPolicyAnalysesView: undefined // Clear cache
+          });
+        } catch (error: any) {
+          console.error('❌ [fetchPolicyAnalyses] Error:', error.message);
+          set({ 
+            policyAnalysesLoading: false,
+            policyAnalyses: [],
+            policyAnalysesLoaded: true
+          });
+          throw error;
+        }
+      },
+      
+      setPolicyAnalyses: (analyses: PolicyAnalysis[]) => {
+        console.log('📋 [setPolicyAnalyses] Setting', analyses.length, 'analyses');
+        set({ 
+          policyAnalyses: analyses,
+          policyAnalysesLoaded: true,
+          _cachedPolicyAnalysesView: undefined // Clear cache
+        });
+      },
+      
+      setSelectedPolicyAnalysis: (id: string | null) => {
+        console.log('🎯 [setSelectedPolicyAnalysis]', id);
+        set({ selectedPolicyAnalysisId: id });
+      },
+      
+      setSelectedField: (fieldName: string | null) => {
+        console.log('🔍 [setSelectedField]', fieldName);
+        set({ selectedFieldName: fieldName });
+      },
+      
+      analyzePolicyArtifact: async (artifactId: string) => {
+        console.log('🤖 [analyzePolicyArtifact] Analyzing artifact:', artifactId);
+        
+        try {
+          const response = await fetch('/api/policies/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              artifactId, 
+              extractionMethod: 'hybrid' 
+            })
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP ${response.status}`);
+          }
+          
+          const data = await response.json();
+          
+          if (!data.success) {
+            throw new Error(data.error || 'Analysis failed');
+          }
+          
+          console.log('✅ [analyzePolicyArtifact] Analysis completed:', data.analysis.id);
+          
+          // Add to the list
+          const { policyAnalyses } = get();
+          set({ 
+            policyAnalyses: [...policyAnalyses, data.analysis],
+            _cachedPolicyAnalysesView: undefined // Clear cache
+          });
+          
+          return data.analysis;
+        } catch (error: any) {
+          console.error('❌ [analyzePolicyArtifact] Error:', error.message);
+          throw error;
+        }
+      },
+      
+      selectPolicyAnalysesView: () => {
+        const state = get();
+        // Return cached value if available to maintain referential stability
+        if (state._cachedPolicyAnalysesView !== undefined) {
+          return state._cachedPolicyAnalysesView;
+        }
+        // Compute the view (don't call set here - it would update during render!)
+        const view = state.policyAnalyses.map(analysisToView);
         return view;
       },
     }),

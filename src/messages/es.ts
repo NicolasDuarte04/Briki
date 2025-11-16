@@ -428,6 +428,7 @@ const es = {
       caseBrief: "Resumen",
       artifacts: "Artefactos", // ✅ FASE 2: Agregar traducción
       policies: "Pólizas",
+      analysis: "Análisis", // ✅ FASE 5: Tab de análisis de pólizas
       comparisons: "Comparaciones",
       proposal: "Propuesta",
       compliance: "Cumplimiento",
@@ -606,6 +607,7 @@ const es = {
         shortlist: "Preseleccionar",
         evidence: "Evidencia",
         notes: "Notas",
+        viewInPdf: "Ver en PDF", // ✅ FASE 6: Traducción para botón "Ver en PDF"
       },
       empty: {
         title: "Sin resultados",

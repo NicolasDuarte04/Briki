@@ -48,12 +48,11 @@ export default function LoadingScreen({
   if (!isVisible) return null;
 
   return (
-    <div className={`
-      fixed inset-0 z-[9999] 
-      bg-white 
-      transition-opacity duration-300 ease-out
-      ${isLoading ? 'opacity-100' : 'opacity-0'}
-    `} role="dialog" aria-label="Cargando aplicación Briki" aria-modal="true">
+    <div 
+      className={`fixed inset-0 z-[9999] bg-white transition-opacity duration-300 ease-out ${isLoading ? 'opacity-100' : 'opacity-0'}`} 
+      role="dialog" 
+      aria-label="Cargando aplicación Briki" 
+      aria-modal="true">
       <div className="h-full flex flex-col items-center justify-center">
         {/* Logo and Brand Name - Side by Side */}
         <header className="flex items-center gap-6 mb-12">

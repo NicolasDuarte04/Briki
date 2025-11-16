@@ -108,7 +108,8 @@
 @layer base {
   /* Reset defaults */
   * {
-    @apply border-border outline-ring/50;
+    border-color: hsl(var(--border));
+    outline-color: hsl(var(--ring) / 0.5);
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -127,7 +128,9 @@
   }
 
   body {
-    @apply text-foreground bg-background font-sans;
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--background));
+    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
     min-height: 100dvh;
     width: 100%;
   }
@@ -210,11 +213,6 @@
   }
   .z-tabs {
     @apply z-40;
-  }
-
-  /* Marketing container - only constrains width when explicitly used */
-  .container-marketing {
-    @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 
   /* Typography utilities for consistent text rendering */
@@ -413,19 +411,42 @@
 }
 
 input[type="range"][data-slot="slider"]::-webkit-slider-thumb {
-  @apply bg-primary h-5 w-5 appearance-none rounded-full border border-primary/20 shadow-sm transition disabled:bg-muted;
+  background-color: hsl(var(--primary));
+  height: 1.25rem;
+  width: 1.25rem;
+  appearance: none;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--primary) / 0.2);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease;
+}
+input[type="range"][data-slot="slider"]:disabled::-webkit-slider-thumb {
+  background-color: hsl(var(--muted));
 }
 
 input[type="range"][data-slot="slider"]::-moz-range-thumb {
-  @apply bg-primary h-5 w-5 rounded-full border border-primary/20 shadow-sm transition disabled:bg-muted;
+  background-color: hsl(var(--primary));
+  height: 1.25rem;
+  width: 1.25rem;
+  border-radius: 9999px;
+  border: 1px solid hsl(var(--primary) / 0.2);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease;
+}
+input[type="range"][data-slot="slider"]:disabled::-moz-range-thumb {
+  background-color: hsl(var(--muted));
 }
 
 input[type="range"][data-slot="slider"]::-webkit-slider-runnable-track {
-  @apply bg-muted h-2 rounded-full;
+  background-color: hsl(var(--muted));
+  height: 0.5rem;
+  border-radius: 9999px;
 }
 
 input[type="range"][data-slot="slider"]::-moz-range-track {
-  @apply bg-muted h-2 rounded-full;
+  background-color: hsl(var(--muted));
+  height: 0.5rem;
+  border-radius: 9999px;
 }
 
 input[type="range"][data-slot="slider"]:focus-visible::-webkit-slider-thumb,

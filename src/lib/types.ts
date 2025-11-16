@@ -397,11 +397,21 @@ export type ComparisonMetric = 'premium' | 'deductible' | 'riders' | 'network' |
 
 /**
  * Lightweight view model for policies used in the UI layer
+ * ✅ FASE 6: Extended to include policy analysis fields
+ * ✅ CORRECCIÓN: network y service opcionales para compatibilidad
  */
-export type PolicyView = Pick<Policy, "id" | "plan" | "riders" | "network" | "service"> & {
+export type PolicyView = Pick<Policy, "id" | "plan" | "riders"> & {
   premium: number;
   deductible: number;
   currency: CurrencyCode;
+  // Campos legacy (opcionales para compatibilidad con mock data)
+  network?: string;
+  service?: string;
+  // ✅ FASE 6: New fields from policy analysis
+  confidence?: number;
+  artifactId?: string;
+  analysisId?: string;
+  pageReference?: number;
 };
 
 /**
@@ -461,4 +471,104 @@ export interface RenewalStatusChipProps {
   label: string;
   /** Visual tone */
   tone: 'neutral' | 'warning' | 'critical';
+}
+
+// ============================================================================
+// POLICY ANALYSIS TYPES - FASE 4
+// Added: 16 November 2025
+// Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.4
+// ============================================================================
+
+/**
+ * Page reference from policy analysis
+ * Links extracted fields to specific locations in the PDF
+ */
+export interface PolicyPageReference {
+  /** Unique identifier */
+  id: string;
+  /** Policy analysis ID this reference belongs to */
+  policyAnalysisId: string;
+  /** Field name (e.g., 'premium_total', 'policy_number') */
+  fieldName: string;
+  /** Extracted value */
+  fieldValue: string | null;
+  /** Page number (1-indexed) */
+  pageNumber: number;
+  /** Bounding box coordinates */
+  boundingBox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null;
+  /** Confidence score (0-1) */
+  confidence: number;
+  /** Creation timestamp */
+  createdAt: string;
+}
+
+/**
+ * Policy analysis with structured data extracted from PDF
+ * Contains all extracted policy data plus metadata and page references
+ */
+export interface PolicyAnalysis {
+  /** Unique identifier */
+  id: string;
+  /** Artifact (PDF) ID that was analyzed */
+  artifactId: string;
+  /** Case ID this analysis belongs to */
+  caseId: string;
+  /** Organization ID */
+  orgId: string;
+  /** Structured extracted data (JSONB) */
+  extractedData: Record<string, any>;
+  /** Extraction method used */
+  extractionMethod: 'manual' | 'ocr' | 'hybrid';
+  /** Overall confidence score (0-1) */
+  overallConfidence: number;
+  /** When extraction was performed */
+  extractedAt: string;
+  /** Creation timestamp */
+  createdAt: string;
+  /** Last update timestamp */
+  updatedAt: string;
+  /** Related artifact info (when included) */
+  artifact?: {
+    id: string;
+    fileName: string;
+    contentType: string;
+    fileId: string;
+    createdAt: string;
+  };
+  /** Page references (when included) */
+  pageReferences?: PolicyPageReference[];
+}
+
+/**
+ * View model for policy analysis in UI
+ * Simplified version with commonly accessed fields for display
+ */
+export interface PolicyAnalysisView {
+  /** Unique identifier */
+  id: string;
+  /** Artifact ID */
+  artifactId: string;
+  /** File name of analyzed PDF */
+  fileName: string;
+  /** Policy number (from extracted data) */
+  policyNumber?: string;
+  /** Insured name (from extracted data) */
+  insuredName?: string;
+  /** Insurer name (from extracted data) */
+  insurerName?: string;
+  /** Premium total (from extracted data, in minor units) */
+  premiumTotal?: number;
+  /** Currency code */
+  currency?: CurrencyCode;
+  /** Overall confidence */
+  confidence: number;
+  /** Number of page references */
+  referencesCount: number;
+  /** When extracted */
+  extractedAt: string;
 }

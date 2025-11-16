@@ -371,42 +371,44 @@ model sso_providers {
 }
 
 model Case {
-  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orgId              String?    @map("org_id") @db.Uuid
-  clientRef          String?    @map("client_ref") @db.VarChar(255)
-  clientName         String?    @map("client_name") @db.VarChar(255)
-  businessType       String?    @map("business_type") @db.VarChar(255)
+  id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId              String?          @map("org_id") @db.Uuid
+  clientRef          String?          @map("client_ref") @db.VarChar(255)
+  clientName         String?          @map("client_name") @db.VarChar(255)
+  businessType       String?          @map("business_type") @db.VarChar(255)
   employees          Int?
-  status             String     @default("draft") @db.VarChar(50)
-  stage              String     @default("initial") @db.VarChar(50)
-  briefData          Json?      @map("brief_data")
-  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  priority           String     @default("medium") @db.VarChar(20)
-  budget_currency    String?    @default("COP") @map("budget_currency") @db.VarChar(3)
-  client_profile     String?    @map("client_profile")
+  status             String           @default("draft") @db.VarChar(50)
+  stage              String           @default("initial") @db.VarChar(50)
+  briefData          Json?            @map("brief_data")
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  priority           String           @default("medium") @db.VarChar(20)
+  budget_currency    String?          @default("COP") @map("budget_currency") @db.VarChar(3)
+  client_profile     String?          @map("client_profile")
   insurance_category String?
-  max_budget         Decimal?   @map("max_budget") @db.Decimal(10, 2)
-  required_coverages String[]   @default([]) @map("required_coverages")
+  max_budget         Decimal?         @map("max_budget") @db.Decimal(10, 2)
+  required_coverages String[]         @default([]) @map("required_coverages")
   artifacts          Artifact[]
   auditLogs          AuditLog[]
   messages           Message[]
+  policyAnalyses     PolicyAnalysis[] // ✅ NUEVO: Relación con análisis de pólizas
 
   @@map("cases")
   @@schema("public")
 }
 
 model Artifact {
-  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  caseId      String     @map("case_id") @db.Uuid
-  sourceType  SourceType @map("source_type")
-  fileId      String?    @map("file_id") @db.VarChar(255)
-  fileName    String?    @map("file_name") @db.VarChar(255)
-  contentType String?    @map("content_type") @db.VarChar(100)
-  contentText String?    @map("content_text")
-  provenance  Json?
-  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  case        Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId         String           @map("case_id") @db.Uuid
+  sourceType     SourceType       @map("source_type")
+  fileId         String?          @map("file_id") @db.VarChar(255)
+  fileName       String?          @map("file_name") @db.VarChar(255)
+  contentType    String?          @map("content_type") @db.VarChar(100)
+  contentText    String?          @map("content_text")
+  provenance     Json?
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  case           Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  policyAnalyses PolicyAnalysis[] // ✅ NUEVO: Relación con análisis de pólizas
 
   @@map("artifacts")
   @@schema("public")
@@ -626,6 +628,57 @@ model oauth_consents {
   @@unique([user_id, client_id], map: "oauth_consents_user_client_unique")
   @@index([user_id, granted_at(sort: Desc)], map: "oauth_consents_user_order_idx")
   @@schema("auth")
+}
+
+/// ============================================================================
+/// POLICY ANALYSIS MODELS - Added 2025-11-16
+/// ============================================================================
+/// Stores structured data extracted from policy PDF artifacts
+/// Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.1.2
+model PolicyAnalysis {
+  id                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  artifactId        String                @map("artifact_id") @db.Uuid
+  caseId            String                @map("case_id") @db.Uuid
+  orgId             String                @map("org_id") @db.Uuid
+  extractedData     Json                  @map("extracted_data")
+  extractionMethod  String                @default("hybrid") @map("extraction_method")
+  overallConfidence Decimal               @default(0.00) @map("overall_confidence") @db.Decimal(3, 2)
+  extractedAt       DateTime              @map("extracted_at") @db.Timestamptz(6)
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  
+  artifact          Artifact              @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  case              Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  pageReferences    PolicyPageReference[]
+  
+  @@index([artifactId])
+  @@index([caseId])
+  @@index([orgId])
+  @@index([extractedAt(sort: Desc)])
+  @@index([overallConfidence])
+  @@map("policy_analyses")
+  @@schema("public")
+}
+
+/// Maps extracted policy fields to their exact locations in the source PDF
+model PolicyPageReference {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  policyAnalysisId String         @map("policy_analysis_id") @db.Uuid
+  fieldName        String         @map("field_name")
+  fieldValue       String?        @map("field_value")
+  pageNumber       Int            @map("page_number")
+  boundingBox      Json?          @map("bounding_box")
+  confidence       Decimal        @default(0.00) @db.Decimal(3, 2)
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  
+  policyAnalysis   PolicyAnalysis @relation(fields: [policyAnalysisId], references: [id], onDelete: Cascade)
+  
+  @@index([policyAnalysisId])
+  @@index([fieldName])
+  @@index([pageNumber])
+  @@index([confidence])
+  @@map("policy_page_references")
+  @@schema("public")
 }
 
 enum SourceType {

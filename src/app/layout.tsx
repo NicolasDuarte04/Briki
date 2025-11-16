@@ -244,6 +244,11 @@ export default function RootLayout({
             }),
           }}
         />
+        {/* Adobe PDF Embed API Script */}
+        <script
+          type="text/javascript"
+          src="https://documentcloud.adobe.com/view-sdk/viewer.js"
+        />
       </head>
       <body className="antialiased min-h-screen flex flex-col">
         <ChunkLoadErrorBoundary>

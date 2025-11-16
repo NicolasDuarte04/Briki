@@ -2,46 +2,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { prisma } from '@/lib/prisma';
-import PDFParser from 'pdf2json';
 import { tryRecordAuditLog } from '@/lib/audit';
 import crypto from 'crypto';
 import { findDuplicateArtifact } from '@/lib/storage/findDuplicateArtifact';
+// ✅ FASE 2: Importar nueva función de extracción con coordenadas
+import { extractWithCoordinates, extractTextFromPDF } from '@/lib/pdf/extraction';
 
 // Force Node.js runtime (required for Buffer and pdf2json)
 export const runtime = 'nodejs';
-
-/**
- * Extrae texto de un PDF usando pdf2json
- */
-async function extractTextFromPDF(buffer: Buffer): Promise<{text: string, pages: number}> {
-  return new Promise((resolve, reject) => {
-    const pdfParser = new (PDFParser as any)(null, true);
-    
-    pdfParser.on('pdfParser_dataError', (errData: any) => {
-      reject(new Error('Failed to parse PDF'));
-    });
-    
-    pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
-      let fullText = '';
-      pdfData.Pages.forEach((page: any) => {
-        page.Texts.forEach((textBlock: any) => {
-          textBlock.R.forEach((run: any) => {
-            const decodedText = decodeURIComponent(run.T);
-            fullText += decodedText + ' ';
-          });
-        });
-        fullText += '\n';
-      });
-      
-      resolve({
-        text: fullText.trim(),
-        pages: pdfData.Meta.Pages
-      });
-    });
-    
-    pdfParser.parseBuffer(buffer);
-  });
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -111,13 +79,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Intentar extraer texto (opcional en temp)
+      // ✅ FASE 2: Intentar extraer texto con coordenadas (opcional en temp)
       let pdfText = '';
       let pageCount = 0;
+      let coordinates: any[] = [];
       try {
-        const extracted = await extractTextFromPDF(buffer);
+        const extracted = await extractWithCoordinates(buffer);
         pdfText = extracted.text;
         pageCount = extracted.pages;
+        coordinates = extracted.coordinates;
+        console.log(`✅ FASE 2: Extraídas ${coordinates.length} coordenadas de ${pageCount} páginas`);
       } catch (e) {
         console.warn('⚠️ Extracción opcional fallida (temp), continuando...');
       }
@@ -135,9 +106,11 @@ export async function POST(request: NextRequest) {
           fileSize: file.size,
           pageCount,
           charactersExtracted: pdfText.length,
+          coordinatesExtracted: coordinates.length, // ✅ FASE 2: Número de bloques de texto con coordenadas
           fileHash,
           uploadedBy: user.id,
           extractedText: pdfText,  // ← AÑADIDO: Texto completo del PDF
+          coordinates, // ✅ FASE 2: Coordenadas de todos los bloques de texto
         }
       }, { status: 201 });
     }
@@ -368,16 +341,18 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Extraer texto del PDF
-    console.log('📚 Extrayendo texto del PDF...');
+    // ✅ FASE 2: Extraer texto del PDF con coordenadas
+    console.log('📚 Extrayendo texto y coordenadas del PDF...');
     let pdfText = '';
     let pageCount = 0;
+    let coordinates: any[] = [];
     
     try {
-      const extracted = await extractTextFromPDF(buffer);
+      const extracted = await extractWithCoordinates(buffer);
       pdfText = extracted.text;
       pageCount = extracted.pages;
-      console.log('✅ Texto extraído:', pdfText.length, 'caracteres,', pageCount, 'páginas');
+      coordinates = extracted.coordinates;
+      console.log(`✅ FASE 2: Texto extraído: ${pdfText.length} caracteres, ${pageCount} páginas, ${coordinates.length} bloques de texto con coordenadas`);
     } catch (extractError) {
       console.warn('⚠️ Error extrayendo texto, continuando sin texto:', extractError);
       // No fallar la operación completa si la extracción falla
@@ -403,7 +378,9 @@ export async function POST(request: NextRequest) {
           userAgent: request.headers.get('user-agent') || 'unknown',
           fileHash: fileHash,
           fileSize: file.size,
-          pageCount: pageCount
+          pageCount: pageCount,
+          coordinates: coordinates, // ✅ FASE 2: Coordenadas de todos los bloques de texto
+          coordinatesCount: coordinates.length // ✅ FASE 2: Número total de bloques con coordenadas
         }
       }
     });

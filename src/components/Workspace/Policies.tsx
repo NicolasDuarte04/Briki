@@ -174,18 +174,39 @@ interface PoliciesProps {
 }
 
 export default function Policies({ caseData, loading }: PoliciesProps = {}) {
-  // Get the selector function and call it with useMemo to avoid infinite loops
-  const selectPoliciesView = useUI((s) => s.selectPoliciesView);
-  const rows = React.useMemo(() => selectPoliciesView(), [selectPoliciesView]);
-  const policiesLoading = useUI((s) => s.policiesLoading);
-  const policiesLoaded = useUI((s) => s.policiesLoaded);
-  const fetchPolicies = useUI((s) => s.fetchPolicies);
+  // ✅ FASE 6: Cambiar fuente de datos de mock a policyAnalyses
+  const currentCaseId = useUI((s) => s.currentCaseId);
+  const policyAnalyses = useUI((s) => s.policyAnalyses);
+  const policyAnalysesLoading = useUI((s) => s.policyAnalysesLoading);
+  const policyAnalysesLoaded = useUI((s) => s.policyAnalysesLoaded);
+  const fetchPolicyAnalyses = useUI((s) => s.fetchPolicyAnalyses);
   const t = useTranslations("workspace.policies");
   const locale = useLocale();
 
+  // ✅ FASE 6: Fetch policy analyses when case changes
   React.useEffect(() => {
-    void fetchPolicies();
-  }, [fetchPolicies]);
+    if (currentCaseId) {
+      void fetchPolicyAnalyses(currentCaseId);
+    }
+  }, [currentCaseId, fetchPolicyAnalyses]);
+
+  // ✅ FASE 6: Transform PolicyAnalysis[] to PolicyView[]
+  const rows = React.useMemo(() => {
+    return policyAnalyses.map((analysis) => ({
+      id: analysis.id,
+      plan: analysis.extractedData?.insurer?.name || analysis.artifact?.fileName || 'N/A',
+      premium: analysis.extractedData?.financials?.premium_total || 0,
+      deductible: analysis.extractedData?.deductibles?.[0]?.amount || 0,
+      currency: (analysis.extractedData?.currency as CurrencyCode) || 'USD',
+      riders: analysis.extractedData?.coverages?.map((c: any) => c.name || c.type) || [],
+      confidence: typeof analysis.overallConfidence === 'string' 
+        ? parseFloat(analysis.overallConfidence) 
+        : analysis.overallConfidence,
+      artifactId: analysis.artifactId,
+      analysisId: analysis.id,
+      pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
+    }));
+  }, [policyAnalyses]);
 
   return (
     <Card>
@@ -193,7 +214,12 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
         <CardTitle>{t("title")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <PoliciesTable rows={rows} loading={policiesLoading} loaded={policiesLoaded} locale={locale} />
+        <PoliciesTable 
+          rows={rows} 
+          loading={policyAnalysesLoading} 
+          loaded={policyAnalysesLoaded} 
+          locale={locale} 
+        />
       </CardContent>
     </Card>
   );
@@ -285,7 +311,25 @@ function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
         header: ({ column }) => (
           <HeaderWithPinMenu column={column} title={t("columns.plan")} dragProps={getHeaderDnDProps(column.id)} labels={columnMenuLabels} />
         ),
-        cell: ({ row }) => <div className="font-medium">{row.original.plan}</div>,
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <span className="font-medium">{row.original.plan}</span>
+            {/* ✅ CORRECCIÓN: Chip de confianza con gradiente continuo */}
+            {row.original.confidence !== undefined && (
+              <span
+                className="inline-flex items-center justify-center rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap"
+                style={{
+                  backgroundColor: getConfidenceColor(row.original.confidence),
+                  color: getConfidenceTextColor(row.original.confidence),
+                  borderColor: 'transparent'
+                }}
+                title={`Confianza del análisis: ${Math.round(row.original.confidence * 100)}%`}
+              >
+                {Math.round(row.original.confidence * 100)}%
+              </span>
+            )}
+          </div>
+        ),
       },
       {
         accessorKey: "premium",
@@ -342,9 +386,13 @@ function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
         id: "actions",
         enableSorting: false,
         header: () => <div className="sr-only">{t("actions.columnLabel")}</div>,
-        cell: () => (
+        cell: ({ row }) => (
           <div className="flex w-full items-center justify-end">
             <div className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+              {/* ✅ FASE 6: Botón "Ver en PDF" */}
+              {row.original.analysisId ? (
+                <ViewInPdfButton analysisId={row.original.analysisId} />
+              ) : (
               <div className="flex items-center gap-1.5">
                 <Button
                   variant="ghost"
@@ -377,6 +425,7 @@ function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
                   {t("actions.notes")}
                 </Button>
               </div>
+              )}
             </div>
           </div>
         ),
@@ -729,6 +778,85 @@ function PoliciesLoadingSkeleton() {
   );
 }
 
+/**
+ * ✅ FASE 6: Botón "Ver en PDF" que establece el análisis seleccionado
+ * Nota: El cambio automático al tab "analysis" se implementará en FASE 7
+ */
+function ViewInPdfButton({ analysisId }: { analysisId: string }) {
+  const setSelectedPolicyAnalysis = useUI((s) => s.setSelectedPolicyAnalysis);
+  const t = useTranslations("workspace.policies");
+  
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('🔍 [ViewInPdfButton] Setting selected analysis:', analysisId);
+    
+    // ✅ FASE 6: Establecer el análisis seleccionado
+    setSelectedPolicyAnalysis(analysisId);
+    
+    // ℹ️ El usuario debe cambiar manualmente al tab "Analysis" para ver el PDF
+    // El cambio automático se implementará en FASE 7
+  };
+  
+  return (
+    <Button
+      variant="default"
+      size="sm"
+      type="button"
+      onClick={handleClick}
+      title="Haz clic y luego ve al tab 'Análisis' para ver el PDF"
+    >
+      {t("actions.viewInPdf", { default: "Ver en PDF" })}
+    </Button>
+  );
+}
+
+/**
+ * ✅ CORRECCIÓN: Calcula color RGB interpolado para un nivel de confianza
+ * Gradiente continuo: Rojo (0%) → Amarillo (50%) → Verde (100%)
+ * @param confidence - Valor entre 0 y 1
+ * @returns Color en formato RGB
+ */
+function getConfidenceColor(confidence: number): string {
+  // Clamp entre 0 y 1
+  const c = Math.max(0, Math.min(1, confidence));
+  
+  // Colores de referencia (Tailwind)
+  const red = { r: 239, g: 68, b: 68 };      // #EF4444 (red-500)
+  const yellow = { r: 234, g: 179, b: 8 };   // #EAB308 (yellow-500)
+  const green = { r: 34, g: 197, b: 94 };    // #22C55E (green-500)
+  
+  let r: number, g: number, b: number;
+  
+  if (c < 0.5) {
+    // Interpolación entre rojo (0) y amarillo (0.5)
+    const t = c * 2; // Normalizar a 0-1
+    r = Math.round(red.r + (yellow.r - red.r) * t);
+    g = Math.round(red.g + (yellow.g - red.g) * t);
+    b = Math.round(red.b + (yellow.b - red.b) * t);
+  } else {
+    // Interpolación entre amarillo (0.5) y verde (1.0)
+    const t = (c - 0.5) * 2; // Normalizar a 0-1
+    r = Math.round(yellow.r + (green.r - yellow.r) * t);
+    g = Math.round(yellow.g + (green.g - yellow.g) * t);
+    b = Math.round(yellow.b + (green.b - yellow.b) * t);
+  }
+  
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/**
+ * ✅ CORRECCIÓN: Determina el color de texto según el fondo
+ * @param confidence - Valor entre 0 y 1
+ * @returns 'white' para fondos oscuros, 'black' para fondos claros
+ */
+function getConfidenceTextColor(confidence: number): string {
+  // Texto blanco para confianza baja (fondo rojo oscuro)
+  // Texto negro para confianza media-alta (fondo amarillo/verde)
+  return confidence < 0.3 ? 'white' : 'black';
+}
+
 function HeaderWithPinMenu({ column, title, align, dragProps, labels }: { column: Column<PolicyView, unknown>; title: string; align?: "left" | "right"; dragProps?: React.HTMLAttributes<HTMLSpanElement> | undefined; labels: ColumnMenuLabels }) {
   const pin = column.getIsPinned();
   const value = pin ?? "none";
@@ -748,7 +876,7 @@ function HeaderWithPinMenu({ column, title, align, dragProps, labels }: { column
       </Button>
       {dragProps && (
         <span
-          {...dragProps}
+          {...(dragProps as any)}
           className="cursor-grab select-none text-muted-foreground/70 active:cursor-grabbing"
         >
           ⠿

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState, useEffect } from "react";
+import dynamic from "next/dynamic"; // ✅ CORRECCIÓN CRÍTICA SSR
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslations } from "next-intl";
 import { useUI } from "@/lib/ui/state";
@@ -13,7 +14,68 @@ import Comparison from "./Comparison";
 import Proposal from "./Proposal";
 import Renewals from "./Renewals";
 
-export type WorkspaceTab = "case-brief" | "policies" | "comparisons" | "proposal" | "compliance" | "renewals";
+// 🔍 LOG 1: Antes de crear dynamic import de AnalysisTab
+console.log('🔍 [WorkspaceTabs] BEFORE AnalysisTab dynamic import creation', {
+  timestamp: new Date().toISOString(),
+  environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR',
+  hasWindow: typeof window !== 'undefined',
+  stackTrace: new Error().stack?.split('\n').slice(0, 10).join('\n')
+});
+
+// ✅ CORRECCIÓN CRÍTICA: Import dinámico de AnalysisTab para evitar SSR con pdfjs-dist
+// Aunque PdfViewer ya es dinámico dentro de AnalysisTab, necesitamos que AnalysisTab
+// también sea dinámico para que Next.js no intente evaluar el módulo durante SSR
+const AnalysisTab = dynamic(
+  () => {
+    console.log('🔍 [WorkspaceTabs] AnalysisTab DYNAMIC IMPORT CALLBACK EXECUTING', {
+      timestamp: new Date().toISOString(),
+      environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR',
+      hasWindow: typeof window !== 'undefined',
+      stackTrace: new Error().stack?.split('\n').slice(0, 15).join('\n')
+    });
+    
+    return import("@/components/Analysis/AnalysisTab").then(mod => {
+      console.log('🔍 [WorkspaceTabs] AnalysisTab DYNAMIC IMPORT RESOLVED', {
+        timestamp: new Date().toISOString(),
+        environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR',
+        hasAnalysisTab: typeof mod?.AnalysisTab !== 'undefined',
+        modKeys: Object.keys(mod)
+      });
+      return { default: mod.AnalysisTab };
+    }).catch(err => {
+      console.error('🔍 [WorkspaceTabs] AnalysisTab DYNAMIC IMPORT ERROR', {
+        timestamp: new Date().toISOString(),
+        error: err,
+        errorMessage: err?.message,
+        errorStack: err?.stack
+      });
+      throw err;
+    });
+  },
+  {
+    ssr: false,
+    loading: () => {
+      console.log('🔍 [WorkspaceTabs] AnalysisTab LOADING component rendering', {
+        timestamp: new Date().toISOString(),
+        environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR'
+      });
+      return (
+        <div className="flex items-center justify-center h-full">
+          <p className="text-muted-foreground">Cargando análisis...</p>
+        </div>
+      );
+    }
+  }
+);
+
+// 🔍 LOG 2: Después de crear dynamic import
+console.log('🔍 [WorkspaceTabs] AFTER AnalysisTab dynamic import creation', {
+  timestamp: new Date().toISOString(),
+  environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR',
+  AnalysisTabType: typeof AnalysisTab
+});
+
+export type WorkspaceTab = "case-brief" | "policies" | "analysis" | "comparisons" | "proposal" | "compliance" | "renewals"; // ✅ FASE 5: Added "analysis"
 
 interface CaseData {
   id: string;
@@ -34,6 +96,7 @@ interface CaseData {
 export function WorkspaceTabs() {
   const t = useTranslations("workspace.tabs");
   const { caseApproved, brief, setCaseApproved, currentCaseId } = useUI();
+  const fetchPolicyAnalyses = useUI(s => s.fetchPolicyAnalyses); // ✅ FASE 5
   const [activeCaseData, setActiveCaseData] = useState<CaseData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   // ✅ CORRECCIÓN: Estado local para forzar modo edición sin afectar caseApproved
@@ -41,6 +104,7 @@ export function WorkspaceTabs() {
   const tabLabels = useMemo(() => ({
       "case-brief": t("caseBrief"),
       policies: t("policies"),
+      analysis: t("analysis"), // ✅ FASE 5
       comparisons: t("comparisons"),
       proposal: t("proposal"),
       compliance: t("compliance"),
@@ -53,6 +117,16 @@ export function WorkspaceTabs() {
   useEffect(() => {
     setIsEditingMode(false);
   }, [currentCaseId]);
+
+  // ✅ FASE 5: Cargar análisis de pólizas cuando cambia el caso
+  useEffect(() => {
+    if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
+      fetchPolicyAnalyses(currentCaseId).catch(error => {
+        console.error('❌ [WorkspaceTabs] Error fetching policy analyses:', error);
+        // No romper la UI, solo loguear el error
+      });
+    }
+  }, [currentCaseId, fetchPolicyAnalyses]);
 
   // ✅ FASE B.2: Cargar datos del caso cuando currentCaseId cambia
   useEffect(() => {
@@ -279,6 +353,28 @@ export function WorkspaceTabs() {
           </TabsContent>
           <TabsContent value="policies" className="py-6">
             <Policies caseData={activeCaseData} loading={isLoading} />
+          </TabsContent>
+          <TabsContent value="analysis" className="py-6 h-full">
+            {(() => {
+              console.log('🔍 [WorkspaceTabs] ABOUT TO RENDER AnalysisTab JSX', {
+                timestamp: new Date().toISOString(),
+                activeTab,
+                environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR',
+                AnalysisTabType: typeof AnalysisTab,
+                stackTrace: new Error().stack?.split('\n').slice(0, 15).join('\n')
+              });
+              try {
+                return <AnalysisTab />;
+              } catch (err: any) {
+                console.error('🔍 [WorkspaceTabs] ERROR rendering AnalysisTab', {
+                  timestamp: new Date().toISOString(),
+                  error: err,
+                  errorMessage: err?.message,
+                  errorStack: err?.stack
+                });
+                throw err;
+              }
+            })()}
           </TabsContent>
           <TabsContent value="comparisons" className="py-6">
             <Comparison />
