@@ -33,7 +33,7 @@ const AnalysisTab = dynamic(
       hasWindow: typeof window !== 'undefined',
       stackTrace: new Error().stack?.split('\n').slice(0, 15).join('\n')
     });
-    
+
     return import("@/components/Analysis/AnalysisTab").then(mod => {
       console.log('🔍 [WorkspaceTabs] AnalysisTab DYNAMIC IMPORT RESOLVED', {
         timestamp: new Date().toISOString(),
@@ -102,15 +102,16 @@ export function WorkspaceTabs() {
   // ✅ CORRECCIÓN: Estado local para forzar modo edición sin afectar caseApproved
   const [isEditingMode, setIsEditingMode] = useState(false);
   const tabLabels = useMemo(() => ({
-      "case-brief": t("caseBrief"),
-      policies: t("policies"),
-      analysis: t("analysis"), // ✅ FASE 5
-      comparisons: t("comparisons"),
-      proposal: t("proposal"),
-      compliance: t("compliance"),
-      renewals: t("renewals"),
-    } satisfies Record<WorkspaceTab, string>), [t]);
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>("case-brief");
+    "case-brief": t("caseBrief"),
+    policies: t("policies"),
+    analysis: t("analysis"), // ✅ FASE 5
+    comparisons: t("comparisons"),
+    proposal: t("proposal"),
+    compliance: t("compliance"),
+    renewals: t("renewals"),
+  } satisfies Record<WorkspaceTab, string>), [t]);
+  const activeTab = useUI((state) => state.activeTab);
+  const setActiveTab = useUI((state) => state.setActiveTab);
   const logRenewalsEvent = useUI((state) => state.logRenewalsEvent);
 
   // ✅ CORRECCIÓN: Resetear isEditingMode cuando cambia el caso
@@ -136,12 +137,12 @@ export function WorkspaceTabs() {
         console.log(`✅ [WorkspaceTabs] Datos del caso ${currentCaseId} ya cargados`);
         return;
       }
-      
+
       const fetchCaseData = async () => {
         setIsLoading(true);
         let retryCount = 0;
         const maxRetries = 3;
-        
+
         while (retryCount < maxRetries) {
           try {
             const response = await fetch(`/api/cases/${currentCaseId}`);
@@ -149,11 +150,11 @@ export function WorkspaceTabs() {
               const { case: caseData } = await response.json();
               setActiveCaseData(caseData);
               console.log(`✅ [WorkspaceTabs] Cargados datos del caso ${currentCaseId}`);
-              
+
               // ✅ CORRECCIÓN: Sincronizar caseApproved y resetear caseApproving cuando se carga caso desde BD
               // IMPORTANTE: NO resetear caseApproved a false si ya está en true (evita condiciones de carrera)
               useUI.setState({ caseApproving: false });
-              
+
               if (caseData.status === 'active') {
                 // ✅ CORRECCIÓN CRÍTICA: Si el caso está activo, caseApproved DEBE ser true y NUNCA puede volverse false
                 // Esto es una regla de negocio: casos activos siempre están aprobados
@@ -170,7 +171,7 @@ export function WorkspaceTabs() {
                   console.log('⚠️ [WorkspaceTabs] Caso en draft pero caseApproved=true (probablemente recién aprobado), manteniendo true');
                 }
               }
-              
+
               break; // Éxito, salir del loop
             } else {
               // ✅ CORRECCIÓN: Manejo graceful de errores HTTP
@@ -201,7 +202,7 @@ export function WorkspaceTabs() {
             }
           }
         }
-        
+
         setIsLoading(false);
       };
       fetchCaseData();
@@ -222,22 +223,22 @@ export function WorkspaceTabs() {
     if (isEditingMode) {
       return false; // Mostrar formulario en modo edición
     }
-    
+
     // ✅ CORRECCIÓN: Si no hay currentCaseId (new-thread-placeholder), SIEMPRE mostrar formulario
     if (!currentCaseId) {
       return false; // Mostrar formulario abierto para nuevo caso
     }
-    
+
     // Si caseApproved es true, mostrar resumen (a menos que isEditingMode sea true, ya verificado arriba)
     if (caseApproved) return true;
-    
+
     // Si activeCaseData existe y status es 'active', mostrar resumen
     if (activeCaseData && activeCaseData.status === 'active') {
       // Sincronizar caseApproved con status de BD solo una vez
       // (evitar loops infinitos)
       return true;
     }
-    
+
     // Caso contrario: mostrar formulario (caso draft o sin datos)
     return false;
   }, [caseApproved, activeCaseData, currentCaseId, isEditingMode]);
@@ -259,7 +260,7 @@ export function WorkspaceTabs() {
         console.log('✅ [WorkspaceTabs] activeCaseData ya está sincronizado, omitiendo recarga');
         return;
       }
-      
+
       console.log('🔄 [WorkspaceTabs] Recargando activeCaseData después de aprobación');
       const fetchCaseData = async () => {
         try {
@@ -284,13 +285,13 @@ export function WorkspaceTabs() {
     setIsEditingMode(true);
     console.log('✏️ [WorkspaceTabs] Modo edición activado (isEditingMode=true) - mostrando formulario');
   };
-  
+
   // ✅ CORRECCIÓN: Función para desactivar modo edición después de guardar
   // Esta función se pasará a CaseBriefForm para que pueda volver al resumen después de guardar
   const handleEditComplete = useCallback(() => {
     setIsEditingMode(false);
     console.log('✅ [WorkspaceTabs] Modo edición completado (isEditingMode=false) - mostrando resumen');
-    
+
     // ✅ CORRECCIÓN: Recargar datos del caso para incluir nuevos artifacts y datos actualizados
     if (currentCaseId) {
       const fetchCaseData = async () => {
@@ -343,9 +344,9 @@ export function WorkspaceTabs() {
               // - Cuando isEditingMode=false: onEditComplete no existe en props (omitida completamente)
               // - Esto permite volver al resumen después de guardar en modo edición
               // - Patrón consistente con CaseBriefForm pasando onApprove a BriefForm
-              <CaseBriefForm 
-                initialData={activeCaseData?.briefData || brief} 
-                activeCaseData={activeCaseData} 
+              <CaseBriefForm
+                initialData={activeCaseData?.briefData || brief}
+                activeCaseData={activeCaseData}
                 {...(isEditingMode && { onEditComplete: handleEditComplete })}
                 isEditingMode={isEditingMode}
               />

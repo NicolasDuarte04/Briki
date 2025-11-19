@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -7,6 +8,7 @@ import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Download, FileText } from '
 import { PolicyAnalysis } from '@/lib/types';
 import { PdfMinimap } from './PdfMinimap';
 import { PageNavigation } from './PageNavigation';
+import { PdfHighlightsLayer } from './PdfHighlightsLayer';
 
 // Configurar worker de PDF.js
 if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
@@ -41,6 +43,9 @@ export function PdfViewer({ analysis, initialPage, onPageChange }: PdfViewerProp
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ FASE 5: Estado para dimensiones de página renderizada
+  const [renderedDimensions, setRenderedDimensions] = useState<{ width: number; height: number } | null>(null);
+
   // Obtener URL del PDF desde el artifact
   useEffect(() => {
     const loadPdfUrl = async () => {
@@ -50,7 +55,7 @@ export function PdfViewer({ analysis, initialPage, onPageChange }: PdfViewerProp
 
         // El análisis tiene un artifactId que referencia el PDF en Storage
         const artifactId = analysis.artifactId;
-        
+
         if (!artifactId) {
           throw new Error('No artifact ID found in analysis');
         }
@@ -87,23 +92,32 @@ export function PdfViewer({ analysis, initialPage, onPageChange }: PdfViewerProp
     setError('No se pudo cargar el PDF');
   }
 
+  // ✅ FASE 5: Capturar dimensiones al cargar la página
+  function onPageLoadSuccess(page: any) {
+    console.log(`📄 Page loaded: ${page.width}x${page.height}`);
+    setRenderedDimensions({
+      width: page.width,
+      height: page.height
+    });
+  }
+
   function changePage(offset: number) {
     setPageNumber(prevPageNumber => {
       const newPage = prevPageNumber + offset;
       const validPage = Math.min(Math.max(1, newPage), numPages);
-      
+
       // Notificar cambio de página
       if (onPageChange) {
         onPageChange(validPage);
       }
-      
+
       return validPage;
     });
   }
 
   function handlePageChange(newPage: number) {
     setPageNumber(newPage);
-    
+
     // Notificar cambio de página
     if (onPageChange) {
       onPageChange(newPage);
@@ -235,13 +249,26 @@ export function PdfViewer({ analysis, initialPage, onPageChange }: PdfViewerProp
               </div>
             }
           >
-            <Page
-              pageNumber={pageNumber}
-              scale={scale}
-              renderTextLayer={false}
-              renderAnnotationLayer={false}
-              className="shadow-lg"
-            />
+            <div className="relative">
+              <Page
+                pageNumber={pageNumber}
+                scale={scale}
+                renderTextLayer={false}
+                renderAnnotationLayer={false}
+                className="shadow-lg"
+                onLoadSuccess={onPageLoadSuccess}
+              />
+
+              {/* ✅ FASE 5: Capa de Highlights */}
+              {renderedDimensions && analysis.pageReferences && (
+                <PdfHighlightsLayer
+                  references={analysis.pageReferences}
+                  pageNumber={pageNumber}
+                  pageDimensions={renderedDimensions}
+                  scale={scale}
+                />
+              )}
+            </div>
           </Document>
         </div>
 

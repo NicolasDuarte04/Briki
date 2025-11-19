@@ -778,14 +778,14 @@ function PoliciesLoadingSkeleton() {
 }
 
 function ViewInPdfButton({ analysisId }: { analysisId: string }) {
-  const setSelectedPolicyAnalysis = useUI((s) => s.setSelectedPolicyAnalysis);
+  const navigateToAnalysis = useUI((s) => s.navigateToAnalysis);
   const t = useTranslations("workspace.policies");
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    setSelectedPolicyAnalysis(analysisId);
+    navigateToAnalysis(analysisId);
   };
 
   return (
@@ -794,7 +794,7 @@ function ViewInPdfButton({ analysisId }: { analysisId: string }) {
       size="sm"
       type="button"
       onClick={handleClick}
-      title="Haz clic y luego ve al tab 'Análisis' para ver el PDF"
+      title={t("actions.viewInPdfTooltip", { default: "Ver análisis detallado en PDF" })}
     >
       {t("actions.viewInPdf", { default: "Ver en PDF" })}
     </Button>

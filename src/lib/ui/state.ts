@@ -659,7 +659,7 @@ export interface UIState {
   _cachedPoliciesView?: PolicyView[];
   _cachedRenewalsView?: RenewalView[];
   _cachedFilteredRenewalsView?: RenewalView[];
-  _cachedPolicyAnalysesView?: PolicyAnalysisView[];
+  _cachedPolicyAnalysesView?: PolicyAnalysisView[] | undefined;
   setInitialMessage: (message: string) => void;
   clearInitialMessage: () => void;
   setCurrentCaseId: (id: string | null) => void;
@@ -874,6 +874,7 @@ export const useUI = create<UIState>()(
       selectedPolicyAnalysisId: null,
       selectedFieldName: null,
       activeTab: 'policies', // ✅ Default tab
+
       complianceJurisdiction: complianceJurisdictions[0] ?? "co",
       checked: createDefaultComplianceChecked(),
       complianceAuditLog: [],
@@ -1701,6 +1702,19 @@ export const useUI = create<UIState>()(
       setSelectedField: (fieldName: string | null) => {
         console.log('🔍 [setSelectedField]', fieldName);
         set({ selectedFieldName: fieldName });
+      },
+
+      setActiveTab: (tab: WorkspaceTab) => {
+        console.log('📑 [setActiveTab]', tab);
+        set({ activeTab: tab });
+      },
+
+      navigateToAnalysis: (analysisId: string) => {
+        console.log('🚀 [navigateToAnalysis]', analysisId);
+        set({
+          selectedPolicyAnalysisId: analysisId,
+          activeTab: 'analysis'
+        });
       },
 
       analyzePolicyArtifact: async (artifactId: string) => {
