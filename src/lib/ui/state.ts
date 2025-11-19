@@ -829,13 +829,7 @@ export const useUI = create<UIState>()(
       sidebarOpen: true,
       sidebarHovered: false,
       complianceOpen: false,
-      complianceJurisdiction: null,
-      compliancePassed: {
-        KYC: false,
-        AML: false,
-        Suitability: false,
-      },
-      landingDataPending: false,
+      landingDataPending: null,
 
       // Briefing state
       brief: {},
