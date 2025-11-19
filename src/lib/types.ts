@@ -93,7 +93,7 @@ export type ComparisonPlaybook = 'sme' | 'hnwi' | 'auto' | 'travel';
 /**
  * Audit event types
  */
-export type AuditEventType = 
+export type AuditEventType =
   | 'ComplianceOpen'
   | 'ChecklistToggle'
   | 'CompliancePass'
@@ -127,7 +127,7 @@ export type ShareChannel = 'whatsapp' | 'email';
 /**
  * UI workflow steps
  */
-export type UIStep = 
+export type UIStep =
   | 'landing'
   | 'conversation'
   | 'sourcing'
@@ -135,7 +135,13 @@ export type UIStep =
   | 'comparison'
   | 'proposal'
   | 'compliance'
+  | 'compliance'
   | 'followups';
+
+/**
+ * Workspace tabs
+ */
+export type WorkspaceTab = "case-brief" | "policies" | "analysis" | "comparisons" | "proposal" | "compliance" | "renewals";
 
 // ============================================================================
 // Data Layer Entities

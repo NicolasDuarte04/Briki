@@ -15,11 +15,12 @@ import { createServerSupabase } from '@/lib/supabase/server';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { user, currentOrg } = await getCurrentOrg();
-    const artifactId = params.id;
+    const { id } = await params;
+    const artifactId = id;
 
     // Verify artifact exists and belongs to org
     const artifact = await prisma.artifact.findFirst({
@@ -41,6 +42,15 @@ export async function GET(
       return NextResponse.json(
         { error: 'Artifact not found or access denied' },
         { status: 404 }
+      );
+    }
+
+    // ✅ CORRECCIÓN: Validar fileId antes de intentar descarga
+    // artifact.fileId puede ser null según el schema Prisma
+    if (!artifact.fileId || artifact.fileId.trim() === '') {
+      return NextResponse.json(
+        { error: 'Artifact fileId is missing or invalid. Cannot download file.' },
+        { status: 400 }
       );
     }
 

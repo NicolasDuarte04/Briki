@@ -9,26 +9,36 @@ import { FileText, CheckCircle, XCircle, AlertCircle, DollarSign, Calendar, Buil
 
 interface FindingsListProps {
   analysis: PolicyAnalysis;
+  onNavigateToPage?: (pageNumber: number) => void;
 }
 
 /**
- * FindingsList Component - FASE 5
+ * FindingsList Component - FASE 5 (Mejorado)
  * 
  * Lista de hallazgos del análisis de la póliza:
  * - Agrupados por categoría (financials, coverages, exclusions, etc.)
  * - Chips de confianza
- * - Click para scroll automático al PDF
+ * - Click para navegación automática al PDF
+ * - Sincronización con PdfViewer
  * 
  * Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.2.1
  */
-export function FindingsList({ analysis }: FindingsListProps) {
+export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) {
   const setSelectedField = useUI(s => s.setSelectedField);
   
   const { extractedData, overallConfidence, pageReferences } = analysis;
 
-  function handleFindingClick(fieldName: string) {
-    console.log('🔍 [FindingsList] Field clicked:', fieldName);
+  function handleFindingClick(fieldName: string, pageNumber?: number) {
+    console.log('🔍 [FindingsList] Field clicked:', fieldName, 'Page:', pageNumber);
+    
+    // Actualizar campo seleccionado en el estado global
     setSelectedField(fieldName);
+    
+    // Si hay una página asociada, navegar a ella
+    if (pageNumber && onNavigateToPage) {
+      console.log('🔍 [FindingsList] Navigating to page:', pageNumber);
+      onNavigateToPage(pageNumber);
+    }
   }
 
   function getConfidenceBadge(confidence: number) {
@@ -64,14 +74,14 @@ export function FindingsList({ analysis }: FindingsListProps) {
             variant="ghost"
             size="sm"
             className="w-full justify-start text-xs h-auto py-2"
-            onClick={() => handleFindingClick('policy_number')}
+            onClick={() => handleFindingClick('policy_number', getPageForField('policy_number') || undefined)}
           >
             <div className="flex flex-col items-start w-full">
               <span className="text-muted-foreground">Número de Póliza</span>
               <span className="font-medium">{extractedData.policy_number}</span>
               {getPageForField('policy_number') && (
-                <span className="text-[10px] text-muted-foreground">
-                  Pág. {getPageForField('policy_number')}
+                <span className="text-[10px] text-primary">
+                  📄 Pág. {getPageForField('policy_number')}
                 </span>
               )}
             </div>
@@ -82,14 +92,14 @@ export function FindingsList({ analysis }: FindingsListProps) {
               variant="ghost"
               size="sm"
               className="w-full justify-start text-xs h-auto py-2"
-              onClick={() => handleFindingClick('insured_name')}
+              onClick={() => handleFindingClick('insured_name', getPageForField('insured_name') || undefined)}
             >
               <div className="flex flex-col items-start w-full">
                 <span className="text-muted-foreground">Asegurado</span>
                 <span className="font-medium">{extractedData.insured_name}</span>
                 {getPageForField('insured_name') && (
-                  <span className="text-[10px] text-muted-foreground">
-                    Pág. {getPageForField('insured_name')}
+                  <span className="text-[10px] text-primary">
+                    📄 Pág. {getPageForField('insured_name')}
                   </span>
                 )}
               </div>
@@ -101,7 +111,7 @@ export function FindingsList({ analysis }: FindingsListProps) {
               variant="ghost"
               size="sm"
               className="w-full justify-start text-xs h-auto py-2"
-              onClick={() => handleFindingClick('insurer_name')}
+              onClick={() => handleFindingClick('insurer_name', getPageForField('insurer_name') || undefined)}
             >
               <div className="flex flex-col items-start w-full">
                 <span className="text-muted-foreground flex items-center gap-1">
@@ -109,6 +119,11 @@ export function FindingsList({ analysis }: FindingsListProps) {
                   Aseguradora
                 </span>
                 <span className="font-medium">{extractedData.insurer.name}</span>
+                {getPageForField('insurer_name') && (
+                  <span className="text-[10px] text-primary">
+                    📄 Pág. {getPageForField('insurer_name')}
+                  </span>
+                )}
               </div>
             </Button>
           )}
@@ -128,7 +143,7 @@ export function FindingsList({ analysis }: FindingsListProps) {
               variant="ghost"
               size="sm"
               className="w-full justify-start text-xs h-auto py-2"
-              onClick={() => handleFindingClick('premium_total')}
+              onClick={() => handleFindingClick('premium_total', getPageForField('premium_total') || undefined)}
             >
               <div className="flex flex-col items-start w-full">
                 <span className="text-muted-foreground">Prima Total</span>
@@ -139,8 +154,8 @@ export function FindingsList({ analysis }: FindingsListProps) {
                   }).format(extractedData.financials.premium_total)}
                 </span>
                 {getPageForField('premium_total') && (
-                  <span className="text-[10px] text-muted-foreground">
-                    Pág. {getPageForField('premium_total')}
+                  <span className="text-[10px] text-primary">
+                    📄 Pág. {getPageForField('premium_total')}
                   </span>
                 )}
               </div>

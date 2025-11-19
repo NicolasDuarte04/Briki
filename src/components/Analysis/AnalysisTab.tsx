@@ -1,126 +1,49 @@
 "use client";
 
-// 🔍 LOG 1: Módulo AnalysisTab.tsx siendo evaluado
-console.log('🔍 [AnalysisTab] MODULE EVALUATION START', {
-  timestamp: new Date().toISOString(),
-  environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR',
-  hasWindow: typeof window !== 'undefined',
-  stackTrace: new Error().stack?.split('\n').slice(0, 10).join('\n')
-});
-
 import React from 'react';
 import dynamic from 'next/dynamic';
-
-// 🔍 LOG 2: Antes de crear dynamic import
-console.log('🔍 [AnalysisTab] BEFORE dynamic import creation', {
-  timestamp: new Date().toISOString(),
-  environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR'
-});
-
-// ✅ CORRECCIÓN CRÍTICA: Dynamic import con ssr: false para evitar error SSR
-// pdfjs-dist NO es compatible con Server-Side Rendering
-const PdfViewer = dynamic(
-  () => {
-    console.log('🔍 [AnalysisTab] DYNAMIC IMPORT CALLBACK EXECUTING', {
-      timestamp: new Date().toISOString(),
-      environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR',
-      hasWindow: typeof window !== 'undefined',
-      stackTrace: new Error().stack?.split('\n').slice(0, 15).join('\n')
-    });
-    
-    return import('./PdfViewer').then(mod => {
-      console.log('🔍 [AnalysisTab] DYNAMIC IMPORT RESOLVED', {
-        timestamp: new Date().toISOString(),
-        environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR',
-        hasPdfViewer: typeof mod?.PdfViewer !== 'undefined',
-        modKeys: Object.keys(mod)
-      });
-      return { default: mod.PdfViewer };
-    }).catch(err => {
-      console.error('🔍 [AnalysisTab] DYNAMIC IMPORT ERROR', {
-        timestamp: new Date().toISOString(),
-        error: err,
-        errorMessage: err?.message,
-        errorStack: err?.stack
-      });
-      throw err;
-    });
-  },
-  {
-    ssr: false,
-    loading: () => {
-      console.log('🔍 [AnalysisTab] PdfViewer LOADING component rendering', {
-        timestamp: new Date().toISOString(),
-        environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR'
-      });
-      return (
-        <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Cargando visor PDF...</p>
-        </div>
-      );
-    }
-  }
-);
-
-// 🔍 LOG 3: Después de crear dynamic import
-console.log('🔍 [AnalysisTab] AFTER dynamic import creation', {
-  timestamp: new Date().toISOString(),
-  environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR',
-  PdfViewerType: typeof PdfViewer
-});
-
-import { PdfMinimap } from './PdfMinimap';
 import { FindingsList } from './FindingsList';
 import { AnnotationsPanel } from './AnnotationsPanel';
 import { useUI } from '@/lib/ui/state';
 
-// 🔍 LOG 4: Fin de imports
-console.log('🔍 [AnalysisTab] ALL IMPORTS COMPLETE', {
-  timestamp: new Date().toISOString(),
-  environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR'
-});
+// ✅ Dynamic import con ssr: false para evitar error SSR con pdfjs-dist
+const PdfViewer = dynamic(
+  () => import('./PdfViewer').then(mod => mod.PdfViewer),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Cargando visor PDF...</p>
+      </div>
+    )
+  }
+);
 
 /**
- * AnalysisTab Component - FASE 5
+ * AnalysisTab Component
  * 
  * Tab principal para visualizar análisis de pólizas en PDF.
  * Estructura:
  * - Panel izquierdo: Visor de PDF con resaltados
  * - Panel derecho: Hallazgos y anotaciones
- * 
- * Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.2.1
  */
 export function AnalysisTab() {
-  // 🔍 LOG 5: Componente AnalysisTab renderizando
-  console.log('🔍 [AnalysisTab] COMPONENT RENDER START', {
-    timestamp: new Date().toISOString(),
-    environment: typeof window !== 'undefined' ? 'CLIENT' : 'SSR',
-    hasWindow: typeof window !== 'undefined',
-    stackTrace: new Error().stack?.split('\n').slice(0, 15).join('\n')
-  });
-
+  // Estado local para sincronizar navegación entre FindingsList y PdfViewer
+  const [targetPage, setTargetPage] = React.useState<number | undefined>();
+  
   const selectedAnalysisId = useUI(s => s.selectedPolicyAnalysisId);
   const analyses = useUI(s => s.policyAnalyses);
   
-  console.log('🔍 [AnalysisTab] STATE VALUES', {
-    timestamp: new Date().toISOString(),
-    selectedAnalysisId,
-    analysesCount: analyses?.length || 0,
-    analysesIds: analyses?.map(a => a.id) || []
-  });
-  
   const selectedAnalysis = analyses.find(a => a.id === selectedAnalysisId);
   
-  console.log('🔍 [AnalysisTab] SELECTED ANALYSIS', {
-    timestamp: new Date().toISOString(),
-    hasSelectedAnalysis: !!selectedAnalysis,
-    selectedAnalysisId: selectedAnalysis?.id
-  });
+  // Handler para navegación desde FindingsList
+  const handleNavigateToPage = (pageNumber: number) => {
+    setTargetPage(pageNumber);
+    // Reset después de un breve delay para permitir múltiples navegaciones
+    setTimeout(() => setTargetPage(undefined), 100);
+  };
   
   if (!selectedAnalysis) {
-    console.log('🔍 [AnalysisTab] RENDERING NO ANALYSIS MESSAGE', {
-      timestamp: new Date().toISOString()
-    });
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-muted-foreground">
@@ -130,41 +53,22 @@ export function AnalysisTab() {
     );
   }
   
-  console.log('🔍 [AnalysisTab] RENDERING PdfViewer', {
-    timestamp: new Date().toISOString(),
-    analysisId: selectedAnalysis.id,
-    PdfViewerType: typeof PdfViewer,
-    PdfViewerIsFunction: typeof PdfViewer === 'function',
-    PdfViewerIsComponent: typeof PdfViewer === 'function' && PdfViewer.prototype?.isReactComponent !== undefined
-  });
-  
   return (
     <div className="flex h-full">
       {/* Panel Izquierdo: Visor PDF */}
       <div className="flex-1 relative">
-        {(() => {
-          console.log('🔍 [AnalysisTab] ABOUT TO RENDER PdfViewer JSX', {
-            timestamp: new Date().toISOString(),
-            analysisId: selectedAnalysis.id
-          });
-          try {
-            return <PdfViewer analysis={selectedAnalysis} />;
-          } catch (err: any) {
-            console.error('🔍 [AnalysisTab] ERROR rendering PdfViewer', {
-              timestamp: new Date().toISOString(),
-              error: err,
-              errorMessage: err?.message,
-              errorStack: err?.stack
-            });
-            throw err;
-          }
-        })()}
-        <PdfMinimap />
+        <PdfViewer 
+          analysis={selectedAnalysis} 
+          initialPage={targetPage}
+        />
       </div>
       
       {/* Panel Derecho: Hallazgos y Anotaciones */}
       <div className="w-80 border-l overflow-y-auto bg-background">
-        <FindingsList analysis={selectedAnalysis} />
+        <FindingsList 
+          analysis={selectedAnalysis} 
+          onNavigateToPage={handleNavigateToPage}
+        />
         <AnnotationsPanel analysisId={selectedAnalysis.id} />
       </div>
     </div>

@@ -13,6 +13,97 @@
 import PDFParser from 'pdf2json';
 
 /**
+ * Decodifica texto de pdf2json de forma segura con múltiples estrategias de fallback.
+ * 
+ * pdf2json devuelve texto URL-encoded, pero a veces el encoding está malformado
+ * (especialmente con caracteres especiales como % que no están correctamente escaped).
+ * 
+ * Estrategias de decodificación (en orden):
+ * 1. decodeURIComponent() - Decodificación estándar
+ * 2. decodeURI() - Menos estricto, para encoding parcial
+ * 3. Reemplazo manual de secuencias comunes - Para casos específicos
+ * 4. Texto raw - Fallback final
+ * 
+ * @param encodedText - Texto potencialmente URL-encoded de pdf2json
+ * @returns Texto decodificado lo mejor posible
+ * 
+ * @example
+ * ```typescript
+ * safeDecodeText("Pol%C3%ADza%2015%25") // → "Póliza 15%"
+ * safeDecodeText("15%")                  // → "15%" (ya decodificado)
+ * safeDecodeText("15%2")                 // → "15%2" (malformado, usa raw)
+ * ```
+ */
+function safeDecodeText(encodedText: string): string {
+  if (!encodedText) return '';
+  
+  // Estrategia 1: Intentar decodeURIComponent (estándar)
+  try {
+    return decodeURIComponent(encodedText);
+  } catch (e) {
+    // Falló, continuar con siguiente estrategia
+  }
+  
+  // Estrategia 2: Intentar decodeURI (menos estricto)
+  try {
+    return decodeURI(encodedText);
+  } catch (e) {
+    // Falló, continuar con siguiente estrategia
+  }
+  
+  // Estrategia 3: Reemplazo manual de secuencias comunes
+  try {
+    let decoded = encodedText
+      // Espacios
+      .replace(/\+/g, ' ')
+      .replace(/%20/g, ' ')
+      // Caracteres especiales comunes
+      .replace(/%C3%A1/g, 'á')
+      .replace(/%C3%A9/g, 'é')
+      .replace(/%C3%AD/g, 'í')
+      .replace(/%C3%B3/g, 'ó')
+      .replace(/%C3%BA/g, 'ú')
+      .replace(/%C3%B1/g, 'ñ')
+      .replace(/%C3%81/g, 'Á')
+      .replace(/%C3%89/g, 'É')
+      .replace(/%C3%8D/g, 'Í')
+      .replace(/%C3%93/g, 'Ó')
+      .replace(/%C3%9A/g, 'Ú')
+      .replace(/%C3%91/g, 'Ñ')
+      // Porcentaje encodificado
+      .replace(/%25/g, '%')
+      // Paréntesis
+      .replace(/%28/g, '(')
+      .replace(/%29/g, ')')
+      // Otros comunes
+      .replace(/%2C/g, ',')
+      .replace(/%2F/g, '/')
+      .replace(/%3A/g, ':');
+    
+    // Si después del reemplazo manual aún hay secuencias % sospechosas,
+    // intentar decodeURIComponent de nuevo
+    if (decoded.includes('%') && /%([\dA-F]{2})/i.test(decoded)) {
+      try {
+        return decodeURIComponent(decoded);
+      } catch (e) {
+        // Aún falla, usar el resultado parcial del reemplazo manual
+      }
+    }
+    
+    return decoded;
+  } catch (e) {
+    // Falló incluso el reemplazo manual, usar raw
+  }
+  
+  // Estrategia 4: Fallback final - retornar texto raw
+  // Solo loggear en desarrollo para no contaminar logs de producción
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('⚠️  All decoding strategies failed for text:', encodedText.substring(0, 50));
+  }
+  return encodedText;
+}
+
+/**
  * Coordinate information for a text block in a PDF
  */
 export interface TextCoordinate {
@@ -118,37 +209,22 @@ export async function extractWithCoordinates(
             
             // Procesar cada "run" de texto dentro del bloque
             textBlock.R.forEach((run: any) => {
-              try {
-                // Decodificar el texto (viene URL-encoded)
-                const decodedText = decodeURIComponent(run.T);
-                
-                // Añadir al texto completo
-                fullText += decodedText + ' ';
-                
-                // ✅ NUEVO: Guardar coordenadas del bloque de texto
-                coordinates.push({
-                  text: decodedText,
-                  page: pageIndex + 1, // 1-indexed para el usuario
-                  x: textBlock.x || 0,
-                  y: textBlock.y || 0,
-                  width: textBlock.w || 0,
-                  height: textBlock.h || 0
-                });
-              } catch (decodeError) {
-                // Si falla el decode, intentar usar el texto raw
-                console.warn('⚠️  Failed to decode text:', run.T);
-                const rawText = run.T || '';
-                fullText += rawText + ' ';
-                
-                coordinates.push({
-                  text: rawText,
-                  page: pageIndex + 1,
-                  x: textBlock.x || 0,
-                  y: textBlock.y || 0,
-                  width: textBlock.w || 0,
-                  height: textBlock.h || 0
-                });
-              }
+              // ✅ FASE 1 CORREGIDO: Decodificación robusta con múltiples estrategias
+              // Usar safeDecodeText() que maneja casos edge (%, caracteres especiales malformados)
+              const decodedText = safeDecodeText(run.T);
+              
+              // Añadir al texto completo
+              fullText += decodedText + ' ';
+              
+              // Guardar coordenadas del bloque de texto
+              coordinates.push({
+                text: decodedText,
+                page: pageIndex + 1, // 1-indexed para el usuario
+                x: textBlock.x || 0,
+                y: textBlock.y || 0,
+                width: textBlock.w || 0,
+                height: textBlock.h || 0 // ⚠️ Nota: pdf2json a menudo devuelve h=0 (limitación conocida)
+              });
             });
           });
           

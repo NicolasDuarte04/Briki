@@ -199,8 +199,8 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
       deductible: analysis.extractedData?.deductibles?.[0]?.amount || 0,
       currency: (analysis.extractedData?.currency as CurrencyCode) || 'USD',
       riders: analysis.extractedData?.coverages?.map((c: any) => c.name || c.type) || [],
-      confidence: typeof analysis.overallConfidence === 'string' 
-        ? parseFloat(analysis.overallConfidence) 
+      confidence: typeof analysis.overallConfidence === 'string'
+        ? parseFloat(analysis.overallConfidence)
         : analysis.overallConfidence,
       artifactId: analysis.artifactId,
       analysisId: analysis.id,
@@ -214,11 +214,11 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
         <CardTitle>{t("title")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <PoliciesTable 
-          rows={rows} 
-          loading={policyAnalysesLoading} 
-          loaded={policyAnalysesLoaded} 
-          locale={locale} 
+        <PoliciesTable
+          rows={rows}
+          loading={policyAnalysesLoading}
+          loaded={policyAnalysesLoaded}
+          locale={locale}
         />
       </CardContent>
     </Card>
@@ -393,38 +393,38 @@ function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
               {row.original.analysisId ? (
                 <ViewInPdfButton analysisId={row.original.analysisId} />
               ) : (
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                  }}
-                >
-                  {t("actions.shortlist")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                  }}
-                >
-                  {t("actions.evidence")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                  }}
-                >
-                  {t("actions.notes")}
-                </Button>
-              </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                    }}
+                  >
+                    {t("actions.shortlist")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                    }}
+                  >
+                    {t("actions.evidence")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                    }}
+                  >
+                    {t("actions.notes")}
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -667,9 +667,8 @@ function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
                         <div
                           onMouseDown={header.getResizeHandler?.()}
                           onTouchStart={header.getResizeHandler?.()}
-                          className={`absolute right-0 top-0 h-full w-1.5 cursor-col-resize select-none touch-none ${
-                            header.column.getIsResizing?.() ? "bg-primary/30" : "bg-transparent"
-                          }`}
+                          className={`absolute right-0 top-0 h-full w-1.5 cursor-col-resize select-none touch-none ${header.column.getIsResizing?.() ? "bg-primary/30" : "bg-transparent"
+                            }`}
                           aria-label="Resize column"
                         />
                       )}
@@ -778,27 +777,17 @@ function PoliciesLoadingSkeleton() {
   );
 }
 
-/**
- * ✅ FASE 6: Botón "Ver en PDF" que establece el análisis seleccionado
- * Nota: El cambio automático al tab "analysis" se implementará en FASE 7
- */
 function ViewInPdfButton({ analysisId }: { analysisId: string }) {
   const setSelectedPolicyAnalysis = useUI((s) => s.setSelectedPolicyAnalysis);
   const t = useTranslations("workspace.policies");
-  
+
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
-    console.log('🔍 [ViewInPdfButton] Setting selected analysis:', analysisId);
-    
-    // ✅ FASE 6: Establecer el análisis seleccionado
+
     setSelectedPolicyAnalysis(analysisId);
-    
-    // ℹ️ El usuario debe cambiar manualmente al tab "Analysis" para ver el PDF
-    // El cambio automático se implementará en FASE 7
   };
-  
+
   return (
     <Button
       variant="default"
@@ -821,14 +810,14 @@ function ViewInPdfButton({ analysisId }: { analysisId: string }) {
 function getConfidenceColor(confidence: number): string {
   // Clamp entre 0 y 1
   const c = Math.max(0, Math.min(1, confidence));
-  
+
   // Colores de referencia (Tailwind)
   const red = { r: 239, g: 68, b: 68 };      // #EF4444 (red-500)
   const yellow = { r: 234, g: 179, b: 8 };   // #EAB308 (yellow-500)
   const green = { r: 34, g: 197, b: 94 };    // #22C55E (green-500)
-  
+
   let r: number, g: number, b: number;
-  
+
   if (c < 0.5) {
     // Interpolación entre rojo (0) y amarillo (0.5)
     const t = c * 2; // Normalizar a 0-1
@@ -842,7 +831,7 @@ function getConfidenceColor(confidence: number): string {
     g = Math.round(yellow.g + (green.g - yellow.g) * t);
     b = Math.round(yellow.b + (green.b - yellow.b) * t);
   }
-  
+
   return `rgb(${r}, ${g}, ${b})`;
 }
 

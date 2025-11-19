@@ -41,6 +41,8 @@ import {
   type Rider,
   type ServiceLevel,
   type UIStep,
+  type WorkspaceTab,
+  type CurrencyCode,
 } from "../types";
 import {
   loadCases,
@@ -83,27 +85,27 @@ const policyToView = (policy: Policy): PolicyView => {
  */
 const analysisToView = (analysis: PolicyAnalysis): PolicyAnalysisView => {
   const { extractedData } = analysis;
-  
+
   // Extract commonly used fields from JSONB
   const policyNumber = extractedData?.policy_number || undefined;
   const insuredName = extractedData?.insured_name || undefined;
   const insurerName = extractedData?.insurer?.name || undefined;
-  
+
   // Extract financial data
   const premiumTotal = extractedData?.financials?.premium_total;
-  const currency = extractedData?.currency as any || 'USD';
-  
+  const currency = (extractedData?.currency as CurrencyCode) || 'USD';
+
   // Convert premium to minor units if it exists (API returns in major units)
   const premiumTotalMinor = premiumTotal ? Math.round(premiumTotal * 100) : undefined;
-  
+
   return {
     id: analysis.id,
     artifactId: analysis.artifactId,
     fileName: analysis.artifact?.fileName || 'Unknown PDF',
     policyNumber,
-    insuredName,
-    insurerName,
-    premiumTotal: premiumTotalMinor,
+    ...(insuredName !== undefined ? { insuredName } : {}),
+    ...(insurerName !== undefined ? { insurerName } : {}),
+    ...(premiumTotalMinor !== undefined ? { premiumTotal: premiumTotalMinor } : {}),
     currency,
     confidence: analysis.overallConfidence,
     referencesCount: analysis.pageReferences?.length || 0,
@@ -269,22 +271,22 @@ function sanitizeBrokerProfile(current: BrokerProfile, updates?: Partial<BrokerP
     agency: asTrimmedString(updates?.agency) ?? base.agency ?? defaultBrokerProfile.agency,
     brandColor: sanitizeBrandColor(asTrimmedString(updates?.brandColor), base.brandColor ?? defaultBrokerProfile.brandColor),
   };
-  
+
   const email = asTrimmedString(updates?.email) ?? base.email;
   if (email !== undefined) {
     result.email = email;
   }
-  
+
   const phone = asTrimmedString(updates?.phone) ?? base.phone;
   if (phone !== undefined) {
     result.phone = phone;
   }
-  
+
   const logoUrl = asTrimmedString(updates?.logoUrl) ?? base.logoUrl;
   if (logoUrl !== undefined) {
     result.logoUrl = logoUrl;
   }
-  
+
   return result;
 }
 
@@ -524,8 +526,8 @@ function shallowEqualRenewals(a: RenewalRecord[], b: RenewalRecord[]): boolean {
 function sanitizeFollowupCadenceDays(days: number[]): number[] {
   const sanitized = Array.isArray(days)
     ? days
-        .map((day) => (typeof day === "number" && Number.isFinite(day) ? Math.max(0, Math.round(day)) : null))
-        .filter((day): day is number => day !== null)
+      .map((day) => (typeof day === "number" && Number.isFinite(day) ? Math.max(0, Math.round(day)) : null))
+      .filter((day): day is number => day !== null)
     : [];
   if (!sanitized.length) {
     return [...DEFAULT_FOLLOWUP_CADENCE_DAYS];
@@ -652,6 +654,7 @@ export interface UIState {
   policyAnalysesLoaded: boolean;
   selectedPolicyAnalysisId: string | null;
   selectedFieldName: string | null; // For auto-scroll to specific field
+  activeTab: WorkspaceTab; // ✅ Global active tab state
   // Cache properties (internal use)
   _cachedPoliciesView?: PolicyView[];
   _cachedRenewalsView?: RenewalView[];
@@ -751,10 +754,12 @@ export interface UIState {
   // ✅ FASE 4: Policy Analysis Actions
   fetchPolicyAnalyses: (caseId: string) => Promise<void>;
   setPolicyAnalyses: (analyses: PolicyAnalysis[]) => void;
-  setSelectedPolicyAnalysis: (id: string | null) => void;
+  setSelectedPolicyAnalysis: (analysisId: string | null) => void;
   setSelectedField: (fieldName: string | null) => void;
   analyzePolicyArtifact: (artifactId: string) => Promise<PolicyAnalysis>;
   selectPolicyAnalysesView: () => PolicyAnalysisView[];
+  setActiveTab: (tab: WorkspaceTab) => void;
+  navigateToAnalysis: (analysisId: string) => void;
 }
 
 // ✅ FASE 3: Persistencia de estado (con corrección de contaminación)
@@ -763,7 +768,7 @@ const persistState = (state: Partial<UIState>) => {
     try {
       // Obtener el ID de caso actual o del estado que se está guardando
       const currentCaseId = state.currentCaseId ?? useUI.getState().currentCaseId;
-      
+
       const stateToPersist: any = {
         currentCaseId: currentCaseId,
         messages: state.messages ?? useUI.getState().messages,
@@ -771,7 +776,7 @@ const persistState = (state: Partial<UIState>) => {
         // ✅ CORRECCIÓN CRÍTICA: Persistir caseApproved para que se mantenga después de navegar
         caseApproved: state.caseApproved ?? useUI.getState().caseApproved,
       };
-      
+
       // ✅ FASE 3: CORRECCIÓN DE PERSISTENCIA
       // Solo persistir el 'brief' si estamos en un caso activo (NO 'new-thread-placeholder')
       if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
@@ -780,7 +785,7 @@ const persistState = (state: Partial<UIState>) => {
         // Si no hay caseId o es 'new-thread-placeholder', no persistir el brief para evitar contaminación.
         console.log('⏭️ [useUI] Omitiendo persistencia de brief: currentCaseId es null o new-thread-placeholder.');
       }
-      
+
       localStorage.setItem('briki-ui-state', JSON.stringify(stateToPersist));
       console.log('✅ [useUI] Estado persistido:', stateToPersist);
     } catch (error) {
@@ -821,79 +826,59 @@ export const useUI = create<UIState>()(
       step: "landing",
       isSourcing: false,
       rightOpen: true,
-      complianceOpen: false,
-      chatPanelOpen: false,
-      sidebarOpen: false,
+      sidebarOpen: true,
       sidebarHovered: false,
-      briefingCase: null,
-      complianceJurisdiction: complianceJurisdictions[0] ?? "co",
-      checked: createDefaultComplianceChecked(),
-      complianceAuditLog: [],
-      followupCadenceDays: [...DEFAULT_FOLLOWUP_CADENCE_DAYS],
-      followupAuditLog: [],
-      brief: {
-        businessType: "Por definir...",
-        employees: 0,
-        coverage: "Por definir...",
-        freeText: "Por definir...",
-        clientName: "",
-        selectedClientId: null,
-        insurance_category: "", // AÑADIR: Campo requerido para habilitar botones
+      complianceOpen: false,
+      complianceJurisdiction: null,
+      compliancePassed: {
+        KYC: false,
+        AML: false,
+        Suitability: false,
       },
-      policies: [],
-      policiesLoading: false,
-      policiesLoaded: false,
-      comparisonWeights: { ...defaultComparisonWeights },
-      comparisonScores: [],
-      comparisonPlaybook: "sme",
-      proposalBrokerProfile: defaultBrokerProfile,
-      proposalSelectedPlans: defaultProposalSelectedPlans,
-      proposalDisclosuresKeys: [...defaultProposalDisclosuresKeys],
-      proposalMathCheck: defaultProposalMathCheck,
-      proposalShareUrl: DEFAULT_PROPOSAL_SHARE_URL,
-      proposalLoading: false,
-      proposalGeneratedOn: null,
+      landingDataPending: false,
+
+      // Briefing state
+      brief: {},
+
+      // Sourcing state
       products: [],
       productsLoading: false,
       productsLoaded: false,
-      riders: [],
-      ridersLoading: false,
-      ridersLoaded: false,
-      pricingBands: [],
-      pricingBandsLoading: false,
-      pricingBandsLoaded: false,
-      eligibilities: [],
-      eligibilitiesLoading: false,
-      eligibilitiesLoaded: false,
-      provenance: [],
-      provenanceLoading: false,
-      provenanceLoaded: false,
-      cases: [],
-      casesLoading: false,
-      casesLoaded: false,
+
+      // Policy state
+      policies: [],
+      policiesLoading: false,
+      policiesLoaded: false,
+
+      // Renewals state
       renewals: [],
       renewalsLoading: false,
       renewalsLoaded: false,
-      renewalsFilters: defaultRenewalsFilters,
-      renewalsSorting: defaultRenewalsSorting,
-      renewalsAuditLog: [],
-      renewalsSequence: 0,
-      renewalsViewLogged: false,
-      // Estados para aprobación de casos
-      caseApproving: false,
-      caseApprovalError: null,
-      caseApproved: false,
-      caseResolvingClient: false, // ✅ NUEVO: Estado global para sincronizar validación de cliente
-      // ✅ FASE 1: Inicializar landingDataPending en null
-      landingDataPending: null,
-      // Estado de mensajes del chat
+      renewalsFilters: {
+        status: [],
+        daysUntilRenewal: [],
+        carriers: [],
+      },
+      renewalsSorting: {
+        sortBy: 'renewalDate',
+        sortDir: 'asc',
+      },
+
+      // Chat state
       messages: [],
-      // ✅ FASE 4: Policy Analysis States
+
+      // Policy Analysis state
       policyAnalyses: [],
       policyAnalysesLoading: false,
       policyAnalysesLoaded: false,
       selectedPolicyAnalysisId: null,
       selectedFieldName: null,
+      activeTab: 'policies', // ✅ Default tab
+      complianceJurisdiction: complianceJurisdictions[0] ?? "co",
+      checked: createDefaultComplianceChecked(),
+      complianceAuditLog: [],
+      followupCadenceDays: [...DEFAULT_FOLLOWUP_CADENCE_DAYS],
+      followupAuditLog: [],
       // Función de validación unificada del brief
       isBriefValid: () => {
         const { brief } = get();
@@ -923,8 +908,8 @@ export const useUI = create<UIState>()(
       approveCurrentCase: async (clientId?: string | null) => {
         const { brief, currentCaseId, startSourcing } = get();
 
-        console.log('🔍 DEBUG approveCurrentCase:', { 
-          currentCaseId, 
+        console.log('🔍 DEBUG approveCurrentCase:', {
+          currentCaseId,
           brief,
           clientId,
           briefKeys: Object.keys(brief || {}),
@@ -940,11 +925,11 @@ export const useUI = create<UIState>()(
         // ✅ CORRECCIÓN CRÍTICA: Establecer caseApproving ANTES de esperar
         // Esto permite que BriefForm detecte el cambio y sincronice formData con brief global
         set({ caseApproving: true, caseApprovalError: null });
-        
+
         // ✅ CORRECCIÓN CRÍTICA: Esperar un momento para que BriefForm sincronice formData con brief global
         // BriefForm tiene un useEffect que detecta caseApproving y sincroniza automáticamente
         await new Promise(resolve => setTimeout(resolve, 150));
-        
+
         // ✅ CORRECCIÓN CRÍTICA: Obtener brief actualizado después de la sincronización
         const updatedBrief = get().brief;
         console.log('📋 [approveCurrentCase] Brief actualizado después de sincronización:', updatedBrief);
@@ -966,9 +951,9 @@ export const useUI = create<UIState>()(
             coverage: updatedBrief.coverage ?? null,
             freeText: updatedBrief.freeText ?? null,
           };
-          
+
           console.log('🚀 Calling /api/cases/approve with:', { caseId: currentCaseId, briefData: completeBriefData });
-          
+
           const response = await fetch('/api/cases/approve', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -996,7 +981,7 @@ export const useUI = create<UIState>()(
             persistState(newState);
             return newState;
           });
-          
+
           // Añadir el mensaje automático del usuario a la UI inmediatamente
           const autoMessageContent = brief.freeText || "Por favor, analiza este caso y proporciona recomendaciones de seguros.";
           const userAutoMessage: ChatMessage = {
@@ -1006,11 +991,11 @@ export const useUI = create<UIState>()(
             createdAt: Date.now(),
           };
           get().addMessage(userAutoMessage);
-          
+
           // Activar sourcing y enviar mensaje automático
           startSourcing();
           await get().sendAutoMessage(autoMessageContent);
-          
+
           return true;
 
         } catch (error: any) {
@@ -1035,7 +1020,7 @@ export const useUI = create<UIState>()(
             // ✅ CORRECCIÓN CRÍTICA: Verificar PRIMERO si estamos en new-thread-placeholder
             // Si estamos en new-thread-placeholder, SIEMPRE permitir el reset (no bloquear)
             const isNewThreadPlaceholder = !state.currentCaseId || state.currentCaseId === 'new-thread-placeholder';
-            
+
             if (isNewThreadPlaceholder) {
               // ✅ EXCEPCIÓN: En new-thread-placeholder, SIEMPRE permitir resetear caseApproved a false
               console.log('✅ [useUI] Permitiendo reset de caseApproved (new-thread-placeholder detectado)');
@@ -1047,7 +1032,7 @@ export const useUI = create<UIState>()(
               return state;
             }
           }
-          
+
           const newState = { ...state, caseApproved: isApproved };
           // ✅ CORRECCIÓN CRÍTICA: Persistir caseApproved cuando se establece
           persistState(newState);
@@ -1055,8 +1040,8 @@ export const useUI = create<UIState>()(
         });
       },
       // Funciones para manejo de mensajes del chat
-      addMessage: (message) => set((state) => ({ 
-        messages: [...state.messages, { ...message, id: message.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, createdAt: message.createdAt || Date.now() }] 
+      addMessage: (message) => set((state) => ({
+        messages: [...state.messages, { ...message, id: message.id || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, createdAt: message.createdAt || Date.now() }]
       })),
       setMessages: (messages) => {
         set((state) => {
@@ -1074,7 +1059,7 @@ export const useUI = create<UIState>()(
       // Función para enviar mensaje automático después de aprobar
       sendAutoMessage: async (message: string) => {
         const { currentCaseId, brief, addMessage } = get();
-        
+
         if (!currentCaseId) {
           console.error('No currentCaseId found for auto message');
           return;
@@ -1108,7 +1093,7 @@ export const useUI = create<UIState>()(
             agent: { label: "Sourcing" }
           };
           addMessage(agentResponseMessage);
-          
+
         } catch (error: any) {
           console.error('Error sending auto message or processing response:', error);
           // Añadir mensaje de error al chat
@@ -1122,19 +1107,19 @@ export const useUI = create<UIState>()(
         }
       },
       // Funciones para el flujo de briefing
-      startBriefing: (initialMessage: string) => 
-        set(() => ({ 
+      startBriefing: (initialMessage: string) =>
+        set(() => ({
           briefingCase: { isActive: true, initialMessage },
           step: "landing" // Mantener en landing para mostrar el formulario
         })),
-      completeBriefing: (caseId: string) => 
-        set(() => ({ 
+      completeBriefing: (caseId: string) =>
+        set(() => ({
           briefingCase: null,
           currentCaseId: caseId,
           step: "conversation"
         })),
-      cancelBriefing: () => 
-        set(() => ({ 
+      cancelBriefing: () =>
+        set(() => ({
           briefingCase: null,
           step: "landing"
         })),
@@ -1667,21 +1652,21 @@ export const useUI = create<UIState>()(
           console.log('⏭️ [fetchPolicyAnalyses] Already loading, skipping...');
           return;
         }
-        
+
         console.log('📋 [fetchPolicyAnalyses] Fetching analyses for case:', caseId);
         set({ policyAnalysesLoading: true });
-        
+
         try {
           const response = await fetch(`/api/policies/analyses?caseId=${caseId}`);
-          
+
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || `HTTP ${response.status}`);
           }
-          
+
           const data = await response.json();
           console.log('✅ [fetchPolicyAnalyses] Loaded:', data.count, 'analyses');
-          
+
           set({
             policyAnalyses: data.analyses || [],
             policyAnalysesLoaded: true,
@@ -1690,7 +1675,7 @@ export const useUI = create<UIState>()(
           });
         } catch (error: any) {
           console.error('❌ [fetchPolicyAnalyses] Error:', error.message);
-          set({ 
+          set({
             policyAnalysesLoading: false,
             policyAnalyses: [],
             policyAnalysesLoaded: true
@@ -1698,66 +1683,66 @@ export const useUI = create<UIState>()(
           throw error;
         }
       },
-      
+
       setPolicyAnalyses: (analyses: PolicyAnalysis[]) => {
         console.log('📋 [setPolicyAnalyses] Setting', analyses.length, 'analyses');
-        set({ 
+        set({
           policyAnalyses: analyses,
           policyAnalysesLoaded: true,
           _cachedPolicyAnalysesView: undefined // Clear cache
         });
       },
-      
-      setSelectedPolicyAnalysis: (id: string | null) => {
-        console.log('🎯 [setSelectedPolicyAnalysis]', id);
-        set({ selectedPolicyAnalysisId: id });
+
+      setSelectedPolicyAnalysis: (analysisId: string | null) => {
+        console.log('🎯 [setSelectedPolicyAnalysis]', analysisId);
+        set({ selectedPolicyAnalysisId: analysisId });
       },
-      
+
       setSelectedField: (fieldName: string | null) => {
         console.log('🔍 [setSelectedField]', fieldName);
         set({ selectedFieldName: fieldName });
       },
-      
+
       analyzePolicyArtifact: async (artifactId: string) => {
         console.log('🤖 [analyzePolicyArtifact] Analyzing artifact:', artifactId);
-        
+
         try {
           const response = await fetch('/api/policies/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              artifactId, 
-              extractionMethod: 'hybrid' 
+            body: JSON.stringify({
+              artifactId,
+              extractionMethod: 'hybrid'
             })
           });
-          
+
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || `HTTP ${response.status}`);
           }
-          
+
           const data = await response.json();
-          
+
           if (!data.success) {
             throw new Error(data.error || 'Analysis failed');
           }
-          
+
           console.log('✅ [analyzePolicyArtifact] Analysis completed:', data.analysis.id);
-          
+
           // Add to the list
           const { policyAnalyses } = get();
-          set({ 
+          set({
             policyAnalyses: [...policyAnalyses, data.analysis],
             _cachedPolicyAnalysesView: undefined // Clear cache
           });
-          
+
           return data.analysis;
         } catch (error: any) {
           console.error('❌ [analyzePolicyArtifact] Error:', error.message);
           throw error;
         }
       },
-      
+
       selectPolicyAnalysesView: () => {
         const state = get();
         // Return cached value if available to maintain referential stability
@@ -1837,9 +1822,9 @@ function computeComparisonScores(policies: Policy[], weights: ComparisonWeights)
   const totalWeight = comparisonMetrics.reduce((sum, metric) => sum + sanitized[metric], 0);
   const normalizedWeights = totalWeight > 0
     ? comparisonMetrics.reduce((acc, metric) => {
-        acc[metric] = sanitized[metric] / totalWeight;
-        return acc;
-      }, {} as Record<ComparisonMetric, number>)
+      acc[metric] = sanitized[metric] / totalWeight;
+      return acc;
+    }, {} as Record<ComparisonMetric, number>)
     : fallbackEqualWeights();
 
   const premiumValues = policies.map((policy) => safeNumber(policy.premium.amountMinor / 100));
@@ -1912,9 +1897,9 @@ function computeNextComparisonState(
   const merged: ComparisonWeights = override
     ? sanitizeWeights(weights as ComparisonWeights)
     : sanitizeWeights({
-        ...state.comparisonWeights,
-        ...weights,
-      } as ComparisonWeights);
+      ...state.comparisonWeights,
+      ...weights,
+    } as ComparisonWeights);
 
   return {
     comparisonPlaybook: playbook,
