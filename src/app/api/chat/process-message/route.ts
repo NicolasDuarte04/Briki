@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     const { user, currentOrg } = await getCurrentOrg(); // Asegura autenticación y org
     const { message, brief, caseId } = await request.json();
-    
+
     if (!caseId) {
       return NextResponse.json({ error: 'Case ID is required' }, { status: 400 });
     }
@@ -18,19 +18,27 @@ export async function POST(request: NextRequest) {
     console.log('🔄 API: Procesando mensaje:', message);
     console.log('📋 API: Brief recibido:', brief);
     console.log('📁 API: Case ID recibido:', caseId);
-    
+
     // 1. Obtener los artefactos (documentos) del caso actual
-        const artifacts = await prisma.artifact.findMany({
-      where: { 
+    const artifacts = await prisma.artifact.findMany({
+      where: {
         caseId: caseId,
         case: {
           orgId: currentOrg.id // Seguridad: Filtra por orgId a través de la relación case
         }
       },
-          select: { fileName: true, contentText: true }
-        });
+      select: { fileName: true, contentText: true }
+    });
 
     console.log(`📁 ${artifacts.length} documentos disponibles para análisis`);
+
+    // 1.5 Obtener análisis previos para contexto de comparación (FASE 6B)
+    const previousAnalyses = await prisma.policyAnalysis.findMany({
+      where: { caseId: caseId },
+      select: { extractedData: true } // Solo necesitamos los datos extraídos para el contexto
+    });
+
+    console.log(`📊 API: ${previousAnalyses.length} análisis previos encontrados para contexto`);
 
     // 2. Preparar la solicitud para el servicio OpenAI
     const analysisRequest: AnalysisRequest = {
@@ -39,7 +47,8 @@ export async function POST(request: NextRequest) {
       documents: artifacts.map(artifact => ({
         fileName: artifact.fileName || 'Unknown Document',
         content: artifact.contentText // Puede ser null si la extracción falló
-      }))
+      })),
+      previousAnalyses: previousAnalyses // ✅ FASE 6B: Inyectar contexto
     };
 
     // 3. Guardar mensaje del usuario en la tabla messages

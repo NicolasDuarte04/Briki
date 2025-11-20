@@ -25,15 +25,15 @@ interface FindingsListProps {
  */
 export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) {
   const setSelectedField = useUI(s => s.setSelectedField);
-  
+
   const { extractedData, overallConfidence, pageReferences } = analysis;
 
   function handleFindingClick(fieldName: string, pageNumber?: number) {
     console.log('🔍 [FindingsList] Field clicked:', fieldName, 'Page:', pageNumber);
-    
+
     // Actualizar campo seleccionado en el estado global
     setSelectedField(fieldName);
-    
+
     // Si hay una página asociada, navegar a ella
     if (pageNumber && onNavigateToPage) {
       console.log('🔍 [FindingsList] Navigating to page:', pageNumber);
@@ -55,6 +55,24 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
     const ref = pageReferences?.find(r => r.fieldName === fieldName);
     return ref?.pageNumber || null;
   }
+
+  // ✅ FASE 6B: Helper para renderizado seguro de valores
+  const safeRender = (value: any): React.ReactNode => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'object') {
+      // Si es un objeto con propiedad 'value' (común en extracciones estructuradas)
+      if (value.value !== undefined) return String(value.value);
+      // Si es un objeto fecha
+      if (value instanceof Date) return value.toLocaleDateString();
+      // Fallback seguro para otros objetos: intentar mostrar algo útil o nada
+      try {
+        return JSON.stringify(value).slice(0, 50) + (JSON.stringify(value).length > 50 ? '...' : '');
+      } catch (e) {
+        return '[Objeto complejo]';
+      }
+    }
+    return String(value);
+  };
 
   return (
     <div className="p-4 space-y-4">
@@ -78,7 +96,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
           >
             <div className="flex flex-col items-start w-full">
               <span className="text-muted-foreground">Número de Póliza</span>
-              <span className="font-medium">{extractedData.policy_number}</span>
+              <span className="font-medium text-left break-all">{safeRender(extractedData.policy_number)}</span>
               {getPageForField('policy_number') && (
                 <span className="text-[10px] text-primary">
                   📄 Pág. {getPageForField('policy_number')}
@@ -96,7 +114,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
             >
               <div className="flex flex-col items-start w-full">
                 <span className="text-muted-foreground">Asegurado</span>
-                <span className="font-medium">{extractedData.insured_name}</span>
+                <span className="font-medium text-left break-words w-full">{safeRender(extractedData.insured_name)}</span>
                 {getPageForField('insured_name') && (
                   <span className="text-[10px] text-primary">
                     📄 Pág. {getPageForField('insured_name')}
@@ -118,7 +136,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
                   <Building2 className="h-3 w-3" />
                   Aseguradora
                 </span>
-                <span className="font-medium">{extractedData.insurer.name}</span>
+                <span className="font-medium text-left break-words w-full">{safeRender(extractedData.insurer.name)}</span>
                 {getPageForField('insurer_name') && (
                   <span className="text-[10px] text-primary">
                     📄 Pág. {getPageForField('insurer_name')}
@@ -137,7 +155,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
             <DollarSign className="h-3 w-3" />
             Financieros
           </h4>
-          
+
           {extractedData.financials.premium_total && (
             <Button
               variant="ghost"
@@ -148,10 +166,13 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
               <div className="flex flex-col items-start w-full">
                 <span className="text-muted-foreground">Prima Total</span>
                 <span className="font-medium text-lg">
-                  {new Intl.NumberFormat('es-MX', {
-                    style: 'currency',
-                    currency: extractedData.currency || 'MXN'
-                  }).format(extractedData.financials.premium_total)}
+                  {typeof extractedData.financials.premium_total === 'number'
+                    ? new Intl.NumberFormat('es-MX', {
+                      style: 'currency',
+                      currency: (extractedData.currency as string) || 'MXN'
+                    }).format(extractedData.financials.premium_total)
+                    : safeRender(extractedData.financials.premium_total)
+                  }
                 </span>
                 {getPageForField('premium_total') && (
                   <span className="text-[10px] text-primary">
@@ -167,20 +188,26 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Prima Neta:</span>
                 <span>
-                  {new Intl.NumberFormat('es-MX', {
-                    style: 'currency',
-                    currency: extractedData.currency || 'MXN'
-                  }).format(extractedData.financials.premium_net)}
+                  {typeof extractedData.financials.premium_net === 'number'
+                    ? new Intl.NumberFormat('es-MX', {
+                      style: 'currency',
+                      currency: (extractedData.currency as string) || 'MXN'
+                    }).format(extractedData.financials.premium_net)
+                    : safeRender(extractedData.financials.premium_net)
+                  }
                 </span>
               </div>
               {extractedData.financials.taxes && (
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Impuestos:</span>
                   <span>
-                    {new Intl.NumberFormat('es-MX', {
-                      style: 'currency',
-                      currency: extractedData.currency || 'MXN'
-                    }).format(extractedData.financials.taxes)}
+                    {typeof extractedData.financials.taxes === 'number'
+                      ? new Intl.NumberFormat('es-MX', {
+                        style: 'currency',
+                        currency: (extractedData.currency as string) || 'MXN'
+                      }).format(extractedData.financials.taxes)
+                      : safeRender(extractedData.financials.taxes)
+                    }
                   </span>
                 </div>
               )}
@@ -200,13 +227,13 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
             {extractedData.effective_from && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Inicio:</span>
-                <span>{new Date(extractedData.effective_from).toLocaleDateString('es-MX')}</span>
+                <span>{safeRender(extractedData.effective_from)}</span>
               </div>
             )}
             {extractedData.effective_to && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Fin:</span>
-                <span>{new Date(extractedData.effective_to).toLocaleDateString('es-MX')}</span>
+                <span>{safeRender(extractedData.effective_to)}</span>
               </div>
             )}
           </div>
@@ -223,13 +250,16 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
           <div className="space-y-1">
             {extractedData.coverages.slice(0, 3).map((coverage: any, index: number) => (
               <div key={index} className="text-xs p-2 bg-muted/50 rounded">
-                <div className="font-medium">{coverage.name}</div>
+                <div className="font-medium">{safeRender(coverage.name)}</div>
                 {coverage.limit_amount && (
                   <div className="text-muted-foreground">
-                    Límite: {new Intl.NumberFormat('es-MX', {
-                      style: 'currency',
-                      currency: coverage.limit_unit || 'MXN'
-                    }).format(coverage.limit_amount)}
+                    Límite: {typeof coverage.limit_amount === 'number'
+                      ? new Intl.NumberFormat('es-MX', {
+                        style: 'currency',
+                        currency: (coverage.limit_unit as string) || 'MXN'
+                      }).format(coverage.limit_amount)
+                      : safeRender(coverage.limit_amount)
+                    }
                   </div>
                 )}
               </div>
@@ -253,7 +283,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
           <div className="space-y-1">
             {extractedData.exclusions.slice(0, 2).map((exclusion: any, index: number) => (
               <div key={index} className="text-xs p-2 bg-destructive/5 rounded">
-                <div className="font-medium">{exclusion.name}</div>
+                <div className="font-medium">{safeRender(exclusion.name)}</div>
               </div>
             ))}
             {extractedData.exclusions.length > 2 && (

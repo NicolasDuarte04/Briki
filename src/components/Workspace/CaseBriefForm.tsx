@@ -41,10 +41,10 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [orgId, setOrgId] = useState<string | null>(null); // ✅ Estado para orgId
     const t = useTranslations("workspace.caseBrief");
-    
+
     // ✅ FASE 6: Hook para validación de clientes con modal (unificado con BriefForm)
     const { validateAndResolveClient, isLoading: isClientValidationLoading, modalState, setModalState } = useClientValidation(true);
-    
+
     // ✅ CORRECCIÓN DOCUMENTADA: Detectar casos recién creados vs históricos
     // isEditing determina si estamos editando un caso histórico (ya creado y aprobado)
     // Cuando isEditing es true, NO deben aparecer los botones de aprobar (solo "Guardar Datos")
@@ -54,27 +54,27 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             console.log('✅ [CaseBriefForm] isEditingMode activo - forzando modo edición', { isEditingMode, currentCaseId });
             return true;
         }
-        
+
         if (!currentCaseId) return false;
-        
+
         // Si hay datos del caso en BD y el caso está activo, es caso histórico
         // En este caso, isEditing debe ser true (independientemente de caseApproved)
         if (activeCaseData && activeCaseData.id === currentCaseId) {
             // Si el caso está activo, es un caso histórico que se puede editar
             const result = activeCaseData.status === 'active';
-            console.log('✅ [CaseBriefForm] isEditing calculado desde activeCaseData', { 
-                status: activeCaseData.status, 
+            console.log('✅ [CaseBriefForm] isEditing calculado desde activeCaseData', {
+                status: activeCaseData.status,
                 result,
                 artifactsCount: activeCaseData.artifacts?.length || 0
             });
             return result;
         }
-        
+
         // Si NO hay activeCaseData pero hay currentCaseId, es caso recién creado
         // NO es modo edición (es creación), así que isEditing = false
         return false;
     }, [currentCaseId, activeCaseData, isEditingMode]);
-    
+
     // ✅ Obtener orgId al montar el componente
     useEffect(() => {
         const fetchOrgId = async () => {
@@ -105,7 +105,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             }
             return;
         }
-        
+
         // ✅ FASE 3: Mapear todos los campos desde activeCaseData (caso histórico)
         const mappedBrief: Partial<CaseBrief> = {
             clientName: activeCaseData.clientName || '',
@@ -118,8 +118,8 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 max_budget: Number(activeCaseData.max_budget)
             }),
             budget_currency: (activeCaseData.budget_currency as 'COP' | 'USD') || 'COP',
-            required_coverages: Array.isArray(activeCaseData.required_coverages) 
-                ? activeCaseData.required_coverages 
+            required_coverages: Array.isArray(activeCaseData.required_coverages)
+                ? activeCaseData.required_coverages
                 : [],
             client_profile: activeCaseData.client_profile || '',
             freeText: (activeCaseData.briefData as any)?.freeText || '',
@@ -127,7 +127,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             selectedClientId: activeCaseData.clientRef || null,
             // NO incluir tempUploads para casos históricos (PDFs vienen de artifacts)
         };
-        
+
         // Actualizar brief solo si es diferente
         const currentBrief = useUI.getState().brief;
         const currentKeys = Object.keys(mappedBrief);
@@ -136,13 +136,13 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             const newValue = (mappedBrief as any)[key];
             return JSON.stringify(currentValue) !== JSON.stringify(newValue);
         });
-        
+
         if (hasChanges) {
             console.log('✅ [CaseBriefForm] Brief sincronizado desde activeCaseData:', mappedBrief);
             setBrief(mappedBrief);
         }
     }, [activeCaseData, currentCaseId, initialData, setBrief]);
-    
+
     // ✅ FASE 2 REFORMULADA: Limpieza cuando no hay currentCaseId (new-thread-placeholder)
     // PERO NO limpiar si hay landingDataPending (HomeClient ya cargó los datos al brief)
     useEffect(() => {
@@ -153,7 +153,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 console.log('⏭️ [CaseBriefForm] Omitiendo limpieza - hay landingDataPending (HomeClient ya cargó los datos)');
                 return;
             }
-            
+
             console.log('🧹 [CaseBriefForm] Limpiando brief para new-thread-placeholder');
             // ✅ FASE 3: Limpieza explícita y completa del estado
             // TODOS los campos deben establecerse explícitamente, incluyendo null para employees y max_budget
@@ -173,7 +173,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             });
         }
     }, [currentCaseId, setBrief]);
-    
+
     // Función para volver al modo de edición
     // ✅ CORRECCIÓN: NO resetear caseApproved - mantener el estado original
     // El estado isEditing se calcula desde activeCaseData, no desde caseApproved
@@ -192,7 +192,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
         setIsSubmitting(true);
         useUI.setState({ caseApproving: true });
         console.log('🔒 [CaseBriefForm] Botones bloqueados para sincronización (handleFormSubmit)');
-        
+
         try {
             // ✅ VALIDACIÓN MEJORADA
             if (!data.insurance_category?.trim()) {
@@ -203,17 +203,17 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 useUI.setState({ caseApproving: false });
                 return;
             }
-            
+
             // ✅ ACTUALIZAR BRIEF con validación
             // ✅ CORRECCIÓN CRÍTICA: Usar data.freeText || data.notes para asegurar que las notas se incluyan
             // BriefForm mapea notes a freeText, pero como fallback usamos notes si freeText está vacío
             const finalFreeText = data.freeText || data.notes || '';
             console.log('📝 [CaseBriefForm] freeText final para actualización:', {
-              freeText: data.freeText?.substring(0, 50) + '...',
-              notes: data.notes?.substring(0, 50) + '...',
-              finalFreeText: finalFreeText.substring(0, 50) + '...'
+                freeText: data.freeText?.substring(0, 50) + '...',
+                notes: data.notes?.substring(0, 50) + '...',
+                finalFreeText: finalFreeText.substring(0, 50) + '...'
             });
-            
+
             // ✅ CORRECCIÓN CRÍTICA: Incluir TODOS los campos del formulario en briefUpdate
             // Esto asegura que generateInitialMessageFromBrief incluya TODA la información
             const briefUpdate: Partial<CaseBrief> = {
@@ -231,7 +231,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 // ✅ CORRECCIÓN CRÍTICA: Incluir tempUploads para que generateInitialMessageFromBrief los incluya en el mensaje al agente
                 tempUploads: data.tempUploads || [],
             };
-            
+
             console.log('📝 [CaseBriefForm] briefUpdate completo para mensaje al agente:', {
                 freeText: briefUpdate.freeText?.substring(0, 50) + '...',
                 insurance_category: briefUpdate.insurance_category,
@@ -240,9 +240,9 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 required_coverages: briefUpdate.required_coverages?.length || 0,
                 tempUploadsCount: (briefUpdate as any).tempUploads?.length || 0
             });
-            
+
             setBrief(briefUpdate);
-            
+
             // ✅ CORRECCIÓN: Si estamos en modo edición, actualizar caso y comunicar con agente
             if (isEditing && currentCaseId && orgId) {
                 console.log('✏️ [CaseBriefForm] Modo edición detectado - Actualizando caso y comunicando con agente', {
@@ -252,7 +252,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                     hasActiveCaseData: !!activeCaseData,
                     artifactsCount: activeCaseData?.artifacts?.length || 0
                 });
-                
+
                 // 1. Actualizar el caso en BD
                 const updateResponse = await fetch('/api/cases/update', {
                     method: 'PUT',
@@ -264,14 +264,14 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                         tempUploads: data.tempUploads || []
                     })
                 });
-                
+
                 if (!updateResponse.ok) {
                     const errorData = await updateResponse.json();
                     throw new Error(errorData.error || 'Error al actualizar el caso');
                 }
-                
+
                 console.log('✅ [CaseBriefForm] Caso actualizado exitosamente');
-                
+
                 // 2. Comunicar con el agente para que responda a la información actualizada
                 // ✅ CORRECCIÓN CRÍTICA: Generar mensaje completo con TODA la información del formulario
                 // Usar generateInitialMessageFromBrief para incluir TODOS los campos, no solo freeText
@@ -279,27 +279,28 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
                 const autoMessageContent = generateInitialMessageFromBrief(briefUpdate) || "He actualizado la información del caso. Por favor, analiza los cambios y proporciona recomendaciones actualizadas.";
                 console.log('📝 [CaseBriefForm] Mensaje generado para agente:', autoMessageContent.substring(0, 100) + '...');
-                
+
                 // Activar sourcing y enviar mensaje automático
                 startSourcing();
                 await sendAutoMessage(autoMessageContent);
-                
+
                 console.log('✅ [CaseBriefForm] Mensaje enviado al agente para responder a la información actualizada');
-                
+
                 // ✅ CORRECCIÓN: Volver al resumen después de guardar exitosamente
                 // handleEditComplete en WorkspaceTabs recargará los datos del caso automáticamente
                 if (onEditComplete) {
                     onEditComplete();
                 }
-                
+
                 // Resetear estados
                 setIsSubmitting(false);
                 useUI.setState({ caseApproving: false });
                 return;
             }
-            
+
             // ✅ Modo creación: Usar función extendida desde lib/case-actions.ts
-            await createCaseIfNeeded(
+            // ✅ FASE 6B: Usar skipNavigation para interceptar y realizar análisis automático
+            const createdCaseId = await createCaseIfNeeded(
                 briefUpdate,
                 router,
                 {
@@ -307,19 +308,82 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                     setCurrentCaseId: useUI.getState().setCurrentCaseId,
                     currentCaseId,
                     saveUserMessage: false, // Por ahora, se guardará después en ConversationPane
+                    skipNavigation: true // ✅ FASE 6B: Evitar navegación automática para inyectar análisis
                 }
             );
-            
-            // Si llegamos aquí, el caso fue creado y la navegación se ejecutó
-            // approveCurrentCase se ejecutará después de la recarga
-            
+
+            // ✅ FASE 6B: Lógica de Análisis Automático de Primera Póliza
+            // Si se subieron archivos, intentar analizar el primero
+            if (data.tempUploads && data.tempUploads.length > 0) {
+                console.log('🔍 [CaseBriefForm] FASE 6B: Buscando artifacts para análisis automático...');
+                try {
+                    // 1. Obtener artifacts del caso recién creado
+                    const caseResponse = await fetch(`/api/cases/${createdCaseId}`);
+                    if (caseResponse.ok) {
+                        const { case: caseData } = await caseResponse.json();
+                        const artifacts = caseData.artifacts || [];
+
+                        // 2. Buscar el primer PDF
+                        const firstPdfArtifact = artifacts.find((a: any) =>
+                            a.contentType === 'application/pdf' || a.fileName.toLowerCase().endsWith('.pdf')
+                        );
+
+                        if (firstPdfArtifact) {
+                            console.log('🚀 [CaseBriefForm] FASE 6B: Iniciando análisis automático para:', firstPdfArtifact.fileName);
+
+                            // 3. Disparar análisis (sin await para no bloquear navegación, pero el store se actualiza)
+                            // Importante: analyzePolicyArtifact es del store useUI
+                            const { analyzePolicyArtifact } = useUI.getState();
+                            analyzePolicyArtifact(firstPdfArtifact.id);
+
+                            // 4. Construir mensaje inicial enriquecido
+                            const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
+                            const baseMessage = generateInitialMessageFromBrief(briefUpdate);
+
+                            // Mensaje combinado: Contexto del caso + Notificación de análisis
+                            const enrichedMessage = `${baseMessage}\n\nAdemás, he analizado automáticamente la póliza "${firstPdfArtifact.fileName}". Por favor, revisa los detalles del análisis, compáralos con los requerimientos del cliente y sugiere si debo analizar otros documentos adjuntos.`;
+
+                            setInitialMessage(enrichedMessage);
+                            console.log('📝 [CaseBriefForm] FASE 6B: Mensaje inicial enriquecido con análisis establecido');
+                        } else {
+                            // Fallback: Mensaje normal si no hay PDFs válidos
+                            const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
+                            setInitialMessage(generateInitialMessageFromBrief(briefUpdate));
+                        }
+                    }
+                } catch (analysisError) {
+                    console.warn('⚠️ [CaseBriefForm] FASE 6B: Error en flujo de análisis automático (continuando navegación):', analysisError);
+                    // Fallback: Mensaje normal
+                    const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
+                    setInitialMessage(generateInitialMessageFromBrief(briefUpdate));
+                }
+            } else {
+                // Sin uploads: Mensaje normal
+                const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
+                setInitialMessage(generateInitialMessageFromBrief(briefUpdate));
+            }
+
+            // ✅ FASE 6B: Navegación Manual después del análisis
+            const currentPath = window.location.pathname;
+            const localeMatch = currentPath.match(/\/(es|en)\//);
+            const locale = localeMatch ? localeMatch[1] : 'es';
+            const targetUrl = `/${locale}/agent/${createdCaseId}`;
+
+            console.log(`✅ [CaseBriefForm] Navegando manualmente a: ${targetUrl}`);
+            router.push(targetUrl);
+
+            // Resetear caseApproving después de navegar
+            setTimeout(() => {
+                useUI.setState({ caseApproving: false });
+            }, 100);
+
         } catch (error: any) {
             console.error('❌ [CaseBriefForm] Error updating case brief:', error);
-            
+
             // ✅ CORRECCIÓN: Mensajes de error más específicos
             let errorMessage = 'Hubo un error al procesar el formulario. Por favor intenta de nuevo.';
-            
-            if (error.message?.includes('No se pudo conectar con la base de datos') || 
+
+            if (error.message?.includes('No se pudo conectar con la base de datos') ||
                 error.message?.includes('Can\'t reach database server')) {
                 errorMessage = 'No se pudo conectar con la base de datos. Por favor, espera unos segundos e intenta de nuevo.';
             } else if (error.message?.includes('Network')) {
@@ -327,7 +391,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+
             alert(errorMessage);
         } finally {
             // ✅ CORRECCIÓN: Resetear estados de carga cuando hay error
@@ -335,7 +399,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             setIsSubmitting(false);
             useUI.setState({ caseApproving: false });
         }
-    }, [setBrief, router, setInitialMessage, isEditing, currentCaseId, orgId]);
+    }, [setBrief, router, setInitialMessage, isEditing, currentCaseId, orgId, activeCaseData, onEditComplete]);
 
     // ✅ FASE 6: Simplificado para usar createCaseIfNeeded extendido (elimina código duplicado)
     const handleApproveWithValidation = useCallback(async () => {
@@ -343,12 +407,12 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
         setIsSubmitting(true);
         useUI.setState({ caseApproving: true });
         console.log('🔒 [CaseBriefForm] Botones bloqueados para sincronización (FASE 6)');
-        
+
         try {
             // Actualizar brief con datos actuales del formulario
             const currentBrief = useUI.getState().brief;
             setBrief(currentBrief);
-            
+
             // ✅ FASE 6: Usar createCaseIfNeeded extendido con modal de validación y saveUserMessage
             const caseId = await createCaseIfNeeded(
                 currentBrief,
@@ -361,13 +425,13 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                     saveUserMessage: true, // ✅ FASE 6: Guardar mensaje del usuario como primer mensaje
                 }
             );
-            
+
             // ✅ FASE 6: Si el caso ya existía (caseId === currentCaseId), aprobar el caso
             // Si el caso fue recién creado, createCaseIfNeeded navegó con router.push()
             // En navegación SPA, el código continúa ejecutándose, así que verificamos si navegó
             if (caseId && caseId === currentCaseId) {
                 console.log('✅ [CaseBriefForm] FASE 6: Caso ya existe, aprobando caso:', caseId);
-                
+
                 // Obtener clientId desde el brief (ya fue validado en createCaseIfNeeded si aplicaba)
                 let clientId: string | null = null;
                 if (currentBrief.clientName && currentBrief.clientName.trim()) {
@@ -375,9 +439,9 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                     try {
                         // Intentar obtener clientId del brief si existe
                         clientId = (currentBrief as any).selectedClientId || null;
-                        
+
                         // Si no existe en brief, validar nuevamente (puede ser necesario si el caso ya existía)
-                         if (!clientId) {
+                        if (!clientId) {
                             clientId = await validateAndResolveClient(currentBrief.clientName);
                             console.log('✅ [CaseBriefForm] Cliente validado/resuelto para aprobación:', clientId);
                         }
@@ -386,7 +450,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                         // No bloquear el flujo si la validación del cliente falla
                     }
                 }
-                
+
                 // Aprobar el caso existente
                 const success = await approveCurrentCase(clientId);
                 if (!success) {
@@ -400,7 +464,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             }
         } catch (error: any) {
             console.error('❌ [CaseBriefForm] FASE 6: Error en aprobación con validación:', error);
-            
+
             // ✅ FASE 6: Manejar cancelación de creación de cliente
             if (error.message === 'CLIENT_CREATION_CANCELLED') {
                 console.log('ℹ️ [CaseBriefForm] Usuario canceló creación de cliente');
@@ -409,24 +473,24 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 setIsSubmitting(false);
                 return; // No propagar error si es cancelación
             }
-            
+
             // ✅ FASE 6: Mensajes de error más específicos y descriptivos
             let errorMessage = 'Error inesperado. Por favor, inténtalo de nuevo.';
-            
+
             if (error.message === "CLIENT_CREATION_FAILED") {
                 console.error('❌ [CaseBriefForm] Error al crear el cliente');
                 errorMessage = 'Error al crear el cliente. Por favor, inténtalo de nuevo.';
-            } else if (error.message?.includes('No se pudo conectar con la base de datos') || 
-                      error.message?.includes('Can\'t reach database server')) {
+            } else if (error.message?.includes('No se pudo conectar con la base de datos') ||
+                error.message?.includes('Can\'t reach database server')) {
                 errorMessage = 'No se pudo conectar con la base de datos. Por favor, espera unos segundos e intenta de nuevo.';
             } else if (error.message?.includes('Network')) {
                 errorMessage = 'Error de conexión. Por favor, verifica tu internet e intenta de nuevo.';
             } else if (error.message) {
                 errorMessage = error.message;
             }
-            
+
             alert(errorMessage);
-            
+
             // Resetear estados en caso de error
             setIsSubmitting(false);
             useUI.setState({ caseApproving: false });
@@ -455,10 +519,10 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 {/* ✅ CORRECCIÓN: Spread condicional para respetar exactOptionalPropertyTypes
                     - En modo creación (!isEditing): onApprove está presente en props
                     - En modo edición (isEditing): onApprove no existe en props (omitida completamente) */}
-                    <BriefForm
-                        onSubmit={handleFormSubmit}
-                        {...(!isEditing && { onApprove: handleApproveWithValidation })}
-                        isSubmitting={isSubmitting || caseApproving || isClientValidationLoading}
+                <BriefForm
+                    onSubmit={handleFormSubmit}
+                    {...(!isEditing && { onApprove: handleApproveWithValidation })}
+                    isSubmitting={isSubmitting || caseApproving || isClientValidationLoading}
                     initialNotes={currentCaseId ? (brief.freeText || '') : ''} // ✅ CORRECCIÓN QUIRÚRGICA: Limpiar initialNotes cuando no hay currentCaseId
                     orgId={orgId || ''} // ✅ Pasar orgId
                     mode={isEditing ? 'edit' : 'create'} // ✅ Pasar el modo
@@ -471,23 +535,23 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                         artifacts: initialData.artifacts || [],
                         id: initialData.id
                     } : initialData)) : initialData} // ✅ CORRECCIÓN: Pasar activeCaseData completo con artifacts en modo edición
+                />
+
+                {/* ✅ FASE 6: Modal de validación de cliente */}
+                {modalState && (
+                    <ClientValidationModal
+                        clientName={modalState.clientName}
+                        isOpen={modalState.isOpen}
+                        onClose={() => {
+                            setModalState(null);
+                            modalState.onCancel();
+                        }}
+                        onConfirm={(clientId) => {
+                            setModalState(null);
+                            modalState.onConfirm(clientId);
+                        }}
                     />
-                    
-                    {/* ✅ FASE 6: Modal de validación de cliente */}
-                    {modalState && (
-                        <ClientValidationModal
-                            clientName={modalState.clientName}
-                            isOpen={modalState.isOpen}
-                            onClose={() => {
-                                setModalState(null);
-                                modalState.onCancel();
-                            }}
-                            onConfirm={(clientId) => {
-                                setModalState(null);
-                                modalState.onConfirm(clientId);
-                            }}
-                        />
-                    )}
+                )}
             </div>
         </div>
     );

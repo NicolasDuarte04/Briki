@@ -129,6 +129,30 @@ export function WorkspaceTabs() {
     }
   }, [currentCaseId, fetchPolicyAnalyses]);
 
+  // ✅ FASE 6B: Auto-análisis de la primera póliza (Trigger Estructurado)
+  // Si el caso está aprobado, tiene artifacts, pero NO tiene análisis estructurados,
+  // disparamos el análisis automáticamente para que aparezca "Ver en PDF".
+  const analyzePolicyArtifact = useUI(s => s.analyzePolicyArtifact);
+  const policyAnalyses = useUI(s => s.policyAnalyses);
+
+  useEffect(() => {
+    if (
+      caseApproved &&
+      activeCaseData?.artifacts?.length &&
+      activeCaseData.artifacts.length > 0 &&
+      policyAnalyses.length === 0
+    ) {
+      const firstArtifact = activeCaseData.artifacts[0];
+      // Solo si es PDF
+      if (firstArtifact.contentType === 'application/pdf' || firstArtifact.fileName.toLowerCase().endsWith('.pdf')) {
+        console.log('🤖 [WorkspaceTabs] Auto-triggering structured analysis for first policy:', firstArtifact.id);
+        analyzePolicyArtifact(firstArtifact.id).catch(err => {
+          console.error('❌ [WorkspaceTabs] Auto-analysis failed:', err);
+        });
+      }
+    }
+  }, [caseApproved, activeCaseData, policyAnalyses.length, analyzePolicyArtifact]);
+
   // ✅ FASE B.2: Cargar datos del caso cuando currentCaseId cambia
   useEffect(() => {
     if (currentCaseId) {

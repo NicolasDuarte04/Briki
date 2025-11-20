@@ -190,11 +190,67 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
     }
   }, [currentCaseId, fetchPolicyAnalyses]);
 
-  // ✅ FASE 6: Transform PolicyAnalysis[] to PolicyView[]
+  // ✅ FASE 6: Transform PolicyAnalysis[] AND Artifacts to PolicyView[]
+  // Fusionar artefactos (PDFs subidos) con análisis existentes
   const rows = React.useMemo(() => {
-    return policyAnalyses.map((analysis) => ({
+    // 1. Crear un mapa de análisis por artifactId para acceso rápido
+    const analysisMap = new Map(policyAnalyses.map(a => [a.artifactId, a]));
+
+    // 2. Obtener todos los artefactos PDF del caso actual
+    // Si caseData no está disponible, usar array vacío
+    const artifacts = caseData?.artifacts?.filter((a: any) =>
+      a.contentType === 'application/pdf' || a.fileName?.toLowerCase().endsWith('.pdf')
+    ) || [];
+
+    console.log('📊 [Policies] Calculando filas:', {
+      artifactsCount: artifacts.length,
+      analysesCount: policyAnalyses.length
+    });
+
+    // 3. Mapear artefactos a filas (priorizando datos de análisis si existen)
+    const artifactRows = artifacts.map((artifact: any) => {
+      const analysis = analysisMap.get(artifact.id);
+
+      if (analysis) {
+        // CASO A: Ya existe análisis -> Mostrar datos extraídos
+        return {
+          id: analysis.id,
+          plan: analysis.extractedData?.insurer?.name || analysis.artifact?.fileName || artifact.fileName || 'N/A',
+          premium: analysis.extractedData?.financials?.premium_total || 0,
+          deductible: analysis.extractedData?.deductibles?.[0]?.amount || 0,
+          currency: (analysis.extractedData?.currency as CurrencyCode) || 'USD',
+          riders: analysis.extractedData?.coverages?.map((c: any) => c.name || c.type) || [],
+          confidence: typeof analysis.overallConfidence === 'string'
+            ? parseFloat(analysis.overallConfidence)
+            : analysis.overallConfidence,
+          artifactId: artifact.id,
+          analysisId: analysis.id,
+          pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
+        };
+      } else {
+        // CASO B: No hay análisis -> Mostrar fila "pendiente" para permitir análisis manual
+        return {
+          id: artifact.id, // ID temporal (del artifact)
+          plan: artifact.fileName || 'Documento sin nombre',
+          premium: 0,
+          deductible: 0,
+          currency: 'USD' as CurrencyCode,
+          riders: [],
+          confidence: undefined, // Sin confianza = no analizado
+          artifactId: artifact.id,
+          analysisId: undefined, // undefined activa el botón "Analizar"
+          pageReference: 1,
+        };
+      }
+    });
+
+    // 4. Incluir análisis huérfanos (que no coinciden con artifacts actuales)
+    // Esto es defensivo por si hay inconsistencias en BD
+    const orphanAnalyses = policyAnalyses.filter(a => !artifacts.find((art: any) => art.id === a.artifactId));
+
+    const orphanRows = orphanAnalyses.map(analysis => ({
       id: analysis.id,
-      plan: analysis.extractedData?.insurer?.name || analysis.artifact?.fileName || 'N/A',
+      plan: analysis.extractedData?.insurer?.name || analysis.artifact?.fileName || 'Análisis recuperado',
       premium: analysis.extractedData?.financials?.premium_total || 0,
       deductible: analysis.extractedData?.deductibles?.[0]?.amount || 0,
       currency: (analysis.extractedData?.currency as CurrencyCode) || 'USD',
@@ -206,7 +262,9 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
       analysisId: analysis.id,
       pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
     }));
-  }, [policyAnalyses]);
+
+    return [...artifactRows, ...orphanRows];
+  }, [policyAnalyses, caseData]);
 
   return (
     <Card>
@@ -389,41 +447,22 @@ function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
         cell: ({ row }) => (
           <div className="flex w-full items-center justify-end">
             <div className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-              {/* ✅ FASE 6: Botón "Ver en PDF" */}
+              {/* ✅ FASE 6: Botones de Acción Condicionales */}
               {row.original.analysisId ? (
                 <ViewInPdfButton analysisId={row.original.analysisId} />
               ) : (
                 <div className="flex items-center gap-1.5">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                    }}
-                  >
-                    {t("actions.shortlist")}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                    }}
-                  >
-                    {t("actions.evidence")}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                    }}
-                  >
-                    {t("actions.notes")}
-                  </Button>
+                  {/* ✅ FASE 6B: Botón Analizar para nuevas pólizas */}
+                  {row.original.artifactId && (
+                    <AnalyzeButton
+                      artifactId={row.original.artifactId}
+                      policyName={row.original.plan}
+                    />
+                  )}
+
+                  {!row.original.artifactId && (
+                    <span className="text-xs text-muted-foreground italic">Sin archivo</span>
+                  )}
                 </div>
               )}
             </div>
@@ -777,6 +816,9 @@ function PoliciesLoadingSkeleton() {
   );
 }
 
+/**
+ * ✅ FASE 6A: Botón "Ver en PDF" con navegación automática al tab de análisis
+ */
 function ViewInPdfButton({ analysisId }: { analysisId: string }) {
   const navigateToAnalysis = useUI((s) => s.navigateToAnalysis);
   const t = useTranslations("workspace.policies");
@@ -785,6 +827,9 @@ function ViewInPdfButton({ analysisId }: { analysisId: string }) {
     e.preventDefault();
     e.stopPropagation();
 
+    console.log('🔍 [ViewInPdfButton] Navigating to analysis:', analysisId);
+
+    // ✅ FASE 6A: Navegar automáticamente al tab de análisis
     navigateToAnalysis(analysisId);
   };
 
@@ -794,9 +839,78 @@ function ViewInPdfButton({ analysisId }: { analysisId: string }) {
       size="sm"
       type="button"
       onClick={handleClick}
-      title={t("actions.viewInPdfTooltip", { default: "Ver análisis detallado en PDF" })}
+      title="Ver análisis en PDF"
     >
       {t("actions.viewInPdf", { default: "Ver en PDF" })}
+    </Button>
+  );
+}
+
+/**
+ * ✅ FASE 6B: Botón "Analizar" para pólizas pendientes
+ * Dispara el análisis y luego redirige al chat para que el agente comente
+ */
+function AnalyzeButton({ artifactId, policyName }: { artifactId: string, policyName: string }) {
+  const analyzePolicyArtifact = useUI((s) => s.analyzePolicyArtifact);
+  const setInitialMessage = useUI((s) => s.setInitialMessage);
+  const setActiveTab = useUI((s) => s.setActiveTab);
+  const [loading, setLoading] = React.useState(false);
+  const t = useTranslations("workspace.policies");
+
+  const handleAnalyze = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!artifactId) return;
+
+    try {
+      setLoading(true);
+      console.log('🤖 [AnalyzeButton] Triggering analysis for:', artifactId);
+
+      // 1. Ejecutar análisis
+      const analysis = await analyzePolicyArtifact(artifactId);
+
+      // 2. Preparar mensaje para el agente con instrucción de comparación
+      // ✅ FASE 6B: Prompt explícito para comparación
+      const prompt = `He analizado la póliza "${policyName}". Por favor, compárala con las pólizas anteriores (si existen) y dime cuál se ajusta mejor a mis necesidades.`;
+
+      // 3. Enviar mensaje automáticamente y redirigir al chat
+      const sendAutoMessage = useUI.getState().sendAutoMessage;
+
+      // Navegar primero para mejor UX
+      setActiveTab('case-brief');
+
+      // Enviar mensaje (esto disparará el loading en el chat)
+      await sendAutoMessage(prompt);
+
+    } catch (error) {
+      console.error('❌ [AnalyzeButton] Error analyzing:', error);
+      // Aquí idealmente mostraríamos un toast de error
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      type="button"
+      onClick={handleAnalyze}
+      disabled={loading}
+      className="gap-2"
+    >
+      {loading ? (
+        <>
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <span>Analizando...</span>
+        </>
+      ) : (
+        <>
+          <span>⚡</span>
+          <span>Analizar</span>
+        </>
+      )}
     </Button>
   );
 }

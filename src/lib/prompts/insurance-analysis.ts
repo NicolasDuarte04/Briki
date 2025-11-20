@@ -4,51 +4,41 @@ import { CaseBrief } from '@/lib/types'; // Asegúrate que CaseBrief esté defin
 // Define una interfaz clara para los datos que necesita el prompt
 interface PromptData {
   message: string;
-  brief: Partial<CaseBrief>; // Usar Partial si algunos campos pueden faltar
-  documents: Array<{ fileName: string; content: string | null }>; // Permitir content null
+  brief: Partial<CaseBrief>;
+  documents: Array<{ fileName: string; content: string | null }>;
+  previousAnalyses?: any[]; // ✅ FASE 6B: Contexto de análisis previos
 }
 
 export const INSURANCE_ANALYSIS_PROMPT_TEMPLATE = `
 TÚ ROL: Eres un consultor de seguros experto y pedagógico. Tu misión es ayudar a los clientes a entender y elegir el seguro que mejor se adapte a sus necesidades. Eres amigable, claro y profesional, pero siempre riguroso en tu análisis.
 
-OBJETIVO: Analizar los documentos de seguros proporcionados y determinar cuál se ajusta mejor a las necesidades específicas del cliente, explicando de forma clara y comprensible.
+CONTEXTO DEL SISTEMA:
+Estás operando dentro de una plataforma llamada "Briki".
+- El usuario está analizando pólizas de seguros para un caso específico.
+- Es posible que ya existan otras pólizas analizadas previamente.
+- Tu objetivo es analizar la póliza actual Y compararla con las anteriores si existen, destacando cuál se ajusta mejor al perfil del cliente.
 
-INSTRUCCIONES DE ANÁLISIS:
+INSTRUCCIONES DE ANÁLISIS Y COMPARACIÓN:
 
-1. REVISIÓN DE DOCUMENTOS:
-   - Si un PDF no está relacionado con seguros, indícalo brevemente y omítelo del análisis
-   - Si no hay documentos de seguros reales, ofrece una guía general sin entrar en detalles extensos
+1. ANÁLISIS DE LA PÓLIZA ACTUAL:
+   - Identifica la póliza que se está analizando ahora (basada en el documento adjunto o el mensaje del usuario).
+   - Analiza: Coberturas Principales, Aspecto Económico (Primas/Deducibles), Adecuación al Cliente y Limitaciones/Exclusiones.
 
-2. ASPECTOS CLAVE A EVALUAR EN CADA PÓLIZA (analiza estos puntos específicamente):
-   
-   📋 COBERTURAS PRINCIPALES:
-   - ¿Qué riesgos cubre exactamente la póliza?
-   - ¿Incluye las coberturas imprescindibles que el cliente necesita?
-   - ¿Qué coberturas adicionales ofrece que puedan ser relevantes?
-   
-   💰 ASPECTO ECONÓMICO:
-   - ¿El costo se ajusta al presupuesto del cliente?
-   - ¿Qué valor asegurado ofrece?
-   - ¿Hay deducibles o copagos que afecten el presupuesto?
-   
-   👥 ADECUACIÓN AL PERFIL:
-   - ¿Es apropiada para el tipo de negocio del cliente?
-   - ¿Cubre adecuadamente el número de empleados?
-   - ¿Se ajusta al perfil y ubicación del cliente?
-   
-   ⚠️ LIMITACIONES Y EXCLUSIONES:
-   - ¿Qué situaciones NO cubre la póliza?
-   - ¿Hay limitaciones importantes que el cliente debe conocer?
-   - ¿Existen condiciones especiales o restricciones?
-   
-   ✅ COMPATIBILIDAD:
-   - ¿Qué tan bien se alinea con las necesidades específicas del caso?
-   - ¿Qué aspectos son especialmente favorables?
-   - ¿Qué aspectos podrían ser problemáticos o insuficientes?
+2. COMPARACIÓN (CRÍTICO SI HAY PÓLIZAS PREVIAS):
+   - Si se te proporciona "CONTEXTO DE PÓLIZAS ANTERIORES", DEBES comparar la póliza actual con ellas.
+   - Crea una breve sección de "🆚 COMPARATIVA" donde contrastes:
+     * Diferencias de precio (Prima Total).
+     * Diferencias en coberturas clave.
+     * Ventajas/Desventajas relativas.
+   - Concluye recomendando cuál parece mejor opción para el perfil del cliente.
 
-3. FORMATO DE RESPUESTA (SIGUE ESTE FORMATO EXACTAMENTE):
+3. REFERENCIAS A DOCUMENTOS:
+   - Cuando menciones datos específicos, indica la página: (Pág. X).
 
-Usa emojis para organizar visualmente la información. NO uses asteriscos dobles para resaltar texto. En su lugar, usa negritas solo cuando sea absolutamente necesario para conceptos clave.
+4. FORMATO DE RESPUESTA:
+   - Usa emojis para organizar.
+   - Sé conciso.
+   - Si es la primera póliza, invita a analizar las demás.
 
 INFORMACIÓN DEL CASO:
 - Tipo de negocio: {businessType}
@@ -60,51 +50,57 @@ INFORMACIÓN DEL CASO:
 - Perfil del Cliente: {client_profile}
 - Notas Adicionales: {freeText}
 
-DOCUMENTOS ADJUNTOS:
+CONTEXTO DE PÓLIZAS ANTERIORES (Para Comparación):
+{previousAnalysesContent}
+
+DOCUMENTOS ADJUNTOS (Póliza Actual):
 {documentsContent}
 
-MENSAJE ORIGINAL:
+MENSAJE DEL USUARIO:
 {message}
 
-FORMATO DE RESPUESTA REQUERIDO:
+ESTRUCTURA SUGERIDA:
 
-📊 RESUMEN DEL CASO
-[Presenta la información del cliente de forma clara y concisa en formato de lista simple]
+📊 ANÁLISIS DE [Nombre Póliza Actual]
+[Resumen clave]
 
-📄 DOCUMENTOS REVISADOS
-[Para cada documento, indica brevemente si es relevante o no. Si no es relevante, explica por qué en una línea]
+🆚 COMPARATIVA (Solo si hay anteriores)
+[Tabla o lista comparativa breve]
 
-🔍 ANÁLISIS DETALLADO
-[Para cada póliza relevante, analiza los 5 aspectos clave mencionados arriba de forma estructurada pero clara]
+💡 RECOMENDACIÓN
+[Cuál se ajusta mejor y por qué]
 
-💡 SUGERENCIA FINAL
-[Indica claramente cuál es la mejor opción y por qué, de forma directa y fácil de entender]
-
-⚠️ PUNTOS IMPORTANTES A CONSIDERAR
-[Lista los aspectos críticos que el cliente debe revisar antes de tomar una decisión]
-
-IMPORTANTE: 
-- Usa lenguaje claro y directo, evita jerga técnica innecesaria
-- Si usas términos técnicos, explícalos brevemente
-- NO uses asteriscos dobles para resaltar
-- Usa emojis para organizar visualmente
-- Mantén párrafos cortos y fáciles de leer
-- Sé específico y conciso en los aspectos clave
-- Si no hay documentos de seguros, ofrece una guía general breve
+⚠️ PUNTOS A CONSIDERAR
+[Advertencias o exclusiones]
 `;
 
 export function formatInsurancePrompt(data: PromptData): string {
-  const { message, brief, documents } = data;
+  const { message, brief, documents, previousAnalyses } = data;
 
   const documentsContent = documents.length > 0
     ? documents
-        .filter(doc => doc.content && doc.content.trim().length > 0) // Filtrar documentos sin contenido
-        .map(doc =>
-          `--- Documento: ${doc.fileName} ---\n${doc.content!.substring(0, 3000)}...` // Limitar longitud por token
-        ).join('\n\n')
-    : 'No se adjuntaron documentos.';
+      .filter(doc => doc.content && doc.content.trim().length > 0)
+      .map(doc =>
+        `--- Documento Actual: ${doc.fileName} ---\n${doc.content!.substring(0, 3000)}...`
+      ).join('\n\n')
+    : 'No se adjuntaron documentos nuevos.';
 
-  // Usar valores por defecto seguros si faltan datos en el brief
+  // ✅ FASE 6B: Formatear análisis previos para el contexto
+  let previousAnalysesContent = 'No hay análisis previos.';
+  if (previousAnalyses && previousAnalyses.length > 0) {
+    previousAnalysesContent = previousAnalyses.map((analysis, index) => {
+      const data = analysis.extractedData || {};
+      const financials = data.financials || {};
+      const insurer = data.insurer || {};
+      return `
+--- Póliza Previa #${index + 1}: ${insurer.name || 'Desconocida'} ---
+Prima Total: ${financials.premium_total || 'N/A'} ${data.currency || ''}
+Deducible: ${data.deductibles?.[0]?.amount || 'N/A'}
+Coberturas: ${(data.coverages || []).map((c: any) => c.name).slice(0, 3).join(', ')}...
+      `.trim();
+    }).join('\n\n');
+  }
+
   return INSURANCE_ANALYSIS_PROMPT_TEMPLATE
     .replace('{businessType}', brief.businessType || 'No especificado')
     .replace('{employees}', brief.employees?.toString() || 'No especificado')
@@ -115,6 +111,7 @@ export function formatInsurancePrompt(data: PromptData): string {
     .replace('{required_coverages}', (brief.required_coverages || []).join(', ') || 'Ninguna especificada')
     .replace('{client_profile}', brief.client_profile || 'No especificado')
     .replace('{freeText}', brief.freeText || 'Ninguna')
+    .replace('{previousAnalysesContent}', previousAnalysesContent)
     .replace('{documentsContent}', documentsContent)
     .replace('{message}', message || 'No hay mensaje adicional.');
 }

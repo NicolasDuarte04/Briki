@@ -22,6 +22,7 @@ export interface AnalysisRequest {
   message: string;
   brief: Partial<CaseBrief>;
   documents: Array<{ fileName: string; content: string | null }>; // Permitir content null
+  previousAnalyses?: any[]; // ✅ FASE 6B: Contexto de análisis previos para comparación
 }
 
 export async function analyzeInsuranceDocuments(request: AnalysisRequest): Promise<string> {
@@ -47,12 +48,12 @@ export async function analyzeInsuranceDocuments(request: AnalysisRequest): Promi
 
     const result = response.choices[0]?.message?.content || 'No se pudo generar un análisis. Intenta de nuevo.';
     console.log('✅ OpenAI: Análisis completado, longitud de respuesta:', result.length);
-    
+
     return result;
 
   } catch (error: any) {
     console.error('ERROR [OpenAI Service]: API call failed -', error);
-    
+
     // Manejo específico de errores de OpenAI
     if (error.code === 'insufficient_quota') {
       throw new Error('Cuota de OpenAI agotada. Por favor, verifica tu plan de facturación.');
@@ -61,7 +62,7 @@ export async function analyzeInsuranceDocuments(request: AnalysisRequest): Promi
     } else if (error.code === 'rate_limit_exceeded') {
       throw new Error('Límite de velocidad excedido. Por favor, intenta de nuevo en unos momentos.');
     }
-    
+
     throw new Error('El servicio de análisis no está disponible en este momento.');
   }
 }
