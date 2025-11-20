@@ -1,0 +1,29 @@
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:55: NOTICE:  ✅ Columna messages.content_enc renombrada a messages.content
+DO
+COMMENT
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:108: NOTICE:  ✅ Columna profiles.phone_enc renombrada a profiles.phone
+DO
+COMMENT
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:161: NOTICE:  ✅ Columna profiles.address_enc renombrada a profiles.address
+DO
+COMMENT
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:188: NOTICE:  ✅ messages.content es BYTEA (correcto)
+DO
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:208: NOTICE:  ✅ profiles.phone es BYTEA (correcto)
+DO
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:228: NOTICE:  ✅ profiles.address es BYTEA (correcto)
+DO
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:256: NOTICE:  ✅ Funciones de encriptación verificadas: encrypt_pii() y decrypt_pii() existen
+DO
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:273: NOTICE:  ✅ Extensión pgcrypto está instalada
+DO
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:314: NOTICE:  ========================================
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:314: NOTICE:  RESUMEN DE MIGRACIÓN
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:314: NOTICE:  ========================================
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:314: NOTICE:  messages.content: ✅ Existe
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:314: NOTICE:  profiles.phone: ✅ Existe
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:314: NOTICE:  profiles.address: ✅ Existe
+psql:supabase/migrations/20250131_rename_encrypted_columns_to_normal_names.sql:314: NOTICE:  ========================================
+DO
+COMMENT
+COMMENT

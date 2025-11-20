@@ -1,0 +1,650 @@
+'use client';
+
+import { useState, useEffect, useRef, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { updateProfile, updateProfileDirect, updateNotificationSettings, requestPasswordReset, type FormState } from './actions';
+import { toast } from 'sonner';
+
+type Tab = 'personal' | 'security' | 'notifications' | 'team' | 'audit';
+
+type EditableField = 'name' | 'phone' | 'address';
+
+interface AccountSettingsProps {
+  initialName: string;
+  initialPhone: string;
+  initialAddress: string;
+  email: string;
+  locale: 'en' | 'es';
+  notificationsProductUpdates: boolean;
+  notificationsPolicyAlerts: boolean;
+}
+
+function SubmitButton({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" size="sm" disabled={pending} aria-disabled={pending}>
+      {pending ? 'Saving...' : label}
+    </Button>
+  );
+}
+
+export function AccountSettings({ 
+  initialName, 
+  initialPhone,
+  initialAddress,
+  email, 
+  locale,
+  notificationsProductUpdates,
+  notificationsPolicyAlerts
+}: AccountSettingsProps) {
+  const [activeTab, setActiveTab] = useState<Tab>('personal');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [nameValue, setNameValue] = useState(initialName);
+  const [phoneValue, setPhoneValue] = useState(initialPhone);
+  const [addressValue, setAddressValue] = useState(initialAddress);
+  const [productUpdatesChecked, setProductUpdatesChecked] = useState(notificationsProductUpdates);
+  const [policyAlertsChecked, setPolicyAlertsChecked] = useState(notificationsPolicyAlerts);
+  const [notificationsPending, setNotificationsPending] = useState(false);
+  const [passwordResetStatus, setPasswordResetStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [lastSavedField, setLastSavedField] = useState<EditableField | null>(null);
+  const [currentLocale, setCurrentLocale] = useState(locale);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loadingAuditLogs, setLoadingAuditLogs] = useState(false);
+
+  const initialState: FormState = { ok: true };
+  const [state, formAction] = useActionState(updateProfile, initialState);
+  const isFirstSubmission = useRef(true);
+  const pendingFieldRef = useRef<EditableField | null>(null);
+  const savedIndicatorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const beginSave = (field: EditableField) => {
+    pendingFieldRef.current = field;
+    if (savedIndicatorTimeoutRef.current) {
+      clearTimeout(savedIndicatorTimeoutRef.current);
+      savedIndicatorTimeoutRef.current = null;
+    }
+    setLastSavedField(null);
+  };
+
+  useEffect(() => {
+    if (isFirstSubmission.current) {
+      isFirstSubmission.current = false;
+      return;
+    }
+
+    if (state?.ok) {
+      const field = pendingFieldRef.current;
+      if (field) {
+        switch (field) {
+          case 'name':
+            setIsEditingName(false);
+            break;
+          case 'phone':
+            setIsEditingPhone(false);
+            break;
+          case 'address':
+            setIsEditingAddress(false);
+            break;
+        }
+
+        if (savedIndicatorTimeoutRef.current) {
+          clearTimeout(savedIndicatorTimeoutRef.current);
+        }
+
+        setLastSavedField(field);
+        savedIndicatorTimeoutRef.current = setTimeout(() => {
+          setLastSavedField((current) => (current === field ? null : current));
+        }, 2000);
+      }
+
+      pendingFieldRef.current = null;
+    } else if (state && !state.ok) {
+      pendingFieldRef.current = null;
+      toast.error(state.message);
+    }
+  }, [state]);
+
+  useEffect(() => {
+    return () => {
+      if (savedIndicatorTimeoutRef.current) {
+        clearTimeout(savedIndicatorTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Cargar rol de usuario al montar
+  useEffect(() => {
+    const checkAdminAndLoadAuditLogs = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          const isAdminUser = data.role === 'admin' || data.role === 'owner';
+          setIsAdmin(isAdminUser);
+          
+          // Solo cargar audit_logs si es admin/owner
+          if (isAdminUser) {
+            setLoadingAuditLogs(true);
+            const auditResponse = await fetch('/api/audit-log');
+            if (auditResponse.ok) {
+              const logs = await auditResponse.json();
+              setAuditLogs(logs);
+            }
+            setLoadingAuditLogs(false);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+      }
+    };
+    
+    checkAdminAndLoadAuditLogs();
+  }, [isAdmin]);
+
+  const handlePasswordReset = async () => {
+    setPasswordResetStatus('sending');
+    const formData = new FormData();
+    formData.append('email', email);
+    formData.append('locale', locale);
+    
+    const result = await requestPasswordReset(null, formData);
+    
+    if (result.status === 'success') {
+      setPasswordResetStatus('success');
+      toast.success('Password reset email sent! Check your inbox.');
+    } else {
+      setPasswordResetStatus('error');
+      toast.error('Failed to send password reset email');
+    }
+    
+    // Reset status after 3 seconds
+    setTimeout(() => setPasswordResetStatus('idle'), 3000);
+  };
+
+  const handleNotificationToggle = async (field: 'productUpdates' | 'policyAlerts', checked: boolean) => {
+    setNotificationsPending(true);
+    
+    const formData = new FormData();
+    formData.append('locale', locale);
+    
+    // Set the toggled field
+    if (field === 'productUpdates') {
+      setProductUpdatesChecked(checked);
+      formData.append('productUpdates', checked ? 'on' : 'off');
+      formData.append('policyAlerts', policyAlertsChecked ? 'on' : 'off');
+    } else {
+      setPolicyAlertsChecked(checked);
+      formData.append('productUpdates', productUpdatesChecked ? 'on' : 'off');
+      formData.append('policyAlerts', checked ? 'on' : 'off');
+    }
+    
+    const result = await updateNotificationSettings(formData);
+    
+    setNotificationsPending(false);
+    
+    if (result.status === 'success') {
+      // Subtle success indication - no toast needed for toggles
+    } else {
+      toast.error('Failed to update notification settings');
+      // Revert on error
+      if (field === 'productUpdates') {
+        setProductUpdatesChecked(!checked);
+      } else {
+        setPolicyAlertsChecked(!checked);
+      }
+    }
+  };
+
+  /**
+   * Maneja el cambio de idioma del usuario.
+   * Usa updateProfileDirect en lugar de updateProfile porque:
+   * - No se usa con useActionState
+   * - Es una llamada directa desde un event handler
+   * - No hay un estado previo real del formulario
+   */
+  const handleLocaleChange = async (newLocale: 'en' | 'es') => {
+    if (newLocale === currentLocale) return;
+    
+    try {
+      const formData = new FormData();
+      formData.append('field', 'locale');
+      formData.append('locale', newLocale);
+      
+      // ✅ CORRECCIÓN: Usar updateProfileDirect para llamadas programáticas
+      const result = await updateProfileDirect(formData);
+      
+      if (result.ok) {
+        setCurrentLocale(newLocale);
+        toast.success('Language updated successfully');
+        // Redirect to apply the new locale
+        window.location.href = `/${newLocale}/profile`;
+      } else {
+        // ✅ CORRECCIÓN: FormState usa 'message', no 'error'
+        toast.error(result.message || 'Failed to update language');
+      }
+    } catch (error) {
+      console.error('Error updating language:', error);
+      toast.error('Failed to update language');
+    }
+  };
+
+  const tabs = [
+    { id: 'personal' as Tab, label: 'Personal info' },
+    { id: 'security' as Tab, label: 'Security' },
+    { id: 'notifications' as Tab, label: 'Notifications' },
+    { id: 'team' as Tab, label: 'Dashboard de equipo' },
+    // ✅ Solo mostrar pestaña de auditoría si el usuario es admin u owner
+    ...(isAdmin ? [{ id: 'audit' as Tab, label: 'Auditoría (Admins)' }] : []),
+  ];
+
+  return (
+    <div>
+      {/* Breadcrumb */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-900">Account settings</h1>
+      </div>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200 mb-8">
+        <nav className="flex gap-8" aria-label="Account sections">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  pb-3 px-1 text-sm relative transition-colors
+                  ${isActive 
+                    ? 'text-gray-900 font-semibold' 
+                    : 'text-gray-600 hover:text-gray-900'
+                  }
+                `}
+              >
+                {tab.label}
+                {isActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      <div className="space-y-6">
+        {activeTab === 'personal' && (
+          <>
+            {/* Name Card */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-gray-700 mb-1">Name</h3>
+                  {!isEditingName ? (
+                    <p className="text-base text-gray-900">
+                      {nameValue || 'Not set'}
+                      {lastSavedField === 'name' && (
+                        <span className="ml-2 text-sm text-green-600">Saved</span>
+                      )}
+                    </p>
+                  ) : (
+                    <form
+                      action={formAction}
+                      className="mt-2 space-y-3"
+                      onSubmit={() => beginSave('name')}
+                    >
+                      <Input
+                        name="name"
+                        defaultValue={nameValue}
+                        onChange={(e) => setNameValue(e.target.value)}
+                        className="max-w-md"
+                        placeholder="Enter your name"
+                        autoFocus
+                      />
+                      <input type="hidden" name="field" value="name" />
+                      <input type="hidden" name="locale" value={locale} />
+                      <div className="flex gap-2">
+                        <SubmitButton label="Save" />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setIsEditingName(false);
+                            setNameValue(initialName);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+                {!isEditingName && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditingName(true);
+                      setLastSavedField(null);
+                    }}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Email Card (read-only) */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-1">Email</h3>
+                  <p className="text-base text-gray-900">{email}</p>
+                  <p className="text-xs text-gray-500 mt-1">Your email cannot be changed</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Phone Card */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-gray-700 mb-1">Phone</h3>
+                  {!isEditingPhone ? (
+                    <p className="text-base text-gray-900">
+                      {phoneValue || 'Not set'}
+                      {lastSavedField === 'phone' && (
+                        <span className="ml-2 text-sm text-green-600">Saved</span>
+                      )}
+                    </p>
+                  ) : (
+                    <form
+                      action={formAction}
+                      className="mt-2 space-y-3"
+                      onSubmit={() => beginSave('phone')}
+                    >
+                      <Input
+                        name="phone"
+                        defaultValue={phoneValue}
+                        onChange={(e) => setPhoneValue(e.target.value)}
+                        className="max-w-md"
+                        placeholder="Enter your phone number"
+                        autoFocus
+                        maxLength={40}
+                      />
+                      <input type="hidden" name="field" value="phone" />
+                      <input type="hidden" name="locale" value={locale} />
+                      <div className="flex gap-2">
+                        <SubmitButton label="Save" />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setIsEditingPhone(false);
+                            setPhoneValue(initialPhone);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+                {!isEditingPhone && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditingPhone(true);
+                      setLastSavedField(null);
+                    }}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Address Card */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-gray-700 mb-1">Address</h3>
+                  {!isEditingAddress ? (
+                    <p className="text-base text-gray-900">
+                      {addressValue || 'Not set'}
+                      {lastSavedField === 'address' && (
+                        <span className="ml-2 text-sm text-green-600">Saved</span>
+                      )}
+                    </p>
+                  ) : (
+                    <form
+                      action={formAction}
+                      className="mt-2 space-y-3"
+                      onSubmit={() => beginSave('address')}
+                    >
+                      <Input
+                        name="address"
+                        defaultValue={addressValue}
+                        onChange={(e) => setAddressValue(e.target.value)}
+                        className="max-w-md"
+                        placeholder="Enter your address"
+                        autoFocus
+                        maxLength={200}
+                      />
+                      <input type="hidden" name="field" value="address" />
+                      <input type="hidden" name="locale" value={locale} />
+                      <div className="flex gap-2">
+                        <SubmitButton label="Save" />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setIsEditingAddress(false);
+                            setAddressValue(initialAddress);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+                {!isEditingAddress && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditingAddress(true);
+                      setLastSavedField(null);
+                    }}
+                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    Edit
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Language Card */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-sm font-medium text-gray-700 mb-1">Language</h3>
+                  <p className="text-sm text-gray-500 mb-3">Choose your preferred language</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleLocaleChange('en')}
+                      className={`px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
+                        locale === 'en'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      English ✓
+                    </button>
+                    <button
+                      onClick={() => handleLocaleChange('es')}
+                      className={`px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
+                        locale === 'es'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      Español
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'security' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Password</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Reset your password by receiving a secure reset link via email. You&apos;ll be able to create a new password after clicking the link.
+            </p>
+            <Button 
+              onClick={handlePasswordReset}
+              disabled={passwordResetStatus === 'sending'}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {passwordResetStatus === 'sending' ? 'Sending...' : 'Send password reset email'}
+            </Button>
+            {passwordResetStatus === 'success' && (
+              <p className="text-sm text-green-600 mt-2">✓ Reset email sent successfully</p>
+            )}
+            {passwordResetStatus === 'error' && (
+              <p className="text-sm text-red-600 mt-2">Failed to send reset email</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'notifications' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Product updates</h3>
+                  <p className="text-sm text-gray-500 mt-1">Receive emails about new features and improvements</p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={productUpdatesChecked}
+                  onChange={(e) => handleNotificationToggle('productUpdates', e.target.checked)}
+                  disabled={notificationsPending}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Policy alerts</h3>
+                  <p className="text-sm text-gray-500 mt-1">Get notified about important policy changes</p>
+                </div>
+                <input 
+                  type="checkbox" 
+                  checked={policyAlertsChecked}
+                  onChange={(e) => handleNotificationToggle('policyAlerts', e.target.checked)}
+                  disabled={notificationsPending}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'team' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">Dashboard de equipo</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Aquí se mostrará la lista de miembros de la organización y otros aspectos compartidos del equipo.
+            </p>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <p className="text-sm text-gray-500">
+                🚧 Funcionalidad en desarrollo
+              </p>
+              <p className="text-xs text-gray-400 mt-2">
+                Esta sección mostrará:
+              </p>
+              <ul className="text-xs text-gray-400 mt-2 list-disc list-inside space-y-1">
+                <li>Lista de miembros de la organización</li>
+                <li>Información compartida del equipo</li>
+                <li>Opciones de administración (solo para admins/owners)</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'audit' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">Audit Log</h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Historial de auditoría del sistema. Solo visible para administradores y propietarios.
+            </p>
+            
+            {loadingAuditLogs ? (
+              <p className="text-sm text-gray-500">Cargando registros de auditoría...</p>
+            ) : auditLogs.length === 0 ? (
+              <p className="text-sm text-gray-500">No hay registros de auditoría disponibles.</p>
+            ) : (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {auditLogs.map((log) => (
+                  <div key={log.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-semibold text-gray-900">{log.action}</p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(log.createdAt).toLocaleString()}
+                        </p>
+                        {log.actor && (
+                          <p className="text-sm text-gray-500">Actor: {log.actor}</p>
+                        )}
+                        {log.tool && (
+                          <p className="text-sm text-gray-500">Tool: {log.tool}</p>
+                        )}
+                      </div>
+                      {log.severity && (
+                        <span className={`px-2 py-1 text-xs rounded ${
+                          log.severity === 'error' || log.severity === 'critical'
+                            ? 'bg-red-100 text-red-800'
+                            : log.severity === 'warning'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {log.severity}
+                        </span>
+                      )}
+                    </div>
+                    {log.payload && (
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-500">Payload:</p>
+                        <pre className="text-xs bg-gray-50 p-2 rounded mt-1 overflow-x-auto">
+                          {JSON.stringify(log.payload, null, 2)}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

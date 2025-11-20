@@ -1,0 +1,16 @@
+  tabla   | column_name | data_type | is_nullable 
+----------+-------------+-----------+-------------
+ messages | content     | bytea     | YES
+(1 row)
+
+  tabla   | column_name | data_type | is_nullable 
+----------+-------------+-----------+-------------
+ profiles | address     | bytea     | YES
+ profiles | phone       | bytea     | YES
+(2 rows)
+
+     tipo     | table_name | column_name | data_type 
+--------------+------------+-------------+-----------
+ VERIFICACIÓN | profiles   | name_enc    | bytea
+(1 row)
+
