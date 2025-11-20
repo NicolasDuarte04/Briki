@@ -12,7 +12,7 @@ yarn.lock
 /out/
 
 # Local Environment Variables
-.env*.local
+
 
 # Logs
 npm-debug.log*
