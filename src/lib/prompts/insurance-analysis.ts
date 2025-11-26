@@ -5,8 +5,12 @@ import { CaseBrief } from '@/lib/types'; // Asegúrate que CaseBrief esté defin
 interface PromptData {
   message: string;
   brief: Partial<CaseBrief>;
-  documents: Array<{ fileName: string; content: string | null }>;
-  previousAnalyses?: any[]; // ✅ FASE 6B: Contexto de análisis previos
+  documents: Array<{ fileName: string; content: string | null; analysisId?: string }>; // ✅ FASE 9: ID opcional
+  previousAnalyses?: Array<{
+    id: string; // ✅ FASE 9: ID requerido
+    extractedData: any;
+    pageReferences?: Array<{ fieldName: string; pageNumber: number }>;
+  }>;
 }
 
 export const INSURANCE_ANALYSIS_PROMPT_TEMPLATE = `
@@ -30,10 +34,20 @@ INSTRUCCIONES DE ANÁLISIS Y COMPARACIÓN:
      * Diferencias de precio (Prima Total).
      * Diferencias en coberturas clave.
      * Ventajas/Desventajas relativas.
-   - Concluye recomendando cuál parece mejor opción para el perfil del cliente.
+   - Concluye recomendando cuál parece mejor opción para el perfil del cliente (Responde de manera integral y organizada sin intentar implemntar tablas o esquemas con caracteres simples puesto que son muy propenso a romper el aspecto visual).
 
-3. REFERENCIAS A DOCUMENTOS:
-   - Cuando menciones datos específicos, indica la página: (Pág. X).
+3. REFERENCIAS A DOCUMENTOS (IMPORTANTE):
+   - Cuando menciones datos específicos (primas, deducibles, coberturas), indica la página.
+   - **DETECCIÓN DE PÁGINA**: El texto de los documentos contiene marcadores explícitos como \`[[PAGE_1]]\`, \`[[PAGE_2]]\`. Usa el marcador MÁS CERCANO HACIA ARRIBA del dato encontrado para determinar la página.
+   - **FORMATO INTERACTIVO**: DEBES usar el siguiente formato para crear enlaces clicables:
+     Format: [Ver en PDF](#ref:FIELD_NAME:PAGE_NUMBER:ANALYSIS_ID)
+     
+     Donde:
+     - FIELD_NAME: Nombre corto del campo (ej. 'deductible', 'premium').
+     - PAGE_NUMBER: Número de página detectado (ej. 5).
+     - ANALYSIS_ID: ID del análisis asociado (ver "DOCUMENTOS ADJUNTOS" o "REFERENCIAS DISPONIBLES"). Si no tienes ID, usa 'current'.
+
+     Ejemplo: "El deducible es del 10% [Ver en PDF](#ref:deductibles:5:uuid-1234)"
 
 4. FORMATO DE RESPUESTA:
    - Usa emojis para organizar.
@@ -53,6 +67,9 @@ INFORMACIÓN DEL CASO:
 CONTEXTO DE PÓLIZAS ANTERIORES (Para Comparación):
 {previousAnalysesContent}
 
+REFERENCIAS DISPONIBLES (Usa estas para crear enlaces [Ver en PDF]):
+{referencesContent}
+
 DOCUMENTOS ADJUNTOS (Póliza Actual):
 {documentsContent}
 
@@ -62,7 +79,7 @@ MENSAJE DEL USUARIO:
 ESTRUCTURA SUGERIDA:
 
 📊 ANÁLISIS DE [Nombre Póliza Actual]
-[Resumen clave]
+[Resumen clave con referencias]
 
 🆚 COMPARATIVA (Solo si hay anteriores)
 [Tabla o lista comparativa breve]
@@ -81,24 +98,41 @@ export function formatInsurancePrompt(data: PromptData): string {
     ? documents
       .filter(doc => doc.content && doc.content.trim().length > 0)
       .map(doc =>
-        `--- Documento Actual: ${doc.fileName} ---\n${doc.content!.substring(0, 3000)}...`
+        `--- Documento Actual: ${doc.fileName} (ID Análisis: ${doc.analysisId || 'No disponible'}) ---\n${doc.content!.substring(0, 3000)}...`
       ).join('\n\n')
     : 'No se adjuntaron documentos nuevos.';
 
   // ✅ FASE 6B: Formatear análisis previos para el contexto
   let previousAnalysesContent = 'No hay análisis previos.';
+  let referencesContent = 'No hay referencias disponibles.';
+
   if (previousAnalyses && previousAnalyses.length > 0) {
+    // Formatear contenido de análisis
     previousAnalysesContent = previousAnalyses.map((analysis, index) => {
       const data = analysis.extractedData || {};
       const financials = data.financials || {};
       const insurer = data.insurer || {};
       return `
---- Póliza Previa #${index + 1}: ${insurer.name || 'Desconocida'} ---
+--- Póliza Previa #${index + 1}: ${insurer.name || 'Desconocida'} (ID: ${analysis.id}) ---
 Prima Total: ${financials.premium_total || 'N/A'} ${data.currency || ''}
 Deducible: ${data.deductibles?.[0]?.amount || 'N/A'}
 Coberturas: ${(data.coverages || []).map((c: any) => c.name).slice(0, 3).join(', ')}...
       `.trim();
     }).join('\n\n');
+
+    // Formatear referencias disponibles
+    const allRefs: string[] = [];
+    previousAnalyses.forEach((analysis) => {
+      if (analysis.pageReferences && analysis.pageReferences.length > 0) {
+        analysis.pageReferences.forEach(ref => {
+          allRefs.push(`- Campo: "${ref.fieldName}" -> Página: ${ref.pageNumber} (Usa: #ref:${ref.fieldName}:${ref.pageNumber}:${analysis.id})`);
+        });
+      }
+    });
+
+    if (allRefs.length > 0) {
+      referencesContent = allRefs.join('\n');
+    }
   }
 
   return INSURANCE_ANALYSIS_PROMPT_TEMPLATE
@@ -112,6 +146,7 @@ Coberturas: ${(data.coverages || []).map((c: any) => c.name).slice(0, 3).join(',
     .replace('{client_profile}', brief.client_profile || 'No especificado')
     .replace('{freeText}', brief.freeText || 'Ninguna')
     .replace('{previousAnalysesContent}', previousAnalysesContent)
+    .replace('{referencesContent}', referencesContent)
     .replace('{documentsContent}', documentsContent)
     .replace('{message}', message || 'No hay mensaje adicional.');
 }

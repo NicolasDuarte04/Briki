@@ -36,21 +36,21 @@ import PDFParser from 'pdf2json';
  */
 function safeDecodeText(encodedText: string): string {
   if (!encodedText) return '';
-  
+
   // Estrategia 1: Intentar decodeURIComponent (estándar)
   try {
     return decodeURIComponent(encodedText);
   } catch (e) {
     // Falló, continuar con siguiente estrategia
   }
-  
+
   // Estrategia 2: Intentar decodeURI (menos estricto)
   try {
     return decodeURI(encodedText);
   } catch (e) {
     // Falló, continuar con siguiente estrategia
   }
-  
+
   // Estrategia 3: Reemplazo manual de secuencias comunes
   try {
     let decoded = encodedText
@@ -79,7 +79,7 @@ function safeDecodeText(encodedText: string): string {
       .replace(/%2C/g, ',')
       .replace(/%2F/g, '/')
       .replace(/%3A/g, ':');
-    
+
     // Si después del reemplazo manual aún hay secuencias % sospechosas,
     // intentar decodeURIComponent de nuevo
     if (decoded.includes('%') && /%([\dA-F]{2})/i.test(decoded)) {
@@ -89,12 +89,12 @@ function safeDecodeText(encodedText: string): string {
         // Aún falla, usar el resultado parcial del reemplazo manual
       }
     }
-    
+
     return decoded;
   } catch (e) {
     // Falló incluso el reemplazo manual, usar raw
   }
-  
+
   // Estrategia 4: Fallback final - retornar texto raw
   // Solo loggear en desarrollo para no contaminar logs de producción
   if (process.env.NODE_ENV === 'development') {
@@ -173,25 +173,25 @@ export async function extractWithCoordinates(
   return new Promise((resolve, reject) => {
     // Inicializar el parser de PDF
     const pdfParser = new (PDFParser as any)(null, true);
-    
+
     // Manejar errores de parsing
     pdfParser.on('pdfParser_dataError', (errData: any) => {
       const errorMessage = errData?.parserError || 'Failed to parse PDF';
       console.error('❌ PDF parsing error:', errorMessage);
       reject(new Error(errorMessage));
     });
-    
+
     // Procesar el PDF cuando esté listo
     pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
       try {
         let fullText = '';
         const coordinates: TextCoordinate[] = [];
-        
+
         // Verificar que tenemos páginas
         if (!pdfData.Pages || !Array.isArray(pdfData.Pages)) {
           throw new Error('Invalid PDF structure: no pages found');
         }
-        
+
         // Iterar sobre cada página
         pdfData.Pages.forEach((page: any, pageIndex: number) => {
           // Verificar que la página tiene textos
@@ -199,23 +199,26 @@ export async function extractWithCoordinates(
             console.warn(`⚠️  Página ${pageIndex + 1} no tiene textos`);
             return;
           }
-          
+
+          // Añadir marcador de página explícito para la IA
+          fullText += `[[PAGE_${pageIndex + 1}]]\n`;
+
           // Iterar sobre cada bloque de texto en la página
           page.Texts.forEach((textBlock: any) => {
             // textBlock tiene: x, y, w (width), h (height), y R (runs de texto)
             if (!textBlock.R || !Array.isArray(textBlock.R)) {
               return;
             }
-            
+
             // Procesar cada "run" de texto dentro del bloque
             textBlock.R.forEach((run: any) => {
               // ✅ FASE 1 CORREGIDO: Decodificación robusta con múltiples estrategias
               // Usar safeDecodeText() que maneja casos edge (%, caracteres especiales malformados)
               const decodedText = safeDecodeText(run.T);
-              
+
               // Añadir al texto completo
               fullText += decodedText + ' ';
-              
+
               // Guardar coordenadas del bloque de texto
               coordinates.push({
                 text: decodedText,
@@ -227,16 +230,16 @@ export async function extractWithCoordinates(
               });
             });
           });
-          
+
           // Añadir salto de línea entre páginas
           fullText += '\n';
         });
-        
+
         // Obtener número de páginas de los metadatos
         const totalPages = pdfData.Meta?.Pages || pdfData.Pages.length;
-        
+
         console.log(`✅ PDF extraído: ${totalPages} páginas, ${coordinates.length} bloques de texto`);
-        
+
         // Resolver con el resultado
         resolve({
           text: fullText.trim(),
@@ -248,7 +251,7 @@ export async function extractWithCoordinates(
         reject(new Error(`Error processing PDF: ${processingError.message}`));
       }
     });
-    
+
     // Iniciar el parsing
     try {
       pdfParser.parseBuffer(buffer);
@@ -342,19 +345,19 @@ export function calculateBoundingBox(
   coordinates: TextCoordinate[]
 ): { x: number; y: number; width: number; height: number } | null {
   if (coordinates.length === 0) return null;
-  
+
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
-  
+
   coordinates.forEach(coord => {
     minX = Math.min(minX, coord.x);
     minY = Math.min(minY, coord.y);
     maxX = Math.max(maxX, coord.x + coord.width);
     maxY = Math.max(maxY, coord.y + coord.height);
   });
-  
+
   return {
     x: minX,
     y: minY,

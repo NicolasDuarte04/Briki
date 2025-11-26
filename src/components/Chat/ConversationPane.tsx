@@ -43,7 +43,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // ✅ CORRECCIÓN CRÍTICA: Usar isBriefValid del estado global para sincronización perfecta
   // Esto asegura que todos los botones usen la misma fuente de verdad
   const isBriefValid = useUI((state: UIState) => state.isBriefValid);
-  
+
   // ❌ ELIMINADO: Cálculo local de isBriefValid
   // ✅ CORRECCIÓN: Usar isBriefValid() del estado global (ya declarado arriba)
   // Usar estado global de mensajes
@@ -51,20 +51,20 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const addMessage = useUI((state: UIState) => state.addMessage);
   const setMessages = useUI((state: UIState) => state.setMessages);
   // setValidateAndApproveClient removido para evitar bucles infinitos
-  
+
   // ✅ ELIMINADO: Estado local isResolvingClient - ahora se usa caseResolvingClient global de Zustand
-  
+
   // Estado local para indicador de análisis de OpenAI
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  
+
   // Hook para validación de clientes (movido al nivel superior)
   // ✅ FASE 7: Hook para validación con modal (unificado con BriefForm y CaseBriefForm)
   const { validateAndResolveClient, modalState, setModalState } = useClientValidation(true);
   const router = useRouter();
-  
+
   // Cache para evitar validaciones repetidas del mismo cliente
   const [validatedClientCache, setValidatedClientCache] = useState<Map<string, string>>(new Map());
-  
+
   // ✅ FASE 2.1: Función para guardar mensajes en BD
   const saveMessageToDB = useCallback(async (message: ChatMessage) => {
     const currentCaseId = useUI.getState().currentCaseId;
@@ -72,21 +72,21 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       console.warn('⚠️ [ConversationPane] No case ID, skipping DB save');
       return;
     }
-    
+
     let retryCount = 0;
     const maxRetries = 3;
-    
+
     while (retryCount < maxRetries) {
       try {
         console.log(`💾 [ConversationPane] Saving message to DB (attempt ${retryCount + 1}/${maxRetries}):`, message.id);
-        
+
         const response = await fetch(`/api/cases/${currentCaseId}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             role: message.role,
-            content: typeof message.content === 'string' 
-              ? message.content 
+            content: typeof message.content === 'string'
+              ? message.content
               : JSON.stringify(message.content),
             metadata: {
               agent: message.agent?.label,
@@ -95,7 +95,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
             }
           })
         });
-        
+
         if (response.ok) {
           console.log('✅ [ConversationPane] Message saved successfully');
           break; // Éxito, salir del loop
@@ -117,12 +117,12 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         }
       } catch (error: any) {
         retryCount++;
-        
+
         // ✅ CORRECCIÓN: Manejar ECONNRESET específicamente (conexión abortada)
-        const isConnectionError = error.message?.includes('aborted') || 
-                                  error.message?.includes('ECONNRESET') ||
-                                  error.code === 'ECONNRESET';
-        
+        const isConnectionError = error.message?.includes('aborted') ||
+          error.message?.includes('ECONNRESET') ||
+          error.code === 'ECONNRESET';
+
         if (retryCount < maxRetries) {
           if (isConnectionError) {
             console.warn(`⚠️ [ConversationPane] Conexión abortada (ECONNRESET) al guardar mensaje (intento ${retryCount}/${maxRetries}), reintentando con delay...`);
@@ -141,7 +141,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       }
     }
   }, []);
-  
+
   const sourcingTranslations = useTranslations("sourcing.status");
   const chatTranslations = useTranslations("chat");
 
@@ -151,7 +151,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const [isTyping, setIsTyping] = useState(false);
   const [showApprovalButton, setShowApprovalButton] = useState(false);
   const trimmed = value.trim();
-  
+
   // Agent controls state
   const [selectedAgent, setSelectedAgent] = useState<string>("sourcing");
   const [showAgentMenu, setShowAgentMenu] = useState(false);
@@ -274,17 +274,17 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         const updatedMessages = currentMessages.map((message: ChatMessage) =>
           message.id === "sourcing-status"
             ? {
-                ...message,
-                content: (
-                  <SourcingStatusMessage
-                    body={sourcingStatusCopy.body}
-                    sources={SOURCING_PROVENANCE}
-                    sourcesLabel={sourcingStatusCopy.sourcesLabel}
-                    microSteps={sourcingStatusCopy.microSteps}
-                    microStepsLabel={sourcingStatusCopy.microStepsLabel}
-                  />
-                ),
-              }
+              ...message,
+              content: (
+                <SourcingStatusMessage
+                  body={sourcingStatusCopy.body}
+                  sources={SOURCING_PROVENANCE}
+                  sourcesLabel={sourcingStatusCopy.sourcesLabel}
+                  microSteps={sourcingStatusCopy.microSteps}
+                  microStepsLabel={sourcingStatusCopy.microStepsLabel}
+                />
+              ),
+            }
             : message
         );
         setMessages(updatedMessages);
@@ -418,23 +418,110 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     node.style.height = `${nextHeight}px`;
   }, [value]);
 
+  // ✅ FASE 8 & 9: Integración de Referencias PDF en Chat con ID Explícito
+  const navigateToAnalysis = useUI((state: UIState) => state.navigateToAnalysis);
+  const setSelectedField = useUI((state: UIState) => state.setSelectedField);
+  const policyAnalyses = useUI((state: UIState) => state.policyAnalyses);
+
+  const handleViewInPdf = useCallback((fieldName: string, pageNumber: number, analysisId?: string) => {
+    console.log('🔍 [ConversationPane] handleViewInPdf:', { fieldName, pageNumber, analysisId });
+
+    let targetAnalysisId: string | undefined = analysisId;
+
+    // Si no viene ID explícito o es 'current', intentar deducir
+    if (!targetAnalysisId || targetAnalysisId === 'current') {
+      // Priorizamos el análisis seleccionado si existe
+      targetAnalysisId = useUI.getState().selectedPolicyAnalysisId || undefined;
+
+      if (!targetAnalysisId && policyAnalyses.length > 0) {
+        // Intentar encontrar el análisis que tiene esta referencia
+        const matchingAnalysis = policyAnalyses.find(a =>
+          a.pageReferences?.some(r => r.fieldName === fieldName && r.pageNumber === pageNumber)
+        );
+
+        if (matchingAnalysis) {
+          targetAnalysisId = matchingAnalysis.id;
+        } else {
+          // Fallback al primero
+          targetAnalysisId = policyAnalyses[0]?.id || undefined;
+        }
+      }
+    }
+
+    if (targetAnalysisId && targetAnalysisId !== 'current') {
+      console.log('🚀 [ConversationPane] Navegando a análisis:', targetAnalysisId);
+      navigateToAnalysis(targetAnalysisId);
+
+      // Pequeño delay para asegurar que el componente se monte y pueda recibir el evento
+      setTimeout(() => {
+        setSelectedField(fieldName);
+      }, 100);
+    } else {
+      console.warn('⚠️ [ConversationPane] No hay análisis disponibles para navegar o ID inválido');
+    }
+  }, [policyAnalyses, navigateToAnalysis, setSelectedField]);
+
+  const parseMessageContent = useCallback((content: string): React.ReactNode => {
+    // Regex para capturar [Ver en PDF](#ref:FIELD:PAGE:ID?)
+    // Soporta formato antiguo (#ref:FIELD:PAGE) y nuevo (#ref:FIELD:PAGE:ID)
+    const regex = /\[Ver en PDF\]\(#ref:([^:]+):(\d+)(?::([^)]+))?\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      // Texto antes del match
+      if (match.index > lastIndex) {
+        parts.push(content.substring(lastIndex, match.index));
+      }
+
+      const fieldName = match[1] || '';
+      const pageNumber = parseInt(match[2] || '0', 10);
+      const analysisId = match[3]; // Puede ser undefined
+
+      if (fieldName && pageNumber > 0) {
+        parts.push(
+          <Button
+            key={`ref-${match.index}`}
+            variant="secondary"
+            size="sm"
+            className="mx-1 h-6 px-2 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200 inline-flex items-center"
+            onClick={() => handleViewInPdf(fieldName, pageNumber, analysisId)}
+          >
+            <Search className="mr-1 h-3 w-3" />
+            Ver en PDF (Pág. {pageNumber})
+          </Button>
+        );
+      }
+
+      lastIndex = regex.lastIndex;
+    }
+
+    // Texto restante
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex));
+    }
+
+    return parts.length > 0 ? <>{parts}</> : content;
+  }, [handleViewInPdf]);
+
   const sendMessage = useCallback(async (messageText?: string) => {
     const trimmed = messageText ? messageText.trim() : value.trim();
     if (!trimmed) return;
     const container = scrollContainerRef.current;
     const nearBottom = container ? isNearBottom(container) : true;
     shouldStickToBottomRef.current = nearBottom;
-    
-    const newUserMessage: ChatMessage = { 
+
+    const newUserMessage: ChatMessage = {
       id: `user-${Date.now()}`,
-      role: "user", 
+      role: "user",
       content: trimmed,
       createdAt: Date.now()
     };
     addMessage(newUserMessage);
     // ✅ FASE 2.2: Guardar mensaje del usuario en BD
     await saveMessageToDB(newUserMessage);
-    
+
     // Solo limpiar el input si no viene de parámetro
     if (!messageText) setValue("");
     setIsTyping(true);
@@ -442,7 +529,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
     try {
       const currentCaseId = useUI.getState().currentCaseId;
-      
+
       const response = await fetch('/api/chat/process-message', {
         method: 'POST',
         headers: {
@@ -454,26 +541,36 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           caseId: currentCaseId  // ← AÑADIDO: Enviar caseId activo
         })
       });
-      
+
       if (!response.ok) {
         // Manejo de error de API
         const errorData = await response.json();
         throw new Error(errorData.error || 'API request failed');
       }
-      
+
       const result = await response.json();
-      
+
+      // ✅ FASE 8: Parsear contenido para referencias interactivas
+      const parsedContent = parseMessageContent(result.response);
+
       const assistantResponse: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: result.response,
+        content: parsedContent, // Usar contenido parseado (ReactNode)
         createdAt: Date.now(),
         agent: { label: chatTranslations("agents.sourcing") },
       };
       addMessage(assistantResponse);
+
       // ✅ FASE 2.2: Guardar respuesta del agente en BD
-      await saveMessageToDB(assistantResponse);
-      
+      // Nota: Guardamos el texto original (result.response) en la BD, no el ReactNode
+      // Al recargar, deberíamos volver a parsear si queremos interactividad (TODO)
+      const messageToSave = {
+        ...assistantResponse,
+        content: result.response // Guardar string original
+      };
+      await saveMessageToDB(messageToSave);
+
       if (!isSourcing) {
         startSourcing();
       }
@@ -492,7 +589,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       setIsAnalyzing(false); // Detener indicador de análisis
       setIsTyping(false);
     }
-  }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value, saveMessageToDB]);
+  }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value, saveMessageToDB, parseMessageContent]);
 
   // ✅ CORRECCIÓN: Cargar initialMessage desde localStorage si existe (fallback para recargas directas)
   // Con router.push() normalmente no es necesario, pero sirve como fallback si alguien recarga la página
@@ -517,11 +614,11 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // IMPORTANTE: Este useEffect debe estar después de la declaración de sendMessage
   // ✅ CORRECCIÓN CRÍTICA: Esperar a que currentCaseId esté disponible antes de procesar
   // Nota: currentCaseId ya está obtenido del store en la línea 38
-  
+
   useEffect(() => {
     if (initialMessage && initialMessage.trim() !== '' && sendMessage) {
       const isFromForm = initialMessage.includes('He completado el formulario');
-      
+
       // ✅ SOLO procesar si viene del formulario (no desde LandingPage)
       if (isFromForm) {
         // ✅ ESPERAR a que currentCaseId esté disponible (después de recarga)
@@ -530,17 +627,17 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           // Re-intentar en el siguiente render cuando currentCaseId esté disponible
           return;
         }
-        
+
         console.log('🤖 [ConversationPane] Procesando mensaje del formulario con OpenAI (currentCaseId:', currentCaseId, ')...');
-        
+
         // Usar sendMessage para generar respuesta real del agente
         // sendMessage ya maneja todo: guardar mensaje, llamar a process-message, mostrar respuesta
         sendMessage(initialMessage);
-        
+
         clearInitialMessage();
         return;
       }
-      
+
       // ✅ SIMPLIFICACIÓN: Si NO viene del formulario, limpiar initialMessage sin procesar
       // Desde LandingPage, el agente siempre saludará primero (igual que desde panel izquierdo)
       console.log('⏭️ [ConversationPane] Ignorando initialMessage desde LandingPage - el agente saludará primero');
@@ -552,7 +649,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   useEffect(() => {
     const currentCaseId = useUI.getState().currentCaseId;
     const currentMessages = useUI.getState().messages;
-    
+
     // Solo para placeholder sin caso y sin mensajes
     if (!currentCaseId && currentMessages.length === 0) {
       const welcomeMessage: ChatMessage = {
@@ -562,7 +659,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         createdAt: Date.now(),
         agent: { label: 'Briki Assistant' }
       };
-      
+
       addMessage(welcomeMessage);
       console.log('✅ [ConversationPane] Mensaje de bienvenida enviado');
     }
@@ -579,7 +676,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     // ✅ CORRECCIÓN CRÍTICA: Verificar explícitamente si estamos en new-thread-placeholder
     // Si estamos en new-thread-placeholder, SIEMPRE mostrar botones (forzar caseApproved=false)
     const isNewThreadPlaceholder = !currentCaseId || currentCaseId === 'new-thread-placeholder';
-    
+
     if (isNewThreadPlaceholder) {
       // ✅ FORZAR: En new-thread-placeholder, SIEMPRE mostrar botones de aprobar
       // Esto asegura que los botones aparezcan incluso si caseApproved está en true por error
@@ -602,36 +699,36 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // Función optimizada de validación de clientes con cache
   const validateClientWithCache = async (): Promise<string | null> => {
     const { clientName, selectedClientId } = brief;
-    
+
     // Si ya hay un ID seleccionado, usarlo
     if (selectedClientId) {
       return selectedClientId;
     }
-    
+
     // Si no hay nombre de cliente, no validar
     if (!clientName || clientName.trim() === '') {
       return null;
     }
-    
+
     const clientNameKey = clientName.trim().toLowerCase();
-    
+
     // Verificar cache primero
     if (validatedClientCache.has(clientNameKey)) {
       const cachedClientId = validatedClientCache.get(clientNameKey)!;
       console.log('✅ Usando cliente del cache:', clientNameKey, '->', cachedClientId);
       return cachedClientId;
     }
-    
+
     // Si no está en cache, validar usando el hook
     try {
       const clientId = await validateAndResolveClient(clientName);
-      
+
       // Guardar en cache si se obtuvo un ID
       if (clientId) {
         setValidatedClientCache(prev => new Map(prev).set(clientNameKey, clientId));
         console.log('✅ Cliente validado y guardado en cache:', clientNameKey, '->', clientId);
       }
-      
+
       return clientId;
     } catch (error: any) {
       console.error('Error en validación de cliente:', error);
@@ -645,7 +742,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     // BriefForm tiene un useEffect que detecta caseApproving/caseResolvingClient y sincroniza formData
     useUI.setState({ caseResolvingClient: true, caseApproving: true }); // ✅ Sincronizar estado global
     console.log('🔒 [ConversationPane] Botones bloqueados para sincronización (caseResolvingClient=true, caseApproving=true)');
-    
+
     try {
       // ✅ CORRECCIÓN CRÍTICA: Esperar un momento para que BriefForm sincronice formData con brief global
       // BriefForm tiene un useEffect que detecta caseApproving/caseResolvingClient y sincroniza automáticamente
@@ -654,7 +751,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       const currentBrief = useUI.getState().brief;
       console.log('📋 [ConversationPane] Brief actual para aprobación:', currentBrief);
       console.log('📝 [ConversationPane] freeText en brief:', currentBrief.freeText);
-      
+
       // ✅ CORRECCIÓN CRÍTICA: Crear caso SIN navegar primero, luego aprobar, luego navegar
       const caseId = await createCaseIfNeeded(
         currentBrief, // ✅ CORRECCIÓN: Usar brief actualizado del estado global
@@ -668,67 +765,67 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           skipNavigation: true, // ✅ CORRECCIÓN: Omitir navegación para aprobar antes
         }
       );
-      
+
       // ✅ CORRECCIÓN CRÍTICA: Aprobar el caso ANTES de navegar
       if (caseId) {
         // Obtener el currentCaseId actualizado (puede haber cambiado después de createCaseIfNeeded)
         const updatedCurrentCaseId = useUI.getState().currentCaseId;
         const finalCaseId = updatedCurrentCaseId || caseId;
-        
+
         console.log('✅ [ConversationPane] Aprobando caso antes de navegar:', finalCaseId);
-        
+
         // Paso 1: Asegurar que currentCaseId esté establecido antes de aprobar
         if (finalCaseId !== updatedCurrentCaseId) {
           setCurrentCaseId(finalCaseId);
           // Esperar un momento para que el estado se sincronice
           await new Promise(resolve => setTimeout(resolve, 50));
         }
-        
+
         // Paso 2: Validar y resolver cliente (con cache)
         const clientId = await validateClientWithCache();
         console.log('✅ [ConversationPane] Cliente validado/resuelto para aprobación:', clientId);
-        
+
         // Paso 3: Aprobar el caso con el clientId
         // ✅ CORRECCIÓN: approveCurrentCase ya establece caseApproved: true internamente
         const success = await approveCurrentCase(clientId);
-        
+
         if (!success) {
           console.log('❌ [ConversationPane] Aprobación falló');
           useUI.setState({ caseApproving: false, caseResolvingClient: false }); // ✅ Sincronizar estado global
           return; // No navegar si la aprobación falla
         }
-        
+
         // ✅ CORRECCIÓN: Verificar que caseApproved se estableció correctamente
         const currentState = useUI.getState();
         if (!currentState.caseApproved) {
           console.warn('⚠️ [ConversationPane] caseApproved no se estableció, forzando a true');
           useUI.setState({ caseApproved: true });
         }
-        
+
         console.log('✅ [ConversationPane] Caso aprobado exitosamente, caseApproved=', currentState.caseApproved, 'navegando...');
-        
+
         // ✅ CORRECCIÓN CRÍTICA: Establecer y persistir caseApproved ANTES de navegar
         // Esto asegura que el estado se mantenga durante la navegación
         useUI.getState().setCaseApproved(true);
         // Esperar un momento para que la persistencia se complete
         await new Promise(resolve => setTimeout(resolve, 50));
-        
+
         // Paso 4: Navegar DESPUÉS de aprobar exitosamente y persistir estado
         const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
         const localeMatch = currentPath.match(/\/(es|en)\//);
         const locale = localeMatch ? localeMatch[1] : 'es';
         const targetUrl = `/${locale}/agent/${finalCaseId}`;
         console.log(`✅ [ConversationPane] Navegando a: ${targetUrl} (después de aprobar y persistir)`);
-        
+
         router.push(targetUrl);
-        
+
         // Resetear otros estados después de navegar
         useUI.setState({ caseApproving: false, caseResolvingClient: false }); // ✅ Sincronizar estado global
         console.log('✅ [ConversationPane] Estado final: caseApproved=true (persistido), caseApproving=false, caseResolvingClient=false');
       }
     } catch (error: any) {
       console.error('❌ [ConversationPane] FASE 7: Error en aprobación con validación:', error);
-      
+
       // ✅ Manejar cancelación de creación de cliente
       if (error.message === 'CLIENT_CREATION_CANCELLED') {
         console.log('ℹ️ [ConversationPane] Usuario canceló creación de cliente');
@@ -736,7 +833,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         useUI.setState({ caseApproving: false, caseResolvingClient: false }); // ✅ Sincronizar estado global
         return; // No propagar error si es cancelación
       }
-      
+
       // ✅ Manejar otros errores
       if (error.message === "CLIENT_CREATION_FAILED") {
         console.error('❌ [ConversationPane] Error al crear el cliente');
@@ -744,7 +841,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       } else {
         console.error('❌ [ConversationPane] Error inesperado:', error);
       }
-      
+
       // Resetear estados en caso de error
       useUI.setState({ caseApproving: false, caseResolvingClient: false }); // ✅ Sincronizar estado global
     } finally {
@@ -769,7 +866,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       return success;
     } catch (error: any) {
       console.error('Error en validación y aprobación de cliente:', error);
-      
+
       if (error.message === "CLIENT_CREATION_CANCELLED") {
         console.log('Usuario canceló la creación del cliente');
         return false;
@@ -835,41 +932,41 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
                 const isFirstAssistantMessage = idx === firstAssistantMessageIndex && m.role === 'assistant';
                 const shouldShowApproveButton = isFirstAssistantMessage && !caseApproved;
 
-              return (
-                <div
-                  key={m.id ?? idx}
-                  className={cn(
-                    "flex items-end gap-2",
-                    m.role === "user" ? "justify-end" : "justify-start",
-                    !isGroupEnd ? "mb-1" : "mb-4"
-                  )}
-                >
-                  <div className={cn(
-                    "w-full max-w-[95%]",
-                    m.role === "assistant" && "pr-4"
-                  )}>
-                    <Message
-                      role={m.role}
-                      content={m.content}
-                      {...(m.agent && m.agent.label ? { 
-                        agent: { 
-                          label: m.agent.label, 
-                          ...(m.agent.tag ? { tag: m.agent.tag } : {})
-                        } 
-                      } : {})}
-                      ref={isLast ? lastMessageRef : undefined}
-                      {...(messageTabIndex !== undefined ? { tabIndex: messageTabIndex } : {})}
-                      isGroupStart={isGroupStart}
-                      isGroupEnd={isGroupEnd}
-                      timestamp={displayTimestamp}
-                      {...(shouldShowApproveButton ? { onApprove: handleApprovalOrchestration } : {})}
-                    />
+                return (
+                  <div
+                    key={m.id ?? idx}
+                    className={cn(
+                      "flex items-end gap-2",
+                      m.role === "user" ? "justify-end" : "justify-start",
+                      !isGroupEnd ? "mb-1" : "mb-4"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-full max-w-[95%]",
+                      m.role === "assistant" && "pr-4"
+                    )}>
+                      <Message
+                        role={m.role}
+                        content={typeof m.content === 'string' ? parseMessageContent(m.content) : m.content}
+                        {...(m.agent && m.agent.label ? {
+                          agent: {
+                            label: m.agent.label,
+                            ...(m.agent.tag ? { tag: m.agent.tag } : {})
+                          }
+                        } : {})}
+                        ref={isLast ? lastMessageRef : undefined}
+                        {...(messageTabIndex !== undefined ? { tabIndex: messageTabIndex } : {})}
+                        isGroupStart={isGroupStart}
+                        isGroupEnd={isGroupEnd}
+                        timestamp={displayTimestamp}
+                        {...(shouldShowApproveButton ? { onApprove: handleApprovalOrchestration } : {})}
+                      />
+                    </div>
                   </div>
-                </div>
-              );
-            });
+                );
+              });
             })()}
-             {isTyping && (
+            {isTyping && (
               <div className="flex justify-start mb-4">
                 <div className="w-full max-w-[95%] pr-4">
                   <Message
@@ -1055,7 +1152,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           </div>
         )}
       </div>
-      
+
       {/* ✅ FASE 7: Modal de validación de cliente */}
       {modalState && (
         <ClientValidationModal

@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     console.log('📁 API: Case ID recibido:', caseId);
 
     // 1. Obtener los artefactos (documentos) del caso actual
+    // ✅ FASE 9: Obtener también el ID de análisis asociado si existe
     const artifacts = await prisma.artifact.findMany({
       where: {
         caseId: caseId,
@@ -27,7 +28,16 @@ export async function POST(request: NextRequest) {
           orgId: currentOrg.id // Seguridad: Filtra por orgId a través de la relación case
         }
       },
-      select: { fileName: true, contentText: true }
+      select: {
+        id: true,
+        fileName: true,
+        contentText: true,
+        policyAnalyses: { // ✅ CORREGIDO: Nombre correcto de la relación
+          select: { id: true },
+          take: 1,
+          orderBy: { createdAt: 'desc' }
+        }
+      }
     });
 
     console.log(`📁 ${artifacts.length} documentos disponibles para análisis`);
@@ -35,7 +45,16 @@ export async function POST(request: NextRequest) {
     // 1.5 Obtener análisis previos para contexto de comparación (FASE 6B)
     const previousAnalyses = await prisma.policyAnalysis.findMany({
       where: { caseId: caseId },
-      select: { extractedData: true } // Solo necesitamos los datos extraídos para el contexto
+      select: {
+        id: true, // ✅ Necesario para referencias
+        extractedData: true,
+        pageReferences: {
+          select: {
+            fieldName: true,
+            pageNumber: true
+          }
+        }
+      }
     });
 
     console.log(`📊 API: ${previousAnalyses.length} análisis previos encontrados para contexto`);
@@ -46,7 +65,8 @@ export async function POST(request: NextRequest) {
       brief: brief || {}, // Pasar el brief recibido del frontend
       documents: artifacts.map(artifact => ({
         fileName: artifact.fileName || 'Unknown Document',
-        content: artifact.contentText // Puede ser null si la extracción falló
+        content: artifact.contentText, // Puede ser null si la extracción falló
+        analysisId: artifact.policyAnalyses?.[0]?.id // ✅ FASE 9: Pasar ID de análisis si existe
       })),
       previousAnalyses: previousAnalyses // ✅ FASE 6B: Inyectar contexto
     };
