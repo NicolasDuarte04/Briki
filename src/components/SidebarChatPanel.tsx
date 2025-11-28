@@ -15,11 +15,11 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
   const { closeChatPanel } = useUI();
   const router = useRouter();
   const searchInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Search state
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  
+
   // Context menu & editing state
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -27,21 +27,30 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const conversationItemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-  
+
   // ✅ FUSIÓN CRÍTICA: Usar Cases en lugar de useChatStore
   const [conversationFilter, setConversationFilter] = useState<"all" | "archived">("all");
-  
+
   // ✅ FUSIÓN CRÍTICA: Transformar Cases a formato de conversaciones
   const displayConversations = useMemo(() => {
+    // ✅ CORRECCIÓN: Validar que cases sea un array antes de mapear
+    if (!cases || !Array.isArray(cases)) {
+      console.warn('⚠️ [SidebarChatPanel] Cases is undefined or not an array:', cases);
+      return [];
+    }
+
     return cases.map((caseItem) => {
       // Extraer título del brief o usar un fallback
-      const title = caseItem.brief?.freeText 
+      const title = caseItem.brief?.freeText
         ? caseItem.brief.freeText.substring(0, 50) + (caseItem.brief.freeText.length > 50 ? '...' : '')
         : `Case ${caseItem.id}`;
-      
-      // Usar clientName si está disponible, sino usar un fallback
-      const lastMessage = caseItem.clientName || "No client info";
-      
+
+      // ✅ CORRECCIÓN: Usar customer.name del Case (no brief.clientName que no está en el schema de validación)
+      const lastMessage = caseItem.customer?.name
+        || caseItem.customer?.companyName
+        || caseItem.customer?.email
+        || "No client info";
+
       return {
         id: caseItem.id,
         title,
@@ -51,7 +60,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
       };
     });
   }, [cases]);
-  
+
   // Filter conversations based on conversation filter
   const visibleConversations = useMemo(() => {
     if (conversationFilter === "archived") {
@@ -64,12 +73,12 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
   // Filter conversations based on debounced search
   const filteredConversations = debouncedSearch.trim()
     ? visibleConversations.filter((conv) => {
-        const query = debouncedSearch.toLowerCase();
-        return (
-          conv.title.toLowerCase().includes(query) ||
-          conv.lastMessage.toLowerCase().includes(query)
-        );
-      })
+      const query = debouncedSearch.toLowerCase();
+      return (
+        conv.title.toLowerCase().includes(query) ||
+        conv.lastMessage.toLowerCase().includes(query)
+      );
+    })
     : visibleConversations;
 
   // Debounce search input
@@ -99,7 +108,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
     // ✅ CORRECCIÓN: Limpiar estado y navegar a placeholder
     // ✅ FASE 5: Limpiar landingDataPending para evitar autocompletado accidental
     const { setCurrentCaseId, setMessages, setBrief, setInitialMessage, setLandingDataPending, closeChatPanel } = useUI.getState();
-    
+
     // Limpiar estado global
     setCurrentCaseId(null);
     setMessages([]);
@@ -122,9 +131,9 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
       tempUploads: []
     });
     setInitialMessage('');
-    
+
     closeChatPanel();
-    
+
     // Navegar a placeholder para nuevo chat
     const currentPath = window.location.pathname;
     const localeMatch = currentPath.match(/\/(es|en)\//);
@@ -136,7 +145,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
     try {
       // ✅ CORRECCIÓN CRÍTICA: Cargar contexto completo del caso
       const { setCurrentCaseId, setBrief, setMessages, setStep, closeChatPanel } = useUI.getState();
-      
+
       console.log(`🔄 [SidebarChatPanel] Loading historical case: ${caseId}`);
 
       // ✅ OPTIMIZACIÓN: Mostrar indicador de carga
@@ -175,7 +184,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
 
         // --- PASO 4: Actualizar Estado Global ---
         setCurrentCaseId(caseId);
-        
+
         // ✅ CORRECCIÓN CRÍTICA: Sincronizar caseApproved desde BD inmediatamente
         // REGLA DE NEGOCIO: Si el caso tiene status: 'active', caseApproved DEBE ser true y NUNCA puede volverse false
         if (caseData.status === 'active') {
@@ -183,14 +192,14 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
           setCaseApproved(true);
           console.log(`✅ [SidebarChatPanel] Caso activo detectado, caseApproved=true (NUNCA puede volverse false)`);
         }
-        
+
         // ✅ CORRECCIÓN: Limpiar tempUploads al cargar caso histórico (PDFs vienen de artifacts, no de tempUploads)
         const briefData = caseData.briefData || {};
         if ((briefData as any).tempUploads) {
           delete (briefData as any).tempUploads;
         }
         setBrief(briefData); // Cargar brief histórico (sin tempUploads)
-        
+
         setMessages(historicalMessages); // <-- CARGAR MENSAJES HISTÓRICOS
         setStep("conversation");
         closeChatPanel();
@@ -254,7 +263,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
 
   const handleDeleteConfirm = async () => {
     if (!deleteConfirmId) return;
-    
+
     try {
       // ✅ OPTIMIZACIÓN CRÍTICA: Eliminar case y actualizar lista INMEDIATAMENTE
       const response = await fetch('/api/cases/delete', {
@@ -264,14 +273,14 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
         },
         body: JSON.stringify({ caseId: deleteConfirmId }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al eliminar el caso');
       }
-      
+
       console.log('✅ [SidebarChatPanel] Caso eliminado exitosamente:', deleteConfirmId);
-      
+
       // ✅ OPTIMIZACIÓN CRÍTICA: Actualizar lista de cases INMEDIATAMENTE después de eliminar
       // Esto asegura que el case eliminado desaparezca inmediatamente del panel izquierdo
       const { refreshCases } = useUI.getState();
@@ -282,7 +291,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
         console.warn('⚠️ [SidebarChatPanel] Error actualizando lista de cases (no crítico):', refreshError);
         // No fallar el flujo completo si solo falla la actualización de la lista
       }
-      
+
       setDeleteConfirmId(null);
     } catch (error: any) {
       console.error('❌ [SidebarChatPanel] Error eliminando caso:', error);
@@ -441,8 +450,8 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
                         {conversation.timestamp.toLocaleDateString(undefined, {
                           month: "short",
                           day: "numeric",
-                          year: conversation.timestamp.getFullYear() !== new Date().getFullYear() 
-                            ? "numeric" 
+                          year: conversation.timestamp.getFullYear() !== new Date().getFullYear()
+                            ? "numeric"
                             : undefined,
                         })}
                       </div>
