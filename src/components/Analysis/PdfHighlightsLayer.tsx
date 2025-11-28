@@ -21,13 +21,15 @@ interface PdfHighlightsLayerProps {
     pageNumber: number;
     pageDimensions: { width: number; height: number } | null;
     scale: number;
+    selectedFieldName?: string | null; // ✅ NUEVO
 }
 
 export function PdfHighlightsLayer({
     references,
     pageNumber,
     pageDimensions,
-    scale
+    scale,
+    selectedFieldName // ✅ NUEVO
 }: PdfHighlightsLayerProps) {
     // 1. Detectar sistema de coordenadas basado en TODAS las referencias
     // Esto asegura una detección más robusta que hacerlo solo por página
@@ -74,13 +76,19 @@ export function PdfHighlightsLayer({
                         pageDimensions
                     );
 
+                    const isSelected = ref.fieldName === selectedFieldName; // ✅ NUEVO
+
                     return (
                         <Tooltip key={ref.id}>
                             <TooltipTrigger asChild>
                                 <div
                                     className={cn(
-                                        "absolute border-2 border-primary/50 bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer pointer-events-auto rounded-sm",
-                                        "animate-in fade-in duration-300"
+                                        "absolute border-2 transition-colors cursor-pointer pointer-events-auto rounded-sm",
+                                        "animate-in fade-in duration-300",
+                                        // ✅ Estilos condicionales
+                                        isSelected
+                                            ? "border-yellow-500 bg-yellow-500/30 ring-2 ring-yellow-500 z-20"
+                                            : "border-primary/50 bg-primary/10 hover:bg-primary/20 z-10"
                                     )}
                                     style={{
                                         left: pixelBox.x,

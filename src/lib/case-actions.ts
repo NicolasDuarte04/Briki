@@ -81,8 +81,9 @@ export async function createCaseIfNeeded(
 
     console.log('📝 No hay currentCaseId, creando caso...');
 
-    // ✅ CORRECCIÓN CRÍTICA: Establecer caseApproving en el store para sincronizar todos los botones
-    useUI.setState({ caseApproving: true });
+    // ✅ CORRECCIÓN CRÍTICA: Establecer caseApproving en el store    // ✅ FASE 5: Usar setApprovalPhase para control unificado
+    useUI.getState().setApprovalPhase('processing');
+    useUI.setState({ caseResolvingClient: true }); // Mantener para compatibilidad UI
     console.log('🔒 [case-actions] caseApproving establecido en true para sincronizar botones');
 
     try {
@@ -122,9 +123,9 @@ export async function createCaseIfNeeded(
         // Si no está en briefData, intentar obtenerlo del estado global como último recurso
         let finalFreeText = briefData.freeText;
         if (!finalFreeText || finalFreeText.trim() === '') {
-          const globalBrief = useUI.getState().brief;
-          finalFreeText = globalBrief.freeText || '';
-          console.log('⚠️ [case-actions] freeText no encontrado en briefData, usando del estado global:', finalFreeText);
+            const globalBrief = useUI.getState().brief;
+            finalFreeText = globalBrief.freeText || '';
+            console.log('⚠️ [case-actions] freeText no encontrado en briefData, usando del estado global:', finalFreeText);
         }
         console.log('📝 [case-actions] freeText final que se enviará al API:', finalFreeText);
 
@@ -176,17 +177,17 @@ export async function createCaseIfNeeded(
         const result = await response.json();
         const caseId = result.caseId;
         console.log('✅ Caso creado exitosamente:', caseId);
-        
+
         // ✅ OPTIMIZACIÓN CRÍTICA: Actualizar lista de cases INMEDIATAMENTE después de crear
         // Esto asegura que el nuevo case aparezca inmediatamente en el panel izquierdo
         try {
-          await useUI.getState().refreshCases();
-          console.log('✅ [case-actions] Lista de cases actualizada después de crear caso');
+            await useUI.getState().refreshCases();
+            console.log('✅ [case-actions] Lista de cases actualizada después de crear caso');
         } catch (refreshError) {
-          console.warn('⚠️ [case-actions] Error actualizando lista de cases (no crítico):', refreshError);
-          // No fallar el flujo completo si solo falla la actualización de la lista
+            console.warn('⚠️ [case-actions] Error actualizando lista de cases (no crítico):', refreshError);
+            // No fallar el flujo completo si solo falla la actualización de la lista
         }
-        
+
         // ✅ FASE 6: Limpiar brief.tempUploads después de crear caso (ya se convirtieron en artifacts)
         useUI.getState().setBrief({ tempUploads: [] } as any);
         console.log('🧹 [case-actions] brief.tempUploads limpiado después de crear caso');
@@ -242,6 +243,52 @@ export async function createCaseIfNeeded(
             (window as any).lastCaseCreation = Date.now();
         }
 
+        // ✅ FASE 19.1: Análisis Pre-Navegación
+        // Esto asegura que el primer mensaje tenga referencias disponibles
+        if (!options?.skipNavigation) {
+            console.log('📄 [case-actions] Verificando PDFs para análisis pre-navegación...');
+            try {
+                // Obtener artifacts del caso recién creado
+                const artifactsResponse = await fetch(`/api/cases/${caseId}/artifacts`);
+
+                if (artifactsResponse.ok) {
+                    const { artifacts } = await artifactsResponse.json();
+                    console.log(`📎 [case-actions] ${artifacts.length} artifacts encontrados`);
+
+                    // Filtrar PDFs
+                    const pdfArtifacts = artifacts.filter((a: any) =>
+                        a.contentType === 'application/pdf' ||
+                        a.fileName?.toLowerCase().endsWith('.pdf')
+                    );
+
+                    if (pdfArtifacts.length > 0) {
+                        console.log(`🤖 [case-actions] Analizando ${pdfArtifacts.length} PDF(s) antes de navegar...`);
+
+                        // Analizar el primer PDF
+                        const firstPdf = pdfArtifacts[0];
+                        const { analyzePolicyArtifact } = useUI.getState();
+
+                        try {
+                            const analysis = await analyzePolicyArtifact(firstPdf.id);
+                            console.log('✅ [case-actions] Análisis completado ANTES de navegar:', analysis.id);
+                            console.log(`   → ${analysis.pageReferences?.length || 0} referencias creadas`);
+                        } catch (analysisError: any) {
+                            console.error('❌ [case-actions] Error en análisis pre-navegación:', analysisError.message);
+                            console.warn('⚠️ [case-actions] Continuando sin análisis (primer mensaje no tendrá referencias)');
+                            // No fallar todo el flujo, solo continuar sin análisis
+                        }
+                    } else {
+                        console.log('ℹ️ [case-actions] No hay PDFs para analizar');
+                    }
+                } else {
+                    console.warn('⚠️ [case-actions] No se pudieron obtener artifacts');
+                }
+            } catch (error: any) {
+                console.error('❌ [case-actions] Error obteniendo artifacts para análisis:', error.message);
+                // No fallar todo el flujo
+            }
+        }
+
         // 8. Navegar al caso creado (SPA navigation) - Solo si no se omite la navegación
         if (!options?.skipNavigation) {
             const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
@@ -253,11 +300,11 @@ export async function createCaseIfNeeded(
 
             router.push(targetUrl);
 
-            // ✅ CORRECCIÓN: Resetear caseApproving después de navegar exitosamente
-            // Usar setTimeout para asegurar que se ejecute después de la navegación
+            // ✅ CORRECCIÓN CRÍTICA: Marcar aprobación como completada
+            // Esto hace que los botones DESAPAREZCAN permanentemente
             setTimeout(() => {
-              useUI.setState({ caseApproving: false });
-              console.log('✅ [case-actions] caseApproving reseteado después de navegar');
+                useUI.getState().setApprovalPhase('completed');
+                console.log('✅ [case-actions] Aprobación completada - botones desaparecerán permanentemente');
             }, 100);
         } else {
             console.log('⏭️ [case-actions] Navegación omitida (skipNavigation=true)');
@@ -266,8 +313,8 @@ export async function createCaseIfNeeded(
         return caseId;
 
     } catch (error: any) {
-        // Resetear caseApproving si hay error
-        useUI.setState({ caseApproving: false });
+        // ✅ CORRECCIÓN: Resetear approvalPhase si hay error
+        useUI.getState().setApprovalPhase('pending');
         console.error('❌ [case-actions] Error creando caso:', error);
         throw error;
     }

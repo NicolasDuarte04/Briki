@@ -93,6 +93,9 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
       // 3. ✅ FASE 3: Limpiar brief SIEMPRE primero (sin excepciones)
       // Esto asegura que no haya residuales de casos históricos
       console.log('🧹 [HomeClient] Limpiando brief completamente (sin excepciones)');
+
+      // ✅ NUEVO: Resetear fase de aprobación
+      state.setApprovalPhase('pending');
       state.setBrief({
         freeText: '',
         clientName: '',

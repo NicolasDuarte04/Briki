@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState, useId } from "react";
+import { toast } from "sonner";
 import { useUI, type UIState } from "@/lib/ui/state";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,20 +33,22 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const clearInitialMessage = useUI((state: UIState) => state.clearInitialMessage);
   const setInitialMessage = useUI((state: UIState) => state.setInitialMessage);
   const approveCurrentCase = useUI((state: UIState) => state.approveCurrentCase);
+
+  // ✅ CORRECCIÓN: Usar selectores individuales para evitar loops infinitos (sin useShallow)
   const caseApproving = useUI((state: UIState) => state.caseApproving);
+  const caseResolvingClient = useUI((state: UIState) => state.caseResolvingClient);
   const caseApproved = useUI((state: UIState) => state.caseApproved);
-  const caseResolvingClient = useUI((state: UIState) => state.caseResolvingClient); // ✅ NUEVO: Estado global para sincronización
+  const isBriefValid = useUI((state: UIState) => state.isBriefValid);
+  const shouldShowApprovalButtons = useUI((state: UIState) => state.shouldShowApprovalButtons);
+  const areApprovalButtonsEnabled = useUI((state: UIState) => state.areApprovalButtonsEnabled);
+  const approvalPhase = useUI((state: UIState) => state.approvalPhase);
+
   const briefingCase = useUI((state: UIState) => state.briefingCase);
   // ✅ CORRECCIÓN CRÍTICA: Usar selectores individuales para evitar loops infinitos
   // NO usar ({...}) porque crea un nuevo objeto en cada render
   const currentCaseId = useUI((state: UIState) => state.currentCaseId);
   const setCurrentCaseId = useUI((state: UIState) => state.setCurrentCaseId);
-  // ✅ CORRECCIÓN CRÍTICA: Usar isBriefValid del estado global para sincronización perfecta
-  // Esto asegura que todos los botones usen la misma fuente de verdad
-  const isBriefValid = useUI((state: UIState) => state.isBriefValid);
 
-  // ❌ ELIMINADO: Cálculo local de isBriefValid
-  // ✅ CORRECCIÓN: Usar isBriefValid() del estado global (ya declarado arriba)
   // Usar estado global de mensajes
   const messages = useUI((state: UIState) => state.messages);
   const addMessage = useUI((state: UIState) => state.addMessage);
@@ -448,18 +451,34 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       }
     }
 
-    if (targetAnalysisId && targetAnalysisId !== 'current') {
-      console.log('🚀 [ConversationPane] Navegando a análisis:', targetAnalysisId);
-      navigateToAnalysis(targetAnalysisId);
+    // ✅ NUEVO: Ejecutar navegación
+    if (targetAnalysisId) {
+      console.log('✅ [ConversationPane] Navegando a:', { targetAnalysisId, fieldName, pageNumber });
 
-      // Pequeño delay para asegurar que el componente se monte y pueda recibir el evento
-      setTimeout(() => {
+      // 1. Establecer análisis seleccionado
+      useUI.setState({ selectedPolicyAnalysisId: targetAnalysisId });
+
+      // 2. Cambiar a tab Analysis
+      useUI.setState({ activeTab: 'analysis' });
+
+      // 3. Establecer navegación PDF (para PdfViewer)
+      useUI.setState({
+        pdfNavigationTarget: {
+          page: pageNumber,
+          fieldName: fieldName || null,
+          analysisId: targetAnalysisId
+        }
+      });
+
+      // 4. Establecer campo seleccionado (para highlighting)
+      if (fieldName) {
         setSelectedField(fieldName);
-      }, 100);
+      }
     } else {
-      console.warn('⚠️ [ConversationPane] No hay análisis disponibles para navegar o ID inválido');
+      console.warn('⚠️ [ConversationPane] No se pudo determinar targetAnalysisId');
+      toast.error("No se pudo localizar el documento original. Intenta recargar la página.");
     }
-  }, [policyAnalyses, navigateToAnalysis, setSelectedField]);
+  }, [setSelectedField, policyAnalyses]);
 
   const parseMessageContent = useCallback((content: string): React.ReactNode => {
     // Regex para capturar [Ver en PDF](#ref:FIELD:PAGE:ID?)
@@ -673,26 +692,36 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // Si caseApproved es true, es un caso histórico aprobado - NO mostrar botones de aprobar
   // isBriefValid solo se usa para DESHABILITAR, no para OCULTAR
   useEffect(() => {
-    // ✅ CORRECCIÓN CRÍTICA: Verificar explícitamente si estamos en new-thread-placeholder
-    // Si estamos en new-thread-placeholder, SIEMPRE mostrar botones (forzar caseApproved=false)
-    const isNewThreadPlaceholder = !currentCaseId || currentCaseId === 'new-thread-placeholder';
+    // ✅ CORRECCIÓN CRÍTICA: Solo considerar new-thread-placeholder si EXPLÍCITAMENTE es el valor
+    // NO si currentCaseId es null (puede ser temporal durante navegación)
+    const isExplicitNewThreadPlaceholder = currentCaseId === 'new-thread-placeholder';
 
-    if (isNewThreadPlaceholder) {
-      // ✅ FORZAR: En new-thread-placeholder, SIEMPRE mostrar botones de aprobar
+    // ✅ REGLA DE NEGOCIO: Si tenemos un caseId válido (UUID), verificar status en BD
+    // antes de decidir si mostrar botones
+    const hasValidCaseId = currentCaseId &&
+      currentCaseId !== 'new-thread-placeholder' &&
+      currentCaseId.length > 10; // UUIDs son más largos
+
+    if (isExplicitNewThreadPlaceholder) {
+      // ✅ SOLO en new-thread-placeholder EXPLÍCITO, mostrar botones
       // Esto asegura que los botones aparezcan incluso si caseApproved está en true por error
       setShowApprovalButton(true);
-      // ✅ CORRECCIÓN CRÍTICA: Si estamos en new-thread-placeholder y caseApproved es true, forzar a false
+
+      // ✅ Si estamos en new-thread-placeholder y caseApproved es true, forzar a false
       // Esto corrige cualquier estado persistido incorrecto
       if (caseApproved) {
         console.warn('⚠️ [ConversationPane] caseApproved=true en new-thread-placeholder - FORZANDO a false');
         useUI.getState().setCaseApproved(false);
       }
       console.log('🔍 [ConversationPane] showApprovalButton=true (new-thread-placeholder detectado)');
-    } else {
+    } else if (hasValidCaseId) {
       // ✅ Para casos históricos, mostrar botones solo si !caseApproved
       const shouldShow = !caseApproved;
       setShowApprovalButton(shouldShow);
-      console.log('🔍 [ConversationPane] showApprovalButton actualizado:', { caseApproved, shouldShow, currentCaseId });
+      // console.log('🔍 [ConversationPane] showApprovalButton actualizado:', { caseApproved, shouldShow, currentCaseId });
+    } else {
+      // ✅ currentCaseId es null (navegando) - NO hacer nada, esperar a que se estabilice
+      // console.log('🔍 [ConversationPane] currentCaseId temporal (null), esperando estabilización');
     }
   }, [caseApproved, currentCaseId]);
 
@@ -1139,14 +1168,20 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         )}
 
         {/* Botón de aprobación */}
-        {!caseApproved && showApprovalButton && (
+        {/* Botón de aprobación */}
+        {/* ✅ CORRECCIÓN: Usar helpers globales unificados */}
+        {shouldShowApprovalButtons() && (
           <div className="px-4 py-2">
             <div className="p-4 bg-secondary border rounded-lg text-center">
               <p className="text-sm text-secondary-foreground mb-3">
                 El brief del caso está listo. ¿Deseas que proceda con el análisis?
               </p>
-              <Button onClick={handleApprovalOrchestration} className="w-full" disabled={isTyping || caseApproving || caseResolvingClient || !isBriefValid()}>
-                {caseResolvingClient ? 'Validando cliente...' : caseApproving ? 'Aprobando...' : 'Aprobar y Continuar Análisis'}
+              <Button
+                onClick={handleApprovalOrchestration}
+                className="w-full"
+                disabled={isTyping || !areApprovalButtonsEnabled() || caseResolvingClient}
+              >
+                {caseResolvingClient ? 'Validando cliente...' : approvalPhase === 'processing' ? 'Aprobando...' : 'Aprobar y Continuar Análisis'}
               </Button>
             </div>
           </div>

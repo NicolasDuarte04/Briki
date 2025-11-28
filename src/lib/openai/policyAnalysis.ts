@@ -21,7 +21,7 @@ function getOpenAIClient(): OpenAI {
     console.error('CRITICAL: OPENAI_API_KEY not configured');
     throw new Error('OpenAI service is not configured. Please check environment variables.');
   }
-  
+
   return new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
   });
@@ -54,16 +54,16 @@ function parseAIResponse(rawText: string): any {
   if (!rawText || typeof rawText !== 'string') {
     throw new Error('La respuesta de la IA está vacía o no es válida');
   }
-  
+
   let cleanedText = rawText.trim();
-  
+
   // Estrategia 1: Intentar parse directo (caso más común con response_format: json_object)
   try {
     return JSON.parse(cleanedText);
   } catch (e) {
     // No es JSON puro, continuar con limpieza
   }
-  
+
   // Estrategia 2: Extraer JSON de bloques markdown (```json ... ``` o ``` ... ```)
   const markdownJsonMatch = cleanedText.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (markdownJsonMatch && markdownJsonMatch[1]) {
@@ -73,24 +73,24 @@ function parseAIResponse(rawText: string): any {
       // El bloque markdown no contiene JSON válido, continuar
     }
   }
-  
+
   // Estrategia 3: Buscar primer objeto JSON válido en el texto
   // Buscar desde el primer '{' hasta el último '}' balanceado
   const firstBrace = cleanedText.indexOf('{');
   if (firstBrace !== -1) {
     let braceCount = 0;
     let jsonEnd = -1;
-    
+
     for (let i = firstBrace; i < cleanedText.length; i++) {
       if (cleanedText[i] === '{') braceCount++;
       if (cleanedText[i] === '}') braceCount--;
-      
+
       if (braceCount === 0) {
         jsonEnd = i + 1;
         break;
       }
     }
-    
+
     if (jsonEnd > firstBrace) {
       const jsonCandidate = cleanedText.substring(firstBrace, jsonEnd);
       try {
@@ -100,7 +100,7 @@ function parseAIResponse(rawText: string): any {
       }
     }
   }
-  
+
   // Estrategia 4: Limpiar comentarios y texto adicional, luego intentar parsear
   // Eliminar comentarios de línea (// ...)
   cleanedText = cleanedText.replace(/\/\/.*$/gm, '');
@@ -126,18 +126,18 @@ function parseAIResponse(rawText: string): any {
   if (lastValidBrace > 0) {
     cleanedText = cleanedText.substring(0, lastValidBrace);
   }
-  
+
   try {
     return JSON.parse(cleanedText.trim());
   } catch (e) {
     // Todas las estrategias fallaron
     const errorMessage = e instanceof Error ? e.message : 'Unknown error';
     const preview = rawText.substring(0, 500).replace(/\n/g, '\\n');
-    
+
     console.error('❌ [Parse JSON] Todas las estrategias de parsing fallaron');
     console.error(`   Preview de respuesta: ${preview}...`);
     console.error(`   Error: ${errorMessage}`);
-    
+
     throw new Error(
       `No se pudo parsear la respuesta de la IA como JSON válido. ` +
       `La respuesta puede estar truncada o malformada. ` +
@@ -204,7 +204,7 @@ export interface PolicyExtractedData {
       email?: string;
     };
   };
-  
+
   // Información básica de póliza
   policy_number?: string;
   insured_name?: string;
@@ -212,7 +212,7 @@ export interface PolicyExtractedData {
   effective_to?: string; // ISO 8601
   jurisdiction?: string;
   currency?: string;
-  
+
   // Información financiera
   financials?: {
     premium_net?: number;
@@ -220,13 +220,15 @@ export interface PolicyExtractedData {
     fees?: number;
     premium_total?: number;
   };
-  
+
   // Coberturas
   coverages?: Array<{
-    name: string;
+    name?: string;
     description?: string;
     limit_amount?: number;
-    limit_unit?: string;
+    limit_unit?: string; // Deprecated: use limit_currency or limit_description
+    limit_currency?: string | null; // ISO 4217 code
+    limit_description?: string | null; // Non-monetary unit description
     sublimits?: Array<{
       name: string;
       amount: number;
@@ -237,14 +239,14 @@ export interface PolicyExtractedData {
     waiting_period?: number;
     confidence?: number;
   }>;
-  
+
   // Exclusiones
   exclusions?: Array<{
     name: string;
     description?: string;
     confidence?: number;
   }>;
-  
+
   // Deducibles
   deductibles?: Array<{
     type: string;
@@ -253,7 +255,7 @@ export interface PolicyExtractedData {
     applies_to?: string;
     confidence?: number;
   }>;
-  
+
   // Endosos
   endorsements?: Array<{
     number?: string;
@@ -262,7 +264,7 @@ export interface PolicyExtractedData {
     effective_date?: string;
     confidence?: number;
   }>;
-  
+
   // Proceso de reclamación
   claims_process?: {
     phone?: string;
@@ -313,7 +315,7 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
   console.log(`   Texto: ${input.text.length} caracteres`);
   console.log(`   Coordenadas: ${input.coordinates.length} bloques`);
   console.log(`   Método: ${input.extractionMethod}`);
-  
+
   // ✅ NUEVO: Detectar sistema de coordenadas del PDF
   const coordinateSystemInfo = detectCoordinateSystem(input.coordinates);
   console.log(`📐 Sistema de coordenadas detectado: ${coordinateSystemInfo.system}`);
@@ -322,12 +324,12 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
     console.warn('⚠️ Advertencias del sistema de coordenadas:');
     coordinateSystemInfo.warnings.forEach(w => console.warn(`   - ${w}`));
   }
-  
+
   const openai = getOpenAIClient();
-  
+
   // Build specialized prompt
   const prompt = buildAnalysisPrompt(input);
-  
+
   try {
     // Call OpenAI API
     const response = await openai.chat.completions.create({
@@ -346,27 +348,27 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
       temperature: 0.3, // Baja temperatura para mayor precisión
       response_format: { type: 'json_object' } // Forzar respuesta JSON
     });
-    
+
     // Parse response
     const resultText = response.choices[0]?.message?.content || '{}';
     console.log(`✅ Respuesta de IA recibida: ${resultText.length} caracteres`);
-    
+
     // ✅ CORRECCIÓN CRÍTICA: Parsing robusto de JSON con múltiples estrategias de limpieza
     // La IA puede retornar JSON envuelto en markdown, con comentarios, o con texto adicional
     let result: any;
     try {
       result = parseAIResponse(resultText);
-      
+
       // ✅ VALIDACIÓN: Verificar estructura básica del JSON antes de procesar
       if (!result || typeof result !== 'object') {
         throw new Error('La respuesta de la IA no es un objeto JSON válido');
       }
-      
+
       // Validar que tenga al menos una de las propiedades esperadas
       const hasData = result.data !== undefined;
       const hasPageReferences = Array.isArray(result.pageReferences);
       const hasConfidence = typeof result.confidence === 'number';
-      
+
       if (!hasData && !hasPageReferences && !hasConfidence) {
         console.warn('⚠️ [Validación] La respuesta de la IA no tiene estructura esperada');
         console.warn(`   Propiedades encontradas: ${Object.keys(result).join(', ')}`);
@@ -377,12 +379,12 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
           pageReferences: result.pageReferences || []
         };
       }
-      
+
       // ✅ CORRECCIÓN CRÍTICA: Validar y limpiar pageReferences antes de normalizar
       if (Array.isArray(result.pageReferences)) {
         const originalCount = result.pageReferences.length;
         let invalidCount = 0;
-        
+
         result.pageReferences = result.pageReferences.filter((ref: any, index: number) => {
           if (!validatePageReference(ref)) {
             invalidCount++;
@@ -393,7 +395,7 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
           }
           return true;
         });
-        
+
         if (invalidCount > 0) {
           console.warn(
             `⚠️ [Validación Pre-análisis] Se descartaron ${invalidCount} referencias inválidas ` +
@@ -401,18 +403,18 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
           );
         }
       }
-      
+
     } catch (parseError: any) {
       // Log detallado para diagnóstico
       console.error('❌ [Parse JSON] Error parseando respuesta de IA:');
       console.error(`   Mensaje: ${parseError.message}`);
       console.error(`   Preview respuesta: ${resultText.substring(0, 300)}...`);
-      
+
       // Si es un error de parsing, lanzar error específico
       if (parseError.message?.includes('parsear') || parseError.message?.includes('objeto JSON')) {
         throw parseError;
       }
-      
+
       // Si es SyntaxError de JSON.parse, envolver con contexto
       throw new Error(
         `La IA retornó una respuesta que no se pudo parsear como JSON válido. ` +
@@ -420,23 +422,23 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
         `Detalles: ${parseError.message}`
       );
     }
-    
+
     // Validate and normalize (with auto-mapping of coordinates)
     // ✅ La función normalizeAnalysisResult ya maneja casos donde el JSON está parcial o incompleto
     const normalized = normalizeAnalysisResult(result, input.coordinates);
-    
+
     // ✅ NUEVO: Agregar información del sistema de coordenadas al resultado
     normalized.coordinateSystem = coordinateSystemInfo;
-    
+
     console.log(`✅ Análisis completado - Confianza: ${normalized.confidence.toFixed(2)}`);
     console.log(`   Datos extraídos: ${Object.keys(normalized.data).length} campos principales`);
     console.log(`   Referencias: ${normalized.pageReferences.length} campos con ubicación`);
-    
+
     return normalized;
-    
+
   } catch (error: any) {
     console.error('❌ Error en análisis con IA:', error);
-    
+
     // Handle specific OpenAI errors
     if (error.code === 'insufficient_quota') {
       throw new Error('Cuota de OpenAI agotada. Verifica tu plan de facturación.');
@@ -448,7 +450,7 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
       // Error de parsing JSON - ya tiene contexto detallado del parseAIResponse
       throw error;
     }
-    
+
     // Error genérico con mensaje original
     throw new Error(`Error en análisis de póliza: ${error.message}`);
   }
@@ -466,7 +468,7 @@ function buildAnalysisPrompt(input: AnalysisInput): string {
     x: Math.round(c.x),
     y: Math.round(c.y)
   }));
-  
+
   return `
 Analiza el siguiente texto extraído de un PDF de póliza de seguros y extrae los datos estructurados.
 
@@ -540,6 +542,8 @@ INSTRUCCIONES:
         "description": "string",
         "limit_amount": number,
         "limit_unit": "string",
+        "limit_currency": "ISO 4217 code (MXN, USD, EUR) ONLY if monetary, else null",
+        "limit_description": "string for non-monetary units (e.g. 'events', 'visits')",
         "sublimits": [
           {
             "name": "string",
@@ -615,6 +619,18 @@ INSTRUCCIONES:
 - También incluye referencias para: insurer.name, insurer.contact.phone, insurer.contact.email
 - Y para campos financieros: premium_net, taxes, fees, premium_total
 - Y para cada cobertura: su nombre y limit_amount (si aplica)
+
+**IMPORTANTE - COBERTURAS CON LÍMITES**:
+- Si el límite es monetario (ej: "$2,000,000 MXN"), extrae:
+  * limit_amount: número
+  * limit_currency: código ISO (MXN, USD, EUR, etc.)
+  
+- Si el límite es NO monetario (ej: "50 eventos", "10 consultas"), extrae:
+  * limit_amount: número o null
+  * limit_currency: null
+  * limit_description: texto descriptivo completo
+  
+- NUNCA uses texto descriptivo como limit_currency
 - Y para cada exclusión: su nombre principal
 - **Si encuentras las coordenadas exactas en la muestra, úsalas**
 - **Si NO encuentras coordenadas exactas, OMITE completamente el campo "box"**
@@ -703,27 +719,27 @@ function findCoordinatesForValue(
   if (!value || typeof value !== 'string' || !coordinates || coordinates.length === 0) {
     return null;
   }
-  
+
   const minScore = options?.minScore || 40; // Score mínimo aceptable (de 100)
   const expectedPage = options?.expectedPage;
   const fieldName = options?.fieldName;
-  
+
   // Normalize value for search (trim, lowercase, remove extra spaces)
   const normalizedValue = value.trim().toLowerCase().replace(/\s+/g, ' ');
-  
+
   if (normalizedValue.length === 0) return null;
-  
+
   // Find all potential matches with scores
   const matches: CoordinateMatch[] = [];
-  
+
   coordinates.forEach((coord, index) => {
     const normalizedText = coord.text.trim().toLowerCase().replace(/\s+/g, ' ');
-    
+
     if (normalizedText.length === 0) return;
-    
+
     let score = 0;
     let matchType: 'exact' | 'partial' | 'fuzzy' | null = null;
-    
+
     // 1. Check for exact match (case-insensitive)
     if (normalizedText === normalizedValue) {
       score += 50;
@@ -740,55 +756,55 @@ function findCoordinatesForValue(
       const checkLength = Math.max(10, Math.floor(minLength * 0.5));
       const valueStart = normalizedValue.substring(0, checkLength);
       const textStart = normalizedText.substring(0, checkLength);
-      
+
       if (normalizedText.includes(valueStart) || valueStart.includes(textStart)) {
         score += 10;
         matchType = 'fuzzy';
       }
     }
-    
+
     // Si no hay match de texto, skip
     if (!matchType) return;
-    
+
     // 4. Validate dimensions (+20 pts if valid)
     const hasValidWidth = coord.width > 0;
     const hasValidHeight = coord.height > 0;
-    
+
     if (hasValidWidth) {
       score += 20;
     }
-    
+
     // ⚠️ Penalización por height = 0 (limitación conocida de pdf2json)
     // No descartamos completamente, pero bajamos score
     if (!hasValidHeight) {
       score -= 10; // Penalización menor (es común en pdf2json)
     }
-    
+
     // 5. Check for label context (+10 pts if found)
     // Buscar labels conocidos en coordenadas cercanas (misma página, Y similar)
     if (fieldName && KNOWN_FIELD_LABELS[fieldName]) {
       const labels = KNOWN_FIELD_LABELS[fieldName];
-      const nearbyCoords = coordinates.filter(c => 
-        c.page === coord.page && 
+      const nearbyCoords = coordinates.filter(c =>
+        c.page === coord.page &&
         Math.abs(c.y - coord.y) < 5 && // Mismo rango vertical (Y similar)
         c.x < coord.x // Label generalmente a la izquierda del valor
       );
-      
+
       const hasLabel = nearbyCoords.some(nearby => {
         const nearbyText = nearby.text.trim().toLowerCase();
         return labels.some(label => nearbyText.includes(label));
       });
-      
+
       if (hasLabel) {
         score += 10;
       }
     }
-    
+
     // 6. Check page match (+10 pts if matches expected page)
     if (expectedPage && coord.page === expectedPage) {
       score += 10;
     }
-    
+
     // Add to matches if score is above minimum
     if (score >= minScore) {
       matches.push({
@@ -805,26 +821,26 @@ function findCoordinatesForValue(
       });
     }
   });
-  
+
   // If no matches found, return null
   if (matches.length === 0) {
     return null;
   }
-  
+
   // Sort by score (descending) and return best match
   matches.sort((a, b) => b.score - a.score);
-  
+
   // ✅ CORRECCIÓN: Verificación explícita para TypeScript (aunque ya verificamos length > 0)
   const bestMatch = matches[0];
   if (!bestMatch) {
     return null; // TypeScript guard - nunca debería llegar aquí, pero TypeScript no puede inferirlo
   }
-  
+
   // Log para debugging (solo en desarrollo)
   if (process.env.NODE_ENV === 'development' && matches.length > 1) {
     console.log(`🎯 [Mapeo] Encontrados ${matches.length} matches para "${value.substring(0, 30)}..." - Mejor score: ${bestMatch.score}`);
   }
-  
+
   return {
     page: bestMatch.page,
     box: bestMatch.box
@@ -879,22 +895,22 @@ function normalizeReferenceValue(value: any): string {
   if (value === null || value === undefined) {
     return '';
   }
-  
+
   // string → sin cambios
   if (typeof value === 'string') {
     return value;
   }
-  
+
   // número → convertir a string
   if (typeof value === 'number') {
     return String(value);
   }
-  
+
   // booleano → 'true' o 'false'
   if (typeof value === 'boolean') {
     return value ? 'true' : 'false';
   }
-  
+
   // objeto/array → JSON string (con fallback)
   if (typeof value === 'object') {
     try {
@@ -904,7 +920,7 @@ function normalizeReferenceValue(value: any): string {
       return '[Object]';
     }
   }
-  
+
   // Cualquier otro tipo → convertir a string
   return String(value);
 }
@@ -927,15 +943,15 @@ function normalizeReferenceValue(value: any): string {
  */
 function safeLogValue(value: any, maxLength: number = 30): string {
   const normalized = normalizeReferenceValue(value);
-  
+
   if (normalized.length === 0) {
     return '(vacío)';
   }
-  
+
   if (normalized.length <= maxLength) {
     return normalized;
   }
-  
+
   return normalized.substring(0, maxLength) + '...';
 }
 
@@ -952,12 +968,12 @@ function normalizeAnalysisResult(result: any, coordinates: TextCoordinate[]): An
     confidence: typeof result.confidence === 'number' ? result.confidence : 0.5,
     pageReferences: Array.isArray(result.pageReferences) ? result.pageReferences : []
   };
-  
+
   // Clamp confidence to 0-1
   normalized.confidence = Math.max(0, Math.min(1, normalized.confidence));
-  
+
   console.log(`🔍 [Mapeo] Normalizando ${normalized.pageReferences.length} referencias con ${coordinates.length} coordenadas disponibles`);
-  
+
   // ✅ CORRECCIÓN CRÍTICA: Validar y filtrar referencias con validación explícita
   normalized.pageReferences = normalized.pageReferences
     .filter(ref => {
@@ -972,7 +988,7 @@ function normalizeAnalysisResult(result: any, coordinates: TextCoordinate[]): An
       // Esto previene errores al intentar usar .substring() u otras operaciones de string
       const normalizedValue = normalizeReferenceValue(ref.value);
       let box = ref.box;
-      
+
       // ✅ Logging seguro con valor normalizado
       console.log(
         `🔍 [Mapeo ${index + 1}/${normalized.pageReferences.length}] ` +
@@ -981,11 +997,11 @@ function normalizeAnalysisResult(result: any, coordinates: TextCoordinate[]): An
         `Box actual:`,
         box
       );
-      
+
       // ✅ FASE 2 MEJORADO: Si no hay coordenadas o están en 0, intentar mapeo automático con scoring
       if (!box || (box.x === 0 && box.y === 0 && box.width === 0 && box.height === 0)) {
         console.log(`   🔎 Intentando mapeo automático para "${ref.field}"...`);
-        
+
         // ✅ FASE 2: Usar nueva versión con opciones (fieldName para contexto de labels)
         // ✅ CORRECCIÓN: Construir opciones explícitamente para evitar problemas con exactOptionalPropertyTypes
         const mappingOptions: {
@@ -996,19 +1012,19 @@ function normalizeAnalysisResult(result: any, coordinates: TextCoordinate[]): An
           fieldName: ref.field,
           minScore: 40 // Score mínimo aceptable
         };
-        
+
         // Solo agregar expectedPage si es válido (evita problemas con exactOptionalPropertyTypes)
         if (ref.page > 0) {
           mappingOptions.expectedPage = ref.page;
         }
-        
+
         // ✅ Usar valor normalizado para búsqueda de coordenadas
         const found = findCoordinatesForValue(normalizedValue, coordinates, mappingOptions);
-        
+
         if (found) {
           console.log(`   ✅ Coordenadas mapeadas para "${ref.field}": página ${found.page}, box:`, found.box);
           box = found.box;
-          
+
           // ⚠️ FASE 2: Si la página mapeada difiere de la ref.page original, actualizar
           if (ref.page !== found.page) {
             console.log(`   ℹ️  Página ajustada de ${ref.page} a ${found.page}`);
@@ -1021,7 +1037,7 @@ function normalizeAnalysisResult(result: any, coordinates: TextCoordinate[]): An
       } else {
         console.log(`   ℹ️  "${ref.field}" ya tiene coordenadas válidas, no se mapea`);
       }
-      
+
       // ✅ Retornar referencia normalizada usando el valor ya convertido
       return {
         field: ref.field,
@@ -1031,9 +1047,9 @@ function normalizeAnalysisResult(result: any, coordinates: TextCoordinate[]): An
         confidence: Math.max(0, Math.min(1, ref.confidence || 0.5))
       };
     });
-  
+
   console.log(`✅ [Mapeo] Normalización completada: ${normalized.pageReferences.length} referencias procesadas`);
-  
+
   return normalized;
 }
 

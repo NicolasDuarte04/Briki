@@ -100,28 +100,25 @@ const briefFormAreEqual = (prevProps: BriefFormProps, nextProps: BriefFormProps)
 
 const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) => {
   const router = useRouter();
-  
-  // ✅ CORRECCIÓN CRÍTICA: Usar selector específico para brief (suscripción reactiva)
+
+  // ✅ CORRECCIÓN: Usar selectores individuales para evitar loops infinitos (sin useShallow)
   const brief = useUI((state) => state.brief);
   const setBrief = useUI((state) => state.setBrief);
-  // ✅ FASE 4: Agregar selectores para landingDataPending
   const landingDataPending = useUI((state) => state.landingDataPending);
   const setLandingDataPending = useUI((state) => state.setLandingDataPending);
-  // ✅ CORRECCIÓN CRÍTICA: Usar selectores individuales para evitar loops infinitos
-  // NO usar ({...}) porque crea un nuevo objeto en cada render
   const currentCaseId = useUI((state) => state.currentCaseId);
   const setCurrentCaseId = useUI((state) => state.setCurrentCaseId);
   const setInitialMessage = useUI((state) => state.setInitialMessage);
-  
+
+  const caseApproving = useUI((state) => state.caseApproving);
+  const caseResolvingClient = useUI((state) => state.caseResolvingClient);
+  const isBriefValid = useUI((state) => state.isBriefValid);
+  const shouldShowApprovalButtons = useUI((state) => state.shouldShowApprovalButtons);
+  const areApprovalButtonsEnabled = useUI((state) => state.areApprovalButtonsEnabled);
+  const approvalPhase = useUI((state) => state.approvalPhase);
+
   // ✅ FASE 5: Hook para validación con modal
   const { validateAndResolveClient, isLoading: isClientValidationLoading, modalState, setModalState } = useClientValidation(true);
-  
-  // ✅ FASE 1: Obtener estado de aprobación para sincronización
-  const caseApproving = useUI((state) => state.caseApproving);
-  const caseResolvingClient = useUI((state) => state.caseResolvingClient); // ✅ NUEVO: Estado global para sincronización
-  // ✅ CORRECCIÓN CRÍTICA: Usar isBriefValid del estado global para sincronización perfecta
-  // Esto asegura que todos los botones usen la misma fuente de verdad
-  const isBriefValid = useUI((state) => state.isBriefValid);
 
   // ✅ FASE 3: CORRECCIÓN DE INICIALIZACIÓN
   // Solo usar el 'brief' global como fallback SI estamos en un caso existente.
@@ -148,7 +145,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     coverage: (shouldUseBriefFallback ? brief?.coverage : '') || '',
     freeText: initialData?.briefData?.freeText || (shouldUseBriefFallback ? brief?.freeText : '') || '',
   });
-  
+
   // ✅ FASE 4: Limpiar formData SIEMPRE cuando currentCaseId cambia a null (navegación a new-thread-placeholder)
   // Los datos de Landing se cargarán después de la limpieza en otro useEffect
   useEffect(() => {
@@ -169,7 +166,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       });
     }
   }, [currentCaseId]);
-  
+
   // ✅ FASE 4: Cargar datos de Landing desde brief (HomeClient ya los cargó temporalmente)
   // Leer desde brief.freeText y brief.tempUploads en lugar de landingDataPending directamente
   useEffect(() => {
@@ -179,7 +176,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       if (landingDataPending) {
         const briefFreeText = brief?.freeText;
         const briefTempUploads = (brief as any)?.tempUploads;
-        
+
         // Cargar freeText desde brief a formData.notes
         if (briefFreeText && briefFreeText.trim() !== '') {
           console.log('📝 [BriefForm] Cargando notes desde brief.freeText (datos de Landing):', briefFreeText.substring(0, 50) + '...');
@@ -190,13 +187,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             return prev;
           });
         }
-        
+
         // Cargar tempUploads desde brief
         if (briefTempUploads && Array.isArray(briefTempUploads) && briefTempUploads.length > 0) {
           console.log('📎 [BriefForm] Cargando tempUploads desde brief.tempUploads (datos de Landing):', briefTempUploads.length, 'archivos');
           setTempUploads(briefTempUploads);
         }
-        
+
         // ✅ FASE 4: Eliminar datos del brief global y del flag después de cargar
         // IMPORTANTE: Hacer esto en un setTimeout para asegurar que los datos se carguen primero
         setTimeout(() => {
@@ -210,7 +207,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       }
     }
   }, [landingDataPending, brief, currentCaseId, setBrief, setLandingDataPending]);
-  
+
   // ❌ ELIMINADO: Cálculo local de isBriefValid
   // ✅ CORRECCIÓN CRÍTICA: Usar isBriefValid del estado global (ya declarado arriba)
   // Esto asegura sincronización perfecta con los otros botones
@@ -219,12 +216,12 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
   // Estado para el input de coberturas
   const [currentCoverage, setCurrentCoverage] = useState('');
-  
+
   // ✅ CORRECCIÓN CRÍTICA: Convertir artifacts a tempUploads INMEDIATAMENTE al inicializar el estado
   // Esto evita que se muestren los artifacts en su formato original antes de la conversión
   const convertArtifactsToTempUploads = useCallback((artifacts: any[]): TempUpload[] => {
     if (!Array.isArray(artifacts) || artifacts.length === 0) return [];
-    
+
     return artifacts
       .filter((artifact: any) => artifact.sourceType === 'pdf' && artifact.fileId)
       .map((artifact: any) => {
@@ -272,7 +269,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
   // Estado para uploads temporales - inicializado con artifacts convertidos si estamos en modo edición
   const [tempUploads, setTempUploads] = useState<TempUpload[]>(initialTempUploads);
-  
+
   // ✅ CORRECCIÓN CRÍTICA: Sincronizar automáticamente formData con brief global cuando se va a aprobar
   // Esto asegura que cuando se hace click en "Aprobar" o "Aprobar y Continuar Análisis",
   // todos los datos del formulario estén disponibles en el brief global ANTES de aprobar
@@ -280,10 +277,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     // Detectar cuando se inicia el proceso de aprobación (caseApproving o caseResolvingClient cambian a true)
     if (caseApproving || caseResolvingClient) {
       console.log('🔄 [BriefForm] Detectado inicio de aprobación, sincronizando formData con brief global...');
-      
+
       // Capturar TODOS los datos del formulario en el momento actual
       const finalFreeText = formData.notes || formData.freeText || '';
-      
+
       const briefUpdate: Partial<CaseBrief> = {
         insurance_category: formData.insurance_category,
         max_budget: formData.max_budget ?? null,
@@ -297,13 +294,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
         tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
       };
-      
+
       console.log('📝 [BriefForm] Sincronizando brief global con TODOS los datos del formulario:', {
         ...briefUpdate,
         freeText: briefUpdate.freeText?.substring(0, 50) + '...',
         tempUploadsCount: briefUpdate.tempUploads?.length || 0
       });
-      
+
       // Sincronizar con el estado global
       setBrief(briefUpdate);
     }
@@ -313,7 +310,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // FORZAR conversión inmediatamente cuando mode === 'edit' y hay artifacts
   useEffect(() => {
     const currentCaseId = useUI.getState().currentCaseId;
-    
+
     if (!currentCaseId) {
       // Solo cargar tempUploads si hay landingDataPending (datos vienen de Landing)
       // Y si no están ya cargados en el estado local
@@ -331,23 +328,23 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       const artifacts = Array.isArray(initialData.artifacts) ? initialData.artifacts : [];
       if (artifacts.length > 0) {
         const convertedTempUploads = convertArtifactsToTempUploads(artifacts);
-        
+
         // ✅ CORRECCIÓN CRÍTICA: MERGEAR artifacts convertidos con tempUploads nuevos (no sobrescribir)
         // Esto preserva los nuevos PDFs que el usuario ha agregado mientras mantiene los históricos
         if (convertedTempUploads.length > 0) {
           // Obtener los storagePaths de los artifacts convertidos
           const convertedPaths = new Set(convertedTempUploads.map(u => u.storagePath));
-          
+
           // Identificar tempUploads nuevos que NO vienen de artifacts (agregados por el usuario)
           const newTempUploads = tempUploads.filter(u => !convertedPaths.has(u.storagePath));
-          
+
           // MERGEAR: artifacts convertidos + nuevos tempUploads
           const mergedTempUploads = [...convertedTempUploads, ...newTempUploads];
-          
+
           // Verificar si hay cambios (nuevos artifacts o nuevos tempUploads)
           const currentPaths = tempUploads.map(u => u.storagePath).sort().join(',');
           const mergedPaths = mergedTempUploads.map(u => u.storagePath).sort().join(',');
-          
+
           // ✅ ACTUALIZAR solo si hay cambios (nuevos artifacts o nuevos tempUploads)
           if (tempUploads.length === 0 || currentPaths !== mergedPaths) {
             console.log('✅ [BriefForm] Sincronizando tempUploads (MERGE):', {
@@ -356,7 +353,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               total: mergedTempUploads.length
             });
             setTempUploads(mergedTempUploads);
-            
+
             // Sincronizar con brief global
             const currentBrief = useUI.getState().brief;
             setBrief({
@@ -402,14 +399,14 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         freeText: '',
       });
       setTempUploads([]);
-      
+
       // ✅ CORRECCIÓN: Limpiar tempUploads del brief global para evitar PDFs residuales
       const currentBrief = useUI.getState().brief;
       if ((currentBrief as any).tempUploads && (currentBrief as any).tempUploads.length > 0) {
         setBrief({ tempUploads: [] } as any);
         console.log('🧹 [BriefForm] tempUploads limpiados del brief global');
       }
-      
+
       // ✅ CORRECCIÓN QUIRÚRGICA: Limpiar estados específicos del combobox
       setClientSearchTerm('');
       setSelectedClient(null);
@@ -492,7 +489,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   const updateField = useCallback((field: keyof CaseBriefData, value: any) => {
     // ✅ Actualizar estado local
     setFormData(prev => ({ ...prev, [field]: value }));
-    
+
     // ✅ EXCEPCIÓN CRÍTICA: Actualizar insurance_category en brief global en tiempo real
     // Esto es necesario para sincronizar los 3 botones (Buscar Planes, Aprobar, Aprobar y Continuar)
     // Todos los botones usan isBriefValid() que lee brief.insurance_category del estado global
@@ -500,7 +497,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       setBrief({ insurance_category: value } as Partial<CaseBrief>);
       console.log('✅ [BriefForm] insurance_category actualizado en brief global para sincronización de botones:', value);
     }
-    
+
     // ❌ ELIMINADO: Actualización en tiempo real del resto de campos en brief global
     // Esto era ineficiente y causaba que los datos autollenados no se guardaran
     // El brief se actualizará SOLO cuando se haga click en los botones (handleSubmit)
@@ -523,13 +520,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
   const handleClientSearchChange = useCallback((value: string) => {
     setClientSearchTerm(value);
-    
+
     // Actualizar también el estado local del formulario
     updateField('clientName', value);
-    
+
     // Actualizar estado global con el término de búsqueda, marcando que no hay ID seleccionado
     setBrief({ clientName: value, selectedClientId: null } as Partial<CaseBrief>);
-    
+
     // Abrir dropdown cuando se escriba
     if (value.length > 0) {
       setIsClientComboboxOpen(true);
@@ -554,24 +551,24 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // Handlers para uploads
   const handleFileUpload = async (file: File) => {
     console.log('📄 [BriefForm] Iniciando subida de PDF temporal:', file.name);
-    
+
     try {
       // ✅ REUTILIZACIÓN MÁXIMA: Usar el mismo endpoint que el Landing
       const formData = new FormData();
       formData.append('pdf', file);
-      
+
       console.log('🚀 [BriefForm] Enviando a /api/upload/pdf...');
       const response = await fetch('/api/upload/pdf', {
         method: 'POST',
         body: formData
       });
-      
+
       const result = await response.json();
       console.log('📡 [BriefForm] Respuesta recibida:', result);
-      
+
       if (result.success && result.mode === 'temp' && result.tempUpload) {
         console.log('✅ [BriefForm] PDF subido como temp con storagePath real:', result.tempUpload);
-        
+
         // ✅ CORRECCIÓN CRÍTICA: Llamar a onUploadComplete (que pasa por wrappedOnUploadComplete en PdfUploader)
         // Esto permite que PdfUploader limpie selectedFile ANTES de agregar a tempUploads
         // onUploadCompleteRef.current es handleUploadComplete que se pasa a PdfUploader
@@ -602,23 +599,23 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       console.log('✅ [BriefForm] Agregando nuevo upload a tempUploads:', upload.fileName);
       return [...prev, upload];
     });
-    
+
     // ✅ Sincronizar con Zustand global
     const currentBrief = useUI.getState().brief;
     const currentTempUploads = currentBrief.tempUploads || [];
     const existsInBrief = currentTempUploads.some((u: any) => u.storagePath === upload.storagePath);
     if (!existsInBrief) {
-    setBrief({
-      ...currentBrief,
+      setBrief({
+        ...currentBrief,
         tempUploads: [...currentTempUploads, upload]
       });
     }
-    
+
     // ✅ CORRECCIÓN CRÍTICA: Notificar a PdfUploader para que limpie selectedFile
     // Esto se hace llamando a onUploadComplete que se pasa a PdfUploader
     // PdfUploader usará handleUploadCompleteWrapper para limpiar selectedFile
   }, [setBrief]);
-  
+
   // ✅ CORRECCIÓN CRÍTICA: Función wrapper que combina handleUploadComplete con notificación a PdfUploader
   // Esta función se pasa a PdfUploader como onUploadComplete
   // Cuando se llama desde handleFileUpload, agrega el upload a tempUploads
@@ -650,24 +647,24 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     console.log('🚀 [BriefForm] handleSubmit triggered. Mode:', mode);
     console.log('📦 [BriefForm] formData completo:', formData);
     console.log('📎 [BriefForm] tempUploads:', tempUploads);
-    
+
     // ✅ VALIDACIÓN TEMPRANA: Prevenir envío sin categoría de seguro
     if (!formData.insurance_category?.trim()) {
       console.warn('❌ [BriefForm] Intentando enviar sin categoría de seguro');
       alert('Por favor selecciona una categoría de seguro para continuar.');
       return;
     }
-    
+
     try {
       // ✅ CORRECCIÓN CRÍTICA: Capturar TODOS los datos del formulario en el momento del click
       // Esto incluye datos autollenados del Landing que pueden no haberse guardado en tiempo real
       // Mapear formData.notes a freeText (las "Notas Adicionales")
       const finalFreeText = formData.notes || formData.freeText || '';
-      
+
       // ✅ ACTUALIZAR brief explícitamente con TODOS los datos del formulario
       // Esto se hace SOLO cuando el usuario hace click en los botones sincronizados
       const briefUpdate: Partial<CaseBrief> = {
@@ -683,7 +680,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
         tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
       };
-      
+
       console.log('📝 [BriefForm] Actualizando brief global con TODOS los datos del formulario:', {
         ...briefUpdate,
         freeText: briefUpdate.freeText?.substring(0, 50) + '...',
@@ -698,11 +695,11 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         const existingArtifactPaths = initialData?.artifacts
           ?.filter((a: any) => a.sourceType === 'pdf' && a.fileId)
           .map((a: any) => a.fileId) || [];
-        
+
         const newTempUploads = tempUploads.filter(
           upload => !existingArtifactPaths.includes(upload.storagePath)
         );
-        
+
         // ✅ CORRECCIÓN CRÍTICA: Mapear formData.notes a freeText ANTES de llamar a onSubmit
         // Esto asegura que las "Notas Adicionales" se envíen correctamente como freeText
         const formDataWithFreeText = {
@@ -710,7 +707,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           freeText: formData.notes || formData.freeText || '', // ✅ Prioridad: notes > freeText > ''
           tempUploads: newTempUploads
         };
-        
+
         console.log('✏️ [BriefForm] Edit mode: Calling onSubmit with formData + newTempUploads', {
           totalTempUploads: tempUploads.length,
           existingArtifacts: existingArtifactPaths.length,
@@ -730,13 +727,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             tempUploadsCount: briefUpdate.tempUploads?.length || 0,
             insurance_category: briefUpdate.insurance_category
           });
-          
+
           // ✅ FASE 5: Usar función extendida con modal de validación
           console.log('✅ [BriefForm] FASE 5: Usando createCaseIfNeeded extendido con modal');
-          
+
           // ✅ FASE 5: Establecer estados de bloqueo (caseApproving ya se establece en createCaseIfNeeded)
           useUI.setState({ caseApproving: true });
-          
+
           try {
             await createCaseIfNeeded(
               briefUpdate, // ✅ CORRECCIÓN: Usar briefUpdate que contiene TODOS los datos del formulario
@@ -754,7 +751,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             // La navegación SPA hace que el componente se desmonte o se actualice
           } catch (error: any) {
             console.error('❌ [BriefForm] Error en createCaseIfNeeded:', error);
-            
+
             // ✅ FASE 5: Manejar cancelación de creación de cliente
             if (error.message === 'CLIENT_CREATION_CANCELLED') {
               console.log('ℹ️ [BriefForm] Usuario canceló creación de cliente');
@@ -942,22 +939,22 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 <Input
                   id="clientName"
                   placeholder="Escribir nombre del cliente..."
-                      value={clientSearchTerm}
+                  value={clientSearchTerm}
                   onChange={(e) => handleClientSearchChange(e.target.value)}
                   onFocus={() => setIsClientComboboxOpen(true)}
                   className="w-full"
-                    />
+                />
                 {isClientComboboxOpen && (
                   <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
                     {isClientListLoading ? (
                       <div className="px-2 py-1.5 text-sm text-gray-500">Cargando clientes...</div>
-                    ) : clientList.filter(client => 
-                        client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
-                      ).length === 0 ? (
+                    ) : clientList.filter(client =>
+                      client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
+                    ).length === 0 ? (
                       <div className="px-2 py-1.5 text-sm text-gray-500">No se encontraron clientes.</div>
                     ) : (
                       clientList
-                        .filter(client => 
+                        .filter(client =>
                           client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
                         )
                         .map((client) => (
@@ -1037,7 +1034,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                   Sube documentos PDF que contengan información relevante para el caso
                 </p>
               </div>
-              
+
               <PdfUploader
                 // ✅ CORRECCIÓN: Omitir caseId para usar tempUploads (no pasar undefined explícitamente)
                 // Esto permite que PdfUploader funcione en modo temporal, incluso en modo edición
@@ -1051,7 +1048,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                   handleUploadComplete(upload);
                 }}
               />
-              
+
               {/* ✅ CORRECCIÓN CRÍTICA FASE 2.3: SOLO renderizar tempUploads, NUNCA artifacts directamente */}
               {/* IMPORTANTE: NO renderizar initialData?.artifacts bajo ninguna circunstancia */}
               {/* El único renderizado permitido es la lista simple de tempUploads */}
@@ -1087,26 +1084,30 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                   </div>
                 </div>
               )}
-              
+
               {/* ✅ CORRECCIÓN CRÍTICA FASE 2.3: NO renderizar artifacts directamente bajo ninguna circunstancia */}
               {/* Si tempUploads está vacío, NO mostrar nada - la conversión se realizará automáticamente en el useEffect */}
             </div>
           )}
 
           {/* Botón de Envío */}
-          <div className="flex justify-end pt-4">
-            <Button
-              type="submit"
-              disabled={mode === 'edit' 
-                ? (isSubmitting || caseResolvingClient || caseApproving) // ✅ Sincronización: usar caseResolvingClient global
-                : (isSubmitting || caseResolvingClient || caseApproving || !isBriefValid())} // ✅ CORRECCIÓN: Usar isBriefValid() del estado global para sincronización perfecta
-              className="min-w-[140px]"
-            >
-              {caseResolvingClient ? 'Validando cliente...' : (isSubmitting || caseApproving) ? 'Procesando...' : mode === 'edit' ? 'Guardar Datos' : 'Buscar Planes'}
-            </Button>
-          </div>
+          {/* Botón de Envío */}
+          {/* ✅ CORRECCIÓN CRÍTICA: Usar shouldShowApprovalButtons para ocultar botón al aprobar */}
+          {shouldShowApprovalButtons() && (
+            <div className="flex justify-end pt-4">
+              <Button
+                type="submit"
+                disabled={mode === 'edit'
+                  ? (isSubmitting || caseResolvingClient || approvalPhase === 'processing')
+                  : (isSubmitting || caseResolvingClient || !areApprovalButtonsEnabled())}
+                className="min-w-[140px]"
+              >
+                {caseResolvingClient ? 'Validando cliente...' : (isSubmitting || approvalPhase === 'processing') ? 'Procesando...' : mode === 'edit' ? 'Guardar Datos' : 'Buscar Planes'}
+              </Button>
+            </div>
+          )}
         </form>
-        
+
         {/* ✅ FASE 5: Modal de validación de cliente */}
         {modalState && (
           <ClientValidationModal

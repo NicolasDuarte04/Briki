@@ -9,7 +9,13 @@ interface PromptData {
   previousAnalyses?: Array<{
     id: string; // ✅ FASE 9: ID requerido
     extractedData: any;
-    pageReferences?: Array<{ fieldName: string; pageNumber: number }>;
+    artifact?: { fileName: string }; // ✅ Added
+    pageReferences?: Array<{
+      fieldName: string;
+      pageNumber: number;
+      fieldValue?: string | null; // ✅ Added
+      confidence?: number | string | object; // ✅ Added (Prisma Decimal/Json handling)
+    }>;
   }>;
 }
 
@@ -36,10 +42,37 @@ INSTRUCCIONES DE ANÁLISIS Y COMPARACIÓN:
      * Ventajas/Desventajas relativas.
    - Concluye recomendando cuál parece mejor opción para el perfil del cliente (Responde de manera integral y organizada sin intentar implemntar tablas o esquemas con caracteres simples puesto que son muy propenso a romper el aspecto visual).
 
-3. REFERENCIAS A DOCUMENTOS (IMPORTANTE):
-   - Cuando menciones datos específicos (primas, deducibles, coberturas), indica la página.
-   - **DETECCIÓN DE PÁGINA**: El texto de los documentos contiene marcadores explícitos como \`[[PAGE_1]]\`, \`[[PAGE_2]]\`. Usa el marcador MÁS CERCANO HACIA ARRIBA del dato encontrado para determinar la página.
-   - **FORMATO INTERACTIVO**: DEBES usar el siguiente formato para crear enlaces clicables:
+3. REFERENCIAS A DOCUMENTOS (FORMATO OBLIGATORIO - LEER CON ATENCIÓN):
+
+   **PARA TU USO INTERNO (Invisible para el usuario):**
+   - El texto de los documentos puede contener marcadores como \`[[PAGE_1]]\`, \`[[PAGE_2]]\`
+   - Estos son SOLO para que TÚ detectes en qué página está un dato
+   - NUNCA incluyas \`[[PAGE_X]]\` en tu respuesta final al usuario
+
+   **LO QUE EL USUARIO VE (Única forma aceptable):**
+   - SIEMPRE usa el formato: [Ver en PDF](#ref:FIELD_NAME:PAGE_NUMBER:ANALYSIS_ID)
+   - Este formato se convierte automáticamente en un botón clicable
+   - El usuario hace clic y ve el dato resaltado en el PDF
+
+   **EJEMPLOS DE USO CORRECTO:**
+   ✅ "El deducible es 10% [Ver en PDF](#ref:deductible:2:uuid-123)"
+   ✅ "La prima total es $5,000 [Ver en PDF](#ref:premium_total:3:uuid-123)"
+   ✅ "Esta póliza excluye tratamientos estéticos [Ver en PDF](#ref:exclusions:7:uuid-123)"
+
+   **EJEMPLOS DE USO INCORRECTO (NO HAGAS ESTO):**
+   ❌ "El deducible está en [[PAGE_2]]"
+   ❌ "(Ver [[PAGE_3]] para más detalles)"
+   ❌ "Consulta [[PAGE_7]] para exclusiones"
+   ❌ "(Detalles en [[PAGE_5]])"
+   ❌ "Ver página [[PAGE_4]]"
+
+   **REGLA DE ORO:**
+   Si mencionas una página, SIEMPRE usa el formato [Ver en PDF](#ref:...).
+   NUNCA escribas \`[[PAGE_X]]\` en ninguna forma.
+   
+   **DETECCIÓN DE PÁGINA**: Usa el marcador \`[[PAGE_X]]\` MÁS CERCANO HACIA ARRIBA del dato encontrado para determinar el número de página.
+   
+   **FORMATO INTERACTIVO DETALLADO**:
      Format: [Ver en PDF](#ref:FIELD_NAME:PAGE_NUMBER:ANALYSIS_ID)
      
      Donde:
@@ -47,12 +80,122 @@ INSTRUCCIONES DE ANÁLISIS Y COMPARACIÓN:
      - PAGE_NUMBER: Número de página detectado (ej. 5).
      - ANALYSIS_ID: ID del análisis asociado (ver "DOCUMENTOS ADJUNTOS" o "REFERENCIAS DISPONIBLES"). Si no tienes ID, usa 'current'.
 
-     Ejemplo: "El deducible es del 10% [Ver en PDF](#ref:deductibles:5:uuid-1234)"
+4. ADAPTACIÓN DEL FORMATO DE RESPUESTA (CRÍTICO - LEER CON ATENCIÓN):
 
-4. FORMATO DE RESPUESTA:
-   - Usa emojis para organizar.
-   - Sé conciso.
-   - Si es la primera póliza, invita a analizar las demás.
+   **DETECTA EL TIPO DE MENSAJE Y ADAPTA TU ESTILO:**
+
+   **A) PRIMER ANÁLISIS DE PÓLIZA** (Usuario sube o menciona analizar una póliza por primera vez):
+      → Usa FORMATO ESTRUCTURADO COMPLETO
+      → Incluye secciones con emojis: 📊 ANÁLISIS DE PÓLIZA, 💰 ASPECTO ECONÓMICO, 🛡️ COBERTURAS DETALLADAS, ⚠️ LIMITACIONES/EXCLUSIONES
+      
+      → **⚠️ REGLA CRÍTICA - REFERENCIAS OBLIGATORIAS:**
+        • CADA cifra (primas, deducibles, límites) DEBE tener [Ver en PDF]
+        • CADA cobertura mencionada DEBE tener [Ver en PDF]
+        • CADA exclusión mencionada DEBE tener [Ver en PDF]
+        • Mínimo 5-8 referencias en total para un análisis completo
+        • Si no tienes suficiente información para referenciar, di "información no disponible en el documento"
+      
+      → **ESTRUCTURA OBLIGATORIA:**
+        📊 ANÁLISIS DE PÓLIZA "[Nombre]"
+        - Aseguradora: [Nombre] [Ver en PDF](#ref:insurer_name:PAGE:ID)
+        - Número de Póliza: [Número] [Ver en PDF](#ref:policy_number:PAGE:ID)
+        - Vigencia: [Fechas] [Ver en PDF](#ref:policy_dates:PAGE:ID)
+        
+        💰 ASPECTO ECONÓMICO:
+        - Prima Total: [Monto] [Ver en PDF](#ref:premium_total:PAGE:ID)
+        - Deducible: [Monto/Porcentaje] [Ver en PDF](#ref:deductible:PAGE:ID)
+        - Forma de Pago: [Detalle] [Ver en PDF](#ref:payment_terms:PAGE:ID)
+        
+        🛡️ COBERTURAS DETALLADAS:
+        - [Cobertura 1]: [Detalle y límite] [Ver en PDF](#ref:coverage_X:PAGE:ID)
+        - [Cobertura 2]: [Detalle y límite] [Ver en PDF](#ref:coverage_Y:PAGE:ID)
+        - [etc...]
+        
+        ⚠️ LIMITACIONES/EXCLUSIONES:
+        - [Exclusión 1] [Ver en PDF](#ref:exclusion_X:PAGE:ID)
+        - [Exclusión 2] [Ver en PDF](#ref:exclusion_Y:PAGE:ID)
+        
+        💡 RECOMENDACIÓN INICIAL
+        [Evaluación preliminar del ajuste al perfil del cliente]
+      
+      → Sé exhaustivo y detallado, este es el análisis base
+      → Invita al usuario a analizar más pólizas para comparar
+
+   **B) COMPARACIÓN DE PÓLIZAS** (Ya hay pólizas previas analizadas):
+      → Usa FORMATO ESTRUCTURADO DE COMPARACIÓN
+      → Incluye: 📊 ANÁLISIS DE PÓLIZA ACTUAL, 🆚 COMPARATIVA DETALLADA, 💡 RECOMENDACIÓN FINAL
+      
+      → **⚠️ REGLA CRÍTICA - REFERENCIAS ABUNDANTES:**
+        • CADA comparación de cifras (prima A vs prima B) DEBE tener AMBAS referencias
+        • CADA diferencia de cobertura DEBE tener referencias de AMBAS pólizas
+        • Mínimo 8-12 referencias en total para una comparación completa
+        • Prioriza mostrar diferencias con datos verificables
+      
+      → **ESTRUCTURA OBLIGATORIA:**
+        📊 ANÁLISIS DE PÓLIZA "[Nueva Póliza]"
+        [Análisis completo con referencias como en tipo A]
+        
+        🆚 COMPARATIVA DETALLADA
+        
+        **Aspecto Económico:**
+        - Prima: [Póliza Nueva] $X [Ver en PDF](#ref:premium:PAGE:ID_NEW) vs [Póliza Anterior] $Y [Ver en PDF](#ref:premium:PAGE:ID_OLD)
+        - Deducible: [Comparación detallada con referencias de ambas]
+        
+        **Coberturas Clave:**
+        - [Cobertura]: [Póliza A] [límite] [Ver en PDF] vs [Póliza B] [límite] [Ver en PDF]
+        - [Diferencias destacadas con referencias cruzadas]
+        
+        **Ventajas/Desventajas:**
+        - ✅ [Póliza X] ofrece [ventaja específica] [Ver en PDF]
+        - ❌ [Póliza Y] no incluye [limitación] [Ver en PDF]
+        
+        💡 RECOMENDACIÓN FINAL
+        Basado en [criterios del cliente], la póliza [recomendada] se ajusta mejor porque:
+        - [Razón 1 con referencia]
+        - [Razón 2 con referencia]
+      
+      → Tablas o listas claras con diferencias punto por punto
+      → Cada afirmación debe estar respaldada por referencias
+
+   **C) PREGUNTAS ESPECÍFICAS DEL USUARIO** (Usuario pregunta algo puntual):
+      → USA FORMATO CONVERSACIONAL NATURAL Y DETALLADO
+      → NO uses secciones con emojis (demasiado formal)
+      → Responde DIRECTO pero COMPLETO
+      
+      → **⚠️ REGLA CRÍTICA - REFERENCIAS CUANDO APLIQUE:**
+        • Si la pregunta es sobre un dato específico (precio, cobertura, exclusión): SIEMPRE incluye [Ver en PDF]
+        • Si comparas datos de múltiples pólizas: incluye referencias de TODAS
+        • Si la respuesta es general o conceptual: referencias opcionales
+        • Sé preciso y contextualiza el dato
+      
+      → **EJEMPLOS CORRECTOS:**
+      
+      ✅ Pregunta: "¿Cuál es el deducible?"
+      Respuesta detallada:
+      "El deducible de esta póliza es del 10% sobre el monto del siniestro, con un mínimo de $5,000 MXN [Ver en PDF](#ref:deductible:3:uuid-123). 
+      
+      Esto significa que si tienes un siniestro de $100,000, pagarías $10,000 (10%) y el seguro cubre los $90,000 restantes. Si el siniestro fuera menor a $50,000, pagarías el mínimo de $5,000.
+      
+      Este deducible aplica para coberturas de daños materiales [Ver en PDF](#ref:deductible_scope:3:uuid-123), pero no para responsabilidad civil que tiene condiciones diferentes."
+      
+      ✅ Pregunta: "¿La póliza de AXA cubre más que la de GNP?"
+      Respuesta detallada:
+      "Depende del tipo de cobertura que priorices:
+      
+      **Coberturas Médicas:** AXA ofrece un límite superior de $2,000,000 [Ver en PDF](#ref:medical_limit:2:axa-123), mientras que GNP ofrece $1,500,000 [Ver en PDF](#ref:medical_limit:5:gnp-456). En este aspecto, AXA cubre 33% más.
+      
+      **Cobertura Dental:** GNP incluye cobertura dental con límite de $50,000 anuales [Ver en PDF](#ref:dental:6:gnp-456), mientras que AXA no ofrece esta cobertura [Ver en PDF](#ref:exclusions:8:axa-123).
+      
+      **Recomendación:** Si tu prioridad son gastos médicos mayores, AXA es superior. Si valoras cobertura integral incluyendo dental, GNP se ajusta mejor a tus necesidades."
+      
+      ❌ NO hagas esto (demasiado breve sin contexto):
+      "El deducible es 10%."
+      
+      ❌ NO hagas esto (demasiado formal para pregunta simple):
+      "📊 ANÁLISIS DE DEDUCIBLE
+      El deducible de esta póliza es...
+      💡 RECOMENDACIÓN
+      Te sugiero..."
 
 INFORMACIÓN DEL CASO:
 - Tipo de negocio: {businessType}
@@ -97,9 +240,41 @@ export function formatInsurancePrompt(data: PromptData): string {
   const documentsContent = documents.length > 0
     ? documents
       .filter(doc => doc.content && doc.content.trim().length > 0)
-      .map(doc =>
-        `--- Documento Actual: ${doc.fileName} (ID Análisis: ${doc.analysisId || 'No disponible'}) ---\n${doc.content!.substring(0, 3000)}...`
-      ).join('\n\n')
+      .map(doc => {
+        // ✅ CORRECCIÓN CRÍTICA: Aumentar límite de caracteres para evitar truncamiento
+        // 60,000 chars ~= 15,000 tokens, seguro para gpt-4o-mini (128k context)
+        const MAX_CHARS = 60000;
+        const isTruncated = doc.content!.length > MAX_CHARS;
+        const contentToSend = doc.content!.substring(0, MAX_CHARS);
+
+        // Contar páginas visibles analizando marcadores
+        const visiblePageMatches = contentToSend.match(/\[\[PAGE_(\d+)\]\]/g);
+        const lastVisiblePage = visiblePageMatches
+          ? Math.max(...visiblePageMatches.map(m => parseInt(m.match(/\d+/)![0])))
+          : 1;
+
+        const totalPagesInfo = doc.analysisId
+          ? '\n📊 Este documento ya fue analizado completamente. Usa las REFERENCIAS VALIDADAS de arriba para datos precisos.'
+          : '';
+
+        return `
+═══════════════════════════════════════════════════════════
+DOCUMENTO: ${doc.fileName} (ID Análisis: ${doc.analysisId || 'No disponible'})
+═══════════════════════════════════════════════════════════
+${isTruncated ? `⚠️ DOCUMENTO TRUNCADO: Solo páginas 1-${lastVisiblePage} mostradas
+   Si el usuario pregunta por datos que no ves aquí:
+   1. Revisa primero "REFERENCIAS VALIDADAS" arriba
+   2. Si el dato está ahí, úsalo con el formato #ref:
+   3. Si NO está en referencias, di honestamente:
+      "No encuentro esa información en el texto disponible. Consulta el análisis completo en la pestaña 'Análisis'."
+` : '📄 Documento completo visible'}
+${totalPagesInfo}
+
+${contentToSend}
+${isTruncated ? '\n\n[...resto del documento no incluido en este contexto...]' : ''}
+═══════════════════════════════════════════════════════════
+`;
+      }).join('\n\n')
     : 'No se adjuntaron documentos nuevos.';
 
   // ✅ FASE 6B: Formatear análisis previos para el contexto
@@ -112,8 +287,10 @@ export function formatInsurancePrompt(data: PromptData): string {
       const data = analysis.extractedData || {};
       const financials = data.financials || {};
       const insurer = data.insurer || {};
+      const fileName = analysis.artifact?.fileName || 'Desconocido';
+
       return `
---- Póliza Previa #${index + 1}: ${insurer.name || 'Desconocida'} (ID: ${analysis.id}) ---
+--- Póliza Previa #${index + 1}: ${insurer.name || 'Desconocida'} (Archivo: ${fileName}) (ID: ${analysis.id}) ---
 Prima Total: ${financials.premium_total || 'N/A'} ${data.currency || ''}
 Deducible: ${data.deductibles?.[0]?.amount || 'N/A'}
 Coberturas: ${(data.coverages || []).map((c: any) => c.name).slice(0, 3).join(', ')}...
@@ -125,13 +302,46 @@ Coberturas: ${(data.coverages || []).map((c: any) => c.name).slice(0, 3).join(',
     previousAnalyses.forEach((analysis) => {
       if (analysis.pageReferences && analysis.pageReferences.length > 0) {
         analysis.pageReferences.forEach(ref => {
-          allRefs.push(`- Campo: "${ref.fieldName}" -> Página: ${ref.pageNumber} (Usa: #ref:${ref.fieldName}:${ref.pageNumber}:${analysis.id})`);
+          const val = ref.fieldValue || 'N/A';
+          const conf = ref.confidence ? (Number(ref.confidence) * 100).toFixed(0) : 'N/A';
+          const confidenceEmoji = Number(ref.confidence) >= 0.9 ? '🟢' : Number(ref.confidence) >= 0.7 ? '🟡' : '🔴';
+
+          allRefs.push(
+            `${confidenceEmoji} Campo: "${ref.fieldName}"` +
+            `\n   Valor: "${val}"` +
+            `\n   Página: ${ref.pageNumber}` +
+            `\n   Confianza: ${conf}%` +
+            `\n   Usa: [Ver en PDF](#ref:${ref.fieldName}:${ref.pageNumber}:${analysis.id})` +
+            `\n`
+          );
         });
       }
     });
 
     if (allRefs.length > 0) {
-      referencesContent = allRefs.join('\n');
+      referencesContent = `
+═══════════════════════════════════════════════════════════
+REFERENCIAS VALIDADAS (Del análisis estructurado previo)
+═══════════════════════════════════════════════════════════
+
+Estas referencias fueron extraídas del PDF completo y validadas.
+USA EXACTAMENTE ESTAS cuando el usuario pregunte por estos datos.
+
+${allRefs.join('\n')}
+
+**FORMATO OBLIGATORIO para usar referencias:**
+[Ver en PDF](#ref:FIELD_NAME:PAGE:ANALYSIS_ID)
+
+**EJEMPLO:**
+Usuario pregunta: "¿Cuál es el número de póliza?"
+Encuentras: "policy_number" con valor "POL-2025-12345" en página 1
+Respondes: "El número de póliza es POL-2025-12345 [Ver en PDF](#ref:policy_number:1:ANALYSIS_ID_AQUI)"
+
+⚠️ NUNCA uses el formato "(ver [[PAGE_X]])" o "(Detalles en [[PAGE_3]])"
+⚠️ Si el dato existe en las referencias, USA el formato #ref: obligatoriamente
+`;
+    } else {
+      referencesContent = 'No hay referencias disponibles de análisis previo.';
     }
   }
 

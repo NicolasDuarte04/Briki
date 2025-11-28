@@ -125,8 +125,26 @@ export function AnalysisTab() {
     setTargetPage(pageNumber);
 
     // Reset después de un breve delay para permitir múltiples navegaciones
+    // Reset después de un breve delay para permitir múltiples navegaciones
     setTimeout(() => setTargetPage(undefined), 100);
   };
+
+  // ✅ FASE 21.2: Escuchar eventos de navegación desde el chat
+  const pdfNavigationTarget = useUI(s => s.pdfNavigationTarget);
+  const selectedField = useUI(s => s.selectedField); // ✅ NUEVO
+
+  React.useEffect(() => {
+    if (pdfNavigationTarget && pdfNavigationTarget.page) {
+      console.log('📄 [AnalysisTab] Navegando a página:', pdfNavigationTarget.page);
+      setTargetPage(pdfNavigationTarget.page);
+
+      // Limpiar el target después de usarlo para evitar bucles o estados inconsistentes
+      // Usamos setTimeout para asegurar que el render ciclo se complete
+      setTimeout(() => {
+        useUI.setState({ pdfNavigationTarget: undefined });
+      }, 500);
+    }
+  }, [pdfNavigationTarget]);
 
   if (!selectedAnalysis) {
     console.log('🔍 [AnalysisTab] RENDERING NO ANALYSIS MESSAGE', {

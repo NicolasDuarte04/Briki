@@ -19,6 +19,7 @@ interface PdfViewerProps {
   analysis: PolicyAnalysis;
   initialPage?: number;
   onPageChange?: (pageNumber: number) => void;
+  selectedFieldName?: string | null; // ✅ NUEVO
 }
 
 /**
@@ -35,7 +36,7 @@ interface PdfViewerProps {
  * 
  * Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.2.1
  */
-export function PdfViewer({ analysis, initialPage, onPageChange }: PdfViewerProps) {
+export function PdfViewer({ analysis, initialPage, onPageChange, selectedFieldName }: PdfViewerProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [scale, setScale] = useState<number>(1.0);

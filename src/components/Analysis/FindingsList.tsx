@@ -74,6 +74,55 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
     return String(value);
   };
 
+  /**
+   * Formatea límites de cobertura de manera segura
+   * Maneja tanto límites monetarios como no monetarios
+   * Evita crash si currency no es un código ISO válido
+   */
+  const formatLimit = (
+    amount: number | null | undefined,
+    currency: string | null | undefined,
+    description: string | null | undefined,
+    fallbackUnit?: string  // Para compatibilidad con datos antiguos
+  ): string => {
+    // Si no hay cantidad, solo descripción
+    if (amount === null || amount === undefined) {
+      return description || '';
+    }
+
+    // Intentar formateo monetario
+    const currencyCode = (currency || fallbackUnit)?.toUpperCase();
+
+    if (currencyCode) {
+      // Lista de códigos ISO 4217 válidos
+      const validCurrencies = [
+        'MXN', 'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'CHF', 'CAD', 'AUD',
+        'COP', 'ARS', 'CLP', 'PEN', 'BRL', 'UYU', 'VES', 'BOB', 'CRC'
+      ];
+
+      if (validCurrencies.includes(currencyCode)) {
+        try {
+          return new Intl.NumberFormat('es-MX', {
+            style: 'currency',
+            currency: currencyCode
+          }).format(amount);
+        } catch (e) {
+          console.warn(`⚠️ Error formateando ${currencyCode}:`, e);
+          // Fallback manual
+          return `${currencyCode} ${amount.toLocaleString('es-MX')}`;
+        }
+      }
+    }
+
+    // Si no es moneda válida, mostrar número + descripción
+    const formattedAmount = amount.toLocaleString('es-MX');
+    const unit = description || currency || fallbackUnit;
+
+    return unit
+      ? `${formattedAmount} ${unit}`
+      : formattedAmount;
+  };
+
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -167,10 +216,11 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
                 <span className="text-muted-foreground">Prima Total</span>
                 <span className="font-medium text-lg">
                   {typeof extractedData.financials.premium_total === 'number'
-                    ? new Intl.NumberFormat('es-MX', {
-                      style: 'currency',
-                      currency: (extractedData.currency as string) || 'MXN'
-                    }).format(extractedData.financials.premium_total)
+                    ? formatLimit(
+                      extractedData.financials.premium_total,
+                      extractedData.currency as string,
+                      null
+                    )
                     : safeRender(extractedData.financials.premium_total)
                   }
                 </span>
@@ -189,10 +239,11 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
                 <span className="text-muted-foreground">Prima Neta:</span>
                 <span>
                   {typeof extractedData.financials.premium_net === 'number'
-                    ? new Intl.NumberFormat('es-MX', {
-                      style: 'currency',
-                      currency: (extractedData.currency as string) || 'MXN'
-                    }).format(extractedData.financials.premium_net)
+                    ? formatLimit(
+                      extractedData.financials.premium_net,
+                      extractedData.currency as string,
+                      null
+                    )
                     : safeRender(extractedData.financials.premium_net)
                   }
                 </span>
@@ -202,10 +253,11 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
                   <span className="text-muted-foreground">Impuestos:</span>
                   <span>
                     {typeof extractedData.financials.taxes === 'number'
-                      ? new Intl.NumberFormat('es-MX', {
-                        style: 'currency',
-                        currency: (extractedData.currency as string) || 'MXN'
-                      }).format(extractedData.financials.taxes)
+                      ? formatLimit(
+                        extractedData.financials.taxes,
+                        extractedData.currency as string,
+                        null
+                      )
                       : safeRender(extractedData.financials.taxes)
                     }
                   </span>
@@ -254,10 +306,12 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
                 {coverage.limit_amount && (
                   <div className="text-muted-foreground">
                     Límite: {typeof coverage.limit_amount === 'number'
-                      ? new Intl.NumberFormat('es-MX', {
-                        style: 'currency',
-                        currency: (coverage.limit_unit as string) || 'MXN'
-                      }).format(coverage.limit_amount)
+                      ? formatLimit(
+                        coverage.limit_amount,
+                        coverage.limit_unit as string, // Usamos limit_unit como currency o descripción
+                        null,
+                        coverage.limit_unit as string
+                      )
                       : safeRender(coverage.limit_amount)
                     }
                   </div>

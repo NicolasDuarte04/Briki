@@ -145,10 +145,18 @@ export function WorkspaceTabs() {
       const firstArtifact = activeCaseData.artifacts[0];
       // Solo si es PDF
       if (firstArtifact.contentType === 'application/pdf' || firstArtifact.fileName.toLowerCase().endsWith('.pdf')) {
-        console.log('🤖 [WorkspaceTabs] Auto-triggering structured analysis for first policy:', firstArtifact.id);
-        analyzePolicyArtifact(firstArtifact.id).catch(err => {
-          console.error('❌ [WorkspaceTabs] Auto-analysis failed:', err);
-        });
+
+        // ✅ FASE 22: Verificar si ya está en progreso
+        const pending = useUI.getState()._pendingPolicyAnalysis || new Set();
+
+        if (!pending.has(firstArtifact.id)) {
+          console.log('🤖 [WorkspaceTabs] Auto-triggering structured analysis for first policy:', firstArtifact.id);
+          analyzePolicyArtifact(firstArtifact.id).catch(err => {
+            console.error('❌ [WorkspaceTabs] Auto-analysis failed:', err);
+          });
+        } else {
+          console.log('⏭️ [WorkspaceTabs] Analysis already in progress, skipping auto-trigger:', firstArtifact.id);
+        }
       }
     }
   }, [caseApproved, activeCaseData, policyAnalyses.length, analyzePolicyArtifact]);
@@ -193,6 +201,7 @@ export function WorkspaceTabs() {
                   console.log('✅ [WorkspaceTabs] Caso draft sincronizado, caseApproved=false, caseApproving=false');
                 } else {
                   console.log('⚠️ [WorkspaceTabs] Caso en draft pero caseApproved=true (probablemente recién aprobado), manteniendo true');
+                  // NO resetear a false aquí, dejar que el monitor continuo maneje timeouts si es necesario
                 }
               }
 
@@ -301,6 +310,61 @@ export function WorkspaceTabs() {
       fetchCaseData();
     }
   }, [caseApproved, currentCaseId, activeCaseData?.id, activeCaseData?.status]);
+
+  // ✅ NUEVA: Monitor continuo para sincronizar caseApproved con BD
+  useEffect(() => {
+    // Solo ejecutar si tenemos activeCaseData válido
+    if (!activeCaseData || !activeCaseData.id) return;
+
+    // ✅ REGLA DE NEGOCIO INVIOLABLE:
+    // Si el caso en BD tiene status='active', caseApproved DEBE ser true
+    // Si caseApproved es false pero status='active', CORREGIR inmediatamente
+
+    if (activeCaseData.status === 'active' && !caseApproved) {
+      console.warn('[WorkspaceTabs] 🚨 INCONSISTENCIA DETECTADA: Caso ACTIVO pero caseApproved=false - CORRIGIENDO');
+      setCaseApproved(true);
+    }
+
+    // ✅ INVERSO: Si el caso es draft y caseApproved=true, verificar por cuánto tiempo
+    // (puede ser un caso recién aprobado esperando actualización de BD)
+    if (activeCaseData.status === 'draft' && caseApproved) {
+      // Tolerancia: esperar 5 segundos máximo para que BD se actualice
+      const timeoutId = setTimeout(async () => {
+        try {
+          // ✅ SOLUCIÓN: Re-fetch desde BD para verificar estado REAL
+          // No confiamos en el estado local que puede estar desactualizado
+          const response = await fetch(`/api/cases/${activeCaseData.id}`);
+          
+          if (!response.ok) {
+            console.error('[WorkspaceTabs] ❌ Error al verificar caso:', response.status);
+            return; // No resetear en caso de error de red
+          }
+
+          const { case: freshCaseData } = await response.json();
+          const currentApproved = useUI.getState().caseApproved;
+
+          // Verificar status FRESCO desde BD
+          if (freshCaseData?.status === 'draft' && currentApproved) {
+            console.warn('[WorkspaceTabs] ⚠️ Caso aún en DRAFT después de 5s (verificado desde BD)');
+            console.warn('[WorkspaceTabs] Probable fallo de API o BD muy lenta, permitiendo reintento');
+            // Solo en este caso específico permitimos resetear para que el usuario reintente
+            setCaseApproved(false); 
+          } else if (freshCaseData?.status === 'active') {
+            console.log('[WorkspaceTabs] ✅ Caso ACTIVE confirmado desde BD');
+            // Actualizar activeCaseData local con datos frescos para que la UI se actualice
+            setActiveCaseData(freshCaseData);
+            // caseApproved ya es true, mantenerlo (NO resetear)
+          }
+        } catch (error: any) {
+          console.error('[WorkspaceTabs] ❌ Error verificando status del caso:', error.message);
+          // En caso de error de red, NO resetear caseApproved
+          // Es mejor quedarse con botones ocultos que arriesgarse a doble aprobación
+        }
+      }, 5000);
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [activeCaseData?.status, activeCaseData?.id, caseApproved, setCaseApproved]);
 
   // Función para volver al modo de edición
   // ✅ CORRECCIÓN: Activar modo edición sin afectar caseApproved

@@ -5,6 +5,7 @@ import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { analyzeInsuranceDocuments, AnalysisRequest } from '@/lib/openai';
 import { CaseBrief } from '@/lib/types';
 import { encryptMessageContent, decryptMessages } from '@/lib/helpers/messageEncryption';
+import { validateChatResponse } from '@/lib/validation/chatReferences'; // ✅ Importar validación
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,15 +44,23 @@ export async function POST(request: NextRequest) {
     console.log(`📁 ${artifacts.length} documentos disponibles para análisis`);
 
     // 1.5 Obtener análisis previos para contexto de comparación (FASE 6B)
+    // 1.5 Obtener análisis previos para contexto de comparación (FASE 6B)
     const previousAnalyses = await prisma.policyAnalysis.findMany({
       where: { caseId: caseId },
       select: {
         id: true, // ✅ Necesario para referencias
         extractedData: true,
+        artifact: { // ✅ NUEVO: Para obtener nombre del PDF
+          select: {
+            fileName: true
+          }
+        },
         pageReferences: {
           select: {
             fieldName: true,
-            pageNumber: true
+            fieldValue: true, // ✅ NUEVO: Valor exacto del campo
+            pageNumber: true,
+            confidence: true // ✅ NUEVO: Para mostrar confianza
           }
         }
       }
@@ -127,10 +136,17 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ API: Análisis completado con OpenAI');
 
+    // ✅ FASE 10.4: Validar y limpiar respuesta
+    const { cleanedResponse, warnings, issuesFound } = validateChatResponse(analysisResult);
+
+    if (issuesFound) {
+      console.warn('⚠️ [Chat] Respuesta requirió limpieza:', warnings);
+    }
+
     // 5. Guardar respuesta del asistente en la tabla messages
     try {
       // Encriptar contenido antes de guardar
-      const encryptedAssistantContent = await encryptMessageContent(analysisResult);
+      const encryptedAssistantContent = await encryptMessageContent(cleanedResponse); // ✅ Usar respuesta limpia
       await prisma.message.create({
         data: {
           caseId: caseId,

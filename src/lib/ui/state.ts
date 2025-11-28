@@ -578,10 +578,14 @@ export interface RenewalStatusMeta {
   tone: RenewalStatusChipProps["tone"];
 }
 
+// ✅ NUEVO: Tipo unificado para la fase de aprobación
+export type ApprovalPhase = 'pending' | 'processing' | 'completed';
+
 export interface UIState {
   initialMessage?: string;
   currentCaseId: string | null;
   dashboardViewTime?: number;
+  // Navigation & Layout
   step: UIStep;
   isSourcing: boolean;
   rightOpen: boolean;
@@ -590,6 +594,13 @@ export interface UIState {
   // Estado del sidebar
   sidebarOpen: boolean;
   sidebarHovered: boolean;
+
+  // ✅ NUEVO: Estado unificado de aprobación
+  approvalPhase: ApprovalPhase;
+
+  // ✅ NUEVO: Helpers computados para lógica de botones
+  shouldShowApprovalButtons: () => boolean;
+  areApprovalButtonsEnabled: () => boolean;
   // Nuevo estado para el flujo de briefing
   briefingCase: { isActive: boolean; initialMessage: string } | null;
   complianceJurisdiction: ComplianceJurisdiction;
@@ -598,6 +609,19 @@ export interface UIState {
   followupCadenceDays: number[];
   followupAuditLog: FollowupAuditEvent[];
   brief: CaseBrief;
+
+  // ✅ FASE 21: Navegación PDF
+  pdfNavigationTarget?: {
+    page: number;
+    fieldName: string | null;
+    analysisId: string;
+  } | undefined;
+
+  selectedField?: string | null; // ✅ NUEVO: Campo seleccionado para highlighting
+
+  // ✅ FASE 22: Prevención de Análisis Duplicado
+  _pendingPolicyAnalysis?: Set<string>;
+
   policies: Policy[];
   policiesLoading: boolean;
   policiesLoaded: boolean;
@@ -661,6 +685,7 @@ export interface UIState {
   _cachedFilteredRenewalsView?: RenewalView[];
   _cachedPolicyAnalysesView?: PolicyAnalysisView[] | undefined;
   setInitialMessage: (message: string) => void;
+  setSelectedField: (field: string | null) => void; // ✅ NUEVO
   clearInitialMessage: () => void;
   setCurrentCaseId: (id: string | null) => void;
   setStep: (step: UIStep) => void;
@@ -669,6 +694,7 @@ export interface UIState {
   approveCurrentCase: (clientId?: string | null) => Promise<boolean>;
   resetApprovalStatus: () => void;
   setCaseApproved: (isApproved: boolean) => void;
+  setApprovalPhase: (phase: ApprovalPhase) => void; // ✅ NUEVO
   // Función para enviar mensaje automático después de aprobar
   sendAutoMessage: (message: string) => Promise<void>;
   // Funciones para manejo de mensajes del chat
@@ -755,7 +781,6 @@ export interface UIState {
   fetchPolicyAnalyses: (caseId: string) => Promise<void>;
   setPolicyAnalyses: (analyses: PolicyAnalysis[]) => void;
   setSelectedPolicyAnalysis: (analysisId: string | null) => void;
-  setSelectedField: (fieldName: string | null) => void;
   analyzePolicyArtifact: (artifactId: string) => Promise<PolicyAnalysis>;
   selectPolicyAnalysesView: () => PolicyAnalysisView[];
   setActiveTab: (tab: WorkspaceTab) => void;
@@ -822,6 +847,29 @@ export const useUI = create<UIState>()(
     (set, get) => ({
       initialMessage: undefined,
       currentCaseId: null,
+
+      // ✅ NUEVO: Inicialización de fase de aprobación
+      approvalPhase: 'pending',
+
+      // ✅ NUEVO: Implementación de helpers computados
+      shouldShowApprovalButtons: () => {
+        const { approvalPhase } = get();
+
+        // REGLA: Mostrar botones SIEMPRE que no esté completado
+        // Esto cubre tanto 'pending' como 'processing'
+        return approvalPhase !== 'completed';
+      },
+
+      areApprovalButtonsEnabled: () => {
+        const { approvalPhase, brief } = get();
+
+        // REGLA 1: Solo habilitar en fase 'pending' (NO processing ni completed)
+        if (approvalPhase !== 'pending') return false;
+
+        // REGLA 2: El brief debe tener categoría de seguro válida
+        return !!(brief.insurance_category?.trim());
+      },
+
       dashboardViewTime: undefined,
       step: "landing",
       isSourcing: false,
@@ -874,6 +922,12 @@ export const useUI = create<UIState>()(
       complianceAuditLog: [],
       followupCadenceDays: [...DEFAULT_FOLLOWUP_CADENCE_DAYS],
       followupAuditLog: [],
+
+      // ✅ FASE 21 & 22: Inicialización
+      pdfNavigationTarget: undefined,
+      selectedField: undefined,
+      _pendingPolicyAnalysis: new Set(),
+
       // Función de validación unificada del brief
       isBriefValid: () => {
         const { brief } = get();
@@ -1008,28 +1062,46 @@ export const useUI = create<UIState>()(
       },
       setCaseApproved: (isApproved) => {
         set((state) => {
-          // ✅ CORRECCIÓN CRÍTICA: REGLA DE NEGOCIO - Si caseApproved ya es true, NUNCA puede volverse false
-          // EXCEPCIÓN: Si estamos en new-thread-placeholder (currentCaseId es null o 'new-thread-placeholder'),
-          // SIEMPRE permitir resetear a false para que los botones aparezcan correctamente
+          // ✅ CORRECCIÓN CRÍTICA: Sincronizar approvalPhase con caseApproved
+          // Si isApproved=true -> 'completed', si false -> 'pending'
+          const newPhase: ApprovalPhase = isApproved ? 'completed' : 'pending';
+
+          // ✅ REGLA DE NEGOCIO: Si caseApproved ya es true, NUNCA puede volverse false
+          // EXCEPCIÓN: Si estamos en new-thread-placeholder
           if (state.caseApproved === true && isApproved === false) {
-            // ✅ CORRECCIÓN CRÍTICA: Verificar PRIMERO si estamos en new-thread-placeholder
-            // Si estamos en new-thread-placeholder, SIEMPRE permitir el reset (no bloquear)
             const isNewThreadPlaceholder = !state.currentCaseId || state.currentCaseId === 'new-thread-placeholder';
 
             if (isNewThreadPlaceholder) {
-              // ✅ EXCEPCIÓN: En new-thread-placeholder, SIEMPRE permitir resetear caseApproved a false
               console.log('✅ [useUI] Permitiendo reset de caseApproved (new-thread-placeholder detectado)');
             } else {
-              // ✅ REGLA DE NEGOCIO: Si hay un currentCaseId válido (caso histórico), BLOQUEAR el reset
               console.warn('⚠️ [useUI] Intento de resetear caseApproved a false cuando ya es true - BLOQUEADO (regla de negocio)');
-              console.warn('⚠️ [useUI] Caso histórico detectado - caseApproved NO puede volverse false');
-              // NO cambiar el estado - mantener caseApproved en true
               return state;
             }
           }
 
-          const newState = { ...state, caseApproved: isApproved };
-          // ✅ CORRECCIÓN CRÍTICA: Persistir caseApproved cuando se establece
+          const newState = {
+            ...state,
+            caseApproved: isApproved,
+            approvalPhase: newPhase // ✅ Sincronización bidireccional
+          };
+          persistState(newState);
+          return newState;
+        });
+      },
+
+      // ✅ NUEVO: Método para establecer fase de aprobación explícitamente
+      setApprovalPhase: (phase: ApprovalPhase) => {
+        set((state) => {
+          // Sincronizar estados legacy para compatibilidad
+          const isApproved = phase === 'completed';
+          const isApproving = phase === 'processing';
+
+          const newState = {
+            ...state,
+            approvalPhase: phase,
+            caseApproved: isApproved,
+            caseApproving: isApproving,
+          };
           persistState(newState);
           return newState;
         });
@@ -1693,9 +1765,9 @@ export const useUI = create<UIState>()(
         set({ selectedPolicyAnalysisId: analysisId });
       },
 
-      setSelectedField: (fieldName: string | null) => {
-        console.log('🔍 [setSelectedField]', fieldName);
-        set({ selectedFieldName: fieldName });
+      setSelectedField: (field: string | null) => {
+        console.log('🔍 [setSelectedField]', field);
+        set({ selectedField: field });
       },
 
       setActiveTab: (tab: WorkspaceTab) => {
@@ -1713,6 +1785,20 @@ export const useUI = create<UIState>()(
 
       analyzePolicyArtifact: async (artifactId: string) => {
         console.log('🤖 [analyzePolicyArtifact] Analyzing artifact:', artifactId);
+
+        // ✅ FASE 22: Prevención de Análisis Duplicado
+        const pending = get()._pendingPolicyAnalysis || new Set();
+        if (pending.has(artifactId)) {
+          console.log('⏭️ [analyzePolicyArtifact] Ya en progreso, skipping:', artifactId);
+          // Retornar una promesa que nunca se resuelve o lanzar error controlado?
+          // Mejor lanzar error para que el caller sepa que no se inició
+          throw new Error('Analysis already in progress');
+        }
+
+        // Marcar como en progreso
+        const newPending = new Set(pending);
+        newPending.add(artifactId);
+        set({ _pendingPolicyAnalysis: newPending });
 
         try {
           const response = await fetch('/api/policies/analyze', {
@@ -1748,8 +1834,15 @@ export const useUI = create<UIState>()(
         } catch (error: any) {
           console.error('❌ [analyzePolicyArtifact] Error:', error.message);
           throw error;
+        } finally {
+          // ✅ FASE 22: Limpiar flag
+          const currentPending = get()._pendingPolicyAnalysis || new Set();
+          const updatedPending = new Set(currentPending);
+          updatedPending.delete(artifactId);
+          set({ _pendingPolicyAnalysis: updatedPending });
         }
       },
+
 
       selectPolicyAnalysesView: () => {
         const state = get();

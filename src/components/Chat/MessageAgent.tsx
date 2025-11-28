@@ -33,7 +33,15 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
   ...rest
 }) => {
   const t = useTranslations("chat.agent");
-  const { caseApproving, caseApproved, caseResolvingClient, isBriefValid } = useUI(); // ✅ NUEVO: caseResolvingClient para sincronización
+
+  // ✅ CORRECCIÓN: Usar selectores individuales para evitar loops infinitos (sin useShallow)
+  const caseApproving = useUI((state) => state.caseApproving);
+  const caseApproved = useUI((state) => state.caseApproved);
+  const caseResolvingClient = useUI((state) => state.caseResolvingClient);
+  const isBriefValid = useUI((state) => state.isBriefValid);
+  const shouldShowApprovalButtons = useUI((state) => state.shouldShowApprovalButtons);
+  const areApprovalButtonsEnabled = useUI((state) => state.areApprovalButtonsEnabled);
+  const approvalPhase = useUI((state) => state.approvalPhase);
   const headerId = useId();
   const isoTimestamp = React.useMemo(() => {
     if (!timestamp) return undefined;
@@ -98,7 +106,8 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
       <CardFooter className="justify-end gap-3 border-t border-border/70 px-5 pb-4 pt-3">
         {/* ✅ CORRECCIÓN: Solo mostrar el botón "Aprobar" si el caso NO ha sido aprobado Y onApprove está definido */}
         {/* ❌ ELIMINADO: Botones "Editar" y "Reejecutar" no tienen sentido en mensajes del agente */}
-        {!caseApproved && onApprove && (
+        {/* ✅ CORRECCIÓN: Usar helpers globales unificados */}
+        {shouldShowApprovalButtons() && onApprove && (
           <div className="flex w-full flex-wrap items-center justify-end gap-3">
             <Button
               type="button"
@@ -106,10 +115,10 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
               size="sm"
               aria-label={t("actions.approve.aria")}
               onClick={onApprove}
-              disabled={caseApproving || caseResolvingClient || !isBriefValid()}
+              disabled={!areApprovalButtonsEnabled() || caseResolvingClient}
               className="w-full sm:w-auto"
             >
-              {caseResolvingClient ? 'Validando cliente...' : caseApproving ? 'Aprobando...' : t("actions.approve.label")}
+              {caseResolvingClient ? 'Validando cliente...' : approvalPhase === 'processing' ? 'Aprobando...' : t("actions.approve.label")}
             </Button>
           </div>
         )}
