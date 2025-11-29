@@ -393,6 +393,7 @@ model Case {
   auditLogs          AuditLog[]
   messages           Message[]
   policyAnalyses     PolicyAnalysis[] // ✅ NUEVO: Relación con análisis de pólizas
+  comparisons        Comparison[]     // ✅ FASE 30: Relación con comparaciones
 
   @@map("cases")
   @@schema("public")
@@ -679,6 +680,27 @@ model PolicyPageReference {
   @@index([pageNumber])
   @@index([confidence])
   @@map("policy_page_references")
+  @@schema("public")
+}
+
+/// ============================================================================
+/// COMPARISON MODELS - Added FASE 30
+/// ============================================================================
+/// Stores the result of comparing multiple policy analyses
+model Comparison {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId        String   @map("case_id") @db.Uuid
+  analysisIds   String[] @map("analysis_ids") // IDs of PolicyAnalysis compared
+  result        Json     // PolicyComparison serialized
+  filters       Json     // ComparisonFilters
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userId        String?  @map("user_id") @db.Uuid // Optional, for audit
+  
+  case          Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  
+  @@index([caseId])
+  @@map("comparisons")
   @@schema("public")
 }
 

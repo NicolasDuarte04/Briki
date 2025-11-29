@@ -42,6 +42,11 @@ import {
   type ServiceLevel,
   type UIStep,
   type WorkspaceTab,
+  type ComparisonRow,
+  type ComparisonCell,
+  type ComparisonFilters,
+  type PolicyComparison,
+  type ComparisonExport,
   type CurrencyCode,
 } from "../types";
 import {
@@ -628,6 +633,12 @@ export interface UIState {
   comparisonWeights: ComparisonWeights;
   comparisonScores: PolicyComparisonScore[];
   comparisonPlaybook: ComparisonPlaybook;
+
+  // ✅ FASE 30: Comparación de pólizas
+  activeComparison: PolicyComparison | null;
+  comparisonLoading: boolean;
+  comparisonFilters: ComparisonFilters;
+
   proposalBrokerProfile: BrokerProfile;
   proposalSelectedPlans: ProposalSelectedPlan[];
   proposalDisclosuresKeys: string[];
@@ -785,6 +796,13 @@ export interface UIState {
   selectPolicyAnalysesView: () => PolicyAnalysisView[];
   setActiveTab: (tab: WorkspaceTab) => void;
   navigateToAnalysis: (analysisId: string) => void;
+
+  // ✅ FASE 30: Acciones de Comparación
+  compareAnalyses: (analysisIds: string[]) => Promise<PolicyComparison>;
+  setComparisonFilters: (filters: Partial<ComparisonFilters>) => void;
+  exportComparison: (format: ComparisonExport) => Promise<Blob>;
+  alignCoveragesSemantically: (analyses: PolicyAnalysis[]) => Promise<ComparisonRow[]>;
+  detectCoverageGaps: (comparison: PolicyComparison) => string[];
 }
 
 // ✅ FASE 3: Persistencia de estado (con corrección de contaminación)
@@ -853,7 +871,14 @@ export const useUI = create<UIState>()(
 
       // ✅ NUEVO: Implementación de helpers computados
       shouldShowApprovalButtons: () => {
-        const { approvalPhase } = get();
+        const { approvalPhase, currentCaseId } = get();
+
+        // ✅ CORRECCIÓN FASE 28: Sincronización con currentCaseId
+        // Si ya tenemos un caso guardado (ID válido y no es placeholder),
+        // los botones de creación DEBEN desaparecer. El caso ya existe.
+        if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
+          return false;
+        }
 
         // REGLA: Mostrar botones SIEMPRE que no esté completado
         // Esto cubre tanto 'pending' como 'processing'
@@ -927,6 +952,16 @@ export const useUI = create<UIState>()(
       pdfNavigationTarget: undefined,
       selectedField: undefined,
       _pendingPolicyAnalysis: new Set(),
+
+      // ✅ FASE 30: Inicialización de Comparación
+      activeComparison: null,
+      comparisonLoading: false,
+      comparisonFilters: {
+        categories: [],
+        onlyDifferences: false,
+        onlyMandatory: false,
+        searchQuery: "",
+      },
 
       // Función de validación unificada del brief
       isBriefValid: () => {
@@ -1042,7 +1077,7 @@ export const useUI = create<UIState>()(
           get().addMessage(userAutoMessage);
 
           // Activar sourcing y enviar mensaje automático
-          startSourcing();
+          get().startSourcing();
           await get().sendAutoMessage(autoMessageContent);
 
           return true;
@@ -1593,6 +1628,57 @@ export const useUI = create<UIState>()(
             _cachedFilteredRenewalsView: filteredView, // Update filtered cache
           };
         }),
+
+      // ✅ FASE 30: Implementación de Acciones de Comparación
+      compareAnalyses: async (analysisIds) => {
+        set({ comparisonLoading: true });
+        try {
+          // TODO: FASE 30.2 - Implementar endpoint real
+          // const response = await fetch('/api/comparisons/align', { ... });
+          // const comparison = await response.json();
+
+          // MOCK TEMPORAL para evitar crash
+          const mockComparison: PolicyComparison = {
+            id: `comp-${Date.now()}`,
+            caseId: get().currentCaseId || '',
+            analysisIds,
+            rows: [],
+            alignmentMethod: 'semantic',
+            filters: get().comparisonFilters,
+            createdAt: new Date().toISOString(),
+          };
+
+          set({ activeComparison: mockComparison, comparisonLoading: false });
+          return mockComparison;
+        } catch (error) {
+          console.error('❌ Error comparing analyses:', error);
+          set({ comparisonLoading: false });
+          throw error;
+        }
+      },
+
+      setComparisonFilters: (filters) => {
+        set((state) => ({
+          comparisonFilters: { ...state.comparisonFilters, ...filters }
+        }));
+      },
+
+      exportComparison: async (format) => {
+        // TODO: FASE 30.4 - Implementar endpoint real
+        console.log('Exporting comparison:', format);
+        return new Blob(['Mock PDF Content'], { type: 'application/pdf' });
+      },
+
+      alignCoveragesSemantically: async (analyses) => {
+        // TODO: FASE 30.2 - Implementar lógica real
+        return [];
+      },
+
+      detectCoverageGaps: (comparison) => {
+        // TODO: FASE 30.2 - Implementar lógica real
+        return [];
+      },
+
       fetchRenewals: async () => {
         const { renewalsLoading, renewalsLoaded } = get();
         if (renewalsLoading || renewalsLoaded) {

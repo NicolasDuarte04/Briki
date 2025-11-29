@@ -578,3 +578,117 @@ export interface PolicyAnalysisView {
   /** When extracted */
   extractedAt: string;
 }
+
+// ========================================
+// FASE 30: TIPOS PARA COMPARACIÓN DE PÓLIZAS
+// ========================================
+
+/** Referencia profunda a ubicación exacta en PDF */
+export interface PdfDeepReference {
+  /** ID del análisis al que pertenece */
+  analysisId: string;
+  /** ID del artifact (PDF) */
+  artifactId: string;
+  /** Número de página (1-indexed) */
+  page: number;
+  /** Coordenadas en la página */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Texto extraído */
+  text: string;
+  /** Confianza de la extracción (0-1) */
+  confidence: number;
+}
+
+/** Cobertura normalizada para comparación */
+export interface NormalizedCoverage {
+  /** Nombre canónico de la cobertura */
+  name: string;
+  /** Descripción extraída */
+  description?: string;
+  /** Límite normalizado (número) */
+  limitAmount?: number;
+  /** Unidad del límite */
+  limitUnit?: string;  // 'COP', 'USD', 'UVR', '%'
+  /** Sublímites */
+  sublimits?: NormalizedCoverage[];
+  /** Deducible normalizado */
+  deductibleAmount?: number;
+  deductibleUnit?: string;
+  /** Período de carencia */
+  waitingPeriod?: string;
+  /** Referencia al PDF origen */
+  source: PdfDeepReference;
+}
+
+/** Celda individual en tabla de comparación */
+export interface ComparisonCell {
+  /** Valor de la cobertura (o null si falta) */
+  value: NormalizedCoverage | null;
+  /** Referencia al PDF */
+  reference: PdfDeepReference | null;
+  /** Status relativo */
+  status: 'better' | 'equal' | 'worse' | 'missing';
+  /** Nota manual del usuario */
+  userNote?: string;
+}
+
+/** Fila de comparación (una cobertura entre N pólizas) */
+export interface ComparisonRow {
+  /** ID único de la fila */
+  id: string;
+  /** Nombre de la cobertura */
+  coverageName: string;
+  /** Categoría (Cobertura, Exclusión, Deducible, etc.) */
+  category: 'coverage' | 'exclusion' | 'deductible' | 'benefit' | 'requirement';
+  /** Si es obligatoria según perfil del cliente */
+  isMandatory: boolean;
+  /** Valores por cada póliza analizada */
+  values: Record<string, ComparisonCell>;  // Key: analysisId
+  /** Status general de la fila */
+  status: 'all_present' | 'partial' | 'missing_critical';
+}
+
+/** Filtros para la tabla de comparación */
+export interface ComparisonFilters {
+  /** Filtrar por categoría */
+  categories?: ComparisonRow['category'][];
+  /** Solo mostrar filas con diferencias */
+  onlyDifferences?: boolean;
+  /** Solo mostrar filas obligatorias */
+  onlyMandatory?: boolean;
+  /** Buscar por texto */
+  searchQuery?: string;
+}
+
+/** Resultado completo de una comparación */
+export interface PolicyComparison {
+  /** ID único de la comparación */
+  id: string;
+  /** Caso al que pertenece */
+  caseId: string;
+  /** IDs de análisis comparados */
+  analysisIds: string[];
+  /** Filas de la tabla */
+  rows: ComparisonRow[];
+  /** Método de alineación usado */
+  alignmentMethod: 'semantic' | 'manual' | 'hybrid';
+  /** Filtros aplicados */
+  filters: ComparisonFilters;
+  /** Timestamp */
+  createdAt: string;
+}
+
+/** Exportación de comparación */
+export interface ComparisonExport {
+  /** Tipo de exportación */
+  format: 'pdf' | 'excel' | 'json';
+  /** Título del documento */
+  title: string;
+  /** Incluir referencias a páginas */
+  includeReferences: boolean;
+  /** Versión (cliente o técnica) */
+  version: 'client' | 'technical';
+}

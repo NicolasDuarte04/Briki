@@ -16,7 +16,10 @@ import { detectCoordinateSystem, type CoordinateSystemInfo, getCoordinateSystemD
 /**
  * Get OpenAI client instance
  */
-function getOpenAIClient(): OpenAI {
+/**
+ * Get OpenAI client instance
+ */
+export function getOpenAIClient(): OpenAI {
   if (!process.env.OPENAI_API_KEY) {
     console.error('CRITICAL: OPENAI_API_KEY not configured');
     throw new Error('OpenAI service is not configured. Please check environment variables.');
@@ -50,7 +53,7 @@ function getOpenAIClient(): OpenAI {
  * parseAIResponse('Aquí está el análisis: {"data": {}}') // → { data: {} }
  * ```
  */
-function parseAIResponse(rawText: string): any {
+export function parseAIResponse(rawText: string): any {
   if (!rawText || typeof rawText !== 'string') {
     throw new Error('La respuesta de la IA está vacía o no es válida');
   }
