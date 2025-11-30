@@ -2,7 +2,7 @@
   "name": "briki",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@10.16.1",
+  "packageManager": "pnpm@9.14.2",
   "scripts": {
     "dev": "next dev -p 3000",
     "dev:clean": "rm -rf .next && next dev -p 3000",
