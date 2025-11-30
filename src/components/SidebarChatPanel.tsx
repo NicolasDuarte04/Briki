@@ -45,10 +45,10 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
         ? caseItem.brief.freeText.substring(0, 50) + (caseItem.brief.freeText.length > 50 ? '...' : '')
         : `Case ${caseItem.id}`;
 
-      // ✅ CORRECCIÓN: Usar customer.name del Case (no brief.clientName que no está en el schema de validación)
-      const lastMessage = caseItem.customer?.name
-        || caseItem.customer?.companyName
-        || caseItem.customer?.email
+      // ✅ CORRECCIÓN: Usar clientName directo (ahora en schema) con fallbacks robustos
+      const lastMessage = caseItem.clientName
+        || caseItem.customer?.name
+        || caseItem.brief?.clientName
         || "No client info";
 
       return {
