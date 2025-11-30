@@ -871,17 +871,15 @@ export const useUI = create<UIState>()(
 
       // ✅ NUEVO: Implementación de helpers computados
       shouldShowApprovalButtons: () => {
-        const { approvalPhase, currentCaseId } = get();
+        const { approvalPhase } = get();
 
-        // ✅ CORRECCIÓN FASE 28: Sincronización con currentCaseId
-        // Si ya tenemos un caso guardado (ID válido y no es placeholder),
-        // los botones de creación DEBEN desaparecer. El caso ya existe.
-        if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
-          return false;
-        }
+        // ✅ CORRECCIÓN DEFINITIVA: Usar approvalPhase como ÚNICA fuente de verdad
+        // approvalPhase representa el ciclo de vida completo de la aprobación:
+        // - 'pending': Esperando aprobación → Mostrar botones
+        // - 'processing': Aprobando → Mostrar botones (deshabilitados por areApprovalButtonsEnabled)
+        // - 'completed': Aprobado → Ocultar botones
 
-        // REGLA: Mostrar botones SIEMPRE que no esté completado
-        // Esto cubre tanto 'pending' como 'processing'
+        // REGLA SIMPLE: Mostrar si NO está completed
         return approvalPhase !== 'completed';
       },
 
@@ -1663,6 +1661,33 @@ export const useUI = create<UIState>()(
         }));
       },
 
+      loadActiveComparison: async (caseId) => {
+        set({ comparisonLoading: true });
+        try {
+          const response = await fetch(`/api/comparisons?caseId=${caseId}`);
+          if (!response.ok) {
+            if (response.status === 404) {
+              set({ activeComparison: null, comparisonLoading: false });
+              return;
+            }
+            throw new Error("Failed to load comparison");
+          }
+
+          const data = await response.json();
+          if (data.comparison) {
+            set({
+              activeComparison: data.comparison,
+              comparisonLoading: false
+            });
+          } else {
+            set({ activeComparison: null, comparisonLoading: false });
+          }
+        } catch (error) {
+          console.error("Error loading comparison:", error);
+          set({ comparisonLoading: false, activeComparison: null });
+        }
+      },
+
       exportComparison: async (format) => {
         // TODO: FASE 30.4 - Implementar endpoint real
         console.log('Exporting comparison:', format);
@@ -1670,8 +1695,46 @@ export const useUI = create<UIState>()(
       },
 
       alignCoveragesSemantically: async (analyses) => {
-        // TODO: FASE 30.2 - Implementar lógica real
-        return [];
+        const { currentCaseId } = get();
+        if (!currentCaseId) {
+          throw new Error("No active case found");
+        }
+
+        set({ comparisonLoading: true });
+
+        try {
+          const response = await fetch("/api/comparisons/align", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              caseId: currentCaseId,
+              analysisIds: analyses.map((a) => a.id),
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Failed to align policies");
+          }
+
+          const data = await response.json();
+
+          if (data.success && data.comparison) {
+            set({
+              activeComparison: data.comparison,
+              comparisonLoading: false
+            });
+            return data.comparison.rows;
+          } else {
+            throw new Error("Invalid response format");
+          }
+        } catch (error) {
+          set({ comparisonLoading: false });
+          console.error("Error aligning policies:", error);
+          throw error;
+        }
       },
 
       detectCoverageGaps: (comparison) => {

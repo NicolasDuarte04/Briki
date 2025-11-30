@@ -49,9 +49,21 @@ export async function POST(request: NextRequest) {
             }
         });
 
+        console.log(`✅ Found ${analyses.length} analyses out of ${analysisIds.length} requested`);
+
         if (analyses.length !== analysisIds.length) {
+            const foundIds = analyses.map(a => a.id);
+            const missingIds = analysisIds.filter(id => !foundIds.includes(id));
+            console.error(`❌ Missing analyses: ${missingIds.join(', ')}`);
+            console.error(`   Found: ${foundIds.join(', ')}`);
+            console.error(`   Current orgId filter: ${currentOrg.id}`);
+
             return NextResponse.json(
-                { error: 'Some analyses could not be found or you do not have access' },
+                {
+                    error: 'Some analyses could not be found or you do not have access',
+                    missing: missingIds,
+                    found: foundIds.length
+                },
                 { status: 404 }
             );
         }
