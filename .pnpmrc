@@ -4,6 +4,9 @@
 # Auto-instalar peer dependencies
 auto-install-peers=true
 
+# Habilitar generación de lockfile (requerido para Vercel)
+lockfile=true
+
 # Excluir links del lockfile para mejor rendimiento
 exclude-links-from-lockfile=false
 
