@@ -286,6 +286,7 @@ export type CaseStatusParsed = z.infer<typeof CaseStatusSchema>;
 // Por lo tanto, el schema debe aceptar null explícitamente
 //
 // ✅ FASE 29: SINCRONIZACIÓN COMPLETA CON INTERFACE
+// ✅ FASE 31.3: budget_currency alineado con CurrencyCode de types.ts
 // Todos los campos de CaseBrief en types.ts deben estar presentes aquí
 export const CaseBriefSchema = z
   .object({
@@ -298,7 +299,7 @@ export const CaseBriefSchema = z
     selectedClientId: z.string().nullable().optional(),
     insurance_category: z.string().optional(),
     max_budget: z.number().nullable().optional(),
-    budget_currency: z.enum(['COP', 'USD']).optional(),
+    budget_currency: z.enum(['COP', 'USD', 'MXN', 'EUR']).optional(), // ✅ FASE 31.3: Alineado con CurrencyCode
     required_coverages: z.array(z.string()).optional(),
     client_profile: z.string().optional(),
     tempUploads: z.array(z.object({
@@ -409,6 +410,17 @@ export const ProposalSelectedPlanSchema = z
   .object({
     planId: z.string(),
     rationaleKey: z.string().optional(),
+    // ✅ Embedded data for self-contained proposals
+    insurerName: z.string().optional(),
+    policyNumber: z.string().optional(),
+    premiumTotal: z.number().optional(),
+    currency: z.string().optional(),
+    coverages: z.array(z.object({
+      name: z.string(),
+      description: z.string().optional(),
+      limitAmount: z.number().optional(),
+    })).optional(),
+    confidence: z.number().optional(),
   })
   .strict();
 export type ProposalSelectedPlanParsed = z.infer<typeof ProposalSelectedPlanSchema>;

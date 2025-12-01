@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUI } from "@/lib/ui/state";
 import { ComparisonTable } from "./Comparison/ComparisonTable";
-import { Loader2, Sparkles, AlertCircle } from "lucide-react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Loader2, Sparkles, FileText } from "lucide-react";
 
 export default function Comparison() {
   const t = useTranslations("workspace.comparisons");
@@ -18,27 +18,25 @@ export default function Comparison() {
   const activeComparison = useUI((state) => state.activeComparison);
   const comparisonLoading = useUI((state) => state.comparisonLoading);
   const alignCoveragesSemantically = useUI((state) => state.alignCoveragesSemantically);
-
-  // Local State
-  const [error, setError] = useState<string | null>(null);
+  const loadActiveComparison = useUI((state) => state.loadActiveComparison);
+  const currentCaseId = useUI((state) => state.currentCaseId);
+  
+  // Selection state - Set<string> from store
+  const selectedAnalysisIds = useUI((state) => state.selectedAnalysisIds);
+  const selectionCount = selectedAnalysisIds.size;
+  const canGenerateProposal = selectionCount >= 1;
 
   // Derived State
   const hasEnoughPolicies = policyAnalyses.length >= 2;
 
   const handleAlign = async () => {
-    try {
-      setError(null);
-      await alignCoveragesSemantically(policyAnalyses);
-    } catch (err: any) {
-      console.error("Alignment failed:", err);
-      setError(err.message || "Failed to align policies");
+    // Error handling is managed in state.ts with toasts
+    if (currentCaseId) {
+      await alignCoveragesSemantically(currentCaseId, policyAnalyses.map(a => a.id));
     }
   };
 
   // ✅ FASE 30.4: Cargar comparación existente al montar
-  const loadActiveComparison = useUI((state) => state.loadActiveComparison);
-  const currentCaseId = useUI((state) => state.currentCaseId);
-
   useEffect(() => {
     if (currentCaseId && !activeComparison && !comparisonLoading) {
       loadActiveComparison(currentCaseId);
@@ -85,20 +83,45 @@ export default function Comparison() {
               )}
             </Button>
           )}
+
+          {activeComparison && (
+            <div className="flex items-center gap-3">
+              {selectionCount > 0 && (
+                <span className="text-sm text-muted-foreground">
+                  {selectionCount} póliza{selectionCount !== 1 ? 's' : ''} seleccionada{selectionCount !== 1 ? 's' : ''}
+                </span>
+              )}
+              <Button
+                onClick={() => {
+                  if (!currentCaseId) {
+                    console.error('No active case ID available');
+                    return;
+                  }
+                  const generateProposal = useUI.getState().generateProposal;
+                  const setActiveTab = useUI.getState().setActiveTab;
+                  // generateProposal uses selectedAnalysisIds from state internally
+                  generateProposal(currentCaseId, activeComparison.id)
+                    .then(() => {
+                      setActiveTab('proposal');
+                    })
+                    .catch((err) => {
+                      console.error('Error generating proposal:', err);
+                    });
+                }}
+                disabled={comparisonLoading || !canGenerateProposal}
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md disabled:opacity-50"
+              >
+                <FileText className="mr-2 h-4 w-4" />
+                {canGenerateProposal ? 'Generar Propuesta' : 'Selecciona al menos 1 póliza'}
+              </Button>
+            </div>
+          )}
         </div>
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col gap-6 px-0 pb-0">
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
         {comparisonLoading ? (
-          <LoadingState />
+          <ComparisonSkeleton />
         ) : activeComparison ? (
           <ComparisonTable
             comparison={activeComparison}
@@ -125,26 +148,63 @@ export default function Comparison() {
   );
 }
 
-function LoadingState() {
+function ComparisonSkeleton() {
   return (
-    <div className="flex flex-col items-center justify-center h-full space-y-4">
-      <div className="relative flex items-center justify-center">
-        <div className="absolute animate-ping h-12 w-12 rounded-full bg-indigo-400 opacity-20"></div>
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+    <div className="flex flex-col h-full border rounded-lg overflow-hidden bg-background shadow-sm">
+      {/* Header Skeleton */}
+      <div className="grid grid-cols-[200px_repeat(3,1fr)] bg-muted/30 border-b border-border">
+        <div className="p-4"><Skeleton className="h-4 w-24" /></div>
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="p-4 border-l border-border/50 flex flex-col gap-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        ))}
       </div>
-      <p className="text-sm text-muted-foreground animate-pulse">
-        Analizando semánticamente las pólizas...
-      </p>
+
+      {/* Body Skeleton */}
+      <div className="flex-1 p-0">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex flex-col">
+            <div className="bg-muted/50 px-4 py-2 border-y border-border/50">
+              <Skeleton className="h-3 w-32" />
+            </div>
+            <div className="grid grid-cols-[200px_repeat(3,1fr)] border-b border-border/50">
+              <div className="p-4"><Skeleton className="h-4 w-40" /></div>
+              {[1, 2, 3].map((j) => (
+                <div key={j} className="p-4 border-l border-border/50">
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-[200px_repeat(3,1fr)] border-b border-border/50">
+              <div className="p-4"><Skeleton className="h-4 w-36" /></div>
+              {[1, 2, 3].map((j) => (
+                <div key={j} className="p-4 border-l border-border/50">
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
+
+
 function EmptyState({ title, description, hint }: { title: string; description: string; hint: string }) {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-2 rounded-lg border border-dashed border-border/60 bg-muted/20 px-5 py-8 text-center">
-      <p className="text-lg font-semibold text-foreground/90">{title}</p>
-      <p className="text-sm text-muted-foreground/90">{description}</p>
-      <p className="text-xs text-muted-foreground/80 mt-2">{hint}</p>
+    <div className="flex flex-col items-center justify-center h-full gap-3 rounded-lg border border-dashed border-border/60 bg-muted/20 px-5 py-12 text-center">
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+        <FileText className="h-6 w-6 text-muted-foreground" />
+      </div>
+      <div className="space-y-1">
+        <p className="text-lg font-semibold text-foreground/90">{title}</p>
+        <p className="text-sm text-muted-foreground/90 max-w-xs mx-auto">{description}</p>
+      </div>
+      <p className="text-xs text-muted-foreground/80 mt-2 bg-muted/50 px-3 py-1 rounded-full">{hint}</p>
     </div>
   );
 }

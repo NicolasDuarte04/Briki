@@ -23,7 +23,7 @@ import { Prisma } from '@prisma/client';
  * const encrypted = await encryptProfilePhone("+52 1234567890");
  * await prisma.profile.update({ data: { phone: encrypted, ... } });
  */
-export async function encryptProfilePhone(phone: string | null | undefined): Promise<Uint8Array | null> {
+export async function encryptProfilePhone(phone: string | null | undefined): Promise<Buffer | null> {
   if (!phone || phone.trim() === '') {
     return null;
   }
@@ -40,23 +40,18 @@ export async function encryptProfilePhone(phone: string | null | undefined): Pro
   const result = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
     
-    const encrypted = await tx.$queryRaw<Array<{ encrypted: Buffer }>>`
+    const encrypted = await tx.$queryRaw<Array<{ encrypted: Buffer }>>` 
       SELECT public.encrypt_pii(${phone}) as encrypted
     `;
     
-    const buffer = encrypted[0]?.encrypted || Buffer.from('');
-    // Convertir Buffer a Uint8Array - Buffer extiende Uint8Array en runtime
-    // Type assertion necesaria por diferencia ArrayBufferLike vs ArrayBuffer en Node.js
-    return new Uint8Array(buffer.buffer as ArrayBuffer, buffer.byteOffset, buffer.byteLength);
+    // Retornar Buffer directamente - compatible con Prisma BYTEA
+    return encrypted[0]?.encrypted ?? null;
   }, {
     timeout: 30000,
   });
 
-  // Type assertion para satisfacer tipado estricto de Prisma
-  return result as Uint8Array<ArrayBuffer>;
-}
-
-/**
+  return result;
+}/**
  * Desencripta el teléfono de un perfil al leerlo de la BD.
  * 
  * @param encrypted - Buffer o Uint8Array con el teléfono encriptado
@@ -114,7 +109,7 @@ export async function decryptProfilePhone(encrypted: Buffer | Uint8Array | null)
  * const encrypted = await encryptProfileName("Juan Pérez");
  * await prisma.profile.update({ data: { name: encrypted, ... } });
  */
-export async function encryptProfileName(name: string | null | undefined): Promise<Uint8Array | null> {
+export async function encryptProfileName(name: string | null | undefined): Promise<Buffer | null> {
   if (!name || name.trim() === '') {
     return null;
   }
@@ -131,23 +126,18 @@ export async function encryptProfileName(name: string | null | undefined): Promi
   const result = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
     
-    const encrypted = await tx.$queryRaw<Array<{ encrypted: Buffer }>>`
+    const encrypted = await tx.$queryRaw<Array<{ encrypted: Buffer }>>` 
       SELECT public.encrypt_pii(${name}) as encrypted
     `;
     
-    const buffer = encrypted[0]?.encrypted || Buffer.from('');
-    // Convertir Buffer a Uint8Array - Buffer extiende Uint8Array en runtime
-    // Type assertion necesaria por diferencia ArrayBufferLike vs ArrayBuffer en Node.js
-    return new Uint8Array(buffer.buffer as ArrayBuffer, buffer.byteOffset, buffer.byteLength);
+    // Retornar Buffer directamente - compatible con Prisma BYTEA
+    return encrypted[0]?.encrypted ?? null;
   }, {
     timeout: 30000,
   });
 
-  // Type assertion para satisfacer tipado estricto de Prisma
-  return result as Uint8Array<ArrayBuffer>;
-}
-
-/**
+  return result;
+}/**
  * Desencripta el nombre de un perfil al leerlo de la BD.
  * 
  * @param encrypted - Buffer o Uint8Array con el nombre encriptado
@@ -205,7 +195,7 @@ export async function decryptProfileName(encrypted: Buffer | Uint8Array | null):
  * const encrypted = await encryptProfileAddress("Calle Principal 123");
  * await prisma.profile.update({ data: { address: encrypted, ... } });
  */
-export async function encryptProfileAddress(address: string | null | undefined): Promise<Uint8Array | null> {
+export async function encryptProfileAddress(address: string | null | undefined): Promise<Buffer | null> {
   if (!address || address.trim() === '') {
     return null;
   }
@@ -222,23 +212,18 @@ export async function encryptProfileAddress(address: string | null | undefined):
   const result = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
     
-    const encrypted = await tx.$queryRaw<Array<{ encrypted: Buffer }>>`
+    const encrypted = await tx.$queryRaw<Array<{ encrypted: Buffer }>>` 
       SELECT public.encrypt_pii(${address}) as encrypted
     `;
     
-    const buffer = encrypted[0]?.encrypted || Buffer.from('');
-    // Convertir Buffer a Uint8Array - Buffer extiende Uint8Array en runtime
-    // Type assertion necesaria por diferencia ArrayBufferLike vs ArrayBuffer en Node.js
-    return new Uint8Array(buffer.buffer as ArrayBuffer, buffer.byteOffset, buffer.byteLength);
+    // Retornar Buffer directamente - compatible con Prisma BYTEA
+    return encrypted[0]?.encrypted ?? null;
   }, {
     timeout: 30000,
   });
 
-  // Type assertion para satisfacer tipado estricto de Prisma
-  return result as Uint8Array<ArrayBuffer>;
-}
-
-/**
+  return result;
+}/**
  * Desencripta la dirección de un perfil al leerlo de la BD.
  * 
  * @param encrypted - Buffer o Uint8Array con la dirección encriptada

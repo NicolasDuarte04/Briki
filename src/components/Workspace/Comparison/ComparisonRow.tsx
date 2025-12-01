@@ -42,11 +42,11 @@ export function ComparisonRow({ row, analysisIds, isEven }: ComparisonRowProps) 
                 const cell = row.values[id];
 
                 // Handle missing cells gracefully
+                // Note: userNote is omitted intentionally to comply with exactOptionalPropertyTypes
                 const safeCell: IComparisonCell = cell || {
                     value: null,
                     reference: null,
-                    status: 'missing',
-                    userNote: undefined
+                    status: 'missing'
                 };
 
                 return (

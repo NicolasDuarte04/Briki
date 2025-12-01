@@ -321,6 +321,40 @@ export type BrokerProfile = BrokerProfileParsed;
 export type RenewalRecord = RenewalRecordParsed;
 
 /**
+ * Represents export format options for proposals
+ */
+export type ProposalExportFormat = 'pdf' | 'excel' | 'json';
+
+/**
+ * Represents a generated proposal for clients or insurers
+ */
+export interface GeneratedProposal {
+  /** Unique identifier */
+  id: string;
+  /** Associated case ID */
+  caseId: string;
+  /** Optional comparison ID that generated this proposal */
+  comparisonId?: string | null;
+  /** Proposal version type */
+  version: 'client' | 'technical';
+  /** Proposal content structure */
+  content: {
+    brokerProfile: BrokerProfile;
+    selectedPlans: ProposalSelectedPlan[];
+    disclosuresKeys: string[];
+    mathCheck?: ProposalMathCheck;
+    customNotes?: string;
+    shareUrl?: string;
+    generatedOn: string;
+    comparisonSummary?: unknown;
+  };
+  /** Creation timestamp in ISO format */
+  createdAt: string;
+  /** Last update timestamp in ISO format */
+  updatedAt: string;
+}
+
+/**
  * Represents a comparison playbook configuration
  */
 export interface Playbook {

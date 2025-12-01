@@ -1,24 +1,30 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useUI } from "@/lib/ui/state";
-import { type Case, type Money, type Policy, type Proposal, type ProposalSelectedPlan } from "@/lib/types";
+import { type CaseBrief, type CurrencyCode, type Money, type Policy, type Proposal, type ProposalSelectedPlan } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CheckCircle2 } from "lucide-react";
 
 const PROPOSAL_PREFIX = "workspace.proposal.";
 
-interface PlanSummary {
-  policy: Policy;
-  score: number | null;
+// ✅ FASE 31: Updated interface to use embedded data
+interface EmbeddedPlanSummary {
+  planId: string;
+  insurerName: string;
+  policyNumber: string;
+  premiumTotal: number;
+  currency: string;
+  coverages: Array<{ name: string; description?: string; limitAmount?: number }>;
+  confidence: number;
+  fileName?: string;
   rationale: string;
-  benefits: string[];
 }
 
 export default function Proposal() {
@@ -26,17 +32,36 @@ export default function Proposal() {
   const tComparisonCards = useTranslations("workspace.comparisons.cards");
   const locale = useLocale();
 
-  const brief = useUI<Case["brief"]>((state) => state.brief);
-  const brokerProfile = useUI((state) => state.proposalBrokerProfile);
-  const selectedPlans = useUI<ProposalSelectedPlan[]>((state) => state.proposalSelectedPlans);
-  const disclosuresKeys = useUI<Proposal["disclosuresKeys"]>((state) => state.proposalDisclosuresKeys);
-  const mathCheck = useUI<Proposal["mathCheck"]>((state) => state.proposalMathCheck);
-  const policies = useUI<Policy[]>((state) => state.policies);
-  const policyLookup = useMemo(() => new Map(policies.map((policy) => [policy.id, policy])), [policies]);
-  const comparisonScores = useUI((state) => state.comparisonScores);
+  // ✅ FASE 31.3: Removed generic type to avoid CurrencyCode incompatibility
+  const brief = useUI((state) => state.brief);
+
+  // ✅ FASE 31: Read from activeProposal if available, fallback to legacy state
+  const activeProposal = useUI((state) => state.activeProposal);
+  const currentCaseId = useUI((state) => state.currentCaseId);
+  const loadProposalByCase = useUI((state) => state.loadProposalByCase);
+  const legacyBrokerProfile = useUI((state) => state.proposalBrokerProfile);
+  const legacySelectedPlans = useUI<ProposalSelectedPlan[]>((state) => state.proposalSelectedPlans);
+  const legacyDisclosuresKeys = useUI<Proposal["disclosuresKeys"]>((state) => state.proposalDisclosuresKeys);
+  const legacyMathCheck = useUI<Proposal["mathCheck"]>((state) => state.proposalMathCheck);
+  const legacyShareUrl = useUI((state) => state.proposalShareUrl);
+  const legacyGeneratedOn = useUI((state) => state.proposalGeneratedOn);
+
+  // ✅ FASE 31.5: Auto-load proposal for historical cases
+  useEffect(() => {
+    if (currentCaseId && currentCaseId !== 'new-thread-placeholder' && !activeProposal) {
+      loadProposalByCase(currentCaseId);
+    }
+  }, [currentCaseId, activeProposal, loadProposalByCase]);
+
+  // Derived values with fallback logic
+  const brokerProfile = activeProposal?.content.brokerProfile ?? legacyBrokerProfile;
+  const selectedPlans = activeProposal?.content.selectedPlans ?? legacySelectedPlans;
+  const disclosuresKeys = activeProposal?.content.disclosuresKeys ?? legacyDisclosuresKeys;
+  const mathCheck = activeProposal?.content.mathCheck ?? legacyMathCheck;
+  const shareUrl = activeProposal?.content.shareUrl ?? legacyShareUrl;
+  const generatedOn = activeProposal?.content.generatedOn ?? legacyGeneratedOn;
+
   const loading = useUI((state) => state.proposalLoading);
-  const shareUrl = useUI((state) => state.proposalShareUrl);
-  const generatedOn = useUI((state) => state.proposalGeneratedOn);
   const [feedback, setFeedback] = useState<
     { id: number; message: string; tone: "default" | "destructive" } | null
   >(null);
@@ -63,88 +88,56 @@ export default function Proposal() {
     return new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(dateValue);
   }, [generatedOn, locale]);
 
-  const scoreFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(locale, {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
-      }),
-    [locale]
-  );
-
-  const planSummaries = useMemo<PlanSummary[]>(() => {
+  // ✅ FASE 31: Updated to use embedded data directly
+  const planSummaries = useMemo<EmbeddedPlanSummary[]>(() => {
     return selectedPlans
-      .map((selection) => {
-        const policy = policyLookup.get(selection.planId);
-        if (!policy) return null;
-
-        const matchingScore = comparisonScores.find((score) => score.plan === policy.plan)?.total;
-        const computedScore = matchingScore ?? 0; // Default to 0 if no score found
-
-        const benefits = new Set<string>();
-        policy.riders.forEach((rider) => benefits.add(rider));
-        const networkLabel = policy.network ? tComparisonCards(`networkLevels.${policy.network}`) : undefined;
-        const serviceLabel = policy.service ? tComparisonCards(`serviceLevels.${policy.service}`) : undefined;
-        if (networkLabel) benefits.add(networkLabel);
-        if (serviceLabel) benefits.add(serviceLabel);
-
+      .map((selection: any) => {
+        // Use embedded data if available, otherwise create minimal fallback
         const rationaleKey = normalizeKey(selection.rationaleKey);
-
-        const transformedPolicy: Policy = {
-          ...policy,
-          premium: {
-            amountMinor: (policy.premium as unknown as number) * 100,
-            currency: "USD",
-          },
-          deductible: {
-            amountMinor: (policy.deductible as unknown as number) * 100,
-            currency: "USD",
-          },
-        };
-
+        
         return {
-          policy: transformedPolicy,
-          score: Number.isFinite(computedScore) ? computedScore : null,
+          planId: selection.planId,
+          insurerName: selection.insurerName || 'Aseguradora',
+          policyNumber: selection.policyNumber || 'N/A',
+          premiumTotal: selection.premiumTotal || 0,
+          currency: selection.currency || 'COP',
+          coverages: selection.coverages || [],
+          confidence: selection.confidence || 0.8,
+          fileName: selection.fileName,
           rationale: rationaleKey ? t(rationaleKey) : t("selectedPlans.defaultRationale"),
-          benefits: Array.from(benefits).slice(0, 5),
-        } satisfies PlanSummary;
-      })
-      .filter(Boolean) as PlanSummary[];
-  }, [comparisonScores, policyLookup, selectedPlans, t, tComparisonCards]);
+        } satisfies EmbeddedPlanSummary;
+      });
+  }, [selectedPlans, t]);
 
   const summaryDetails = useMemo(() => {
     if (!planSummaries.length) return null;
 
-    const premiums = planSummaries.map((plan) => plan.policy.premium);
-    const deductibles = planSummaries.map((plan) => plan.policy.deductible);
-    const riderFrequency = new Map<string, number>();
-    const networkLabels = new Set<string>();
-    const serviceLabels = new Set<string>();
+    const premiums = planSummaries.map((plan) => plan.premiumTotal);
+    const currencies = [...new Set(planSummaries.map((plan) => plan.currency))];
+    const currency = currencies[0] || 'COP';
 
-    planSummaries.forEach((summary) => {
-      summary.policy.riders.forEach((rider) => riderFrequency.set(rider, (riderFrequency.get(rider) ?? 0) + 1));
-      const networkLabel = summary.policy.network ? tComparisonCards(`networkLevels.${summary.policy.network}`) : undefined;
-      const serviceLabel = summary.policy.service ? tComparisonCards(`serviceLevels.${summary.policy.service}`) : undefined;
-      if (networkLabel) networkLabels.add(networkLabel);
-      if (serviceLabel) serviceLabels.add(serviceLabel);
+    // Collect all coverage names
+    const coverageNames = new Set<string>();
+    planSummaries.forEach((plan) => {
+      plan.coverages.forEach((cov) => coverageNames.add(cov.name));
     });
 
-    const riders = Array.from(riderFrequency.entries())
-      .sort((a, b) => b[1] - a[1])
-      .map(([name]) => name)
-      .slice(0, 4);
+    const minPremium = Math.min(...premiums);
+    const maxPremium = Math.max(...premiums);
+    const avgPremium = premiums.reduce((a, b) => a + b, 0) / premiums.length;
 
-    const premiumRange = formatMoneyRange(premiums, locale);
-    const averageDeductible = formatMoneyAverage(deductibles, locale);
+    const premiumRange = minPremium === maxPremium 
+      ? formatMoney({ amountMinor: minPremium * 100, currency: currency as CurrencyCode }, { locale })
+      : `${formatMoney({ amountMinor: minPremium * 100, currency: currency as CurrencyCode }, { locale })} - ${formatMoney({ amountMinor: maxPremium * 100, currency: currency as CurrencyCode }, { locale })}`;
 
     return {
-      premiumRange: premiumRange ?? "—",
-      averageDeductible: averageDeductible ?? "—",
-      riders: riders.length ? riders.join(", ") : t("summary.ridersFallback"),
-      networks: networkLabels.size ? Array.from(networkLabels).join(" • ") : t("summary.networkFallback"),
-      services: serviceLabels.size ? Array.from(serviceLabels).join(" • ") : t("summary.serviceFallback"),
+      premiumRange: premiumRange || "—",
+      averageDeductible: "Consultar póliza",
+      riders: coverageNames.size > 0 ? Array.from(coverageNames).slice(0, 4).join(", ") : t("summary.ridersFallback"),
+      networks: t("summary.networkFallback"),
+      services: t("summary.serviceFallback"),
     } as const;
-  }, [locale, planSummaries, t, tComparisonCards]);
+  }, [locale, planSummaries, t]);
 
   const normalizedDisclosures = disclosuresKeys
     .map((key) => normalizeKey(key))
@@ -248,10 +241,10 @@ export default function Proposal() {
               <div className="grid gap-4 xl:grid-cols-3 2xl:grid-cols-4">
                 {planSummaries.map((plan, index) => {
                   const cardId = `proposal-plan-${index}`;
-                  const scoreText = plan.score !== null ? scoreFormatter.format(plan.score) : "—";
+                  const confidenceText = `${Math.round(plan.confidence * 100)}%`;
                   return (
                     <article
-                      key={plan.policy.plan}
+                      key={plan.planId}
                       role="group"
                       aria-labelledby={`${cardId}-title`}
                       tabIndex={0}
@@ -259,29 +252,29 @@ export default function Proposal() {
                     >
                       <header className="space-y-1">
                         <h3 id={`${cardId}-title`} className="text-lg font-semibold text-foreground/90">
-                          {plan.policy.plan}
+                          {plan.insurerName} - {plan.policyNumber}
                         </h3>
-                        <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground/70">{t("plans.scoreLabel", { value: scoreText })}</p>
+                        <p className="text-xs uppercase tracking-[0.15em] text-muted-foreground/70">{t("plans.scoreLabel", { value: confidenceText })}</p>
                       </header>
                       <div className="my-4 h-px w-full bg-border/60" aria-hidden />
                       <dl className="space-y-3 text-sm text-foreground/90">
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                           <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("plans.premiumLabel")}</dt>
                           <dd className="min-w-0 text-right font-semibold text-foreground/90 break-words">
-                            {formatMoney(plan.policy.premium, { locale })}
+                            {formatMoney({ amountMinor: plan.premiumTotal * 100, currency: plan.currency as CurrencyCode }, { locale })}
                           </dd>
                         </div>
                         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
                           <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("plans.deductibleLabel")}</dt>
                           <dd className="min-w-0 text-right font-semibold text-foreground/90 break-words">
-                            {formatMoney(plan.policy.deductible, { locale })}
+                            {t("plans.deductibleConsult")}
                           </dd>
                         </div>
                         <div className="flex flex-col gap-1">
                           <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("plans.ridersLabel")}</dt>
                           <dd>
-                            {plan.policy.riders.length ? (
-                              <span className="font-medium text-foreground/90">{plan.policy.riders.join(", ")}</span>
+                            {plan.coverages.length ? (
+                              <span className="font-medium text-foreground/90">{plan.coverages.map(c => c.name).join(", ")}</span>
                             ) : (
                               <span className="text-muted-foreground/70">{t("plans.ridersEmpty")}</span>
                             )}
@@ -293,11 +286,11 @@ export default function Proposal() {
                         <div>
                           <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("plans.benefitsLabel")}</p>
                           <ul className="mt-1 space-y-1 text-sm text-foreground/85">
-                            {plan.benefits.length ? (
-                              plan.benefits.map((benefit) => (
-                                <li key={benefit} className="flex items-start gap-2">
+                            {plan.coverages.length ? (
+                              plan.coverages.slice(0, 5).map((coverage) => (
+                                <li key={coverage.name} className="flex items-start gap-2">
                                   <span aria-hidden className="mt-1 inline-block size-1.5 rounded-full bg-muted-foreground/50" />
-                                  <span>{benefit}</span>
+                                  <span>{coverage.name}{coverage.description ? `: ${coverage.description}` : ''}</span>
                                 </li>
                               ))
                             ) : (

@@ -205,12 +205,8 @@ export async function POST(request: NextRequest) {
           if (retryCount < maxRetries) {
             console.warn(`⚠️ [API/cases/create] Error de conexión a BD (intento ${retryCount}/${maxRetries}), reintentando...`);
             
-            // Intentar reconexión si es el primer intento
-            if (retryCount === 1) {
-              const { reconnectPrisma } = await import('@/lib/prisma');
-              await reconnectPrisma(2); // 2 intentos de reconexión
-            }
-            
+            // Prisma maneja la reconexión automáticamente con el pool
+            // Solo esperamos antes de reintentar
             await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
             continue;
           } else {

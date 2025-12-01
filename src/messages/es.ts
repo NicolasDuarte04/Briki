@@ -650,6 +650,7 @@ const es = {
         scoreLabel: "Puntaje {value}",
         premiumLabel: "Prima",
         deductibleLabel: "Deducible",
+        deductibleConsult: "Consultar póliza",
         ridersLabel: "Coberturas",
         ridersEmpty: "Sin coberturas listadas",
         benefitsLabel: "Destacados",
@@ -674,6 +675,9 @@ const es = {
           "Los resúmenes de cobertura son ilustrativos; consulta los documentos oficiales.",
           "Los tiempos de implementación dependen de suscripción y documentación del cliente.",
         ],
+        item1: "Las primas y disponibilidad dependen de confirmación de la aseguradora.",
+        item2: "Los resúmenes de cobertura son ilustrativos; consulta los documentos oficiales.",
+        item3: "Los tiempos de implementación dependen de suscripción y documentación del cliente.",
       },
       mathCheck: {
         label: "Revisión numérica",
@@ -681,6 +685,10 @@ const es = {
         badgeReview: "Revisar números",
         messages: {
           passed: "Las primas y deducibles conciliaron sin diferencias.",
+          allVerified: "Todos los cálculos de primas y deducibles han sido verificados correctamente.",
+        },
+        message: {
+          allVerified: "Todos los cálculos de primas y deducibles han sido verificados correctamente.",
         },
       },
       share: {

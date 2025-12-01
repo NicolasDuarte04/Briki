@@ -3,6 +3,8 @@ import { PolicyComparison, PolicyAnalysis } from "@/lib/types";
 import { ComparisonRow } from "./ComparisonRow";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useUI } from "@/lib/ui/state";
 
 interface ComparisonTableProps {
     comparison: PolicyComparison;
@@ -10,8 +12,14 @@ interface ComparisonTableProps {
 }
 
 export function ComparisonTable({ comparison, analyses }: ComparisonTableProps) {
+    // Selection state from global store
+    const selectedAnalysisIds = useUI((state) => state.selectedAnalysisIds);
+    const toggleAnalysisSelection = useUI((state) => state.toggleAnalysisSelection);
+
     // Group rows by category
-    const groupedRows = comparison.rows.reduce((acc, row) => {
+    // Defensive check: ensure rows exists and is an array
+    const rows = Array.isArray(comparison.rows) ? comparison.rows : [];
+    const groupedRows = rows.reduce((acc, row) => {
         const category = row.category || 'other';
         if (!acc[category]) acc[category] = [];
         acc[category].push(row);
@@ -37,9 +45,24 @@ export function ComparisonTable({ comparison, analyses }: ComparisonTableProps) 
                     const analysis = analyses.find(a => a.id === id);
                     const insurerName = (analysis?.extractedData as any)?.insurer?.name || 'Unknown Insurer';
                     const policyNumber = (analysis?.extractedData as any)?.policyNumber || 'N/A';
+                    const isSelected = selectedAnalysisIds.has(id);
 
                     return (
                         <div key={id} className="p-4 border-l border-border/50 flex flex-col gap-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Checkbox
+                                    id={`select-${id}`}
+                                    checked={isSelected}
+                                    onCheckedChange={() => toggleAnalysisSelection(id)}
+                                    aria-label={`Incluir ${insurerName} en propuesta`}
+                                />
+                                <label
+                                    htmlFor={`select-${id}`}
+                                    className="text-[10px] uppercase tracking-wider text-muted-foreground cursor-pointer"
+                                >
+                                    Incluir
+                                </label>
+                            </div>
                             <span className="font-bold text-sm text-foreground">{insurerName}</span>
                             <span className="text-xs text-muted-foreground">{policyNumber}</span>
                             {analysis?.overallConfidence && (
@@ -67,7 +90,7 @@ export function ComparisonTable({ comparison, analyses }: ComparisonTableProps) 
                             </div>
 
                             {/* Rows */}
-                            {groupedRows[category].map((row, index) => (
+                            {(groupedRows[category] || []).map((row, index) => (
                                 <ComparisonRow
                                     key={row.id}
                                     row={row}

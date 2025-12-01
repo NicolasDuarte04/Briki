@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const comparison = await prisma.comparison.findFirst({
+        const comparisonRecord = await prisma.comparison.findFirst({
             where: {
                 caseId: caseId
             },
@@ -49,12 +49,27 @@ export async function GET(request: NextRequest) {
             }
         });
 
-        if (!comparison) {
+        if (!comparisonRecord) {
             return NextResponse.json(
                 { comparison: null },
                 { status: 404 }
             );
         }
+
+        // Transform Prisma result (DB structure) to PolicyComparison (App structure)
+        // The 'result' field in DB is a Json object containing { rows: [...] }
+        // We need to extract 'rows' to the root level to match PolicyComparison interface
+        const comparison = {
+            id: comparisonRecord.id,
+            caseId: comparisonRecord.caseId,
+            analysisIds: comparisonRecord.analysisIds,
+            // Safe extraction with fallback
+            rows: (comparisonRecord.result as any)?.rows || [],
+            filters: comparisonRecord.filters,
+            createdAt: comparisonRecord.createdAt,
+            updatedAt: comparisonRecord.updatedAt,
+            userId: comparisonRecord.userId
+        };
 
         return NextResponse.json({ comparison });
 
