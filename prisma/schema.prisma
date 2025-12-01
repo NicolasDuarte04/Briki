@@ -3,10 +3,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
-  schemas  = ["auth", "public"]
+  schemas   = ["auth", "public"]
 }
 
 /// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
@@ -393,6 +393,7 @@ model Case {
   auditLogs          AuditLog[]
   messages           Message[]
   policyAnalyses     PolicyAnalysis[] // ✅ NUEVO: Relación con análisis de pólizas
+  comparisons        Comparison[] // ✅ FASE 30: Relación con comparaciones
 
   @@map("cases")
   @@schema("public")
@@ -637,21 +638,21 @@ model oauth_consents {
 /// Stores structured data extracted from policy PDF artifacts
 /// Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.1.2
 model PolicyAnalysis {
-  id                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  artifactId        String                @map("artifact_id") @db.Uuid
-  caseId            String                @map("case_id") @db.Uuid
-  orgId             String                @map("org_id") @db.Uuid
-  extractedData     Json                  @map("extracted_data")
-  extractionMethod  String                @default("hybrid") @map("extraction_method")
-  overallConfidence Decimal               @default(0.00) @map("overall_confidence") @db.Decimal(3, 2)
-  extractedAt       DateTime              @map("extracted_at") @db.Timestamptz(6)
-  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  
-  artifact          Artifact              @relation(fields: [artifactId], references: [id], onDelete: Cascade)
-  case              Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  pageReferences    PolicyPageReference[]
-  
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  artifactId        String   @map("artifact_id") @db.Uuid
+  caseId            String   @map("case_id") @db.Uuid
+  orgId             String   @map("org_id") @db.Uuid
+  extractedData     Json     @map("extracted_data")
+  extractionMethod  String   @default("hybrid") @map("extraction_method")
+  overallConfidence Decimal  @default(0.00) @map("overall_confidence") @db.Decimal(3, 2)
+  extractedAt       DateTime @map("extracted_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  artifact       Artifact              @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  case           Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  pageReferences PolicyPageReference[]
+
   @@index([artifactId])
   @@index([caseId])
   @@index([orgId])
@@ -663,22 +664,61 @@ model PolicyAnalysis {
 
 /// Maps extracted policy fields to their exact locations in the source PDF
 model PolicyPageReference {
-  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  policyAnalysisId String         @map("policy_analysis_id") @db.Uuid
-  fieldName        String         @map("field_name")
-  fieldValue       String?        @map("field_value")
-  pageNumber       Int            @map("page_number")
-  boundingBox      Json?          @map("bounding_box")
-  confidence       Decimal        @default(0.00) @db.Decimal(3, 2)
-  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  
-  policyAnalysis   PolicyAnalysis @relation(fields: [policyAnalysisId], references: [id], onDelete: Cascade)
-  
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  policyAnalysisId String   @map("policy_analysis_id") @db.Uuid
+  fieldName        String   @map("field_name")
+  fieldValue       String?  @map("field_value")
+  pageNumber       Int      @map("page_number")
+  boundingBox      Json?    @map("bounding_box")
+  confidence       Decimal  @default(0.00) @db.Decimal(3, 2)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  policyAnalysis PolicyAnalysis @relation(fields: [policyAnalysisId], references: [id], onDelete: Cascade)
+
   @@index([policyAnalysisId])
   @@index([fieldName])
   @@index([pageNumber])
   @@index([confidence])
   @@map("policy_page_references")
+  @@schema("public")
+}
+
+/// ============================================================================
+/// COMPARISON MODELS - Added FASE 30
+/// ============================================================================
+/// Stores the result of comparing multiple policy analyses
+model Comparison {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId      String   @map("case_id") @db.Uuid
+  analysisIds String[] @map("analysis_ids") // IDs of PolicyAnalysis compared
+  result      Json // PolicyComparison serialized
+  filters     Json // ComparisonFilters
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userId      String?  @map("user_id") @db.Uuid // Optional, for audit
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@map("comparisons")
+  @@schema("public")
+}
+
+/// Generated proposals for clients or insurers
+model GeneratedProposal {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId       String   @map("case_id") @db.Uuid
+  comparisonId String?  @map("comparison_id") @db.Uuid // Optional link to comparison
+  version      String   @db.VarChar(20) // 'client' | 'technical'
+  content      Json // GeneratedProposal structure serialized
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userId       String?  @map("user_id") @db.Uuid
+  orgId        String?  @map("org_id") @db.Uuid // For RLS
+
+  @@index([caseId, createdAt])
+  @@index([orgId])
+  @@map("generated_proposals")
   @@schema("public")
 }
 

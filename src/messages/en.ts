@@ -661,6 +661,7 @@ const en = {
         scoreLabel: "Score {value}",
         premiumLabel: "Premium",
         deductibleLabel: "Deductible",
+        deductibleConsult: "See policy details",
         ridersLabel: "Riders",
         ridersEmpty: "No riders listed",
         benefitsLabel: "Highlights",
@@ -681,6 +682,9 @@ const en = {
           "Coverage summaries are illustrative; consult carrier documents for full terms.",
           "Implementation timelines depend on underwriting and client documentation readiness.",
         ],
+        item1: "Premiums and plan availability are subject to carrier confirmation.",
+        item2: "Coverage summaries are illustrative; consult carrier documents for full terms.",
+        item3: "Implementation timelines depend on underwriting and client documentation readiness.",
       },
       mathCheck: {
         label: "Math Check",
@@ -688,6 +692,10 @@ const en = {
         badgeReview: "Review math",
         messages: {
           passed: "All premium and deductible calculations reconcile.",
+          allVerified: "All premium and deductible calculations have been verified successfully.",
+        },
+        message: {
+          allVerified: "All premium and deductible calculations have been verified successfully.",
         },
       },
       benefits: {

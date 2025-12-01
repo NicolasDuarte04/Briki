@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
+import { toast } from 'sonner';
 import { ChatMessage as BaseChatMessage } from "@/store/useChatStore";
 import React from "react";
 
@@ -42,7 +43,13 @@ import {
   type ServiceLevel,
   type UIStep,
   type WorkspaceTab,
+  type ComparisonRow,
+  type ComparisonCell,
+  type ComparisonFilters,
+  type PolicyComparison,
+  type ComparisonExport,
   type CurrencyCode,
+  type GeneratedProposal,
 } from "../types";
 import {
   loadCases,
@@ -628,6 +635,15 @@ export interface UIState {
   comparisonWeights: ComparisonWeights;
   comparisonScores: PolicyComparisonScore[];
   comparisonPlaybook: ComparisonPlaybook;
+
+  // ✅ FASE 30: Comparación de pólizas
+  activeComparison: PolicyComparison | null;
+  comparisonLoading: boolean;
+  comparisonFilters: ComparisonFilters;
+
+  // ✅ FASE 31: Selección de análisis para propuesta
+  selectedAnalysisIds: Set<string>;
+
   proposalBrokerProfile: BrokerProfile;
   proposalSelectedPlans: ProposalSelectedPlan[];
   proposalDisclosuresKeys: string[];
@@ -635,6 +651,7 @@ export interface UIState {
   proposalShareUrl: string;
   proposalLoading: boolean;
   proposalGeneratedOn: string | null;
+  activeProposal: GeneratedProposal | null; // ✅ FASE 31: Propuesta activa persistente
   products: Product[];
   productsLoading: boolean;
   productsLoaded: boolean;
@@ -785,6 +802,25 @@ export interface UIState {
   selectPolicyAnalysesView: () => PolicyAnalysisView[];
   setActiveTab: (tab: WorkspaceTab) => void;
   navigateToAnalysis: (analysisId: string) => void;
+
+  // ✅ FASE 30: Acciones de Comparación
+  compareAnalyses: (analysisIds: string[]) => Promise<PolicyComparison>;
+  setComparisonFilters: (filters: Partial<ComparisonFilters>) => void;
+  exportComparison: (format: ComparisonExport) => Promise<Blob>;
+  alignCoveragesSemantically: (caseId: string, analysisIds: string[]) => Promise<ComparisonRow[]>;
+  detectCoverageGaps: (comparison: PolicyComparison) => string[];
+  loadActiveComparison: (caseId: string) => Promise<void>;
+
+  // ✅ FASE 31: Acciones de Selección de Análisis para Propuesta
+  toggleAnalysisSelection: (analysisId: string) => void;
+  selectAllAnalyses: () => void;
+  clearAnalysisSelection: () => void;
+  isAnalysisSelected: (analysisId: string) => boolean;
+
+  // ✅ FASE 31: Acciones de Propuestas
+  generateProposal: (caseId: string, comparisonId?: string, version?: 'client' | 'technical') => Promise<void>;
+  loadActiveProposal: (proposalId: string) => Promise<void>;
+  loadProposalByCase: (caseId: string) => Promise<void>;
 }
 
 // ✅ FASE 3: Persistencia de estado (con corrección de contaminación)
@@ -855,8 +891,13 @@ export const useUI = create<UIState>()(
       shouldShowApprovalButtons: () => {
         const { approvalPhase } = get();
 
-        // REGLA: Mostrar botones SIEMPRE que no esté completado
-        // Esto cubre tanto 'pending' como 'processing'
+        // ✅ CORRECCIÓN DEFINITIVA: Usar approvalPhase como ÚNICA fuente de verdad
+        // approvalPhase representa el ciclo de vida completo de la aprobación:
+        // - 'pending': Esperando aprobación → Mostrar botones
+        // - 'processing': Aprobando → Mostrar botones (deshabilitados por areApprovalButtonsEnabled)
+        // - 'completed': Aprobado → Ocultar botones
+
+        // REGLA SIMPLE: Mostrar si NO está completed
         return approvalPhase !== 'completed';
       },
 
@@ -905,6 +946,8 @@ export const useUI = create<UIState>()(
         sortBy: 'renewalDate',
         sortDir: 'asc',
       },
+      renewalsAuditLog: [],
+      renewalsSequence: 0,
 
       // Chat state
       messages: [],
@@ -927,6 +970,19 @@ export const useUI = create<UIState>()(
       pdfNavigationTarget: undefined,
       selectedField: undefined,
       _pendingPolicyAnalysis: new Set(),
+
+      // ✅ FASE 30: Inicialización de Comparación
+      activeComparison: null,
+      comparisonLoading: false,
+      comparisonFilters: {
+        categories: [],
+        onlyDifferences: false,
+        onlyMandatory: false,
+        searchQuery: "",
+      },
+
+      // ✅ FASE 31: Inicialización de selección de análisis
+      selectedAnalysisIds: new Set<string>(),
 
       // Función de validación unificada del brief
       isBriefValid: () => {
@@ -1042,7 +1098,7 @@ export const useUI = create<UIState>()(
           get().addMessage(userAutoMessage);
 
           // Activar sourcing y enviar mensaje automático
-          startSourcing();
+          get().startSourcing();
           await get().sendAutoMessage(autoMessageContent);
 
           return true;
@@ -1593,6 +1649,256 @@ export const useUI = create<UIState>()(
             _cachedFilteredRenewalsView: filteredView, // Update filtered cache
           };
         }),
+
+      // ✅ FASE 30: Implementación de Acciones de Comparación
+      compareAnalyses: async (analysisIds) => {
+        set({ comparisonLoading: true });
+        try {
+          // TODO: FASE 30.2 - Implementar endpoint real
+          // const response = await fetch('/api/comparisons/align', { ... });
+          // const comparison = await response.json();
+
+          // MOCK TEMPORAL para evitar crash
+          const mockComparison: PolicyComparison = {
+            id: `comp-${Date.now()}`,
+            caseId: get().currentCaseId || '',
+            analysisIds,
+            rows: [],
+            alignmentMethod: 'semantic',
+            filters: get().comparisonFilters,
+            createdAt: new Date().toISOString(),
+          };
+
+          set({ activeComparison: mockComparison, comparisonLoading: false });
+          return mockComparison;
+        } catch (error) {
+          console.error('❌ Error comparing analyses:', error);
+          set({ comparisonLoading: false });
+          throw error;
+        }
+      },
+
+      setComparisonFilters: (filters) => {
+        set((state) => ({
+          comparisonFilters: { ...state.comparisonFilters, ...filters }
+        }));
+      },
+
+      loadActiveComparison: async (caseId) => {
+        set({ comparisonLoading: true });
+        try {
+          const response = await fetch(`/api/comparisons?caseId=${caseId}`);
+          if (!response.ok) {
+            if (response.status === 404) {
+              set({ activeComparison: null, comparisonLoading: false });
+              return;
+            }
+            throw new Error("Failed to load comparison");
+          }
+
+          const data = await response.json();
+          if (data.comparison) {
+            set({
+              activeComparison: data.comparison,
+              comparisonLoading: false
+            });
+            // Optional: toast.success("Comparación cargada correctamente");
+          } else {
+            set({ activeComparison: null, comparisonLoading: false });
+          }
+        } catch (error) {
+          console.error("Error loading comparison:", error);
+          toast.error("Error al cargar la comparación guardada");
+          set({ comparisonLoading: false, activeComparison: null });
+        }
+      },
+
+      // ✅ FASE 31: Acciones de Selección de Análisis
+      toggleAnalysisSelection: (analysisId) => {
+        set((state) => {
+          const newSet = new Set(state.selectedAnalysisIds);
+          if (newSet.has(analysisId)) {
+            newSet.delete(analysisId);
+          } else {
+            newSet.add(analysisId);
+          }
+          return { selectedAnalysisIds: newSet };
+        });
+      },
+
+      selectAllAnalyses: () => {
+        const { policyAnalyses } = get();
+        set({ selectedAnalysisIds: new Set(policyAnalyses.map(a => a.id)) });
+      },
+
+      clearAnalysisSelection: () => {
+        set({ selectedAnalysisIds: new Set() });
+      },
+
+      isAnalysisSelected: (analysisId) => {
+        return get().selectedAnalysisIds.has(analysisId);
+      },
+
+      // ✅ FASE 31: Propuesta Generation
+      generateProposal: async (caseId, comparisonId, version = 'client') => {
+        const { selectedAnalysisIds, policyAnalyses } = get();
+        
+        // Use selected analyses, or all if none selected
+        const analysisIdsToUse = selectedAnalysisIds.size > 0 
+          ? Array.from(selectedAnalysisIds)
+          : policyAnalyses.map(a => a.id);
+
+        set({ proposalLoading: true });
+
+        try {
+          const response = await fetch("/api/proposals/generate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              caseId,
+              comparisonId,
+              version,
+              selectedAnalysisIds: analysisIdsToUse,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Failed to generate proposal");
+          }
+
+          const data = await response.json();
+
+          if (data.success && data.proposal) {
+            set({
+              activeProposal: data.proposal,
+              proposalLoading: false,
+            });
+            toast.success("Propuesta generada exitosamente");
+          } else {
+            throw new Error("Invalid response format");
+          }
+        } catch (error: any) {
+          set({ proposalLoading: false });
+          console.error("Error generating proposal:", error);
+          toast.error(`Error al generar propuesta: ${error.message}`);
+        }
+      },
+
+      loadActiveProposal: async (proposalId) => {
+        set({ proposalLoading: true });
+
+        try {
+          const response = await fetch(`/api/proposals/${proposalId}`);
+
+          if (!response.ok) {
+            throw new Error("Failed to load proposal");
+          }
+
+          const data = await response.json();
+
+          if (data.success && data.proposal) {
+            set({
+              activeProposal: data.proposal,
+              proposalLoading: false,
+            });
+          } else {
+            throw new Error("Invalid response format");
+          }
+        } catch (error: any) {
+          set({ proposalLoading: false });
+          console.error("Error loading proposal:", error);
+          toast.error("Error al cargar la propuesta guardada");
+        }
+      },
+
+      loadProposalByCase: async (caseId) => {
+        // Avoid loading if already have a proposal for this case
+        const currentProposal = get().activeProposal;
+        if (currentProposal?.caseId === caseId) {
+          return;
+        }
+
+        set({ proposalLoading: true });
+
+        try {
+          const response = await fetch(`/api/proposals/by-case/${caseId}`);
+
+          if (!response.ok) {
+            throw new Error("Failed to load proposal");
+          }
+
+          const data = await response.json();
+
+          if (data.success) {
+            // proposal can be null if none exists yet
+            set({
+              activeProposal: data.proposal,
+              proposalLoading: false,
+            });
+          } else {
+            throw new Error("Invalid response format");
+          }
+        } catch (error: any) {
+          set({ proposalLoading: false });
+          console.error("Error loading proposal by case:", error);
+          // Don't show error toast - it's okay if no proposal exists yet
+        }
+      },
+
+      exportComparison: async (format) => {
+        // TODO: FASE 30.4 - Implementar endpoint real
+        console.log('Exporting comparison:', format);
+        return new Blob(['Mock PDF Content'], { type: 'application/pdf' });
+      },
+
+      alignCoveragesSemantically: async (caseId, analysisIds) => {
+        set({ comparisonLoading: true });
+
+        try {
+          const response = await fetch("/api/comparisons/align", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              caseId,
+              analysisIds,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || "Failed to align policies");
+          }
+
+          const data = await response.json();
+
+          if (data.success && data.comparison) {
+            set({
+              activeComparison: data.comparison,
+              comparisonLoading: false
+            });
+            toast.success("Comparación generada exitosamente");
+            return data.comparison.rows;
+          } else {
+            throw new Error("Invalid response format");
+          }
+        } catch (error: any) {
+          set({ comparisonLoading: false });
+          console.error("Error aligning policies:", error);
+          toast.error(`Error al generar comparación: ${error.message}`);
+          throw error;
+        }
+      },
+
+      detectCoverageGaps: (comparison) => {
+        // TODO: FASE 30.2 - Implementar lógica real
+        return [];
+      },
+
       fetchRenewals: async () => {
         const { renewalsLoading, renewalsLoaded } = get();
         if (renewalsLoading || renewalsLoaded) {

@@ -284,12 +284,34 @@ export type CaseStatusParsed = z.infer<typeof CaseStatusSchema>;
 // Prisma: employees Int? → number | null en TypeScript
 // CaseBrief: employees?: number | null
 // Por lo tanto, el schema debe aceptar null explícitamente
+//
+// ✅ FASE 29: SINCRONIZACIÓN COMPLETA CON INTERFACE
+// ✅ FASE 31.3: budget_currency alineado con CurrencyCode de types.ts
+// Todos los campos de CaseBrief en types.ts deben estar presentes aquí
 export const CaseBriefSchema = z
   .object({
     businessType: z.string().optional(),
     employees: z.number().nullable().optional(), // ✅ Acepta: number | null | undefined
     coverage: z.string().optional(),
     freeText: z.string().optional(),
+    // ✅ FASE 29: Campos faltantes agregados para sincronización completa
+    clientName: z.string().optional(),
+    selectedClientId: z.string().nullable().optional(),
+    insurance_category: z.string().optional(),
+    max_budget: z.number().nullable().optional(),
+    budget_currency: z.enum(['COP', 'USD', 'MXN', 'EUR']).optional(), // ✅ FASE 31.3: Alineado con CurrencyCode
+    required_coverages: z.array(z.string()).optional(),
+    client_profile: z.string().optional(),
+    tempUploads: z.array(z.object({
+      id: z.string(),
+      storagePath: z.string(),
+      fileName: z.string(),
+      fileSize: z.number(),
+      pageCount: z.number().optional(),
+      charactersExtracted: z.number().optional(),
+      fileHash: z.string().optional(),
+      extractedText: z.string().optional(),
+    })).optional(),
   })
   .strict();
 export type CaseBriefParsed = z.infer<typeof CaseBriefSchema>;
@@ -388,6 +410,17 @@ export const ProposalSelectedPlanSchema = z
   .object({
     planId: z.string(),
     rationaleKey: z.string().optional(),
+    // ✅ Embedded data for self-contained proposals
+    insurerName: z.string().optional(),
+    policyNumber: z.string().optional(),
+    premiumTotal: z.number().optional(),
+    currency: z.string().optional(),
+    coverages: z.array(z.object({
+      name: z.string(),
+      description: z.string().optional(),
+      limitAmount: z.number().optional(),
+    })).optional(),
+    confidence: z.number().optional(),
   })
   .strict();
 export type ProposalSelectedPlanParsed = z.infer<typeof ProposalSelectedPlanSchema>;

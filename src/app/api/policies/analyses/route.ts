@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    console.log(`✅ Caso encontrado: ${caseExists.name}`);
+    console.log(`✅ Caso encontrado: ${caseExists.clientName || caseExists.id}`);
     
     // 4. Get all policy analyses for this case
     const analyses = await prisma.policyAnalysis.findMany({
@@ -94,10 +94,13 @@ export async function GET(request: NextRequest) {
     console.log(`✅ Análisis encontrados: ${analyses.length}`);
     
     if (analyses.length > 0) {
-      console.log(`   Primer análisis: ${analyses[0].id}`);
-      console.log(`   Archivo: ${analyses[0].artifact.fileName}`);
-      console.log(`   Confianza: ${analyses[0].overallConfidence}`);
-      console.log(`   Referencias: ${analyses[0].pageReferences.length}`);
+      const firstAnalysis = analyses[0];
+      if (firstAnalysis) {
+        console.log(`   Primer análisis: ${firstAnalysis.id}`);
+        console.log(`   Archivo: ${firstAnalysis.artifact?.fileName ?? 'N/A'}`);
+        console.log(`   Confianza: ${firstAnalysis.overallConfidence}`);
+        console.log(`   Referencias: ${firstAnalysis.pageReferences?.length ?? 0}`);
+      }
     }
     
     // 5. Success response

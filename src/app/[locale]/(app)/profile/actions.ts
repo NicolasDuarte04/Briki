@@ -86,29 +86,27 @@ export async function updateProfile(
     })
 
     // Preparar datos para actualización/creación con encriptación
+    // ✅ CORRECCIÓN: Tipo alineado con el retorno de funciones de encriptación (Buffer | null)
     const profileData: {
-      name?: Buffer | null | undefined
-      phone?: Buffer | null | undefined
-      address?: Buffer | null | undefined
+      name?: Buffer | null
+      phone?: Buffer | null
+      address?: Buffer | null
       locale?: LocaleValue
     } = {}
 
     if (updates.name !== undefined) {
       // Encriptar name antes de guardarlo
-      const encryptedName = await encryptProfileName(updates.name);
-      profileData.name = encryptedName ?? undefined;
+      profileData.name = await encryptProfileName(updates.name);
     }
 
     if (updates.phone !== undefined) {
       // Encriptar phone antes de guardarlo
-      const encryptedPhone = await encryptProfilePhone(updates.phone);
-      profileData.phone = encryptedPhone ?? undefined;
+      profileData.phone = await encryptProfilePhone(updates.phone);
     }
 
     if (updates.address !== undefined) {
       // Encriptar address antes de guardarlo
-      const encryptedAddress = await encryptProfileAddress(updates.address);
-      profileData.address = encryptedAddress ?? undefined;
+      profileData.address = await encryptProfileAddress(updates.address);
     }
 
     if (updates.locale !== undefined) {
