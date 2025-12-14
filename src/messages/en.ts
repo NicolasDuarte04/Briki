@@ -806,6 +806,12 @@ const en = {
     },
     renewals: {
       title: "Renewals",
+      detect: {
+        button: "Detect",
+        detecting: "Detecting...",
+        tooltip: "Auto-detect renewals from analyzed policies",
+        noAnalyses: "No analyzed policies available",
+      },
       meta: {
         window: {
           "30": "Renewals in 30 days",
@@ -835,6 +841,9 @@ const en = {
         actions: "Actions",
       },
       actions: {
+        compare: "Compare",
+        proposal: "Proposal",
+        generatingProposal: "Generating...",
         requestQuotes: "Request quotes",
         messageClient: "Message client",
         setReminder: "Set reminder",

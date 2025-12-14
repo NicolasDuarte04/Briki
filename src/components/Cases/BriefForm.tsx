@@ -149,8 +149,20 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // ✅ FASE 4: Limpiar formData SIEMPRE cuando currentCaseId cambia a null (navegación a new-thread-placeholder)
   // Los datos de Landing se cargarán después de la limpieza en otro useEffect
   useEffect(() => {
+    console.log('🔍 [BriefForm] Checking reset condition:', { currentCaseId });
     if (!currentCaseId || currentCaseId === 'new-thread-placeholder') {
-      console.log('🧹 [BriefForm] Limpiando formData para new-thread-placeholder (siempre)');
+      console.log('🧹 [BriefForm] RESET TRIGGERED for new-thread-placeholder');
+
+      // ✅ CORRECCIÓN REGRESIÓN: Solo resetear si NO hay consistencia de estado
+      const currentState = useUI.getState();
+      if (!currentState.caseApproved) {
+        useUI.getState().setApprovalPhase('pending');
+        useUI.getState().setCaseApproved(false);
+        console.log('✅ [BriefForm] Approval phase reset to PENDING (Clean Slate)');
+      } else {
+        console.log('⚠️ [BriefForm] NO resetear aprobación: el caso ya está aprobado en localStorage');
+      }
+
       setFormData({
         insurance_category: '',
         max_budget: null,

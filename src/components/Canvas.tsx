@@ -284,15 +284,15 @@ export function Canvas({
   // Stack vertically on small screens
   if (isSmallScreen) {
     return (
-      <div className={cn("flex-1 h-screen flex flex-col gap-y-8 overflow-auto", className)}>
-        <section className="flex h-full flex-col bg-background min-w-0 overflow-auto">
-          <div className={cn("flex h-full flex-1 flex-col gap-6 overflow-auto", innerPadding)}>
+      <div className={cn("flex-1 h-screen flex flex-col gap-y-8 overflow-hidden", className)}>
+        <section className="flex h-full flex-col bg-background min-w-0 overflow-hidden">
+          <div className={cn("flex h-full flex-1 flex-col gap-6 overflow-y-auto", innerPadding)}>
             <div className="flex-1 h-full">{left}</div>
           </div>
         </section>
         {showRight && (
-          <section className="flex h-full flex-col bg-background min-w-0 overflow-auto">
-            <div className={cn("flex h-full flex-1 flex-col gap-6 overflow-auto", innerPadding)}>
+          <section className="flex h-full flex-col bg-background min-w-0 overflow-hidden">
+            <div className={cn("flex h-full flex-1 flex-col gap-6 overflow-y-auto", innerPadding)}>
               <div className="flex-1 h-full">{right}</div>
             </div>
           </section>
@@ -330,20 +330,18 @@ export function Canvas({
     <div
       ref={containerRef}
       className={cn(
-        "flex-1 h-full flex overflow-auto",
+        "flex-1 h-full max-h-full flex overflow-hidden", // ✅ CORRECCIÓN: max-h-full para evitar que crezca más allá del viewport
         isDragging && "select-none",
         className
       )}
       style={containerStyle}
     >
-      {/* Left panel */}
+      {/* Left panel - Chat (ConversationPane maneja su propio scroll) */}
       <section
-        className="flex h-full flex-col bg-background min-w-0 overflow-auto"
+        className="flex h-full flex-col bg-background min-w-0 min-h-0"
         style={leftPanelStyle}
       >
-        <div className={cn("flex h-full flex-1 flex-col gap-6 overflow-auto", innerPadding)}>
-          <div className="flex-1">{left}</div>
-        </div>
+        {left}
       </section>
       
       {showRight && (
@@ -376,13 +374,13 @@ export function Canvas({
             <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-px bg-border/60" />
           </div>
           
-          {/* Right panel */}
+          {/* Right panel - Workspace Tabs (scroll aislado, altura fija al viewport) */}
           <section
-            className="flex h-full flex-col bg-background min-w-0 overflow-auto"
+            className="flex h-full flex-col bg-background min-w-0 overflow-hidden" // ✅ overflow-hidden para aislar
             style={rightPanelStyle}
           >
-            <div className={cn("flex h-full flex-1 flex-col gap-6 overflow-auto", innerPadding)}>
-              <div className="flex-1">{right}</div>
+            <div className={cn("flex h-full flex-col gap-6 overflow-y-auto", innerPadding)}>
+              <div className="h-full">{right}</div>
             </div>
           </section>
         </>

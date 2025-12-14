@@ -645,6 +645,13 @@ const es = {
         defaultRationale: "Equilibra cobertura, red y precio para esta etapa del cliente.",
         countLabel: "{count, plural, one {# plan incluido} other {# planes incluidos}}",
         emptyState: "Preselecciona planes para ver la propuesta.",
+        rationale: {
+          client: {
+            plan1: "Opción equilibrada con buena cobertura.",
+            plan2: "Alternativa económica recomendada.",
+            plan3: "Máxima cobertura para ejecutivos."
+          }
+        }
       },
       plans: {
         scoreLabel: "Puntaje {value}",
@@ -806,6 +813,12 @@ const es = {
     },
     renewals: {
       title: "Renovaciones",
+      detect: {
+        button: "Detectar",
+        detecting: "Detectando...",
+        tooltip: "Detectar renovaciones automáticamente desde pólizas analizadas",
+        noAnalyses: "No hay pólizas analizadas disponibles",
+      },
       meta: {
         window: {
           "30": "Renovaciones en 30 días",
@@ -835,6 +848,9 @@ const es = {
         actions: "Acciones",
       },
       actions: {
+        compare: "Comparar",
+        proposal: "Propuesta",
+        generatingProposal: "Generando...",
         requestQuotes: "Solicitar cotizaciones",
         messageClient: "Enviar mensaje al cliente",
         setReminder: "Programar recordatorio",

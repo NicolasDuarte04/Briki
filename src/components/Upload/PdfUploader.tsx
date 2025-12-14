@@ -55,35 +55,49 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
   const effectiveOnUploadComplete = !caseId && onUploadComplete ? wrappedOnUploadComplete : onUploadComplete;
   
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    if (acceptedFiles.length > 0) {
-      // ✅ CORRECCIÓN: Type guard explícito para el archivo
-      // Aunque react-dropzone garantiza que acceptedFiles[0] existe cuando length > 0,
-      // TypeScript no puede inferir esta garantía desde el análisis estático.
-      // Este check asegura type-safety completo y previene errores en casos edge.
-      const file = acceptedFiles[0];
-      if (!file) return; // Safety check (nunca debería ocurrir con validación de length)
-      
-      // ✅ Ahora TypeScript sabe que file es definitivamente File, no undefined
-      
-      // Validar tamaño (máximo 10MB)
+    if (acceptedFiles.length === 0) return;
+    
+    // ✅ CORRECCIÓN: Procesar TODOS los archivos seleccionados
+    // Filtrar archivos que excedan el límite de tamaño
+    const validFiles: File[] = [];
+    const oversizedFiles: string[] = [];
+    
+    for (const file of acceptedFiles) {
       if (file.size > 10 * 1024 * 1024) {
-        setError('El archivo es demasiado grande. Máximo 10MB.');
-        return;
+        oversizedFiles.push(file.name);
+      } else {
+        validFiles.push(file);
       }
-      
-      setSelectedFile(file);
-      setError(null);
-      setUploadResult(null);
-      setSuccessMessage(null);
-      
-      // ✅ CORRECCIÓN: Si no hay caseId, usar tempUploads (modo edición o creación)
-      // En modo edición, siempre usar tempUploads (no crear artifacts directamente)
-      if (!caseId && onFileSelected) {
-        // Llamar a onFileSelected de forma asíncrona para que BriefForm maneje el upload
-        // onUploadComplete se llamará cuando el upload termine exitosamente
+    }
+    
+    // Mostrar error si hay archivos demasiado grandes
+    if (oversizedFiles.length > 0) {
+      setError(`Archivos muy grandes (máx 10MB): ${oversizedFiles.join(', ')}`);
+    }
+    
+    if (validFiles.length === 0) return;
+    
+    setError(null);
+    setUploadResult(null);
+    setSuccessMessage(null);
+    
+    // ✅ CORRECCIÓN: Si no hay caseId, usar tempUploads (modo edición o creación)
+    // Procesar cada archivo válido
+    if (!caseId && onFileSelected) {
+      // Llamar a onFileSelected para CADA archivo
+      // BriefForm manejará los uploads en paralelo
+      for (const file of validFiles) {
+        console.log('📄 [PdfUploader] Enviando archivo a BriefForm:', file.name);
         onFileSelected(file);
-        return; // No hacer upload aquí, BriefForm manejará el upload
       }
+      return; // No hacer upload aquí, BriefForm manejará los uploads
+    }
+    
+    // Si hay caseId (modo directo), solo procesar el primer archivo
+    // (el upload directo solo soporta un archivo a la vez por ahora)
+    const file = validFiles[0];
+    if (file) {
+      setSelectedFile(file);
     }
   }, [caseId, onFileSelected]);
   
@@ -92,7 +106,8 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
     accept: {
       'application/pdf': ['.pdf']
     },
-    maxFiles: 1,
+    maxFiles: 10, // ✅ Permitir hasta 10 PDFs simultáneos
+    multiple: true, // ✅ Habilitar selección múltiple
     disabled: uploading
   });
   

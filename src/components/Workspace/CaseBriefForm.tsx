@@ -33,14 +33,18 @@ interface CaseBriefFormProps {
     activeCaseData?: CaseData | null; // ✅ FASE 1: Recibir activeCaseData para detectar casos históricos
     onEditComplete?: () => void; // ✅ CORRECCIÓN: Callback para volver al resumen después de guardar
     isEditingMode?: boolean; // ✅ CORRECCIÓN: Prop para forzar modo edición desde WorkspaceTabs
+    orgId?: string; // ✅ CORRECCIÓN: orgId desde SSR para evitar race condition en PdfUploader
 }
 
-export default function CaseBriefForm({ initialData, activeCaseData, onEditComplete, isEditingMode = false }: CaseBriefFormProps = {}) {
+export default function CaseBriefForm({ initialData, activeCaseData, onEditComplete, isEditingMode = false, orgId: propOrgId }: CaseBriefFormProps = {}) {
     const router = useRouter();
     const { brief, setBrief, currentCaseId, approveCurrentCase, caseApproving, caseApproved, setCaseApproved, setInitialMessage } = useUI();
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [orgId, setOrgId] = useState<string | null>(null); // ✅ Estado para orgId
+    const [fetchedOrgId, setFetchedOrgId] = useState<string | null>(null); // ✅ Estado para orgId (fallback)
     const t = useTranslations("workspace.caseBrief");
+    
+    // ✅ CORRECCIÓN: Usar propOrgId si está disponible, sino usar fetchedOrgId
+    const orgId = propOrgId || fetchedOrgId;
 
     // ✅ FASE 6: Hook para validación de clientes con modal (unificado con BriefForm)
     const { validateAndResolveClient, isLoading: isClientValidationLoading, modalState, setModalState } = useClientValidation(true);
@@ -75,22 +79,28 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
         return false;
     }, [currentCaseId, activeCaseData, isEditingMode]);
 
-    // ✅ Obtener orgId al montar el componente
+    // ✅ CORRECCIÓN: Solo obtener orgId si no viene por props (fallback)
     useEffect(() => {
+        // Si ya tenemos orgId por props, no hacer fetch
+        if (propOrgId) {
+            console.log('✅ [CaseBriefForm] orgId recibido por props (SSR):', propOrgId);
+            return;
+        }
+        
         const fetchOrgId = async () => {
             try {
                 const response = await fetch('/api/auth/me');
                 if (response.ok) {
                     const { orgId } = await response.json();
-                    console.log('✅ [CaseBriefForm] orgId obtenido:', orgId);
-                    setOrgId(orgId);
+                    console.log('✅ [CaseBriefForm] orgId obtenido por fetch (fallback):', orgId);
+                    setFetchedOrgId(orgId);
                 }
             } catch (error) {
                 console.error("❌ [CaseBriefForm] Error fetching orgId for PdfUploader:", error);
             }
         };
         fetchOrgId();
-    }, []);
+    }, [propOrgId]);
 
     // ✅ FASE 3: Cargar TODA la información desde activeCaseData
     useEffect(() => {

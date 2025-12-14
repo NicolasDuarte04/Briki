@@ -19,6 +19,14 @@ import type {
   ProvenanceParsed,
   RiderParsed,
   RenewalRecordParsed,
+  // ✅ FASE RENOVACIONES: Nuevos tipos
+  RenewalFullParsed,
+  RenewalHistoryParsed,
+  RenewalAlertParsed,
+  RenewalProcessStatusParsed,
+  RenewalWindowStatusParsed,
+  RenewalAlertTypeParsed,
+  AlertSeverityParsed,
 } from "./validation";
 
 // ============================================================================
@@ -316,43 +324,128 @@ export type ProposalMathCheck = ProposalMathCheckParsed;
 export type BrokerProfile = BrokerProfileParsed;
 
 /**
- * Represents a renewal record
+ * Represents a renewal record (legacy - used by current mock UI)
  */
 export type RenewalRecord = RenewalRecordParsed;
+
+// ============================================================================
+// ✅ FASE RENOVACIONES: Tipos completos para sistema de renovaciones
+// ============================================================================
+
+/**
+ * Represents the process status of a renewal
+ */
+export type RenewalProcessStatus = RenewalProcessStatusParsed;
+
+/**
+ * Represents the urgency window status (ok, dueSoon, overdue)
+ */
+export type RenewalWindowStatus = RenewalWindowStatusParsed;
+
+/**
+ * Represents a full renewal from the database with all fields
+ */
+export type RenewalFull = RenewalFullParsed;
+
+/**
+ * Represents a historical record of a renewal period
+ */
+export type RenewalHistory = RenewalHistoryParsed;
+
+/**
+ * Represents an alert for a renewal
+ */
+export type RenewalAlert = RenewalAlertParsed;
+
+/**
+ * Represents the type of renewal alert
+ */
+export type RenewalAlertType = RenewalAlertTypeParsed;
+
+/**
+ * Represents alert severity levels
+ */
+export type AlertSeverity = AlertSeverityParsed;
+
+/**
+ * Changes detected between renewal periods
+ */
+export interface RenewalChanges {
+  premiumChange?: number; // Percentage
+  coveragesAdded?: string[];
+  coveragesRemoved?: string[];
+  deductibleChange?: number; // Percentage
+}
+
+/**
+ * Extended filters for renewals including process status
+ */
+export interface RenewalFiltersExtended {
+  windowDays: RenewalWindowDays;
+  carriers: string[];
+  statuses: RenewalWindowStatus[];
+  processStatuses?: RenewalProcessStatus[];
+  premiumChangeMin?: number; // Percentage
+  premiumChangeMax?: number; // Percentage
+  hasProposal?: boolean;
+  hasReminder?: boolean;
+}
 
 /**
  * Represents export format options for proposals
  */
 export type ProposalExportFormat = 'pdf' | 'excel' | 'json';
-
-/**
- * Represents a generated proposal for clients or insurers
- */
 export interface GeneratedProposal {
-  /** Unique identifier */
   id: string;
-  /** Associated case ID */
   caseId: string;
-  /** Optional comparison ID that generated this proposal */
-  comparisonId?: string | null;
-  /** Proposal version type */
+  comparisonId?: string;
   version: 'client' | 'technical';
-  /** Proposal content structure */
-  content: {
-    brokerProfile: BrokerProfile;
-    selectedPlans: ProposalSelectedPlan[];
-    disclosuresKeys: string[];
-    mathCheck?: ProposalMathCheck;
-    customNotes?: string;
-    shareUrl?: string;
-    generatedOn: string;
-    comparisonSummary?: unknown;
-  };
-  /** Creation timestamp in ISO format */
+  content: any; // JSONB
+  status: 'draft' | 'final' | 'sent';
   createdAt: string;
-  /** Last update timestamp in ISO format */
+  updatedAt: string;
+  userId: string;
+  orgId: string;
+}
+
+// ✅ FASE 32: Compliance Support
+export interface ComplianceRecord {
+  id: string;
+  caseId: string;
+  jurisdiction: JurisdictionCode;
+  insuranceType?: string;
+  checklistData: Record<string, { checked: boolean; verifiedBy?: string }>;
+  kycStatus?: "pending" | "verified" | "failed";
+  kycVerifiedAt?: string;
+  validatedDates?: Record<string, string>;
+  createdAt: string;
   updatedAt: string;
 }
+
+export type ComplianceAuditEventType =
+  | "RecordCreated"
+  | "RecordUpdated"
+  | "ItemChecked"
+  | "ItemUnchecked"
+  | "KYCVerified"
+  | "KYCFailed"
+  | "DatesValidated"
+  | "SendAttempt"
+  | "SendBlocked"
+  | "SendSuccess"
+  | "ReportGenerated";
+
+export interface ComplianceAuditEvent {
+  id: string;
+  recordId: string;
+  eventType: ComplianceAuditEventType;
+  itemId?: string;
+  documentId?: string;
+  userId: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
 
 /**
  * Represents a comparison playbook configuration
@@ -725,4 +818,26 @@ export interface ComparisonExport {
   includeReferences: boolean;
   /** Versión (cliente o técnica) */
   version: 'client' | 'technical';
+}
+
+// ✅ FASE 40: Renewal Process
+export interface RenewalProcess {
+  id: string;
+  caseId: string;
+  previousCaseId: string | null;
+  status: string; // 'pending' | 'quoted' | 'bound' | 'lost'
+  renewalDate: string; // ISO Date
+  reminderDate: string | null;
+  premiumDelta: {
+    current: number;
+    previous: number;
+    pct: number;
+  } | null;
+  coverageChanges: Array<{
+    field: string;
+    from: string;
+    to: string;
+  }> | null;
+  createdAt: string;
+  updatedAt: string;
 }

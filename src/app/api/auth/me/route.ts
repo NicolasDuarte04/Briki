@@ -14,25 +14,56 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Obtener la organización del usuario con su rol
-    const { data: membership } = await supabase
+    // ✅ CORRECCIÓN: Obtener TODAS las membresías del usuario (soporta multi-org)
+    const { data: memberships, error: membershipError } = await supabase
       .from('org_members')
       .select('org_id, role')
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', user.id);
     
-    if (!membership) {
+    if (membershipError) {
+      console.error('Error fetching memberships:', membershipError);
+      return NextResponse.json(
+        { error: 'Failed to fetch organization memberships' },
+        { status: 500 }
+      );
+    }
+    
+    if (!memberships || memberships.length === 0) {
       return NextResponse.json(
         { error: 'User is not a member of any organization' },
         { status: 404 }
       );
     }
     
+    // ✅ Leer preferencia de organización activa (igual que getCurrentOrg.ts)
+    let activeOrgId: string | null = null;
+    try {
+      const { data: preferences } = await supabase
+        .from('user_preferences')
+        .select('active_org_id')
+        .eq('user_id', user.id)
+        .single();
+      
+      activeOrgId = preferences?.active_org_id || null;
+    } catch {
+      // Sin preferencias, usar fallback
+    }
+    
+    // ✅ Seleccionar membresía: activa preferida o primera disponible
+    let selectedMembership = memberships[0];
+    
+    if (activeOrgId) {
+      const activeMembership = memberships.find(m => m.org_id === activeOrgId);
+      if (activeMembership) {
+        selectedMembership = activeMembership;
+      }
+    }
+    
     return NextResponse.json({
       userId: user.id,
-      orgId: membership.org_id,
+      orgId: selectedMembership.org_id,
       email: user.email,
-      role: membership.role, // ✅ Incluir rol (admin, owner, member)
+      role: selectedMembership.role, // ✅ Incluir rol (admin, owner, member)
     });
     
   } catch (error) {

@@ -17,13 +17,24 @@ export default async function AgentThreadPage({
     const { currentOrg } = await getCurrentOrg(); // Asegurar autenticación
     const { threadId, locale } = await params;
     
+    // 🔍 DEBUG: Log en Server Component
+    console.log('🔍 [AgentThreadPage] SSR - Renderizando:', {
+        threadId,
+        locale,
+        orgId: currentOrg.id,
+    });
+
     const hasAccess = await validateThreadAccess(threadId, currentOrg.id);
 
     if (!hasAccess) {
         notFound();
     }
 
+    // 🔍 DEBUG: Justo antes de retornar el componente
+    console.log('🔍 [AgentThreadPage] SSR - Retornando HomeClient JSX');
+
     // Renderizar HomeClient con el hilo específico
     // El mensaje inicial se maneja dentro de HomeClient
-    return <HomeClient initialStep="conversation" threadId={threadId} />;
+    // ✅ CORRECCIÓN: Pasar orgId desde SSR para evitar race condition en PdfUploader
+    return <HomeClient initialStep="conversation" threadId={threadId} orgId={currentOrg.id} />;
 }

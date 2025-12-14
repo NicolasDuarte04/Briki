@@ -10,7 +10,7 @@ import { formatDate, formatMoney } from "@/lib/format";
 import { useUI } from "@/lib/ui/state";
 import { type CaseBrief, type CurrencyCode, type Money, type Policy, type Proposal, type ProposalSelectedPlan } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, FileText } from "lucide-react";
 
 const PROPOSAL_PREFIX = "workspace.proposal.";
 
@@ -25,6 +25,28 @@ interface EmbeddedPlanSummary {
   confidence: number;
   fileName?: string;
   rationale: string;
+}
+
+function EmptyProposalState() {
+  const t = useTranslations("workspace.proposal");
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-4 p-8 border-2 border-dashed rounded-xl bg-muted/10">
+      <FileText className="h-16 w-16 text-muted-foreground/50" />
+      <h3 className="text-xl font-semibold">No hay propuesta generada</h3>
+      <p className="text-muted-foreground text-center max-w-md">
+        Genera una comparación primero, y luego crea una propuesta desde el tab de Comparaciones.
+      </p>
+      <Button
+        variant="outline"
+        onClick={() => {
+          const setActiveTab = useUI.getState().setActiveTab;
+          setActiveTab('comparisons');
+        }}
+      >
+        Ir a Comparaciones
+      </Button>
+    </div>
+  );
 }
 
 export default function Proposal() {
@@ -54,12 +76,30 @@ export default function Proposal() {
   }, [currentCaseId, activeProposal, loadProposalByCase]);
 
   // Derived values with fallback logic
-  const brokerProfile = activeProposal?.content.brokerProfile ?? legacyBrokerProfile;
-  const selectedPlans = activeProposal?.content.selectedPlans ?? legacySelectedPlans;
-  const disclosuresKeys = activeProposal?.content.disclosuresKeys ?? legacyDisclosuresKeys;
-  const mathCheck = activeProposal?.content.mathCheck ?? legacyMathCheck;
-  const shareUrl = activeProposal?.content.shareUrl ?? legacyShareUrl;
-  const generatedOn = activeProposal?.content.generatedOn ?? legacyGeneratedOn;
+  // Derived values with defensive fallback logic
+  const brokerProfile = activeProposal?.content.brokerProfile
+    ?? legacyBrokerProfile
+    ?? { agency: "", phone: null, email: null };
+
+  const selectedPlans = activeProposal?.content.selectedPlans
+    ?? legacySelectedPlans
+    ?? [];
+
+  const disclosuresKeys = activeProposal?.content.disclosuresKeys
+    ?? legacyDisclosuresKeys
+    ?? [];
+
+  const mathCheck = activeProposal?.content.mathCheck
+    ?? legacyMathCheck
+    ?? { passed: false, messageKey: "" };
+
+  const shareUrl = activeProposal?.content.shareUrl
+    ?? legacyShareUrl
+    ?? "";
+
+  const generatedOn = activeProposal?.content.generatedOn
+    ?? legacyGeneratedOn
+    ?? null;
 
   const loading = useUI((state) => state.proposalLoading);
   const [feedback, setFeedback] = useState<
@@ -94,7 +134,7 @@ export default function Proposal() {
       .map((selection: any) => {
         // Use embedded data if available, otherwise create minimal fallback
         const rationaleKey = normalizeKey(selection.rationaleKey);
-        
+
         return {
           planId: selection.planId,
           insurerName: selection.insurerName || 'Aseguradora',
@@ -126,7 +166,7 @@ export default function Proposal() {
     const maxPremium = Math.max(...premiums);
     const avgPremium = premiums.reduce((a, b) => a + b, 0) / premiums.length;
 
-    const premiumRange = minPremium === maxPremium 
+    const premiumRange = minPremium === maxPremium
       ? formatMoney({ amountMinor: minPremium * 100, currency: currency as CurrencyCode }, { locale })
       : `${formatMoney({ amountMinor: minPremium * 100, currency: currency as CurrencyCode }, { locale })} - ${formatMoney({ amountMinor: maxPremium * 100, currency: currency as CurrencyCode }, { locale })}`;
 
@@ -140,8 +180,8 @@ export default function Proposal() {
   }, [locale, planSummaries, t]);
 
   const normalizedDisclosures = disclosuresKeys
-    .map((key) => normalizeKey(key))
-    .filter((key): key is string => Boolean(key));
+    .map((key: string) => normalizeKey(key))
+    .filter((key: string | undefined): key is string => Boolean(key));
 
   const mathMessageKey = normalizeKey(mathCheck.messageKey);
 
@@ -336,7 +376,7 @@ export default function Proposal() {
               {t("disclosures.title")}
             </h2>
             <ul className="space-y-2 text-sm text-muted-foreground/90">
-              {normalizedDisclosures.map((key) => (
+              {normalizedDisclosures.map((key: string) => (
                 <li key={key} className="flex items-start gap-2">
                   <span aria-hidden className="mt-1 inline-block size-1.5 rounded-full bg-muted-foreground/40" />
                   <span>{t(key)}</span>

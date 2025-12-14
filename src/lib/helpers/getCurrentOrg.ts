@@ -117,8 +117,37 @@ export async function getCurrentOrg() {
             redirect('/onboarding/organization');
         }
 
-        // El tipo de `getUserOrganizations` devuelve un array de `org_members` que incluye `organizations`
-        const currentOrg = (organizations[0] as any)?.organizations;
+        // ✅ CORRECCIÓN CRÍTICA: Leer preferencia de organización activa del usuario
+        // La función switch_organization guarda en user_preferences.active_org_id
+        let activeOrgId: string | null = null;
+        try {
+            const { data: preferences } = await supabase
+                .from('user_preferences')
+                .select('active_org_id')
+                .eq('user_id', user.id)
+                .single();
+            
+            activeOrgId = preferences?.active_org_id || null;
+        } catch (prefError) {
+            // Si no hay preferencias guardadas, usar fallback
+            console.warn('No user preferences found, using default organization');
+        }
+
+        // Buscar la organización activa en el array de membresías
+        let currentOrg;
+        
+        if (activeOrgId) {
+            // Buscar la org preferida del usuario
+            const activeOrgMembership = organizations.find(
+                (m: any) => m.organizations?.id === activeOrgId
+            );
+            currentOrg = (activeOrgMembership as any)?.organizations;
+        }
+        
+        // Fallback: Si no hay preferencia o la org ya no es válida, usar la primera
+        if (!currentOrg) {
+            currentOrg = (organizations[0] as any)?.organizations;
+        }
 
         if (!currentOrg) {
             console.error("Organization data is missing in the membership object.");

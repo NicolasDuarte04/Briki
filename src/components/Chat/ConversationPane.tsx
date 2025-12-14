@@ -43,11 +43,28 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const areApprovalButtonsEnabled = useUI((state: UIState) => state.areApprovalButtonsEnabled);
   const approvalPhase = useUI((state: UIState) => state.approvalPhase);
 
+  // Debug logging for button visibility
+
+
   const briefingCase = useUI((state: UIState) => state.briefingCase);
   // ✅ CORRECCIÓN CRÍTICA: Usar selectores individuales para evitar loops infinitos
   // NO usar ({...}) porque crea un nuevo objeto en cada render
   const currentCaseId = useUI((state: UIState) => state.currentCaseId);
   const setCurrentCaseId = useUI((state: UIState) => state.setCurrentCaseId);
+
+  // Debug logging for button visibility (MOVED HERE to avoid ReferenceError)
+  useEffect(() => {
+    // Solo loguear si estamos en un caso o new-thread-placeholder
+    if (currentCaseId) {
+      console.log('🔍 [ConversationPane] State update:', {
+        approvalPhase,
+        shouldShow: shouldShowApprovalButtons(),
+        enabled: areApprovalButtonsEnabled(),
+        category: brief?.insurance_category,
+        currentCaseId
+      });
+    }
+  }, [approvalPhase, brief?.insurance_category, currentCaseId, shouldShowApprovalButtons, areApprovalButtonsEnabled]);
 
   // Usar estado global de mensajes
   const messages = useUI((state: UIState) => state.messages);
@@ -217,12 +234,12 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     (behavior: ScrollBehavior = "smooth") => {
       const container = scrollContainerRef.current;
       if (!container) return;
-      const sentinel = bottomSentinelRef.current;
-      if (sentinel && typeof sentinel.scrollIntoView === "function") {
-        sentinel.scrollIntoView({ behavior, block: "end" });
-      } else {
-        container.scrollTo({ top: container.scrollHeight, behavior });
-      }
+      // ✅ CORRECCIÓN: Usar scrollTo directamente en el contenedor en lugar de scrollIntoView
+      // Esto previene la propagación de scroll hacia ancestros
+      container.scrollTo({ 
+        top: container.scrollHeight, 
+        behavior 
+      });
       shouldStickToBottomRef.current = true;
     },
     []
@@ -929,15 +946,15 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   }
 
   return (
-    <div className={cn("h-full flex flex-col", className)}>
-      <div className="relative flex-1 flex flex-col">
+    <div className={cn("h-full flex flex-col min-h-0", className)}>
+      <div className="relative flex-1 flex flex-col min-h-0">
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
           role="log"
           aria-live="polite"
           aria-relevant="additions"
-          className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
+          className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-0"
         >
           <div ref={contentRef} className="space-y-4">
             {/* ✅ CORRECCIÓN: Calcular el índice del primer mensaje del agente una sola vez */}

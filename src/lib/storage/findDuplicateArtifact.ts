@@ -60,7 +60,8 @@ export async function findDuplicateArtifact(
     
     // Si se especifica excludeCaseId, excluir artifacts de ese caso
     if (excludeCaseId) {
-      query += ` AND case_id != $2`;
+      // ✅ CORRECCIÓN: Cast explícito a UUID para evitar error 'operator does not exist: uuid <> text'
+      query += ` AND case_id != $2::uuid`;
       params.push(excludeCaseId);
     }
     

@@ -30,21 +30,42 @@ export async function GET(
             );
         }
 
-        // Get user's org_id
-        const { data: orgMember } = await supabase
+        // ✅ CORRECCIÓN: Obtener TODAS las membresías del usuario (soporta multi-org)
+        const { data: memberships, error: membershipError } = await supabase
             .from("org_members")
             .select("org_id")
-            .eq("user_id", user.id)
-            .single();
+            .eq("user_id", user.id);
 
-        if (!orgMember) {
+        if (membershipError || !memberships || memberships.length === 0) {
             return NextResponse.json(
                 { success: false, message: "User not associated with any organization" },
                 { status: 403 }
             );
         }
 
-        const orgId = orgMember.org_id;
+        // ✅ Leer preferencia de organización activa
+        let activeOrgId: string | null = null;
+        try {
+            const { data: preferences } = await supabase
+                .from("user_preferences")
+                .select("active_org_id")
+                .eq("user_id", user.id)
+                .single();
+            activeOrgId = preferences?.active_org_id || null;
+        } catch {
+            // Sin preferencias, usar fallback
+        }
+
+        // ✅ Seleccionar membresía: activa preferida o primera disponible
+        let selectedMembership = memberships[0];
+        if (activeOrgId) {
+            const activeMembership = memberships.find(m => m.org_id === activeOrgId);
+            if (activeMembership) {
+                selectedMembership = activeMembership;
+            }
+        }
+
+        const orgId = selectedMembership.org_id;
 
         // Fetch latest proposal for this case
         const proposal = await prisma.generatedProposal.findFirst({

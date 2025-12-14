@@ -25,13 +25,22 @@ const ConversationPane = dynamic(() => import("@/components/Chat/ConversationPan
 interface HomeClientProps {
   initialStep?: UIStep;
   threadId?: string;
+  orgId?: string; // ✅ CORRECCIÓN: orgId desde SSR para evitar race condition
 }
 
-export default function HomeClient({ initialStep = "landing", threadId }: HomeClientProps) {
+export default function HomeClient({ initialStep = "landing", threadId, orgId }: HomeClientProps) {
+  // 🔍 DEBUG: Log al inicio del componente
+  console.log('🔍 [HomeClient] INICIO - Props recibidas:', {
+    initialStep,
+    threadId,
+    orgId,
+    timestamp: new Date().toISOString(),
+  });
+
   const initializedRef = useRef(false);
   const pathname = usePathname(); // ✅ FASE 2: Obtener pathname para verificación de ruta
   // ✅ FASE 3: Agregar landingDataPending para detectar origen desde LandingPage
-  const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage, currentCaseId, setCurrentCaseId, setMessages, setBrief, landingDataPending } = useUI();
+  const { step, rightOpen, toggleRightPanel, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage, currentCaseId, setCurrentCaseId, setMessages, setBrief, landingDataPending } = useUI();
   // Usar el valor del store como fuente de verdad para la lógica de renderizado
   const currentStep = step; // Leer siempre desde Zustand después de la sincronización
 
@@ -307,7 +316,7 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
     <div className="h-dvh min-h-0 w-full flex flex-col overflow-auto">
       <Hotkeys
         primaryAction={primaryAction}
-        onToggleRightPanel={toggleRight}
+        onToggleRightPanel={toggleRightPanel}
         onSetStep={(index) => {
           const next = steps[index - 1];
           if (next) setStep(next);
@@ -391,13 +400,14 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
               </motion.div>
             </div>
           ) : (
-            <div className="relative z-10 flex flex-1 flex-col bg-background min-h-0 overflow-auto">
+            <div className="relative z-10 flex flex-1 flex-col bg-background min-h-0 h-full overflow-hidden">
               <motion.div
                 key="conversation"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
+                className="flex-1 flex flex-col min-h-0 h-full"
               >
                 {/* Solo mostrar Canvas para steps que requieren el panel izquierdo */}
                 {(currentStep === "conversation" || currentStep === "compliance" || currentStep === "sourcing") ? (
@@ -427,7 +437,7 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
                             {/* Panel de Tabs: Siempre visible en este flujo */}
                             <div className="flex-1 min-h-0 overflow-y-auto">
                               {/* WorkspaceTabs necesita acceso al caseId actual, asegúrate que lo reciba */}
-                              <WorkspaceTabs />
+                              <WorkspaceTabs {...(orgId && { orgId })} />
                             </div>
                           </div>
                         );

@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslations } from "next-intl";
 import { useUI } from "@/lib/ui/state";
 import { ComplianceGate } from "./ComplianceGate";
+import ComplianceModal from "./ComplianceModal";
 import CaseBrief from "./CaseBrief";
 import CaseBriefForm from "./CaseBriefForm";
 import { CaseSummary } from "./CaseSummary";
@@ -93,10 +94,22 @@ interface CaseData {
   artifacts?: any[];
 }
 
-export function WorkspaceTabs() {
+interface WorkspaceTabsProps {
+  orgId?: string | undefined; // ✅ CORRECCIÓN: orgId desde SSR para evitar race condition en PdfUploader
+}
+
+export function WorkspaceTabs({ orgId }: WorkspaceTabsProps = {}) {
   const t = useTranslations("workspace.tabs");
   const { caseApproved, brief, setCaseApproved, currentCaseId } = useUI();
   const fetchPolicyAnalyses = useUI(s => s.fetchPolicyAnalyses); // ✅ FASE 5
+  // ✅ FASE 32: Compliance
+  const loadComplianceRecord = useUI(s => s.loadComplianceRecord);
+  const hydrateComplianceDatesFromPolicies = useUI(s => s.hydrateComplianceDatesFromPolicies); // ✅ Auto-hidratar fechas
+  // ✅ FASE 4 RENOVACIONES: Cargar renovaciones reales
+  const fetchRenewals = useUI(s => s.fetchRenewals);
+  // ✅ FASE 38: Load historical comparisons and proposals
+  const loadActiveComparison = useUI(s => s.loadActiveComparison);
+  const loadProposalByCase = useUI(s => s.loadProposalByCase);
   const [activeCaseData, setActiveCaseData] = useState<CaseData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   // ✅ CORRECCIÓN: Estado local para forzar modo edición sin afectar caseApproved
@@ -119,6 +132,29 @@ export function WorkspaceTabs() {
     setIsEditingMode(false);
   }, [currentCaseId]);
 
+  // ✅ FASE 32 CORREGIDA: Lazy loading de compliance - solo cargar cuando el tab está activo
+  // Esto evita errores 500 para casos nuevos que aún no tienen registro de compliance
+  useEffect(() => {
+    if (activeTab === 'compliance' && currentCaseId && currentCaseId !== 'new-thread-placeholder') {
+      loadComplianceRecord(currentCaseId).catch(error => {
+        // Solo loguear si es un error real, no si es un caso nuevo sin compliance
+        console.warn('⚠️ [WorkspaceTabs] Error fetching compliance record (puede ser normal para casos nuevos):', error);
+      });
+      // ✅ Auto-hidratar fechas de vigencia desde pólizas analizadas
+      hydrateComplianceDatesFromPolicies();
+    }
+  }, [activeTab, currentCaseId, loadComplianceRecord, hydrateComplianceDatesFromPolicies]);
+
+  // ✅ FASE 4 RENOVACIONES: Cargar renovaciones cuando cambia el caso
+  useEffect(() => {
+    if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
+      console.log('📋 [WorkspaceTabs] Loading renewals for case:', currentCaseId);
+      fetchRenewals(currentCaseId).catch(error => {
+        console.error('❌ [WorkspaceTabs] Error fetching renewals:', error);
+      });
+    }
+  }, [currentCaseId, fetchRenewals]);
+
   // ✅ FASE 5: Cargar análisis de pólizas cuando cambia el caso
   useEffect(() => {
     if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
@@ -128,6 +164,24 @@ export function WorkspaceTabs() {
       });
     }
   }, [currentCaseId, fetchPolicyAnalyses]);
+
+  // ✅ FASE 38: Cargar comparación histórica cuando cambia el caso
+  useEffect(() => {
+    if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
+      loadActiveComparison(currentCaseId).catch(error => {
+        console.error('❌ [WorkspaceTabs] Error fetching comparison:', error);
+      });
+    }
+  }, [currentCaseId, loadActiveComparison]);
+
+  // ✅ FASE 38: Cargar propuesta histórica cuando cambia el caso
+  useEffect(() => {
+    if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
+      loadProposalByCase(currentCaseId).catch(error => {
+        console.error('❌ [WorkspaceTabs] Error fetching proposal:', error);
+      });
+    }
+  }, [currentCaseId, loadProposalByCase]);
 
   // ✅ FASE 6B: Auto-análisis de la primera póliza (Trigger Estructurado)
   // Si el caso está aprobado, tiene artifacts, pero NO tiene análisis estructurados,
@@ -183,26 +237,27 @@ export function WorkspaceTabs() {
               setActiveCaseData(caseData);
               console.log(`✅ [WorkspaceTabs] Cargados datos del caso ${currentCaseId}`);
 
-              // ✅ CORRECCIÓN: Sincronizar caseApproved y resetear caseApproving cuando se carga caso desde BD
-              // IMPORTANTE: NO resetear caseApproved a false si ya está en true (evita condiciones de carrera)
-              useUI.setState({ caseApproving: false });
-
+              // ✅ CORRECCIÓN CRÍTICA: Sincronizar estados SIN resetear caseApproved si ya está en true
+              // Esto evita el "flickering" de botones durante navegación
+              const currentCaseApproved = useUI.getState().caseApproved;
+              
+              // ✅ REGLA FUNDAMENTAL: caseApproved = true es DEFINITIVO para esta sesión de caso
+              // Una vez aprobado, NUNCA debe volver a false (evita re-aparición de botones)
+              const finalCaseApproved = currentCaseApproved === true 
+                ? true  // Preservar si ya estaba aprobado
+                : (caseData.status === 'active');  // Solo de BD si no estaba aprobado
+              
+              useUI.setState({ 
+                caseApproving: false,
+                caseApproved: finalCaseApproved
+              });
+              
               if (caseData.status === 'active') {
-                // ✅ CORRECCIÓN CRÍTICA: Si el caso está activo, caseApproved DEBE ser true y NUNCA puede volverse false
-                // Esto es una regla de negocio: casos activos siempre están aprobados
-                setCaseApproved(true);
-                console.log('✅ [WorkspaceTabs] Caso activo sincronizado desde BD, caseApproved=true (NUNCA puede volverse false)');
+                console.log('✅ [WorkspaceTabs] Caso activo sincronizado, caseApproved=true (NUNCA puede volverse false)');
+              } else if (currentCaseApproved) {
+                console.log('⚠️ [WorkspaceTabs] Caso draft pero caseApproved=true (recién aprobado), preservando estado');
               } else {
-                // Si el caso es 'draft', solo resetear caseApproved si NO está ya en true
-                // IMPORTANTE: Si caseApproved ya es true, NO resetearlo (puede ser un caso que se aprobó pero BD aún no se actualizó)
-                const currentCaseApproved = useUI.getState().caseApproved;
-                if (!currentCaseApproved) {
-                  setCaseApproved(false);
-                  console.log('✅ [WorkspaceTabs] Caso draft sincronizado, caseApproved=false, caseApproving=false');
-                } else {
-                  console.log('⚠️ [WorkspaceTabs] Caso en draft pero caseApproved=true (probablemente recién aprobado), manteniendo true');
-                  // NO resetear a false aquí, dejar que el monitor continuo maneje timeouts si es necesario
-                }
+                console.log('✅ [WorkspaceTabs] Caso draft sincronizado, caseApproved=false');
               }
 
               break; // Éxito, salir del loop
@@ -334,7 +389,7 @@ export function WorkspaceTabs() {
           // ✅ SOLUCIÓN: Re-fetch desde BD para verificar estado REAL
           // No confiamos en el estado local que puede estar desactualizado
           const response = await fetch(`/api/cases/${activeCaseData.id}`);
-          
+
           if (!response.ok) {
             console.error('[WorkspaceTabs] ❌ Error al verificar caso:', response.status);
             return; // No resetear en caso de error de red
@@ -348,7 +403,7 @@ export function WorkspaceTabs() {
             console.warn('[WorkspaceTabs] ⚠️ Caso aún en DRAFT después de 5s (verificado desde BD)');
             console.warn('[WorkspaceTabs] Probable fallo de API o BD muy lenta, permitiendo reintento');
             // Solo en este caso específico permitimos resetear para que el usuario reintente
-            setCaseApproved(false); 
+            setCaseApproved(false);
           } else if (freshCaseData?.status === 'active') {
             console.log('[WorkspaceTabs] ✅ Caso ACTIVE confirmado desde BD');
             // Actualizar activeCaseData local con datos frescos para que la UI se actualice
@@ -437,6 +492,7 @@ export function WorkspaceTabs() {
                 activeCaseData={activeCaseData}
                 {...(isEditingMode && { onEditComplete: handleEditComplete })}
                 isEditingMode={isEditingMode}
+                {...(orgId && { orgId })} // ✅ CORRECCIÓN: Solo pasar orgId si está definido
               />
             )}
           </TabsContent>
@@ -473,6 +529,7 @@ export function WorkspaceTabs() {
           </TabsContent>
           <TabsContent value="compliance" className="py-6">
             <ComplianceGate />
+            <ComplianceModal />
           </TabsContent>
           <TabsContent value="renewals" className="py-6">
             <Renewals />

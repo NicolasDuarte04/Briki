@@ -16,6 +16,14 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
   const messages = await getMessages();
 
+  // 🔍 DEBUG: Verificar children en LocaleLayout (Server Component)
+  console.log('🔍 [LocaleLayout] SSR - Renderizando con:', {
+    locale,
+    messagesKeys: Object.keys(messages || {}),
+    childrenType: typeof children,
+    childrenIsArray: Array.isArray(children),
+  });
+
   return (
     <I18nProvider locale={locale} messages={messages}>
       <main id="main-content" className="flex-1 flex flex-col min-h-0 overflow-y-auto" role="main" aria-label="Contenido principal de la aplicación">
