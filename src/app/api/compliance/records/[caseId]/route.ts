@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
+import { resolveActiveOrg } from "@/lib/helpers/resolveActiveOrg";
 
 export async function GET(
     req: NextRequest,
@@ -22,24 +23,29 @@ export async function GET(
             return new NextResponse("Case ID required", { status: 400 });
         }
 
-        // 1. Get user's org
-        const membership = await prisma.org_members.findFirst({
-            where: { user_id: user.id },
-            select: { org_id: true },
-        });
-
-        if (!membership) {
-            return new NextResponse("Organization not found", { status: 403 });
+        // ✅ CORRECCIÓN MULTI-TENANCY: Usar resolveActiveOrg
+        const orgResult = await resolveActiveOrg(user.id, supabase);
+        if (!orgResult.ok) {
+            return new NextResponse(orgResult.error || "Organization error", { 
+                status: orgResult.errorCode || 403 
+            });
         }
+        
+        const { orgId: activeOrgId } = orgResult;
 
-        // 2. Verify case access
+        // 2. Verify case access against ACTIVE org
         const caseItem = await prisma.case.findUnique({
             where: { id: caseId },
             select: { orgId: true },
         });
 
-        if (!caseItem || caseItem.orgId !== membership.org_id) {
-            return new NextResponse("Case not found or access denied", { status: 404 });
+        if (!caseItem) {
+            return new NextResponse("Case not found", { status: 404 });
+        }
+        
+        if (caseItem.orgId !== activeOrgId) {
+            console.warn(`[COMPLIANCE_GET] Org mismatch: case.orgId=${caseItem.orgId}, user.activeOrgId=${activeOrgId}`);
+            return new NextResponse("Case belongs to a different organization", { status: 403 });
         }
 
         // 3. Get latest compliance record
@@ -81,22 +87,28 @@ export async function PUT(
             return new NextResponse("Case ID required", { status: 400 });
         }
 
-        const membership = await prisma.org_members.findFirst({
-            where: { user_id: user.id },
-            select: { org_id: true },
-        });
-
-        if (!membership) {
-            return new NextResponse("Organization not found", { status: 403 });
+        // ✅ CORRECCIÓN MULTI-TENANCY: Usar resolveActiveOrg
+        const orgResult = await resolveActiveOrg(user.id, supabase);
+        if (!orgResult.ok) {
+            return new NextResponse(orgResult.error || "Organization error", { 
+                status: orgResult.errorCode || 403 
+            });
         }
+        
+        const { orgId: activeOrgId } = orgResult;
 
         const caseItem = await prisma.case.findUnique({
             where: { id: caseId },
             select: { orgId: true },
         });
 
-        if (!caseItem || caseItem.orgId !== membership.org_id) {
-            return new NextResponse("Case not found or access denied", { status: 404 });
+        if (!caseItem) {
+            return new NextResponse("Case not found", { status: 404 });
+        }
+        
+        if (caseItem.orgId !== activeOrgId) {
+            console.warn(`[COMPLIANCE_PUT] Org mismatch: case.orgId=${caseItem.orgId}, user.activeOrgId=${activeOrgId}`);
+            return new NextResponse("Case belongs to a different organization", { status: 403 });
         }
 
         const json = await req.json();
@@ -136,17 +148,19 @@ export async function PUT(
                 }
             });
         } else {
+            // ✅ UPSERT: Crear registro si no existe (soluciona casos nuevos)
             result = await prisma.complianceRecord.create({
                 data: {
                     caseId: caseId,
                     userId: user.id, // Mandatory field
-                    orgId: membership.org_id,
-                    jurisdiction: 'colombia',
+                    orgId: activeOrgId!, // ✅ Usar org activa resuelta
+                    jurisdiction: 'colombia', // TODO: obtener desde body o brief del caso
                     kycStatus: kycStatus || 'pending',
                     checklistData: safeChecklistData,
                     validatedDates: validatedDates || {},
                 }
             });
+            console.log(`[COMPLIANCE_PUT] Created new compliance record for case ${caseId}`);
         }
 
         return NextResponse.json(result);

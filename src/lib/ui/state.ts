@@ -1445,11 +1445,11 @@ export const useUI = create<UIState>()(
             checked
           });
           
-          const response = await fetch('/api/compliance/records', {
-            method: 'POST',
+          // Usar PUT con caseId en la URL - el backend hace upsert si no existe
+          const response = await fetch(`/api/compliance/records/${currentCaseId}`, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              caseId: currentCaseId,
               jurisdiction: complianceJurisdiction,
               checklistData: payloadChecklistData
             })
@@ -1458,7 +1458,15 @@ export const useUI = create<UIState>()(
           if (!response.ok) {
             const errorText = await response.text().catch(() => 'Unknown error');
             console.error('❌ [updateComplianceItem] API error:', response.status, errorText);
-            throw new Error(`Failed to save compliance: ${response.status}`);
+            
+            // Mensajes específicos según código de error
+            if (response.status === 403) {
+              throw new Error('NO_ACCESS');
+            } else if (response.status === 404) {
+              throw new Error('CASE_NOT_FOUND');
+            } else {
+              throw new Error(`SAVE_FAILED:${response.status}`);
+            }
           }
 
           const updatedRecord = await response.json();
@@ -1467,7 +1475,18 @@ export const useUI = create<UIState>()(
 
         } catch (error) {
           console.error("❌ [updateComplianceItem] Error:", error);
-          toast.error("No se pudo guardar el cambio");
+          
+          // Mostrar mensaje apropiado según tipo de error
+          const errorMessage = error instanceof Error ? error.message : 'Unknown';
+          if (errorMessage === 'NO_ACCESS') {
+            toast.error("No tienes acceso a este caso en la organización actual");
+          } else if (errorMessage === 'CASE_NOT_FOUND') {
+            toast.error("El caso no fue encontrado");
+          } else {
+            toast.error("No se pudo guardar el cambio. Intenta de nuevo.");
+          }
+          
+          // Revertir al estado anterior
           set({ checked: previousChecked });
         }
       },

@@ -1,6 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { type NextRequest, NextResponse } from "next/server";
+import { resolveActiveOrg } from "@/lib/helpers/resolveActiveOrg";
 
 export async function POST(req: NextRequest) {
     try {
@@ -20,24 +21,30 @@ export async function POST(req: NextRequest) {
             return new NextResponse("Missing required fields", { status: 400 });
         }
 
-        // 1. Get user's org
-        const membership = await prisma.org_members.findFirst({
-            where: { user_id: user.id },
-            select: { org_id: true },
-        });
-
-        if (!membership) {
-            return new NextResponse("Organization not found", { status: 403 });
+        // ✅ CORRECCIÓN MULTI-TENANCY: Usar resolveActiveOrg para obtener la org correcta
+        const orgResult = await resolveActiveOrg(user.id, supabase);
+        if (!orgResult.ok) {
+            return new NextResponse(orgResult.error || "Organization error", { 
+                status: orgResult.errorCode || 403 
+            });
         }
+        
+        const { orgId: activeOrgId, membership } = orgResult;
 
-        // 2. Verify case belongs to org
+        // 2. Verify case belongs to the user's ACTIVE org
         const caseItem = await prisma.case.findUnique({
             where: { id: caseId },
             select: { orgId: true },
         });
 
-        if (!caseItem || caseItem.orgId !== membership.org_id) {
-            return new NextResponse("Case not found or access denied", { status: 404 });
+        if (!caseItem) {
+            return new NextResponse("Case not found", { status: 404 });
+        }
+        
+        // ✅ CORRECCIÓN: Verificar que el case pertenece a la org ACTIVA del usuario
+        if (caseItem.orgId !== activeOrgId) {
+            console.warn(`[COMPLIANCE_POST] Org mismatch: case.orgId=${caseItem.orgId}, user.activeOrgId=${activeOrgId}`);
+            return new NextResponse("Case belongs to a different organization. Please switch to the correct organization.", { status: 403 });
         }
 
         // 3. Create or Update Compliance Record
@@ -74,7 +81,7 @@ export async function POST(req: NextRequest) {
                     insuranceType,
                     checklistData,
                     userId: user.id,
-                    orgId: membership.org_id,
+                    orgId: activeOrgId!, // ✅ Usar org activa resuelta
                     kycStatus: 'pending',
                 },
             });
