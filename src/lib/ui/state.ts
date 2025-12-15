@@ -947,23 +947,28 @@ export const useUI = create<UIState>()(
 
       // ✅ NUEVO: Implementación de helpers computados
       shouldShowApprovalButtons: () => {
-        const { approvalPhase } = get();
+        const { currentCaseId } = get();
 
-        // ✅ CORRECCIÓN DEFINITIVA: Usar approvalPhase como ÚNICA fuente de verdad
-        // approvalPhase representa el ciclo de vida completo de la aprobación:
-        // - 'pending': Esperando aprobación → Mostrar botones
-        // - 'processing': Aprobando → Mostrar botones (deshabilitados por areApprovalButtonsEnabled)
-        // - 'completed': Aprobado → Ocultar botones
-
-        // REGLA SIMPLE: Mostrar si NO está completed
-        return approvalPhase !== 'completed';
+        // ✅ REGLA SIMPLE Y DEFINITIVA:
+        // Si el caso ya existe (tiene un caseId real), NUNCA mostrar botones de aprobación
+        // Un caso solo se puede crear/aprobar UNA VEZ
+        
+        // Mostrar botones SOLO si:
+        // 1. No hay caseId (null) - caso completamente nuevo
+        // 2. O es 'new-thread-placeholder' - caso en proceso de creación
+        const isNewCase = !currentCaseId || currentCaseId === 'new-thread-placeholder';
+        
+        console.log('🔍 [shouldShowApprovalButtons]:', { currentCaseId, isNewCase, result: isNewCase });
+        
+        return isNewCase;
       },
 
       areApprovalButtonsEnabled: () => {
-        const { approvalPhase, brief } = get();
+        const { brief, currentCaseId } = get();
 
-        // REGLA 1: Solo habilitar en fase 'pending' (NO processing ni completed)
-        if (approvalPhase !== 'pending') return false;
+        // REGLA 1: Solo habilitar para casos nuevos
+        const isNewCase = !currentCaseId || currentCaseId === 'new-thread-placeholder';
+        if (!isNewCase) return false;
 
         // REGLA 2: El brief debe tener categoría de seguro válida
         return !!(brief.insurance_category?.trim());
