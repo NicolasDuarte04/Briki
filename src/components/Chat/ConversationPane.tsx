@@ -799,7 +799,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       console.log('📝 [ConversationPane] freeText en brief:', currentBrief.freeText);
 
       // ✅ CORRECCIÓN CRÍTICA: Crear caso SIN navegar primero, luego aprobar, luego navegar
-      const caseId = await createCaseIfNeeded(
+      // createCaseIfNeeded ahora retorna { caseId, clientId } para evitar doble validación
+      const result = await createCaseIfNeeded(
         currentBrief, // ✅ CORRECCIÓN: Usar brief actualizado del estado global
         router,
         {
@@ -813,10 +814,10 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       );
 
       // ✅ CORRECCIÓN CRÍTICA: Aprobar el caso ANTES de navegar
-      if (caseId) {
+      if (result.caseId) {
         // Obtener el currentCaseId actualizado (puede haber cambiado después de createCaseIfNeeded)
         const updatedCurrentCaseId = useUI.getState().currentCaseId;
-        const finalCaseId = updatedCurrentCaseId || caseId;
+        const finalCaseId = updatedCurrentCaseId || result.caseId;
 
         console.log('✅ [ConversationPane] Aprobando caso antes de navegar:', finalCaseId);
 
@@ -827,9 +828,10 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           await new Promise(resolve => setTimeout(resolve, 50));
         }
 
-        // Paso 2: Validar y resolver cliente (con cache)
-        const clientId = await validateClientWithCache();
-        console.log('✅ [ConversationPane] Cliente validado/resuelto para aprobación:', clientId);
+        // ✅ CORRECCIÓN: Usar clientId ya validado por createCaseIfNeeded
+        // NO llamar validateClientWithCache() para evitar doble modal
+        const clientId = result.clientId;
+        console.log('✅ [ConversationPane] Usando clientId ya validado:', clientId);
 
         // Paso 3: Aprobar el caso con el clientId
         // ✅ CORRECCIÓN: approveCurrentCase ya establece caseApproved: true internamente
@@ -850,9 +852,12 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
         console.log('✅ [ConversationPane] Caso aprobado exitosamente, caseApproved=', currentState.caseApproved, 'navegando...');
 
-        // ✅ CORRECCIÓN CRÍTICA: Establecer y persistir caseApproved ANTES de navegar
-        // Esto asegura que el estado se mantenga durante la navegación
+        // ✅ CORRECCIÓN CRÍTICA: Establecer approvalPhase='completed' Y persistir ANTES de navegar
+        // Esto asegura que los botones DESAPAREZCAN permanentemente
         useUI.getState().setCaseApproved(true);
+        useUI.getState().setApprovalPhase('completed');
+        console.log('✅ [ConversationPane] approvalPhase=completed - botones NUNCA reaparecerán');
+        
         // Esperar un momento para que la persistencia se complete
         await new Promise(resolve => setTimeout(resolve, 50));
 
@@ -865,9 +870,9 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
         router.push(targetUrl);
 
-        // Resetear otros estados después de navegar
+        // Resetear otros estados después de navegar (pero NO approvalPhase ni caseApproved)
         useUI.setState({ caseApproving: false, caseResolvingClient: false }); // ✅ Sincronizar estado global
-        console.log('✅ [ConversationPane] Estado final: caseApproved=true (persistido), caseApproving=false, caseResolvingClient=false');
+        console.log('✅ [ConversationPane] Estado final: approvalPhase=completed, caseApproving=false, caseResolvingClient=false');
       }
     } catch (error: any) {
       console.error('❌ [ConversationPane] FASE 7: Error en aprobación con validación:', error);

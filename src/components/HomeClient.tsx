@@ -172,32 +172,37 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
         setCurrentCaseId(threadId);
         setStep('conversation');
 
-        // ✅ CORRECCIÓN: Resetear caseApproving al cargar caso desde URL
-        // IMPORTANTE: NO resetear caseApproved aquí, se sincronizará desde BD en WorkspaceTabs
-        // Si el caso tiene status: 'active', caseApproved se establecerá en true y NUNCA puede volverse false
-        useUI.setState({ caseApproving: false });
+        // ✅ CORRECCIÓN CRÍTICA: Si el threadId es un UUID real, establecer approvalPhase='completed' INMEDIATAMENTE
+        // Esto asegura que los botones NUNCA aparezcan mientras se carga el caso
+        // La sincronización desde BD confirmará el estado, pero por defecto asumimos que el caso ya fue aprobado
+        useUI.setState({ 
+          caseApproving: false,
+          approvalPhase: 'completed' // ✅ CRÍTICO: Ocultar botones inmediatamente para casos existentes
+        });
+        console.log('✅ [HomeClient] approvalPhase=completed INMEDIATO para caso existente (botones ocultos)');
 
-        // ✅ CORRECCIÓN CRÍTICA: Sincronizar caseApproved desde BD inmediatamente si es un caso histórico
-        // Esto asegura que si el caso tiene status: 'active', caseApproved se establece en true
+        // ✅ Sincronizar caseApproved desde BD (confirmación, pero los botones ya están ocultos)
         const syncCaseApproved = async () => {
           try {
             const response = await fetch(`/api/cases/${threadId}`);
             if (response.ok) {
               const { case: caseData } = await response.json();
               if (caseData.status === 'active') {
-                // ✅ REGLA DE NEGOCIO: Casos activos SIEMPRE tienen caseApproved=true y NUNCA puede volverse false
                 useUI.getState().setCaseApproved(true);
-                console.log('✅ [HomeClient] Caso activo detectado desde URL, caseApproved=true (NUNCA puede volverse false)');
+                console.log('✅ [HomeClient] Confirmado: caso activo desde BD, caseApproved=true');
+              } else if (caseData.status === 'draft') {
+                // ✅ CASO ESPECIAL: Caso en draft - podría necesitar aprobación
+                // Pero como ya tiene UUID, los botones deben permanecer ocultos
+                console.log('ℹ️ [HomeClient] Caso en draft detectado, botones permanecen ocultos (ya tiene caseId)');
               }
             }
           } catch (error) {
             console.warn('⚠️ [HomeClient] Error sincronizando caseApproved desde BD:', error);
-            // No bloquear el flujo si falla la sincronización
           }
         };
         syncCaseApproved();
 
-        console.log('✅ [HomeClient] caseApproving reseteado al cargar caso desde URL (caseApproved se mantiene o se sincroniza desde BD)');
+        console.log('✅ [HomeClient] Estado inicial establecido para caso existente');
       }
     }
   }, [threadId, landingDataPending, setCurrentCaseId, setStep]); // ✅ CORRECCIÓN: Agregar landingDataPending a dependencias

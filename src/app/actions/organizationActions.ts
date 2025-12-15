@@ -4,7 +4,7 @@
 import { prisma } from '@/lib/prisma';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { decryptProfileName } from '@/lib/helpers/profileEncryption';
+import { decryptProfileNamesBatch, type BatchDecryptInput } from '@/lib/helpers/profileEncryption';
 
 /**
  * Crea una nueva organización y asigna al usuario actual como 'owner'.
@@ -349,31 +349,28 @@ export async function getOrgMembers(orgId: string): Promise<GetMembersResult> {
       orderBy: { created_at: 'asc' }
     });
     
-    // Desencriptar nombres usando la función helper existente
-    const formattedMembers = await Promise.all(
-      membersRaw.map(async (m: any) => {
-        let decryptedName: string | null = null;
-        
-        // Intentar desencriptar el nombre si existe
-        if (m.users?.profile?.name) {
-          try {
-            decryptedName = await decryptProfileName(m.users.profile.name);
-          } catch (err) {
-            console.warn('Could not decrypt name for user:', m.user_id, err);
-          }
-        }
-        
-        return {
-          id: m.id,
-          userId: m.user_id,
-          name: decryptedName,
-          email: m.users?.email || 'Email no disponible',
-          role: m.role as 'owner' | 'admin' | 'member',
-          joinedAt: m.created_at?.toISOString() || new Date().toISOString(),
-          isCurrentUser: m.user_id === user.id
-        };
-      })
-    );
+    // ✅ Preparar inputs para desencriptación batch (UNA SOLA transacción)
+    const batchInputs: BatchDecryptInput[] = membersRaw.map((m: any) => ({
+      id: m.id,
+      encryptedName: m.users?.profile?.name || null
+    }));
+    
+    // ✅ Desencriptar TODOS los nombres en una sola transacción
+    const decryptedResults = await decryptProfileNamesBatch(batchInputs);
+    
+    // Crear mapa de id -> nombre desencriptado para lookup rápido
+    const decryptedMap = new Map(decryptedResults.map(r => [r.id, r.decryptedName]));
+    
+    // Formatear miembros con nombres desencriptados
+    const formattedMembers = membersRaw.map((m: any) => ({
+      id: m.id,
+      userId: m.user_id,
+      name: decryptedMap.get(m.id) || null,
+      email: m.users?.email || 'Email no disponible',
+      role: m.role as 'owner' | 'admin' | 'member',
+      joinedAt: m.created_at?.toISOString() || new Date().toISOString(),
+      isCurrentUser: m.user_id === user.id
+    }));
     
     // Ordenar por rol (owner primero, luego admin, luego member)
     formattedMembers.sort((a, b) => {
@@ -446,5 +443,103 @@ export async function getActiveOrganization(): Promise<GetActiveOrgResult> {
   } catch (error) {
     console.error('Error in getActiveOrganization:', error);
     return { ok: false, error: 'Error al obtener organización activa' };
+  }
+}
+
+// =============================================================================
+// ACTUALIZAR ROL DE MIEMBRO (SOLO PARA OWNERS)
+// =============================================================================
+
+export interface UpdateMemberRoleResult {
+  ok: boolean;
+  error?: string;
+}
+
+/**
+ * Actualiza el rol de un miembro de la organización.
+ * Solo los OWNERS pueden ejecutar esta acción.
+ * 
+ * Restricciones:
+ * - Solo owners pueden cambiar roles
+ * - No se puede cambiar el propio rol
+ * - Solo se puede cambiar a 'admin' o 'member' (no a 'owner')
+ * 
+ * @param memberId - ID del registro en org_members
+ * @param newRole - Nuevo rol ('admin' o 'member')
+ * @returns Resultado de la operación
+ */
+export async function updateMemberRole(
+  memberId: string,
+  newRole: 'admin' | 'member'
+): Promise<UpdateMemberRoleResult> {
+  const supabase = await createServerSupabase();
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) {
+    return { ok: false, error: 'No autenticado' };
+  }
+  
+  try {
+    // 1. Obtener información del miembro target
+    const { data: targetMember, error: targetError } = await supabase
+      .from('org_members')
+      .select('org_id, user_id, role')
+      .eq('id', memberId)
+      .single();
+    
+    if (targetError || !targetMember) {
+      console.error('Error fetching target member:', targetError);
+      return { ok: false, error: 'Miembro no encontrado' };
+    }
+    
+    // 2. Verificar que el usuario actual es OWNER de esa organización
+    const { data: requestorMembership, error: requestorError } = await supabase
+      .from('org_members')
+      .select('role')
+      .eq('org_id', targetMember.org_id)
+      .eq('user_id', user.id)
+      .single();
+    
+    if (requestorError || !requestorMembership) {
+      console.error('Error fetching requestor membership:', requestorError);
+      return { ok: false, error: 'No eres miembro de esta organización' };
+    }
+    
+    if (requestorMembership.role !== 'owner') {
+      return { ok: false, error: 'Solo los propietarios pueden cambiar roles' };
+    }
+    
+    // 3. Validación: No permitir cambiar el propio rol
+    if (targetMember.user_id === user.id) {
+      return { ok: false, error: 'No puedes cambiar tu propio rol' };
+    }
+    
+    // 4. Validación: newRole debe ser 'admin' o 'member'
+    if (!['admin', 'member'].includes(newRole)) {
+      return { ok: false, error: 'Rol inválido. Solo puedes asignar "admin" o "member"' };
+    }
+    
+    // 5. Ejecutar UPDATE (RLS validará permisos adicionales)
+    const { error: updateError } = await supabase
+      .from('org_members')
+      .update({ role: newRole })
+      .eq('id', memberId);
+    
+    if (updateError) {
+      console.error('Error updating member role:', updateError);
+      return { ok: false, error: 'Error al actualizar el rol. Verifica tus permisos.' };
+    }
+    
+    // 6. Log de auditoría
+    console.log(`[AUDIT] User ${user.id} changed role of member ${memberId} (user: ${targetMember.user_id}) from ${targetMember.role} to ${newRole} in org ${targetMember.org_id}`);
+    
+    // 7. Revalidar cache
+    revalidatePath('/profile');
+    
+    return { ok: true };
+    
+  } catch (error) {
+    console.error('Unexpected error in updateMemberRole:', error);
+    return { ok: false, error: 'Error inesperado al actualizar rol' };
   }
 }

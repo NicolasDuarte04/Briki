@@ -40,7 +40,7 @@ export interface CreateCaseOptions {
  * @param briefData - Datos del brief del caso
  * @param router - Router de Next.js para navegación SPA
  * @param options - Opciones para crear el caso (validación de cliente, guardado de mensaje, etc.)
- * @returns ID del caso creado o existente
+ * @returns Objeto con caseId y clientId (el cliente validado/creado)
  * 
  * @throws {Error} Si falla la autenticación, creación del caso, o validación del cliente
  * 
@@ -51,7 +51,9 @@ export interface CreateCaseOptions {
  * const { validateAndResolveClient } = useClientValidation(true);
  * 
  * try {
- *   const caseId = await createCaseIfNeeded(
+ *   // ✅ createCaseIfNeeded retorna { caseId, clientId }
+ *   // clientId ya está validado, NO re-validar para evitar doble modal
+ *   const { caseId, clientId } = await createCaseIfNeeded(
  *     briefData,
  *     router,
  *     {
@@ -62,21 +64,32 @@ export interface CreateCaseOptions {
  *       saveUserMessage: true,
  *     }
  *   );
- *   console.log('Caso creado:', caseId);
+ *   console.log('Caso creado:', caseId, 'Cliente:', clientId);
  * } catch (error) {
  *   console.error('Error:', error);
  * }
  * ```
  */
+/**
+ * Resultado de la creación de un caso
+ */
+export interface CreateCaseResult {
+    /** ID del caso creado o existente */
+    caseId: string;
+    /** ID del cliente validado/creado (null si no había cliente) */
+    clientId: string | null;
+}
+
 export async function createCaseIfNeeded(
     briefData: Partial<CaseBrief>,
     router: AppRouterInstance,
     options?: CreateCaseOptions
-): Promise<string> {
-    // Si ya existe caso, retornar ID
+): Promise<CreateCaseResult> {
+    // Si ya existe caso, retornar ID (clientId se obtiene del brief)
     if (options?.currentCaseId) {
         console.log('✅ Caso ya existe:', options.currentCaseId);
-        return options.currentCaseId;
+        const existingClientId = (briefData as any).selectedClientId || null;
+        return { caseId: options.currentCaseId, clientId: existingClientId };
     }
 
     console.log('📝 No hay currentCaseId, creando caso...');
@@ -87,12 +100,24 @@ export async function createCaseIfNeeded(
     console.log('🔒 [case-actions] caseApproving establecido en true para sincronizar botones');
 
     try {
-        // 1. Validar cliente (opcional)
+        // 1. Validar cliente (opcional) - ÚNICA validación de todo el flujo
         let clientId: string | null = null;
         if (options?.validateClient && briefData.clientName) {
             try {
                 clientId = await options.validateClient(briefData.clientName);
                 console.log('✅ Cliente validado:', clientId);
+                
+                // ✅ CORRECCIÓN: Guardar clientId en brief para que otros componentes lo usen
+                // Esto evita que se vuelva a validar el mismo cliente
+                if (clientId) {
+                    useUI.setState({
+                        brief: {
+                            ...useUI.getState().brief,
+                            selectedClientId: clientId
+                        }
+                    });
+                    console.log('✅ [case-actions] brief.selectedClientId actualizado:', clientId);
+                }
             } catch (error: any) {
                 if (error.message !== 'CLIENT_CREATION_CANCELLED') {
                     console.error('❌ Error validando cliente:', error);
@@ -310,7 +335,9 @@ export async function createCaseIfNeeded(
             console.log('⏭️ [case-actions] Navegación omitida (skipNavigation=true)');
         }
 
-        return caseId;
+        // ✅ CORRECCIÓN: Retornar objeto con caseId Y clientId
+        // Esto permite que los componentes usen el clientId sin re-validar
+        return { caseId, clientId };
 
     } catch (error: any) {
         // ✅ CORRECCIÓN: Resetear approvalPhase si hay error

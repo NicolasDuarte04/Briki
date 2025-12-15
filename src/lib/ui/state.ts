@@ -947,30 +947,45 @@ export const useUI = create<UIState>()(
 
       // ✅ NUEVO: Implementación de helpers computados
       shouldShowApprovalButtons: () => {
-        const { currentCaseId } = get();
+        const { currentCaseId, caseApproving, caseResolvingClient, approvalPhase } = get();
 
-        // ✅ REGLA SIMPLE Y DEFINITIVA:
-        // Si el caso ya existe (tiene un caseId real), NUNCA mostrar botones de aprobación
-        // Un caso solo se puede crear/aprobar UNA VEZ
+        // ✅ REGLA SIMPLE Y DEFINITIVA (3 estados):
+        // 1. VISIBLE + HABILITADO: currentCaseId es null o 'new-thread-placeholder' Y no está procesando
+        // 2. VISIBLE + DESHABILITADO: está procesando (caseApproving, caseResolvingClient, approvalPhase='processing')
+        // 3. INVISIBLE: currentCaseId es un UUID real (caso ya creado)
         
-        // Mostrar botones SOLO si:
-        // 1. No hay caseId (null) - caso completamente nuevo
-        // 2. O es 'new-thread-placeholder' - caso en proceso de creación
+        // REGLA #1: Si hay un UUID real, NUNCA mostrar (caso ya creado/aprobado)
         const isNewCase = !currentCaseId || currentCaseId === 'new-thread-placeholder';
+        if (!isNewCase) {
+          console.log('🔍 [shouldShowApprovalButtons]: FALSE - caso ya existe (UUID):', currentCaseId);
+          return false;
+        }
         
-        console.log('🔍 [shouldShowApprovalButtons]:', { currentCaseId, isNewCase, result: isNewCase });
+        // REGLA #2: Si está en fase completed, NUNCA mostrar
+        if (approvalPhase === 'completed') {
+          console.log('🔍 [shouldShowApprovalButtons]: FALSE - approvalPhase=completed');
+          return false;
+        }
         
-        return isNewCase;
+        // REGLA #3: Durante procesamiento, MOSTRAR pero los botones estarán deshabilitados
+        // (areApprovalButtonsEnabled se encarga de deshabilitar)
+        console.log('🔍 [shouldShowApprovalButtons]: TRUE - caso nuevo:', { currentCaseId, approvalPhase });
+        return true;
       },
 
       areApprovalButtonsEnabled: () => {
-        const { brief, currentCaseId } = get();
+        const { brief, currentCaseId, caseApproving, caseResolvingClient, approvalPhase } = get();
 
         // REGLA 1: Solo habilitar para casos nuevos
         const isNewCase = !currentCaseId || currentCaseId === 'new-thread-placeholder';
         if (!isNewCase) return false;
+        
+        // REGLA 2: Deshabilitar durante procesamiento
+        if (caseApproving || caseResolvingClient || approvalPhase === 'processing') {
+          return false;
+        }
 
-        // REGLA 2: El brief debe tener categoría de seguro válida
+        // REGLA 3: El brief debe tener categoría de seguro válida
         return !!(brief.insurance_category?.trim());
       },
 

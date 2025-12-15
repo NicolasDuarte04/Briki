@@ -19,9 +19,20 @@ import {
   switchOrganization, 
   getOrgMembers,
   getActiveOrganization,
+  updateMemberRole,
   type UserOrganization,
   type OrgMember 
 } from '@/app/actions/organizationActions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   inviteUserToOrg,
   getPendingInvitations,
@@ -99,6 +110,16 @@ export function AccountSettings({
   const [pendingInvitationsCount, setPendingInvitationsCount] = useState(0);
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [respondingToInvitation, setRespondingToInvitation] = useState<string | null>(null);
+  
+  // ✅ Role change state
+  const [changingRoleForMember, setChangingRoleForMember] = useState<string | null>(null);
+  const [roleChangeDialog, setRoleChangeDialog] = useState<{
+    open: boolean;
+    memberId: string;
+    memberName: string;
+    currentRole: string;
+    newRole: string;
+  } | null>(null);
   
   // Cargar organizaciones al montar
   useEffect(() => {
@@ -298,6 +319,49 @@ export function AccountSettings({
     } catch (error) {
       console.error('Error canceling invitation:', error);
       toast.error('Error al cancelar invitación');
+    }
+  };
+  
+  // ✅ Handler para cambio de rol
+  const handleRoleChange = (memberId: string, memberName: string, currentRole: string, newRole: string) => {
+    setRoleChangeDialog({
+      open: true,
+      memberId,
+      memberName,
+      currentRole,
+      newRole
+    });
+  };
+  
+  const confirmRoleChange = async () => {
+    if (!roleChangeDialog) return;
+    
+    setChangingRoleForMember(roleChangeDialog.memberId);
+    
+    try {
+      const result = await updateMemberRole(
+        roleChangeDialog.memberId, 
+        roleChangeDialog.newRole as 'admin' | 'member'
+      );
+      
+      if (result.ok) {
+        toast.success('Rol actualizado exitosamente');
+        // Recargar miembros para reflejar el cambio
+        if (selectedOrgId) {
+          const membersResult = await getOrgMembers(selectedOrgId);
+          if (membersResult.ok && membersResult.members) {
+            setTeamMembers(membersResult.members);
+          }
+        }
+      } else {
+        toast.error(result.error || 'Error al actualizar rol');
+      }
+    } catch (error) {
+      console.error('Error changing role:', error);
+      toast.error('Error inesperado al cambiar rol');
+    } finally {
+      setChangingRoleForMember(null);
+      setRoleChangeDialog(null);
     }
   };
 
@@ -1177,7 +1241,44 @@ export function AccountSettings({
                       </div>
                       
                       <div className="flex items-center gap-4">
-                        {getRoleBadge(member.role)}
+                        {/* ✅ Dropdown de rol SOLO para owners, SOLO para miembros que no sean ellos mismos, y que no sean owners */}
+                        {selectedOrg?.role === 'owner' && !member.isCurrentUser && member.role !== 'owner' ? (
+                          <div className="flex items-center gap-2">
+                            <Select 
+                              value={member.role} 
+                              onValueChange={(newRole) => handleRoleChange(
+                                member.id, 
+                                member.name || member.email, 
+                                member.role, 
+                                newRole
+                              )}
+                              disabled={changingRoleForMember === member.id}
+                            >
+                              <SelectTrigger className="w-32 h-8 text-xs border-gray-300 hover:border-blue-500 transition-colors">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="member">
+                                  <div className="flex items-center gap-2">
+                                    <User className="h-3 w-3 text-gray-500" />
+                                    <span>Member</span>
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="admin">
+                                  <div className="flex items-center gap-2">
+                                    <Shield className="h-3 w-3 text-blue-500" />
+                                    <span>Admin</span>
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {changingRoleForMember === member.id && (
+                              <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                            )}
+                          </div>
+                        ) : (
+                          getRoleBadge(member.role)
+                        )}
                         <span className="text-xs text-gray-400">
                           Desde {new Date(member.joinedAt).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })}
                         </span>
@@ -1188,11 +1289,14 @@ export function AccountSettings({
                 </div>
               )}
 
-              {/* Nota sobre funcionalidad futura */}
+              {/* Nota sobre funcionalidad */}
               <div className="mt-6 pt-4 border-t border-gray-100">
                 <p className="text-xs text-gray-500 flex items-center gap-2">
-                  <span className="inline-block w-2 h-2 rounded-full bg-yellow-400"></span>
-                  Los cambios de rol y eliminación de miembros estarán disponibles próximamente
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-400"></span>
+                  Los propietarios pueden cambiar roles entre Admin y Member
+                </p>
+                <p className="text-xs text-gray-400 mt-1 ml-4">
+                  La eliminación de miembros estará disponible próximamente
                 </p>
               </div>
             </div>
@@ -1254,6 +1358,51 @@ export function AccountSettings({
           </div>
         )}
       </div>
+      
+      {/* ✅ Dialog de confirmación para cambio de rol */}
+      {roleChangeDialog && (
+        <AlertDialog open={roleChangeDialog.open} onOpenChange={(open) => !open && setRoleChangeDialog(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Cambiar rol de miembro?</AlertDialogTitle>
+              <AlertDialogDescription>
+                <span className="font-medium">{roleChangeDialog.memberName}</span> pasará de{' '}
+                <span className="font-semibold text-gray-700">{roleChangeDialog.currentRole}</span> a{' '}
+                <span className="font-semibold text-gray-700">{roleChangeDialog.newRole}</span>.
+                {roleChangeDialog.newRole === 'admin' && (
+                  <span className="block mt-2 text-blue-600">
+                    ✓ Tendrá permisos de administrador en la organización.
+                  </span>
+                )}
+                {roleChangeDialog.newRole === 'member' && (
+                  <span className="block mt-2 text-yellow-600">
+                    ⚠ Perderá los permisos de administrador.
+                  </span>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={changingRoleForMember !== null}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={confirmRoleChange}
+                disabled={changingRoleForMember !== null}
+                className="bg-blue-600 hover:bg-blue-700 focus:ring-blue-600"
+              >
+                {changingRoleForMember ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Actualizando...
+                  </span>
+                ) : (
+                  'Confirmar cambio'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

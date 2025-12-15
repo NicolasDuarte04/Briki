@@ -747,7 +747,8 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           useUI.setState({ caseApproving: true });
 
           try {
-            await createCaseIfNeeded(
+            // createCaseIfNeeded ahora retorna { caseId, clientId }
+            const result = await createCaseIfNeeded(
               briefUpdate, // ✅ CORRECCIÓN: Usar briefUpdate que contiene TODOS los datos del formulario
               router,
               {
@@ -758,7 +759,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 saveUserMessage: true, // ✅ FASE 5: Guardar mensaje del usuario como primer mensaje
               }
             );
-            console.log('✅ [BriefForm] Caso creado exitosamente con createCaseIfNeeded');
+            console.log('✅ [BriefForm] Caso creado exitosamente con createCaseIfNeeded:', result.caseId);
             // Si createCaseIfNeeded navegó exitosamente, este código no se ejecutará
             // La navegación SPA hace que el componente se desmonte o se actualice
           } catch (error: any) {
