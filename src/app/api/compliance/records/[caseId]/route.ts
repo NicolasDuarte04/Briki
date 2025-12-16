@@ -149,12 +149,15 @@ export async function PUT(
             });
         } else {
             // ✅ UPSERT: Crear registro si no existe (soluciona casos nuevos)
+            // Obtener jurisdiction del body o usar default 'co' (Colombia)
+            const jurisdiction = json.jurisdiction || 'co';
+            
             result = await prisma.complianceRecord.create({
                 data: {
                     caseId: caseId,
                     userId: user.id, // Mandatory field
                     orgId: activeOrgId!, // ✅ Usar org activa resuelta
-                    jurisdiction: 'colombia', // TODO: obtener desde body o brief del caso
+                    jurisdiction: jurisdiction,
                     kycStatus: kycStatus || 'pending',
                     checklistData: safeChecklistData,
                     validatedDates: validatedDates || {},

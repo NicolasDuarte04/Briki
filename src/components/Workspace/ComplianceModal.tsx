@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -15,10 +15,18 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { complianceChecklistItems } from "@/lib/compliance";
 import { useUI } from "@/lib/ui/state";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { ComplianceItemConfirmDialog } from "./ComplianceItemConfirmDialog";
 
 export function ComplianceModal() {
   // Use individual selectors to avoid creating new objects on each render
@@ -37,11 +45,19 @@ export function ComplianceModal() {
   const complianceStartDate = useUI((state) => state.complianceStartDate);
   const complianceEndDate = useUI((state) => state.complianceEndDate);
   const validateComplianceDates = useUI((state) => state.validateComplianceDates);
+  // ✅ FASE 1: Selector de póliza
+  const policyAnalyses = useUI((state) => state.policyAnalyses);
+  const selectedCompliancePolicyId = useUI((state) => state.selectedCompliancePolicyId);
+  const setSelectedCompliancePolicyId = useUI((state) => state.setSelectedCompliancePolicyId);
 
   const uiTranslations = useTranslations("workspace.compliance");
   const jurisdictionTranslations = useTranslations("workspace.compliance.jurisdictions");
 
   const firstCheckboxRef = useRef<HTMLButtonElement | null>(null);
+  
+  // ✅ FASE 2: Estado para el diálogo de confirmación
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingToggleItem, setPendingToggleItem] = useState<string | null>(null);
 
   const jurisdictionItems = useMemo(
     () => complianceChecklistItems[complianceJurisdiction] ?? [],
@@ -84,13 +100,23 @@ export function ComplianceModal() {
     return undefined;
   }, [complianceOpen, complianceJurisdiction]);
 
-  const handleToggle = useCallback(
+  // ✅ FASE 2: Abrir diálogo de confirmación en lugar de toggle directo
+  const handleToggleClick = useCallback(
     (itemId: string) => {
-      const isChecked = Boolean(jurisdictionChecked[itemId]);
-      updateComplianceItem(itemId, !isChecked);
+      setPendingToggleItem(itemId);
+      setConfirmDialogOpen(true);
     },
-    [updateComplianceItem, jurisdictionChecked]
+    []
   );
+
+  // ✅ FASE 2: Confirmar el toggle después del diálogo
+  const handleConfirmToggle = useCallback(() => {
+    if (pendingToggleItem) {
+      const isChecked = Boolean(jurisdictionChecked[pendingToggleItem]);
+      updateComplianceItem(pendingToggleItem, !isChecked);
+    }
+    setPendingToggleItem(null);
+  }, [pendingToggleItem, jurisdictionChecked, updateComplianceItem]);
 
   const handlePass = useCallback(() => {
     if (!canPass) return;
@@ -114,6 +140,44 @@ export function ComplianceModal() {
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* ✅ FASE 1: Policy Selector */}
+          {policyAnalyses.length > 0 && (
+            <section className="space-y-3 rounded-lg border p-3 bg-muted/40">
+              <Label className="font-semibold">Póliza a Validar</Label>
+              <Select
+                value={selectedCompliancePolicyId || ""}
+                onValueChange={(value) => setSelectedCompliancePolicyId(value || null)}
+                disabled={complianceLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar póliza..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {policyAnalyses.map((analysis) => {
+                    const data = analysis.extractedData as Record<string, any>;
+                    const policyNumber = data?.policy_number || data?.policyNumber || data?.numeroPoliza || 'Sin número';
+                    const insurerName = data?.insurer_name || data?.insurerName || data?.aseguradora || 'Aseguradora';
+                    const fileName = analysis.artifact?.fileName || 'PDF';
+                    return (
+                      <SelectItem key={analysis.id} value={analysis.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="font-medium">{policyNumber}</span>
+                          <span className="text-muted-foreground">- {insurerName}</span>
+                          <span className="text-xs text-muted-foreground/60">({fileName})</span>
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {!selectedCompliancePolicyId && (
+                <p className="text-xs text-muted-foreground">
+                  Seleccione una póliza para cargar automáticamente las fechas de vigencia.
+                </p>
+              )}
+            </section>
+          )}
+
           {/* Validity Dates Section */}
           <section className="space-y-3 rounded-lg border p-3 bg-muted/40">
             <Label className="font-semibold">Vigencia de Póliza</Label>
@@ -191,13 +255,13 @@ export function ComplianceModal() {
                       id={fieldId}
                       ref={index === 0 ? firstCheckboxRef : undefined}
                       checked={isChecked}
-                      onCheckedChange={() => handleToggle(itemId)}
+                      onCheckedChange={() => handleToggleClick(itemId)}
                       disabled={complianceLoading}
                       aria-describedby={`${fieldId}-status`}
                       aria-checked={isChecked}
                     />
                     <div className="flex flex-1 flex-col gap-1">
-                      <Label htmlFor={fieldId} className="leading-snug">
+                      <Label htmlFor={fieldId} className="leading-snug cursor-pointer" onClick={() => handleToggleClick(itemId)}>
                         {labelText}
                       </Label>
                       <span id={`${fieldId}-status`} className="text-xs text-muted-foreground">
@@ -220,6 +284,26 @@ export function ComplianceModal() {
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* ✅ FASE 2: Diálogo de confirmación con contexto legal */}
+      {pendingToggleItem && (
+        <ComplianceItemConfirmDialog
+          open={confirmDialogOpen}
+          onOpenChange={(open) => {
+            setConfirmDialogOpen(open);
+            if (!open) setPendingToggleItem(null);
+          }}
+          itemId={pendingToggleItem}
+          jurisdiction={complianceJurisdiction}
+          itemLabel={
+            jurisdictionItemLabels[pendingToggleItem] ?? 
+            jurisdictionTranslations(`${complianceJurisdiction}.items.${pendingToggleItem}`)
+          }
+          isCurrentlyChecked={Boolean(jurisdictionChecked[pendingToggleItem])}
+          onConfirm={handleConfirmToggle}
+          loading={complianceLoading}
+        />
+      )}
     </Dialog>
   );
 }

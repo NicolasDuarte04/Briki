@@ -173,7 +173,11 @@ export type RenewalsEventType =
   | "NudgeQuote"
   | "NudgeMessage"
   | "ReminderOpen"
-  | "ReminderSet";
+  | "ReminderSet"
+  | "DetectRenewalsStart"
+  | "DetectRenewalsComplete"
+  | "CompareFromRenewal"
+  | "ProposalFromRenewal";
 
 interface RenewalsAuditEvent {
   type: RenewalsEventType;
@@ -627,6 +631,7 @@ export interface UIState {
   complianceValidationErrors: string[];
   complianceStartDate?: string; // Phase 33.5
   complianceEndDate?: string;   // Phase 33.5
+  selectedCompliancePolicyId?: string | null; // ✅ FASE 1: Póliza seleccionada para validación
 
   followupCadenceDays: number[];
   followupAuditLog: FollowupAuditEvent[];
@@ -752,6 +757,7 @@ export interface UIState {
   verifyKyc: () => Promise<void>;
   saveComplianceRecord: () => Promise<void>; // ✅ New Persistence Action
   hydrateComplianceDatesFromPolicies: () => void; // ✅ Auto-hidratar fechas desde pólizas
+  setSelectedCompliancePolicyId: (policyId: string | null) => void; // ✅ FASE 1: Selector de póliza
   openCompliance: (jurisdiction: ComplianceJurisdiction) => void;
   closeCompliance: () => void;
   toggleCompliance: (itemId: ComplianceItemId) => void;
@@ -1046,6 +1052,7 @@ export const useUI = create<UIState>()(
       complianceValidationErrors: [],
       complianceStartDate: undefined,
       complianceEndDate: undefined,
+      selectedCompliancePolicyId: null, // ✅ FASE 1: Póliza seleccionada
 
       followupCadenceDays: [30, 60, 90],
       followupAuditLog: [],
@@ -1607,10 +1614,58 @@ export const useUI = create<UIState>()(
         }
       },
 
+      // ✅ FASE 1: Seleccionar póliza para validación de compliance
+      setSelectedCompliancePolicyId: (policyId: string | null) => {
+        const { policyAnalyses } = get();
+        
+        set({ selectedCompliancePolicyId: policyId });
+        
+        // Si se selecciona una póliza, hidratar sus fechas automáticamente
+        if (policyId) {
+          const selectedAnalysis = policyAnalyses.find(a => a.id === policyId);
+          if (selectedAnalysis) {
+            const data = selectedAnalysis.extractedData as Record<string, any>;
+            
+            // Buscar fechas con múltiples nombres posibles
+            const startDate = data?.effective_from || data?.effectiveDate || 
+                             data?.startDate || data?.fechaInicio || data?.vigenciaDesde;
+            const endDate = data?.effective_to || data?.expirationDate || 
+                           data?.endDate || data?.fechaFin || data?.vigenciaHasta;
+            
+            if (startDate && endDate) {
+              const formatDate = (dateStr: string): string => {
+                try {
+                  const date = new Date(dateStr);
+                  if (!isNaN(date.getTime())) {
+                    return date.toISOString().split('T')[0] ?? dateStr;
+                  }
+                } catch {}
+                return dateStr;
+              };
+              
+              set({
+                complianceStartDate: formatDate(startDate),
+                complianceEndDate: formatDate(endDate)
+              });
+              
+              console.log('✅ [setSelectedCompliancePolicyId] Hydrated dates from policy:', policyId);
+              toast.success('Fechas de vigencia cargadas desde póliza seleccionada');
+            } else {
+              // Limpiar fechas si la póliza no tiene - usar string vacío en lugar de undefined
+              set({
+                complianceStartDate: '',
+                complianceEndDate: ''
+              });
+              console.log('⚠️ [setSelectedCompliancePolicyId] No dates in selected policy');
+            }
+          }
+        }
+      },
+
       // ✅ CORRECCIÓN: Auto-hidratar fechas de vigencia desde pólizas analizadas
       // Esto se llama cuando se activa el tab de Compliance para pre-llenar las fechas
       hydrateComplianceDatesFromPolicies: () => {
-        const { policyAnalyses, complianceStartDate, complianceEndDate } = get();
+        const { policyAnalyses, complianceStartDate, complianceEndDate, selectedCompliancePolicyId } = get();
         
         // Si ya hay fechas configuradas, no sobrescribir
         if (complianceStartDate && complianceEndDate) {
@@ -1618,8 +1673,13 @@ export const useUI = create<UIState>()(
           return;
         }
         
-        // Buscar la primera póliza con fechas de vigencia
-        for (const analysis of policyAnalyses) {
+        // Si hay una póliza seleccionada, usar esa; si no, buscar la primera con fechas
+        const targetAnalyses = selectedCompliancePolicyId 
+          ? policyAnalyses.filter(a => a.id === selectedCompliancePolicyId)
+          : policyAnalyses;
+        
+        // Buscar póliza con fechas de vigencia
+        for (const analysis of targetAnalyses) {
           const data = analysis.extractedData as Record<string, any>;
           
           // Buscar fechas con múltiples nombres posibles (del prompt de IA)
@@ -1651,7 +1711,8 @@ export const useUI = create<UIState>()(
             
             set({
               complianceStartDate: formattedStart,
-              complianceEndDate: formattedEnd
+              complianceEndDate: formattedEnd,
+              selectedCompliancePolicyId: analysis.id // Auto-seleccionar la póliza usada
             });
             
             toast.success('Fechas de vigencia detectadas automáticamente');

@@ -397,6 +397,7 @@ model Case {
   policyAnalyses     PolicyAnalysis[] // ✅ NUEVO: Relación con análisis de pólizas
   comparisons        Comparison[] // ✅ FASE 30: Relación con comparaciones
   renewals           Renewal[]    // ✅ FASE RENOVACIONES: Relación con renovaciones
+  complianceRecords  ComplianceRecord[] // ✅ FASE COMPLIANCE: Registros de cumplimiento
 
   @@map("cases")
   @@schema("public")
@@ -678,10 +679,11 @@ model PolicyAnalysis {
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  artifact       Artifact              @relation(fields: [artifactId], references: [id], onDelete: Cascade)
-  case           Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  pageReferences PolicyPageReference[]
-  renewals       Renewal[]             // ✅ FASE RENOVACIONES: Pólizas vinculadas a renovaciones
+  artifact          Artifact              @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  case              Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  pageReferences    PolicyPageReference[]
+  renewals          Renewal[]             // ✅ FASE RENOVACIONES: Pólizas vinculadas a renovaciones
+  complianceRecords ComplianceRecord[]    // ✅ FASE COMPLIANCE: Registros vinculados a esta póliza
 
   @@index([artifactId])
   @@index([caseId])
@@ -989,4 +991,59 @@ enum oauth_response_type {
   code
 
   @@schema("auth")
+}
+
+/// ============================================================================
+/// COMPLIANCE MODELS - Added 2025-12-16
+/// ============================================================================
+/// Stores compliance checklist state per case/policy/jurisdiction
+/// Source: Migration 20251216_create_compliance_tables.sql
+model ComplianceRecord {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId           String   @map("case_id") @db.Uuid
+  policyAnalysisId String?  @map("policy_analysis_id") @db.Uuid
+  orgId            String   @map("org_id") @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  jurisdiction     String   @db.VarChar(2)
+  insuranceType    String?  @map("insurance_type") @db.VarChar(50)
+  checklistData    Json     @default("{}") @map("checklist_data")
+  kycStatus        String?  @default("pending") @map("kyc_status") @db.VarChar(20)
+  kycVerifiedAt    DateTime? @map("kyc_verified_at") @db.Timestamptz(6)
+  validatedDates   Json?    @map("validated_dates")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  case           Case            @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  policyAnalysis PolicyAnalysis? @relation(fields: [policyAnalysisId], references: [id], onDelete: SetNull)
+  auditEvents    ComplianceAuditEvent[]
+
+  @@unique([caseId, policyAnalysisId, jurisdiction])
+  @@index([caseId])
+  @@index([orgId])
+  @@index([policyAnalysisId])
+  @@index([jurisdiction])
+  @@index([createdAt(sort: Desc)])
+  @@map("compliance_records")
+  @@schema("public")
+}
+
+/// Audit trail for all compliance record changes (immutable)
+model ComplianceAuditEvent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recordId   String   @map("record_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  eventType  String   @map("event_type") @db.VarChar(50)
+  itemId     String?  @map("item_id") @db.VarChar(100)
+  documentId String?  @map("document_id") @db.Uuid
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  record ComplianceRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@index([recordId])
+  @@index([eventType])
+  @@index([createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("compliance_audit_events")
+  @@schema("public")
 }
