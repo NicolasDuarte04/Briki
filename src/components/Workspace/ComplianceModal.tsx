@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -13,9 +13,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { complianceChecklistItems } from "@/lib/compliance";
 import { useUI } from "@/lib/ui/state";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { ComplianceItemConfirmDialog } from "./ComplianceItemConfirmDialog";
 
 export function ComplianceModal() {
   // Use individual selectors to avoid creating new objects on each render
@@ -23,14 +34,30 @@ export function ComplianceModal() {
   const complianceJurisdiction = useUI((state) => state.complianceJurisdiction);
   const checked = useUI((state) => state.checked);
   const closeCompliance = useUI((state) => state.closeCompliance);
-  const toggleCompliance = useUI((state) => state.toggleCompliance);
+  // ✅ FASE 32: Use persistent action
+  const updateComplianceItem = useUI((state) => state.updateComplianceItem);
   const passCompliance = useUI((state) => state.passCompliance);
   const isCompliancePassed = useUI((state) => state.isCompliancePassed);
+  const complianceLoading = useUI((state) => state.complianceLoading);
+  const verifyKyc = useUI((state) => state.verifyKyc);
+  const complianceKycStatus = useUI((state) => state.complianceKycStatus);
+  // ✅ FASE 38: Controlled inputs for dates
+  const complianceStartDate = useUI((state) => state.complianceStartDate);
+  const complianceEndDate = useUI((state) => state.complianceEndDate);
+  const validateComplianceDates = useUI((state) => state.validateComplianceDates);
+  // ✅ FASE 1: Selector de póliza
+  const policyAnalyses = useUI((state) => state.policyAnalyses);
+  const selectedCompliancePolicyId = useUI((state) => state.selectedCompliancePolicyId);
+  const setSelectedCompliancePolicyId = useUI((state) => state.setSelectedCompliancePolicyId);
 
   const uiTranslations = useTranslations("workspace.compliance");
   const jurisdictionTranslations = useTranslations("workspace.compliance.jurisdictions");
 
   const firstCheckboxRef = useRef<HTMLButtonElement | null>(null);
+  
+  // ✅ FASE 2: Estado para el diálogo de confirmación
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingToggleItem, setPendingToggleItem] = useState<string | null>(null);
 
   const jurisdictionItems = useMemo(
     () => complianceChecklistItems[complianceJurisdiction] ?? [],
@@ -73,12 +100,23 @@ export function ComplianceModal() {
     return undefined;
   }, [complianceOpen, complianceJurisdiction]);
 
-  const handleToggle = useCallback(
+  // ✅ FASE 2: Abrir diálogo de confirmación en lugar de toggle directo
+  const handleToggleClick = useCallback(
     (itemId: string) => {
-      toggleCompliance(itemId);
+      setPendingToggleItem(itemId);
+      setConfirmDialogOpen(true);
     },
-    [toggleCompliance]
+    []
   );
+
+  // ✅ FASE 2: Confirmar el toggle después del diálogo
+  const handleConfirmToggle = useCallback(() => {
+    if (pendingToggleItem) {
+      const isChecked = Boolean(jurisdictionChecked[pendingToggleItem]);
+      updateComplianceItem(pendingToggleItem, !isChecked);
+    }
+    setPendingToggleItem(null);
+  }, [pendingToggleItem, jurisdictionChecked, updateComplianceItem]);
 
   const handlePass = useCallback(() => {
     if (!canPass) return;
@@ -101,48 +139,171 @@ export function ComplianceModal() {
           <DialogDescription>{modalDescription}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <p className="text-sm font-semibold text-foreground">{jurisdictionTitle}</p>
-          <ul className="space-y-3">
-            {jurisdictionItems.map((itemId, index) => {
-              const fieldId = `${complianceJurisdiction}-${itemId}`.replace(/\./g, "-");
-              const labelText = jurisdictionItemLabels[itemId] ?? jurisdictionTranslations(
-                `${complianceJurisdiction}.items.${itemId}`
-              );
-              const isChecked = Boolean(jurisdictionChecked[itemId]);
-              return (
-                <li key={itemId} className="flex items-start gap-3">
-                  <Checkbox
-                    id={fieldId}
-                    ref={index === 0 ? firstCheckboxRef : undefined}
-                    checked={isChecked}
-                    onCheckedChange={() => handleToggle(itemId)}
-                    aria-describedby={`${fieldId}-status`}
-                    aria-checked={isChecked}
-                  />
-                  <div className="flex flex-1 flex-col gap-1">
-                    <Label htmlFor={fieldId} className="leading-snug">
-                      {labelText}
-                    </Label>
-                    <span id={`${fieldId}-status`} className="text-xs text-muted-foreground">
-                      {isChecked ? uiTranslations("status.complete") : uiTranslations("status.pending")}
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+        <div className="space-y-6">
+          {/* ✅ FASE 1: Policy Selector */}
+          {policyAnalyses.length > 0 && (
+            <section className="space-y-3 rounded-lg border p-3 bg-muted/40">
+              <Label className="font-semibold">Póliza a Validar</Label>
+              <Select
+                value={selectedCompliancePolicyId || ""}
+                onValueChange={(value) => setSelectedCompliancePolicyId(value || null)}
+                disabled={complianceLoading}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar póliza..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {policyAnalyses.map((analysis) => {
+                    const data = analysis.extractedData as Record<string, any>;
+                    const policyNumber = data?.policy_number || data?.policyNumber || data?.numeroPoliza || 'Sin número';
+                    const insurerName = data?.insurer_name || data?.insurerName || data?.aseguradora || 'Aseguradora';
+                    const fileName = analysis.artifact?.fileName || 'PDF';
+                    return (
+                      <SelectItem key={analysis.id} value={analysis.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="font-medium">{policyNumber}</span>
+                          <span className="text-muted-foreground">- {insurerName}</span>
+                          <span className="text-xs text-muted-foreground/60">({fileName})</span>
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {!selectedCompliancePolicyId && (
+                <p className="text-xs text-muted-foreground">
+                  Seleccione una póliza para cargar automáticamente las fechas de vigencia.
+                </p>
+              )}
+            </section>
+          )}
+
+          {/* Validity Dates Section */}
+          <section className="space-y-3 rounded-lg border p-3 bg-muted/40">
+            <Label className="font-semibold">Vigencia de Póliza</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Inicio</Label>
+                <Input
+                  type="date"
+                  value={complianceStartDate || ''}
+                  onChange={(e) => useUI.setState({ complianceStartDate: e.target.value })}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Fin</Label>
+                <Input
+                  type="date"
+                  value={complianceEndDate || ''}
+                  onChange={(e) => useUI.setState({ complianceEndDate: e.target.value })}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                if (complianceStartDate && complianceEndDate) {
+                  validateComplianceDates(complianceStartDate, complianceEndDate);
+                } else {
+                  toast.error("Seleccione ambas fechas");
+                }
+              }}
+              disabled={complianceLoading}
+            >
+              Validar Vigencia
+            </Button>
+          </section>
+
+          {/* KYC Section */}
+          <section className="space-y-3 rounded-lg border p-3 bg-muted/40">
+            <div className="flex items-center justify-between">
+              <Label className="font-semibold">Verificación KYC</Label>
+              <Badge variant={complianceKycStatus === 'verified' ? 'default' : 'secondary'}>
+                {complianceKycStatus === 'verified' ? 'Verificado' : 'Pendiente'}
+              </Badge>
+            </div>
+            {complianceKycStatus !== 'verified' && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="w-full"
+                onClick={() => verifyKyc()}
+                disabled={complianceLoading}
+              >
+                Verificar Identidad (Simulado)
+              </Button>
+            )}
+          </section>
+
+          {/* Checklist Section */}
+          <section className="space-y-4">
+            <p className="text-sm font-semibold text-foreground">{jurisdictionTitle} - Requisitos</p>
+            <ul className="space-y-3">
+              {jurisdictionItems.map((itemId, index) => {
+                const fieldId = `${complianceJurisdiction}-${itemId}`.replace(/\./g, "-");
+                const labelText = jurisdictionItemLabels[itemId] ?? jurisdictionTranslations(
+                  `${complianceJurisdiction}.items.${itemId}`
+                );
+                const isChecked = Boolean(jurisdictionChecked[itemId]);
+                return (
+                  <li key={itemId} className="flex items-start gap-3">
+                    <Checkbox
+                      id={fieldId}
+                      ref={index === 0 ? firstCheckboxRef : undefined}
+                      checked={isChecked}
+                      onCheckedChange={() => handleToggleClick(itemId)}
+                      disabled={complianceLoading}
+                      aria-describedby={`${fieldId}-status`}
+                      aria-checked={isChecked}
+                    />
+                    <div className="flex flex-1 flex-col gap-1">
+                      <Label htmlFor={fieldId} className="leading-snug cursor-pointer" onClick={() => handleToggleClick(itemId)}>
+                        {labelText}
+                      </Label>
+                      <span id={`${fieldId}-status`} className="text-xs text-muted-foreground">
+                        {isChecked ? uiTranslations("status.complete") : uiTranslations("status.pending")}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={closeCompliance}>
+          <Button variant="outline" onClick={closeCompliance} disabled={complianceLoading}>
             {uiTranslations("cancel")}
           </Button>
-          <Button variant="gradient" onClick={handlePass} disabled={!canPass}>
+          <Button variant="gradient" onClick={handlePass} disabled={!canPass || complianceLoading}>
             {uiTranslations("pass")}
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* ✅ FASE 2: Diálogo de confirmación con contexto legal */}
+      {pendingToggleItem && (
+        <ComplianceItemConfirmDialog
+          open={confirmDialogOpen}
+          onOpenChange={(open) => {
+            setConfirmDialogOpen(open);
+            if (!open) setPendingToggleItem(null);
+          }}
+          itemId={pendingToggleItem}
+          jurisdiction={complianceJurisdiction}
+          itemLabel={
+            jurisdictionItemLabels[pendingToggleItem] ?? 
+            jurisdictionTranslations(`${complianceJurisdiction}.items.${pendingToggleItem}`)
+          }
+          isCurrentlyChecked={Boolean(jurisdictionChecked[pendingToggleItem])}
+          onConfirm={handleConfirmToggle}
+          loading={complianceLoading}
+        />
+      )}
     </Dialog>
   );
 }

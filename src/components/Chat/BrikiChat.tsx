@@ -285,12 +285,12 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
         (behavior: ScrollBehavior = "smooth") => {
             const container = scrollContainerRef.current;
             if (!container) return;
-            const sentinel = bottomSentinelRef.current;
-            if (sentinel && typeof sentinel.scrollIntoView === "function") {
-                sentinel.scrollIntoView({ behavior, block: "end" });
-            } else {
-                container.scrollTo({ top: container.scrollHeight, behavior });
-            }
+            // ✅ CORRECCIÓN: Usar scrollTo directamente en el contenedor
+            // Esto previene la propagación de scroll hacia ancestros (como el panel derecho)
+            container.scrollTo({ 
+                top: container.scrollHeight, 
+                behavior 
+            });
             shouldStickToBottomRef.current = true;
         },
         []

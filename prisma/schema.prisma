@@ -54,6 +54,8 @@ model User {
   sessions                    sessions[]
   org_members                 org_members[]
   profile                     Profile?
+  invitations_sent            org_invitations[]      @relation("InvitationsSent")
+  invitations_received        org_invitations[]      @relation("InvitationsReceived")
 
   @@index([instance_id])
   @@index([is_anonymous])
@@ -394,6 +396,8 @@ model Case {
   messages           Message[]
   policyAnalyses     PolicyAnalysis[] // ✅ NUEVO: Relación con análisis de pólizas
   comparisons        Comparison[] // ✅ FASE 30: Relación con comparaciones
+  renewals           Renewal[]    // ✅ FASE RENOVACIONES: Relación con renovaciones
+  complianceRecords  ComplianceRecord[] // ✅ FASE COMPLIANCE: Registros de cumplimiento
 
   @@map("cases")
   @@schema("public")
@@ -489,17 +493,43 @@ model org_members {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model organizations {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  slug        String        @unique
-  settings    Json?         @default("{}")
-  created_at  DateTime?     @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime?     @default(now()) @db.Timestamptz(6)
-  api_keys    api_keys[]
-  clients     clients[]
-  org_members org_members[]
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  slug            String            @unique
+  settings        Json?             @default("{}")
+  created_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime?         @default(now()) @db.Timestamptz(6)
+  api_keys        api_keys[]
+  clients         clients[]
+  org_members     org_members[]
+  org_invitations org_invitations[]
 
   @@index([slug], map: "idx_organizations_slug")
+  @@schema("public")
+}
+
+/// Invitaciones a organizaciones por email
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model org_invitations {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id          String        @db.Uuid
+  inviter_user_id String        @db.Uuid
+  invitee_email   String
+  invitee_user_id String?       @db.Uuid
+  role            String        @default("member")
+  status          String        @default("pending") // pending, accepted, rejected, expired, cancelled
+  message         String?
+  created_at      DateTime?     @default(now()) @db.Timestamptz(6)
+  expires_at      DateTime?     @default(dbgenerated("(now() + '7 days'::interval)")) @db.Timestamptz(6)
+  responded_at    DateTime?     @db.Timestamptz(6)
+  organizations   organizations @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  inviter         User          @relation("InvitationsSent", fields: [inviter_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  invitee         User?         @relation("InvitationsReceived", fields: [invitee_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([invitee_user_id])
+  @@index([invitee_email])
+  @@index([org_id, status])
+  @@index([inviter_user_id])
   @@schema("public")
 }
 
@@ -649,9 +679,11 @@ model PolicyAnalysis {
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  artifact       Artifact              @relation(fields: [artifactId], references: [id], onDelete: Cascade)
-  case           Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  pageReferences PolicyPageReference[]
+  artifact          Artifact              @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  case              Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  pageReferences    PolicyPageReference[]
+  renewals          Renewal[]             // ✅ FASE RENOVACIONES: Pólizas vinculadas a renovaciones
+  complianceRecords ComplianceRecord[]    // ✅ FASE COMPLIANCE: Registros vinculados a esta póliza
 
   @@index([artifactId])
   @@index([caseId])
@@ -719,6 +751,165 @@ model GeneratedProposal {
   @@index([caseId, createdAt])
   @@index([orgId])
   @@map("generated_proposals")
+  @@schema("public")
+}
+
+/// ============================================================================
+/// RENEWAL MODELS - FASE RENOVACIONES
+/// ============================================================================
+/// Tracks policy renewals, their history, and alerts for the broker workflow
+
+/// Main renewal tracking - links to PolicyAnalysis and Case
+model Renewal {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId            String   @map("case_id") @db.Uuid
+  policyAnalysisId  String?  @map("policy_analysis_id") @db.Uuid
+  orgId             String   @map("org_id") @db.Uuid
+
+  // Policy identification
+  carrier           String   @db.VarChar(255)
+  policyNumber      String?  @map("policy_number") @db.VarChar(100)
+  planName          String   @map("plan_name") @db.VarChar(255)
+
+  // Validity dates
+  currentStartDate  DateTime @map("current_start_date") @db.Timestamptz(6)
+  currentEndDate    DateTime @map("current_end_date") @db.Timestamptz(6)
+  renewalDate       DateTime @map("renewal_date") @db.Timestamptz(6)
+
+  // Financial data (amounts in minor units - centavos)
+  currentPremiumMinor Int      @map("current_premium_minor")
+  currency            String   @default("COP") @db.VarChar(3)
+  proposedPremiumMinor Int?    @map("proposed_premium_minor")
+  premiumChangePct    Decimal? @map("premium_change_pct") @db.Decimal(5, 2)
+
+  // Status tracking
+  status            RenewalStatus       @default(pending)
+  renewalWindowStatus RenewalWindowStatus @default(ok) @map("renewal_window_status")
+
+  // Reminders
+  reminderSet       Boolean  @default(false) @map("reminder_set")
+  reminderDate      DateTime? @map("reminder_date") @db.Timestamptz(6)
+
+  // Metadata
+  notes             String?
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  case              Case              @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  policyAnalysis    PolicyAnalysis?   @relation(fields: [policyAnalysisId], references: [id], onDelete: SetNull)
+  history           RenewalHistory[]
+  alerts            RenewalAlert[]
+
+  @@index([caseId])
+  @@index([orgId])
+  @@index([renewalDate])
+  @@index([status])
+  @@index([renewalWindowStatus])
+  @@map("renewals")
+  @@schema("public")
+}
+
+/// Historical record of past renewal periods for trend analysis
+model RenewalHistory {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  renewalId        String   @map("renewal_id") @db.Uuid
+
+  // Period information
+  periodStart      DateTime @map("period_start") @db.Timestamptz(6)
+  periodEnd        DateTime @map("period_end") @db.Timestamptz(6)
+  premiumMinor     Int      @map("premium_minor")
+  currency         String   @default("COP") @db.VarChar(3)
+
+  // Changes detected compared to previous period
+  changes          Json?    // { premiumChange: %, coveragesAdded: [], coveragesRemoved: [] }
+
+  // Link to source documents
+  policyAnalysisId String?  @map("policy_analysis_id") @db.Uuid
+  artifactId       String?  @map("artifact_id") @db.Uuid
+
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  renewal          Renewal  @relation(fields: [renewalId], references: [id], onDelete: Cascade)
+
+  @@index([renewalId])
+  @@index([periodStart, periodEnd])
+  @@map("renewal_history")
+  @@schema("public")
+}
+
+/// Alerts and notifications for renewals
+model RenewalAlert {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  renewalId       String   @map("renewal_id") @db.Uuid
+
+  // Alert details
+  alertType       RenewalAlertType @map("alert_type")
+  severity        AlertSeverity    @default(info)
+  message         String
+
+  // Tracking
+  sentAt          DateTime? @map("sent_at") @db.Timestamptz(6)
+  acknowledgedAt  DateTime? @map("acknowledged_at") @db.Timestamptz(6)
+  dismissedAt     DateTime? @map("dismissed_at") @db.Timestamptz(6)
+
+  // Target user
+  userId          String?  @map("user_id") @db.Uuid
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  renewal         Renewal  @relation(fields: [renewalId], references: [id], onDelete: Cascade)
+
+  @@index([renewalId])
+  @@index([sentAt])
+  @@index([alertType])
+  @@map("renewal_alerts")
+  @@schema("public")
+}
+
+/// Renewal status enum
+enum RenewalStatus {
+  pending    // Awaiting review
+  in_review  // Being analyzed
+  approved   // Ready to renew
+  renewed    // Successfully renewed
+  expired    // Expired without renewal
+
+  @@map("renewal_status_enum")
+  @@schema("public")
+}
+
+/// Renewal window status for urgency tracking
+enum RenewalWindowStatus {
+  ok       // More than 30 days
+  dueSoon  // 30 days or less
+  overdue  // Past due date
+
+  @@map("renewal_window_status_enum")
+  @@schema("public")
+}
+
+/// Types of renewal alerts
+enum RenewalAlertType {
+  reminder         // General reminder
+  premium_increase // Premium increased significantly
+  coverage_change  // Coverages changed
+  expiry_warning   // About to expire
+  document_required // Missing documents
+
+  @@map("renewal_alert_type_enum")
+  @@schema("public")
+}
+
+/// Severity levels for alerts
+enum AlertSeverity {
+  info
+  warning
+  critical
+
+  @@map("alert_severity_enum")
   @@schema("public")
 }
 
@@ -800,4 +991,59 @@ enum oauth_response_type {
   code
 
   @@schema("auth")
+}
+
+/// ============================================================================
+/// COMPLIANCE MODELS - Added 2025-12-16
+/// ============================================================================
+/// Stores compliance checklist state per case/policy/jurisdiction
+/// Source: Migration 20251216_create_compliance_tables.sql
+model ComplianceRecord {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId           String   @map("case_id") @db.Uuid
+  policyAnalysisId String?  @map("policy_analysis_id") @db.Uuid
+  orgId            String   @map("org_id") @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  jurisdiction     String   @db.VarChar(2)
+  insuranceType    String?  @map("insurance_type") @db.VarChar(50)
+  checklistData    Json     @default("{}") @map("checklist_data")
+  kycStatus        String?  @default("pending") @map("kyc_status") @db.VarChar(20)
+  kycVerifiedAt    DateTime? @map("kyc_verified_at") @db.Timestamptz(6)
+  validatedDates   Json?    @map("validated_dates")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  case           Case            @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  policyAnalysis PolicyAnalysis? @relation(fields: [policyAnalysisId], references: [id], onDelete: SetNull)
+  auditEvents    ComplianceAuditEvent[]
+
+  @@unique([caseId, policyAnalysisId, jurisdiction])
+  @@index([caseId])
+  @@index([orgId])
+  @@index([policyAnalysisId])
+  @@index([jurisdiction])
+  @@index([createdAt(sort: Desc)])
+  @@map("compliance_records")
+  @@schema("public")
+}
+
+/// Audit trail for all compliance record changes (immutable)
+model ComplianceAuditEvent {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recordId   String   @map("record_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  eventType  String   @map("event_type") @db.VarChar(50)
+  itemId     String?  @map("item_id") @db.VarChar(100)
+  documentId String?  @map("document_id") @db.Uuid
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  record ComplianceRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@index([recordId])
+  @@index([eventType])
+  @@index([createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("compliance_audit_events")
+  @@schema("public")
 }

@@ -6,7 +6,6 @@ import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import ComplianceModal from "./ComplianceModal";
 import { useUI } from "@/lib/ui/state";
 import { toast } from "sonner";
 
@@ -49,6 +48,13 @@ type ShareAuditPayload = NonNullable<AuditEntry["payload"]> & {
 export function ComplianceGate() {
   const [sendingChannel, setSendingChannel] = useState<ShareChannel | null>(null);
 
+  // ✅ CRÍTICO: TODOS los hooks deben llamarse ANTES de cualquier return condicional
+  // Mover useTranslations ANTES del early return para evitar error de React Hooks
+  const gateTranslations = useTranslations("workspace.compliance.gate");
+  const jurisdictionTranslations = useTranslations("workspace.compliance.jurisdictions");
+  const sendTranslations = useTranslations("workspace.send");
+  const auditTranslations = useTranslations("workspace.audit");
+
   // Use individual selectors to avoid creating new objects on each render
   const complianceJurisdiction = useUI((state) => state.complianceJurisdiction);
   const isCompliancePassed = useUI((state) => state.isCompliancePassed);
@@ -59,13 +65,10 @@ export function ComplianceGate() {
   const logComplianceSendSuccess = useUI((state) => state.logComplianceSendSuccess);
   const comparisonPlaybook = useUI((state) => state.comparisonPlaybook);
   const getProposalData = useUI((state) => state.getProposalData);
+  // ✅ FASE 32: Loading State
+  const complianceLoading = useUI((state) => state.complianceLoading);
 
   const passed = useMemo(() => isCompliancePassed(complianceJurisdiction), [complianceJurisdiction, isCompliancePassed]);
-
-  const gateTranslations = useTranslations("workspace.compliance.gate");
-  const jurisdictionTranslations = useTranslations("workspace.compliance.jurisdictions");
-  const sendTranslations = useTranslations("workspace.send");
-  const auditTranslations = useTranslations("workspace.audit");
 
   const jurisdictionLabel = useMemo(
     () => jurisdictionTranslations(`${complianceJurisdiction}.title`),
@@ -144,6 +147,17 @@ export function ComplianceGate() {
     ]
   );
 
+  // ✅ Early return DESPUÉS de todos los hooks
+  if (complianceLoading) {
+    return (
+      <Card className="h-fit animate-pulse border-muted">
+        <CardContent className="flex flex-col items-center justify-center gap-2 py-8 text-muted-foreground">
+          <span className="text-sm">Verificando estado de cumplimiento...</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col gap-6">
       <Card className="h-fit">
@@ -168,9 +182,31 @@ export function ComplianceGate() {
               variant="outline"
               size="sm"
               onClick={() => openCompliance(complianceJurisdiction)}
-              disabled={isSending}
+              disabled={isSending || complianceLoading}
             >
               {gateTranslations("checklistCta")}
+            </Button>
+            {/* Download Report Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start px-0 text-xs text-muted-foreground hover:text-foreground"
+              disabled={complianceLoading}
+              onClick={async () => {
+                try {
+                  // Necesitamos el caseId. Lo tomamos del store si es posible, o asumimos que el componente lo tiene.
+                  // ComplianceGate usa useUI, podemos sacar currentCaseId de ahi.
+                  // Pero wait, openCompliance no recibe caseId. 
+                  // Vamos a usar window.open para descargar directamente por ahora.
+                  const caseId = useUI.getState().currentCaseId;
+                  if (!caseId) return;
+                  window.open(`/api/compliance/report/${caseId}`, '_blank');
+                } catch (err) {
+                  toast.error("Error descargando reporte");
+                }
+              }}
+            >
+              📄 Descargar Informe de Cumplimiento
             </Button>
           </section>
 
@@ -179,10 +215,13 @@ export function ComplianceGate() {
             <p className="text-muted-foreground/70">
               {passed
                 ? gateTranslations.rich("readyHint", {
-                    strong: (chunk) => <span className="font-semibold text-foreground/85">{chunk}</span>,
-                  })
+                  strong: (chunk) => <span className="font-semibold text-foreground/85">{chunk}</span>,
+                })
                 : gateTranslations("blockedBody")}
             </p>
+            {complianceLoading && (
+              <p className="text-xs text-muted-foreground animate-pulse">Sincronizando estado...</p>
+            )}
           </section>
         </CardContent>
         <CardFooter className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -191,7 +230,7 @@ export function ComplianceGate() {
               data-print="hide"
               variant="gradient"
               className="flex-1"
-              disabled={!passed || isSending}
+              disabled={!passed || isSending || complianceLoading}
               aria-label={sendTranslations("whatsapp")}
               onClick={() => handleSend("whatsapp")}
             >
@@ -201,7 +240,7 @@ export function ComplianceGate() {
               data-print="hide"
               variant="outline"
               className="flex-1"
-              disabled={!passed || isSending}
+              disabled={!passed || isSending || complianceLoading}
               aria-label={sendTranslations("email")}
               onClick={() => handleSend("email")}
             >
@@ -211,7 +250,7 @@ export function ComplianceGate() {
         </CardFooter>
       </Card>
 
-      <ComplianceModal />
+
     </div>
   );
 }

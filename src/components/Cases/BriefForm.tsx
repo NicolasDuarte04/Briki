@@ -149,8 +149,20 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // ✅ FASE 4: Limpiar formData SIEMPRE cuando currentCaseId cambia a null (navegación a new-thread-placeholder)
   // Los datos de Landing se cargarán después de la limpieza en otro useEffect
   useEffect(() => {
+    console.log('🔍 [BriefForm] Checking reset condition:', { currentCaseId });
     if (!currentCaseId || currentCaseId === 'new-thread-placeholder') {
-      console.log('🧹 [BriefForm] Limpiando formData para new-thread-placeholder (siempre)');
+      console.log('🧹 [BriefForm] RESET TRIGGERED for new-thread-placeholder');
+
+      // ✅ CORRECCIÓN REGRESIÓN: Solo resetear si NO hay consistencia de estado
+      const currentState = useUI.getState();
+      if (!currentState.caseApproved) {
+        useUI.getState().setApprovalPhase('pending');
+        useUI.getState().setCaseApproved(false);
+        console.log('✅ [BriefForm] Approval phase reset to PENDING (Clean Slate)');
+      } else {
+        console.log('⚠️ [BriefForm] NO resetear aprobación: el caso ya está aprobado en localStorage');
+      }
+
       setFormData({
         insurance_category: '',
         max_budget: null,
@@ -735,7 +747,8 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           useUI.setState({ caseApproving: true });
 
           try {
-            await createCaseIfNeeded(
+            // createCaseIfNeeded ahora retorna { caseId, clientId }
+            const result = await createCaseIfNeeded(
               briefUpdate, // ✅ CORRECCIÓN: Usar briefUpdate que contiene TODOS los datos del formulario
               router,
               {
@@ -746,7 +759,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 saveUserMessage: true, // ✅ FASE 5: Guardar mensaje del usuario como primer mensaje
               }
             );
-            console.log('✅ [BriefForm] Caso creado exitosamente con createCaseIfNeeded');
+            console.log('✅ [BriefForm] Caso creado exitosamente con createCaseIfNeeded:', result.caseId);
             // Si createCaseIfNeeded navegó exitosamente, este código no se ejecutará
             // La navegación SPA hace que el componente se desmonte o se actualice
           } catch (error: any) {

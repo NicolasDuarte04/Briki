@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BellIcon, MessageSquareIcon, FileTextIcon, PlusIcon } from "lucide-react";
+import { BellIcon, MessageSquareIcon, FileTextIcon, PlusIcon, SearchIcon, Loader2Icon, GitCompareArrowsIcon, FileOutputIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -59,6 +59,9 @@ type ActionsGroupProps = {
   record: RenewalRecord;
   onNudge: (type: NudgeType, record: RenewalRecord) => void;
   onReminder: () => void;
+  onCompare: () => void;
+  onProposal: () => void;
+  isGeneratingProposal?: boolean;
 };
 
 type SortIndicatorProps = {
@@ -101,6 +104,20 @@ export default function Renewals() {
   const renewalsLoading = useUI((state) => state.renewalsLoading);
   const renewalsLoaded = useUI((state) => state.renewalsLoaded);
   const getRenewalStatusChip = useUI((state) => state.getRenewalStatusChip);
+  
+  // ✅ FASE 5: Auto-detección de renovaciones
+  const detectRenewals = useUI((state) => state.detectRenewals);
+  const currentCaseId = useUI((state) => state.currentCaseId);
+  const policyAnalyses = useUI((state) => state.policyAnalyses);
+  const [isDetecting, setIsDetecting] = useState(false);
+  
+  // ✅ FASE 6: Comparaciones desde renovación
+  const startRenewalComparison = useUI((state) => state.startRenewalComparison);
+  
+  // ✅ FASE 7: Propuestas desde renovación
+  const generateRenewalProposal = useUI((state) => state.generateRenewalProposal);
+  const proposalLoading = useUI((state) => state.proposalLoading);
+  const [generatingProposalFor, setGeneratingProposalFor] = useState<string | null>(null);
   
   // Use custom hooks to avoid infinite re-renders
   const windowCounts = useWindowCounts();
@@ -154,6 +171,51 @@ export default function Renewals() {
     logEvent("ReminderOpen", { id: recordId });
   };
 
+  // ✅ FASE 5: Handler para detectar renovaciones automáticamente
+  const handleDetectRenewals = async () => {
+    if (!currentCaseId || isDetecting) return;
+    
+    setIsDetecting(true);
+    logEvent("DetectRenewalsStart", { caseId: currentCaseId });
+    
+    try {
+      const result = await detectRenewals(currentCaseId, 90);
+      logEvent("DetectRenewalsComplete", { 
+        caseId: currentCaseId, 
+        created: result.created, 
+        skipped: result.skipped 
+      });
+    } catch (error) {
+      console.error('❌ [Renewals] Error detecting renewals:', error);
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
+  // Determinar si hay pólizas analizadas disponibles para detectar
+  const hasAnalyzedPolicies = policyAnalyses.length > 0;
+  const canDetect = currentCaseId && hasAnalyzedPolicies && !isDetecting;
+
+  // ✅ FASE 6: Handler para iniciar comparación desde renovación
+  const handleCompare = (record: RenewalRecord) => {
+    logEvent("CompareFromRenewal", { renewalId: record.id, policyId: record.policyId });
+    startRenewalComparison(record.id, record.policyId);
+  };
+
+  // ✅ FASE 7: Handler para generar propuesta desde renovación
+  const handleProposal = async (record: RenewalRecord) => {
+    if (proposalLoading || generatingProposalFor) return;
+    
+    setGeneratingProposalFor(record.id);
+    logEvent("ProposalFromRenewal", { renewalId: record.id, policyId: record.policyId });
+    
+    try {
+      await generateRenewalProposal(record.id, record.policyId);
+    } finally {
+      setGeneratingProposalFor(null);
+    }
+  };
+
   const handleConfirmReminder = () => {
     if (!dialogState.targetId) return;
     setReminder(dialogState.targetId, true);
@@ -187,9 +249,27 @@ export default function Renewals() {
       <Card aria-labelledby="renewals-heading">
         <CardHeader className="gap-2 pb-4">
           <div className="flex flex-wrap items-center gap-2 justify-between">
-            <CardTitle id="renewals-heading" className="text-base font-medium tracking-tight">
-              {t("title")}
-            </CardTitle>
+            <div className="flex items-center gap-3">
+              <CardTitle id="renewals-heading" className="text-base font-medium tracking-tight">
+                {t("title")}
+              </CardTitle>
+              {/* ✅ FASE 5: Botón de auto-detección */}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDetectRenewals}
+                disabled={!canDetect}
+                className="h-8 gap-1.5 text-xs"
+                title={!hasAnalyzedPolicies ? t("detect.noAnalyses") : t("detect.tooltip")}
+              >
+                {isDetecting ? (
+                  <Loader2Icon className="size-3.5 animate-spin" />
+                ) : (
+                  <SearchIcon className="size-3.5" />
+                )}
+                {isDetecting ? t("detect.detecting") : t("detect.button")}
+              </Button>
+            </div>
             <ul className="flex flex-wrap items-center gap-1.5" aria-label={t("filters.window.label")} data-print="hide">
               {RENEWAL_WINDOWS.map((window) => (
                 <li key={window}>
@@ -364,6 +444,9 @@ export default function Renewals() {
                                 record={renewal}
                                 onNudge={handleNudge}
                                 onReminder={() => handleOpenReminder(renewal.id)}
+                                onCompare={() => handleCompare(renewal)}
+                                onProposal={() => handleProposal(renewal)}
+                                isGeneratingProposal={generatingProposalFor === renewal.id}
                               />
                             </TableCell>
                           </TableRow>
@@ -401,6 +484,9 @@ export default function Renewals() {
                             record={renewal}
                             onNudge={handleNudge}
                             onReminder={() => handleOpenReminder(renewal.id)}
+                            onCompare={() => handleCompare(renewal)}
+                            onProposal={() => handleProposal(renewal)}
+                            isGeneratingProposal={generatingProposalFor === renewal.id}
                           />
                         </footer>
                       </article>
@@ -673,6 +759,9 @@ function ActionsGroup({
   record,
   onNudge,
   onReminder,
+  onCompare,
+  onProposal,
+  isGeneratingProposal = false,
 }: ActionsGroupProps) {
   const tActions = useTranslations(`${RENEWALS_PREFIX}.actions`);
 
@@ -682,6 +771,31 @@ function ActionsGroup({
       data-testid={`renewal-actions-${record.id}`}
       data-print="hide"
     >
+      {/* ✅ FASE 6: Botón Comparar */}
+      <Button 
+        size="sm" 
+        variant="ghost" 
+        onClick={onCompare}
+        className="inline-flex items-center gap-1 text-xs shrink-0"
+      >
+        <GitCompareArrowsIcon className="size-3.5" />
+        {tActions("compare")}
+      </Button>
+      {/* ✅ FASE 7: Botón Propuesta */}
+      <Button 
+        size="sm" 
+        variant="ghost" 
+        onClick={onProposal}
+        disabled={isGeneratingProposal}
+        className="inline-flex items-center gap-1 text-xs shrink-0"
+      >
+        {isGeneratingProposal ? (
+          <Loader2Icon className="size-3.5 animate-spin" />
+        ) : (
+          <FileOutputIcon className="size-3.5" />
+        )}
+        {isGeneratingProposal ? tActions("generatingProposal") : tActions("proposal")}
+      </Button>
       <Button 
         size="sm" 
         variant="ghost" 

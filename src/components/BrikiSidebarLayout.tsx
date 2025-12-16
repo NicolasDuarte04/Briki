@@ -15,6 +15,13 @@ export default function BrikiSidebarLayout({
   className?: string;
   disableAutoCollapse?: boolean;
 }) {
+  // 🔍 DEBUG: Log children recibidos
+  console.log('🔍 [BrikiSidebarLayout] Renderizando con children:', {
+    childrenType: typeof children,
+    childrenIsArray: Array.isArray(children),
+    childrenConstructor: children?.constructor?.name,
+  });
+
   const { chatPanelOpen, sidebarOpen, setSidebarOpen } = useUI();
   
   // Keep sidebar open while chat panel is active

@@ -269,3 +269,102 @@ export async function decryptProfileAddress(encrypted: Buffer | Uint8Array | nul
   return result;
 }
 
+/**
+ * Tipo para entrada de desencriptación batch
+ */
+export interface BatchDecryptInput {
+  id: string;
+  encryptedName: Buffer | Uint8Array | null;
+}
+
+/**
+ * Tipo para resultado de desencriptación batch
+ */
+export interface BatchDecryptResult {
+  id: string;
+  decryptedName: string | null;
+}
+
+/**
+ * Desencripta múltiples nombres de perfil en UNA SOLA transacción.
+ * Esta función evita el problema de agotamiento del pool de conexiones
+ * que ocurre al ejecutar múltiples transacciones en paralelo con Promise.all.
+ * 
+ * @param inputs - Array de objetos con id y encryptedName
+ * @returns Array de objetos con id y decryptedName
+ * 
+ * @example
+ * const members = [
+ *   { id: 'member1', encryptedName: buffer1 },
+ *   { id: 'member2', encryptedName: buffer2 },
+ * ];
+ * const results = await decryptProfileNamesBatch(members);
+ * // results = [{ id: 'member1', decryptedName: 'Juan' }, { id: 'member2', decryptedName: 'María' }]
+ */
+export async function decryptProfileNamesBatch(inputs: BatchDecryptInput[]): Promise<BatchDecryptResult[]> {
+  // Si no hay inputs o están vacíos, retornar array vacío
+  if (!inputs || inputs.length === 0) {
+    return [];
+  }
+
+  const encryptionKey = process.env.APP_ENCRYPTION_KEY;
+
+  if (!encryptionKey || encryptionKey === 'REPLACE_WITH_A_SECURE_KEY_GENERATED_BY_OPENSSL') {
+    throw new Error(
+      'CRITICAL: APP_ENCRYPTION_KEY no está configurada correctamente en tu archivo .env.local. ' +
+      'Por favor, genera una clave segura y reinicia el servidor.'
+    );
+  }
+
+  // Filtrar inputs que tienen nombre encriptado válido
+  const validInputs = inputs.filter(input => input.encryptedName && input.encryptedName.length > 0);
+  
+  // Si no hay nombres válidos para desencriptar, retornar resultados con null
+  if (validInputs.length === 0) {
+    return inputs.map(input => ({ id: input.id, decryptedName: null }));
+  }
+
+  try {
+    // Ejecutar UNA SOLA transacción para desencriptar todos los nombres
+    const decryptedMap = await prisma.$transaction(async (tx) => {
+      // Configurar la clave de encriptación una sola vez
+      await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
+      
+      // Desencriptar cada nombre secuencialmente dentro de la misma transacción
+      const results = new Map<string, string | null>();
+      
+      for (const input of validInputs) {
+        const contentBuffer = Buffer.isBuffer(input.encryptedName) 
+          ? input.encryptedName 
+          : Buffer.from(input.encryptedName!);
+        
+        try {
+          const decrypted = await tx.$queryRaw<Array<{ decrypted: string }>>`
+            SELECT public.decrypt_pii(${contentBuffer}::bytea) as decrypted
+          `;
+          results.set(input.id, decrypted[0]?.decrypted || null);
+        } catch (innerErr) {
+          console.warn(`[decryptProfileNamesBatch] Error desencriptando nombre para id ${input.id}:`, innerErr);
+          results.set(input.id, null);
+        }
+      }
+      
+      return results;
+    }, {
+      timeout: 60000, // 60 segundos para batch
+      maxWait: 10000, // Esperar máximo 10s para obtener conexión
+    });
+
+    // Construir resultado final incluyendo inputs sin nombre
+    return inputs.map(input => ({
+      id: input.id,
+      decryptedName: decryptedMap.get(input.id) || null
+    }));
+
+  } catch (error) {
+    console.error('[decryptProfileNamesBatch] Error en transacción batch:', error);
+    
+    // En caso de error total, retornar todos como null
+    return inputs.map(input => ({ id: input.id, decryptedName: null }));
+  }
+}

@@ -26,6 +26,14 @@ interface LoadingProviderProps {
 export default function LoadingProvider({ children }: LoadingProviderProps) {
   const [isLoading, setIsLoading] = useState(true);
 
+  // 🔍 DEBUG: Verificar qué tipo de children estamos recibiendo
+  console.log('🔍 [LoadingProvider] Renderizando con children:', {
+    childrenType: typeof children,
+    childrenIsArray: Array.isArray(children),
+    childrenConstructor: children?.constructor?.name,
+    childrenKeys: children && typeof children === 'object' ? Object.keys(children as object) : 'N/A',
+  });
+
   useEffect(() => {
     // Initial app loading simulation
     const timer = setTimeout(() => {
@@ -47,7 +55,14 @@ export default function LoadingProvider({ children }: LoadingProviderProps) {
   return (
     <LoadingContext.Provider value={value}>
       <LoadingScreen isLoading={isLoading} />
-      {children}
+      {/* 🔍 DEBUG: Verificar children antes de renderizar */}
+      {(() => {
+        console.log('🔍 [LoadingProvider] RENDER CHILDREN - verificando:', {
+          childrenType: typeof children,
+          childrenIsValidReactElement: children !== null && typeof children === 'object' && '$$typeof' in children,
+        });
+        return children;
+      })()}
     </LoadingContext.Provider>
   );
 }

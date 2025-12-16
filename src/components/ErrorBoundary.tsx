@@ -12,7 +12,7 @@ interface State {
 }
 
 // Renombrar internamente para claridad
-export class ChunkLoadErrorBoundaryInternal extends Component<Props, State> {
+class ChunkLoadErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
@@ -65,9 +65,18 @@ export class ChunkLoadErrorBoundaryInternal extends Component<Props, State> {
     // if (sessionStorage.getItem('reloaded_after_error')) {
     //     sessionStorage.removeItem('reloaded_after_error');
     // }
+    
+    // 🔍 DEBUG: Verificar qué tipo de children estamos recibiendo
+    console.log('🔍 [ChunkLoadErrorBoundary] Renderizando children:', {
+      childrenType: typeof this.props.children,
+      childrenIsArray: Array.isArray(this.props.children),
+      childrenConstructor: this.props.children?.constructor?.name,
+      childrenKeys: this.props.children && typeof this.props.children === 'object' ? Object.keys(this.props.children as object) : 'N/A',
+    });
+    
     return <>{this.props.children}</>;
   }
 }
 
 // Exportación default clara
-export default ChunkLoadErrorBoundaryInternal;
+export default ChunkLoadErrorBoundary;

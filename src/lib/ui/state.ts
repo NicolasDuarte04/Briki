@@ -49,8 +49,11 @@ import {
   type PolicyComparison,
   type ComparisonExport,
   type CurrencyCode,
+  // ✅ FASE 31: Proposals
   type GeneratedProposal,
-} from "../types";
+  // ✅ FASE 32: Compliance
+  type ComplianceRecord,
+} from "@/lib/types";
 import {
   loadCases,
   loadEligibilities,
@@ -60,6 +63,12 @@ import {
   loadProvenance,
   loadRenewals,
   loadRiders,
+  createRenewal,
+  updateRenewal,
+  deleteRenewal,
+  detectRenewals,
+  getRenewalStats,
+  setRenewalReminder,
 } from "../fx";
 import { sendViaEmail, sendViaWhatsApp } from "../share";
 
@@ -164,7 +173,11 @@ export type RenewalsEventType =
   | "NudgeQuote"
   | "NudgeMessage"
   | "ReminderOpen"
-  | "ReminderSet";
+  | "ReminderSet"
+  | "DetectRenewalsStart"
+  | "DetectRenewalsComplete"
+  | "CompareFromRenewal"
+  | "ProposalFromRenewal";
 
 interface RenewalsAuditEvent {
   type: RenewalsEventType;
@@ -206,11 +219,8 @@ type ComplianceEventType =
   | "SendBlocked"
   | "SendSuccess";
 
-interface ComplianceAuditEvent {
-  type: ComplianceEventType;
-  ts: number;
-  payload?: Record<string, unknown>;
-}
+// LocalComplianceEvent moved to bottom of file
+
 
 type FollowupEventType = "FollowupCadenceChanged";
 
@@ -591,6 +601,7 @@ export type ApprovalPhase = 'pending' | 'processing' | 'completed';
 export interface UIState {
   initialMessage?: string;
   currentCaseId: string | null;
+  currentOrgId: string | null; // ✅ NUEVO: Organización activa actual
   dashboardViewTime?: number;
   // Navigation & Layout
   step: UIStep;
@@ -612,7 +623,16 @@ export interface UIState {
   briefingCase: { isActive: boolean; initialMessage: string } | null;
   complianceJurisdiction: ComplianceJurisdiction;
   checked: ComplianceCheckedState;
-  complianceAuditLog: ComplianceAuditEvent[];
+  complianceAuditLog: LocalComplianceEvent[];
+  // ✅ FASE 32: Compliance Persistence
+  activeComplianceRecord: ComplianceRecord | null;
+  complianceLoading: boolean;
+  complianceKycStatus: ComplianceRecord["kycStatus"] | null;
+  complianceValidationErrors: string[];
+  complianceStartDate?: string; // Phase 33.5
+  complianceEndDate?: string;   // Phase 33.5
+  selectedCompliancePolicyId?: string | null; // ✅ FASE 1: Póliza seleccionada para validación
+
   followupCadenceDays: number[];
   followupAuditLog: FollowupAuditEvent[];
   brief: CaseBrief;
@@ -724,12 +744,20 @@ export interface UIState {
   startBriefing: (initialMessage: string) => void;
   completeBriefing: (caseId: string) => void;
   cancelBriefing: () => void;
-  toggleRight: () => void;
+  toggleRightPanel: () => void;
   openChatPanel: () => void;
   closeChatPanel: () => void;
   // Funciones del sidebar
   setSidebarOpen: (open: boolean) => void;
   setSidebarHovered: (hovered: boolean) => void;
+  // ✅ FASE 32: Compliance Actions
+  loadComplianceRecord: (caseId: string) => Promise<void>;
+  updateComplianceItem: (itemId: string, checked: boolean) => Promise<void>;
+  validateComplianceDates: (start: string, end: string) => Promise<void>;
+  verifyKyc: () => Promise<void>;
+  saveComplianceRecord: () => Promise<void>; // ✅ New Persistence Action
+  hydrateComplianceDatesFromPolicies: () => void; // ✅ Auto-hidratar fechas desde pólizas
+  setSelectedCompliancePolicyId: (policyId: string | null) => void; // ✅ FASE 1: Selector de póliza
   openCompliance: (jurisdiction: ComplianceJurisdiction) => void;
   closeCompliance: () => void;
   toggleCompliance: (itemId: ComplianceItemId) => void;
@@ -782,7 +810,7 @@ export interface UIState {
   setRenewalsFilters: (filters: Partial<RenewalsFilters>) => void;
   setRenewalsSorting: (sorting: Partial<RenewalsSorting>) => void;
   setRenewals: (renewals: RenewalRecord[]) => void;
-  fetchRenewals: () => Promise<void>;
+  fetchRenewals: (caseId?: string) => Promise<void>;
   setReminder: (id: string, reminderSet: boolean) => void;
   logRenewalsEvent: (type: RenewalsEventType, payload?: Record<string, unknown>) => void;
   selectFilteredSortedRenewals: () => RenewalRecord[];
@@ -790,6 +818,34 @@ export interface UIState {
   isReminderSet: (id: string) => boolean;
   // Returns tone and status only; components must translate labels client-side.
   getRenewalStatusChip: (status: RenewalStatus) => RenewalStatusMeta;
+  // ✅ FASE 3 RENOVACIONES: Nuevas acciones CRUD
+  createRenewal: (data: {
+    caseId: string;
+    carrier: string;
+    planName: string;
+    currentStartDate: string;
+    currentEndDate: string;
+    renewalDate: string;
+    currentPremiumMinor: number;
+    currency?: string;
+    policyAnalysisId?: string;
+    notes?: string;
+  }) => Promise<RenewalRecord>;
+  updateRenewal: (id: string, data: Partial<{
+    carrier: string;
+    planName: string;
+    renewalDate: string;
+    status: string;
+    reminderSet: boolean;
+    notes: string;
+  }>) => Promise<void>;
+  deleteRenewal: (id: string) => Promise<void>;
+  detectRenewals: (caseId: string, daysAhead?: number) => Promise<{ created: number; skipped: number }>;
+  getRenewalStats: (caseId?: string) => Promise<any>;
+  // ✅ FASE 6 RENOVACIONES: Iniciar comparación desde renovación
+  startRenewalComparison: (renewalId: string, policyAnalysisId?: string) => void;
+  // ✅ FASE 7 RENOVACIONES: Generar propuesta desde renovación
+  generateRenewalProposal: (renewalId: string, policyAnalysisId?: string) => Promise<void>;
   selectPoliciesView: () => PolicyView[];
   selectPolicyView: (policyId: string) => PolicyView | undefined;
   selectRenewalsView: () => RenewalView[];
@@ -821,6 +877,10 @@ export interface UIState {
   generateProposal: (caseId: string, comparisonId?: string, version?: 'client' | 'technical') => Promise<void>;
   loadActiveProposal: (proposalId: string) => Promise<void>;
   loadProposalByCase: (caseId: string) => Promise<void>;
+
+  // ✅ NUEVO: Acciones de sincronización de organización
+  setCurrentOrgId: (orgId: string) => void;
+  resetWorkspaceState: () => void;
 }
 
 // ✅ FASE 3: Persistencia de estado (con corrección de contaminación)
@@ -883,31 +943,55 @@ export const useUI = create<UIState>()(
     (set, get) => ({
       initialMessage: undefined,
       currentCaseId: null,
+      currentOrgId: null, // ✅ NUEVO: Organización activa actual
+
+      // ✅ NUEVO: Inicialización de auditoría de cumplimiento
+      complianceAuditLog: [],
 
       // ✅ NUEVO: Inicialización de fase de aprobación
       approvalPhase: 'pending',
 
       // ✅ NUEVO: Implementación de helpers computados
       shouldShowApprovalButtons: () => {
-        const { approvalPhase } = get();
+        const { currentCaseId, caseApproving, caseResolvingClient, approvalPhase } = get();
 
-        // ✅ CORRECCIÓN DEFINITIVA: Usar approvalPhase como ÚNICA fuente de verdad
-        // approvalPhase representa el ciclo de vida completo de la aprobación:
-        // - 'pending': Esperando aprobación → Mostrar botones
-        // - 'processing': Aprobando → Mostrar botones (deshabilitados por areApprovalButtonsEnabled)
-        // - 'completed': Aprobado → Ocultar botones
-
-        // REGLA SIMPLE: Mostrar si NO está completed
-        return approvalPhase !== 'completed';
+        // ✅ REGLA SIMPLE Y DEFINITIVA (3 estados):
+        // 1. VISIBLE + HABILITADO: currentCaseId es null o 'new-thread-placeholder' Y no está procesando
+        // 2. VISIBLE + DESHABILITADO: está procesando (caseApproving, caseResolvingClient, approvalPhase='processing')
+        // 3. INVISIBLE: currentCaseId es un UUID real (caso ya creado)
+        
+        // REGLA #1: Si hay un UUID real, NUNCA mostrar (caso ya creado/aprobado)
+        const isNewCase = !currentCaseId || currentCaseId === 'new-thread-placeholder';
+        if (!isNewCase) {
+          console.log('🔍 [shouldShowApprovalButtons]: FALSE - caso ya existe (UUID):', currentCaseId);
+          return false;
+        }
+        
+        // REGLA #2: Si está en fase completed, NUNCA mostrar
+        if (approvalPhase === 'completed') {
+          console.log('🔍 [shouldShowApprovalButtons]: FALSE - approvalPhase=completed');
+          return false;
+        }
+        
+        // REGLA #3: Durante procesamiento, MOSTRAR pero los botones estarán deshabilitados
+        // (areApprovalButtonsEnabled se encarga de deshabilitar)
+        console.log('🔍 [shouldShowApprovalButtons]: TRUE - caso nuevo:', { currentCaseId, approvalPhase });
+        return true;
       },
 
       areApprovalButtonsEnabled: () => {
-        const { approvalPhase, brief } = get();
+        const { brief, currentCaseId, caseApproving, caseResolvingClient, approvalPhase } = get();
 
-        // REGLA 1: Solo habilitar en fase 'pending' (NO processing ni completed)
-        if (approvalPhase !== 'pending') return false;
+        // REGLA 1: Solo habilitar para casos nuevos
+        const isNewCase = !currentCaseId || currentCaseId === 'new-thread-placeholder';
+        if (!isNewCase) return false;
+        
+        // REGLA 2: Deshabilitar durante procesamiento
+        if (caseApproving || caseResolvingClient || approvalPhase === 'processing') {
+          return false;
+        }
 
-        // REGLA 2: El brief debe tener categoría de seguro válida
+        // REGLA 3: El brief debe tener categoría de seguro válida
         return !!(brief.insurance_category?.trim());
       },
 
@@ -962,8 +1046,15 @@ export const useUI = create<UIState>()(
 
       complianceJurisdiction: complianceJurisdictions[0] ?? "co",
       checked: createDefaultComplianceChecked(),
-      complianceAuditLog: [],
-      followupCadenceDays: [...DEFAULT_FOLLOWUP_CADENCE_DAYS],
+      activeComplianceRecord: null,
+      complianceLoading: false,
+      complianceKycStatus: null,
+      complianceValidationErrors: [],
+      complianceStartDate: undefined,
+      complianceEndDate: undefined,
+      selectedCompliancePolicyId: null, // ✅ FASE 1: Póliza seleccionada
+
+      followupCadenceDays: [30, 60, 90],
       followupAuditLog: [],
 
       // ✅ FASE 21 & 22: Inicialización
@@ -1246,25 +1337,408 @@ export const useUI = create<UIState>()(
           briefingCase: null,
           step: "landing"
         })),
-      toggleRight: () => set((state) => ({ rightOpen: !state.rightOpen })),
+      toggleRightPanel: () => set((state) => ({ rightOpen: !state.rightOpen })),
       openChatPanel: () => set(() => ({ chatPanelOpen: true })),
       closeChatPanel: () => set(() => ({ chatPanelOpen: false })),
       // Funciones del sidebar
       setSidebarOpen: (open) => set(() => ({ sidebarOpen: open })),
       setSidebarHovered: (hovered) => set(() => ({ sidebarHovered: hovered })),
+      // ✅ FASE 32: Compliance Actions Implementation
+      loadComplianceRecord: async (caseId: string) => {
+        console.log('🔍 [state.ts] loadComplianceRecord called with caseId:', caseId);
+        if (!caseId || caseId === 'new-thread-placeholder') {
+          console.log('🛑 [state.ts] Skipping compliance load for invalid/placeholder caseId');
+          return;
+        }
+        set({ complianceLoading: true, complianceValidationErrors: [] });
+        try {
+          const response = await fetch(`/api/compliance/records/${caseId}`);
+          if (response.status === 404) {
+            console.warn('⚠️ [state.ts] Compliance record not found (404)');
+            set({ activeComplianceRecord: null, complianceLoading: false });
+            return;
+          }
+          if (!response.ok) {
+            throw new Error(`Failed to load compliance record: ${response.status}`);
+          }
+
+          const record: ComplianceRecord = await response.json();
+
+          if (!record) {
+            console.warn('⚠️ [state.ts] Compliance record is null/empty despite 200 OK');
+            set({ activeComplianceRecord: null, complianceLoading: false });
+            return;
+          }
+
+          // Sincronizar estado local 'checked' con los datos de BD
+          const syncedChecked = { ...get().checked };
+
+          if (record.checklistData) {
+            Object.entries(record.checklistData).forEach(([itemId, data]) => {
+              const jurisdiction = record.jurisdiction;
+              if (jurisdiction && complianceChecklistItems[jurisdiction]?.includes(itemId)) {
+                if (!syncedChecked[jurisdiction]) {
+                  syncedChecked[jurisdiction] = {};
+                }
+                syncedChecked[jurisdiction][itemId] = (data as any).checked;
+              }
+            });
+          }
+
+          set({
+            activeComplianceRecord: record,
+            checked: syncedChecked,
+            complianceLoading: false,
+            complianceKycStatus: record.kycStatus || null,
+            complianceJurisdiction: record.jurisdiction,
+            // Hydrate dates from validatedDates field
+            complianceStartDate: (record.validatedDates as any)?.startDate || undefined,
+            complianceEndDate: (record.validatedDates as any)?.endDate || undefined,
+          });
+
+        } catch (error) {
+          console.error("Error loading compliance record:", error);
+          toast.error("Error al cargar estado de cumplimiento");
+          set({ complianceLoading: false });
+        }
+      },
+
+      updateComplianceItem: async (itemId: string, checked: boolean) => {
+        const { currentCaseId, complianceJurisdiction, activeComplianceRecord } = get();
+
+        if (!currentCaseId) {
+          console.warn('⚠️ [updateComplianceItem] No currentCaseId, cannot save');
+          return;
+        }
+        
+        if (!complianceJurisdiction) {
+          console.warn('⚠️ [updateComplianceItem] No jurisdiction set');
+          return;
+        }
+
+        // 1. Optimistic Update (Local State)
+        const previousChecked = get().checked;
+
+        set((state) => {
+          const currentJurisdictionState = state.checked[complianceJurisdiction] ?? {};
+          return {
+            checked: {
+              ...state.checked,
+              [complianceJurisdiction]: {
+                ...currentJurisdictionState,
+                [itemId]: checked,
+              },
+            }
+          };
+        });
+
+        const currentJurisdictionState = get().checked[complianceJurisdiction] ?? {};
+        const existingChecklistData = activeComplianceRecord?.checklistData ?? {};
+
+        const payloadChecklistData = {
+          ...existingChecklistData,
+          [itemId]: {
+            checked,
+            verifiedBy: "user",
+            updatedAt: new Date().toISOString()
+          }
+        };
+
+        try {
+          console.log('💾 [updateComplianceItem] Saving to API:', {
+            caseId: currentCaseId,
+            jurisdiction: complianceJurisdiction,
+            itemId,
+            checked
+          });
+          
+          // Usar PUT con caseId en la URL - el backend hace upsert si no existe
+          const response = await fetch(`/api/compliance/records/${currentCaseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jurisdiction: complianceJurisdiction,
+              checklistData: payloadChecklistData
+            })
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => 'Unknown error');
+            console.error('❌ [updateComplianceItem] API error:', response.status, errorText);
+            
+            // Mensajes específicos según código de error
+            if (response.status === 403) {
+              throw new Error('NO_ACCESS');
+            } else if (response.status === 404) {
+              throw new Error('CASE_NOT_FOUND');
+            } else {
+              throw new Error(`SAVE_FAILED:${response.status}`);
+            }
+          }
+
+          const updatedRecord = await response.json();
+          console.log('✅ [updateComplianceItem] Saved successfully');
+          set({ activeComplianceRecord: updatedRecord });
+
+        } catch (error) {
+          console.error("❌ [updateComplianceItem] Error:", error);
+          
+          // Mostrar mensaje apropiado según tipo de error
+          const errorMessage = error instanceof Error ? error.message : 'Unknown';
+          if (errorMessage === 'NO_ACCESS') {
+            toast.error("No tienes acceso a este caso en la organización actual");
+          } else if (errorMessage === 'CASE_NOT_FOUND') {
+            toast.error("El caso no fue encontrado");
+          } else {
+            toast.error("No se pudo guardar el cambio. Intenta de nuevo.");
+          }
+          
+          // Revertir al estado anterior
+          set({ checked: previousChecked });
+        }
+      },
+
+      validateComplianceDates: async (start: string, end: string) => {
+        const { currentCaseId } = get();
+        if (!currentCaseId) return;
+
+        set({ complianceLoading: true, complianceValidationErrors: [] });
+
+        try {
+          const response = await fetch('/api/compliance/validate-dates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              startDate: start,
+              endDate: end,
+              caseId: currentCaseId
+            })
+          });
+
+          // ✅ FASE 38: Check response status before parsing
+          if (!response.ok) {
+            throw new Error(`Validation failed: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          if (!data.valid) {
+            set({
+              complianceValidationErrors: data.errors || ["Fechas inválidas"],
+              complianceLoading: false
+            });
+            // ✅ FASE 38: Defer toast to avoid hooks mismatch
+            setTimeout(() => toast.error("Validación de fechas fallida"), 0);
+          } else {
+            set({
+              complianceValidationErrors: [],
+              complianceLoading: false
+            });
+            // ✅ FASE 38: Defer toast to avoid hooks mismatch
+            setTimeout(() => toast.success("Fechas validadas correctamente"), 0);
+
+            // Trigger auto-save
+            get().saveComplianceRecord();
+          }
+
+        } catch (error) {
+          console.error("Error validating dates:", error);
+          set({
+            complianceValidationErrors: ["Error de conexión"],
+            complianceLoading: false
+          });
+          // ✅ FASE 38: Defer toast to avoid hooks mismatch
+          setTimeout(() => toast.error("Error al validar fechas"), 0);
+        }
+      },
+
+      verifyKyc: async () => {
+        const { currentCaseId, activeComplianceRecord } = get();
+        if (!currentCaseId || !activeComplianceRecord) return;
+
+        set({ complianceLoading: true });
+
+        // Delay for visual feedback
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        set({
+          activeComplianceRecord: { ...activeComplianceRecord, kycStatus: "verified" },
+          complianceKycStatus: "verified",
+          complianceLoading: false
+        });
+        toast.success("KYC Verificado correctamente");
+
+        // Trigger auto-save after KYC verification
+        const { saveComplianceRecord } = get();
+        saveComplianceRecord();
+      },
+
+      saveComplianceRecord: async () => {
+        const { currentCaseId, activeComplianceRecord, checked, complianceKycStatus, complianceStartDate, complianceEndDate } = get();
+
+        if (!currentCaseId || !activeComplianceRecord) {
+          console.warn('⚠️ [state.ts] Cannot save compliance: No active record or case ID');
+          return;
+        }
+
+        const checklistData: Record<string, any> = {};
+        const jurisdiction = activeComplianceRecord.jurisdiction;
+
+        if (jurisdiction && checked[jurisdiction]) {
+          Object.entries(checked[jurisdiction]).forEach(([itemId, isChecked]) => {
+            checklistData[itemId] = { checked: isChecked, timestamp: Date.now() };
+          });
+        }
+
+        try {
+          const response = await fetch(`/api/compliance/records/${currentCaseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              checklistData,
+              kycStatus: complianceKycStatus, // Persist current KYC status
+              policyStartDate: complianceStartDate,
+              policyEndDate: complianceEndDate
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to auto-save compliance: ${response.status}`);
+          }
+
+          console.log('✅ [state.ts] Compliance record auto-saved successfully');
+
+        } catch (error) {
+          console.error('❌ [state.ts] Error saving compliance record:', error);
+          toast.error("Error al guardar cambios de cumplimiento");
+        }
+      },
+
+      // ✅ FASE 1: Seleccionar póliza para validación de compliance
+      setSelectedCompliancePolicyId: (policyId: string | null) => {
+        const { policyAnalyses } = get();
+        
+        set({ selectedCompliancePolicyId: policyId });
+        
+        // Si se selecciona una póliza, hidratar sus fechas automáticamente
+        if (policyId) {
+          const selectedAnalysis = policyAnalyses.find(a => a.id === policyId);
+          if (selectedAnalysis) {
+            const data = selectedAnalysis.extractedData as Record<string, any>;
+            
+            // Buscar fechas con múltiples nombres posibles
+            const startDate = data?.effective_from || data?.effectiveDate || 
+                             data?.startDate || data?.fechaInicio || data?.vigenciaDesde;
+            const endDate = data?.effective_to || data?.expirationDate || 
+                           data?.endDate || data?.fechaFin || data?.vigenciaHasta;
+            
+            if (startDate && endDate) {
+              const formatDate = (dateStr: string): string => {
+                try {
+                  const date = new Date(dateStr);
+                  if (!isNaN(date.getTime())) {
+                    return date.toISOString().split('T')[0] ?? dateStr;
+                  }
+                } catch {}
+                return dateStr;
+              };
+              
+              set({
+                complianceStartDate: formatDate(startDate),
+                complianceEndDate: formatDate(endDate)
+              });
+              
+              console.log('✅ [setSelectedCompliancePolicyId] Hydrated dates from policy:', policyId);
+              toast.success('Fechas de vigencia cargadas desde póliza seleccionada');
+            } else {
+              // Limpiar fechas si la póliza no tiene - usar string vacío en lugar de undefined
+              set({
+                complianceStartDate: '',
+                complianceEndDate: ''
+              });
+              console.log('⚠️ [setSelectedCompliancePolicyId] No dates in selected policy');
+            }
+          }
+        }
+      },
+
+      // ✅ CORRECCIÓN: Auto-hidratar fechas de vigencia desde pólizas analizadas
+      // Esto se llama cuando se activa el tab de Compliance para pre-llenar las fechas
+      hydrateComplianceDatesFromPolicies: () => {
+        const { policyAnalyses, complianceStartDate, complianceEndDate, selectedCompliancePolicyId } = get();
+        
+        // Si ya hay fechas configuradas, no sobrescribir
+        if (complianceStartDate && complianceEndDate) {
+          console.log('ℹ️ [hydrateComplianceDates] Dates already set, skipping');
+          return;
+        }
+        
+        // Si hay una póliza seleccionada, usar esa; si no, buscar la primera con fechas
+        const targetAnalyses = selectedCompliancePolicyId 
+          ? policyAnalyses.filter(a => a.id === selectedCompliancePolicyId)
+          : policyAnalyses;
+        
+        // Buscar póliza con fechas de vigencia
+        for (const analysis of targetAnalyses) {
+          const data = analysis.extractedData as Record<string, any>;
+          
+          // Buscar fechas con múltiples nombres posibles (del prompt de IA)
+          const startDate = data?.effective_from || data?.effectiveDate || 
+                           data?.startDate || data?.fechaInicio || data?.vigenciaDesde;
+          const endDate = data?.effective_to || data?.expirationDate || 
+                         data?.endDate || data?.fechaFin || data?.vigenciaHasta;
+          
+          if (startDate && endDate) {
+            // Convertir a formato YYYY-MM-DD para inputs date
+            const formatDate = (dateStr: string): string => {
+              try {
+                const date = new Date(dateStr);
+                if (!isNaN(date.getTime())) {
+                  return date.toISOString().split('T')[0] ?? dateStr;
+                }
+              } catch {}
+              return dateStr;
+            };
+            
+            const formattedStart = formatDate(startDate);
+            const formattedEnd = formatDate(endDate);
+            
+            console.log('✅ [hydrateComplianceDates] Found dates in policy:', {
+              startDate: formattedStart,
+              endDate: formattedEnd,
+              source: analysis.id
+            });
+            
+            set({
+              complianceStartDate: formattedStart,
+              complianceEndDate: formattedEnd,
+              selectedCompliancePolicyId: analysis.id // Auto-seleccionar la póliza usada
+            });
+            
+            toast.success('Fechas de vigencia detectadas automáticamente');
+            return;
+          }
+        }
+        
+        console.log('⚠️ [hydrateComplianceDates] No dates found in any policy analysis');
+      },
+
       openCompliance: (jurisdiction) =>
-        set((state) => ({
-          complianceOpen: true,
-          complianceJurisdiction: jurisdiction,
-          checked: ensureComplianceCheckedForJurisdiction(state.checked, jurisdiction),
-          complianceAuditLog: appendComplianceEvent(state.complianceAuditLog, {
+        set((state) => {
+          const event: LocalComplianceEvent = {
             type: "ComplianceOpen",
             ts: Date.now(),
             payload: { jurisdiction },
-          }),
-        })),
+          };
+          return {
+            complianceOpen: true,
+            complianceJurisdiction: jurisdiction,
+            checked: ensureComplianceCheckedForJurisdiction(state.checked, jurisdiction),
+            complianceAuditLog: appendComplianceEvent(state.complianceAuditLog, event),
+          };
+        }),
       closeCompliance: () => set(() => ({ complianceOpen: false })),
-      toggleCompliance: (itemId) =>
+      toggleCompliance: (itemId) => {
         set((state) => {
           const jurisdiction = state.complianceJurisdiction;
           const items = complianceChecklistItems[jurisdiction];
@@ -1290,7 +1764,11 @@ export const useUI = create<UIState>()(
               payload: { jurisdiction, itemId, checked: nextValue },
             }),
           };
-        }),
+        });
+
+        // Trigger auto-save
+        get().saveComplianceRecord();
+      },
       passCompliance: (jurisdiction) =>
         set((state) => {
           const items = complianceChecklistItems[jurisdiction];
@@ -1364,7 +1842,7 @@ export const useUI = create<UIState>()(
       },
       logComplianceSendAttempt: (payload) =>
         set((state) => {
-          const event: ComplianceAuditEvent = {
+          const event: LocalComplianceEvent = {
             type: "SendAttempt",
             ts: Date.now(),
           };
@@ -1377,7 +1855,7 @@ export const useUI = create<UIState>()(
         }),
       logComplianceSendBlocked: (payload) =>
         set((state) => {
-          const event: ComplianceAuditEvent = {
+          const event: LocalComplianceEvent = {
             type: "SendBlocked",
             ts: Date.now(),
           };
@@ -1390,7 +1868,7 @@ export const useUI = create<UIState>()(
         }),
       logComplianceSendSuccess: (payload) =>
         set((state) => {
-          const event: ComplianceAuditEvent = {
+          const event: LocalComplianceEvent = {
             type: "SendSuccess",
             ts: Date.now(),
           };
@@ -1521,6 +1999,7 @@ export const useUI = create<UIState>()(
           throw error;
         }
       },
+
       fetchEligibilities: async () => {
         const { eligibilitiesLoading, eligibilitiesLoaded } = get();
         if (eligibilitiesLoading || eligibilitiesLoaded) {
@@ -1566,7 +2045,8 @@ export const useUI = create<UIState>()(
           // Usar API route para evitar problemas de server/client components
           const response = await fetch('/api/cases');
           if (!response.ok) {
-            throw new Error(`Failed to fetch cases: ${response.statusText}`);
+            throw new Error(`Failed to fetch cases: ${response.statusText
+              }`);
           }
           const data = await response.json();
           console.log('✅ [fetchCases] Loaded cases:', data.cases.length);
@@ -1660,7 +2140,7 @@ export const useUI = create<UIState>()(
 
           // MOCK TEMPORAL para evitar crash
           const mockComparison: PolicyComparison = {
-            id: `comp-${Date.now()}`,
+            id: `comp - ${Date.now()}`,
             caseId: get().currentCaseId || '',
             analysisIds,
             rows: [],
@@ -1687,7 +2167,7 @@ export const useUI = create<UIState>()(
       loadActiveComparison: async (caseId) => {
         set({ comparisonLoading: true });
         try {
-          const response = await fetch(`/api/comparisons?caseId=${caseId}`);
+          const response = await fetch(`/api/comparisons/by-case/${caseId}`);
           if (!response.ok) {
             if (response.status === 404) {
               set({ activeComparison: null, comparisonLoading: false });
@@ -1742,9 +2222,9 @@ export const useUI = create<UIState>()(
       // ✅ FASE 31: Propuesta Generation
       generateProposal: async (caseId, comparisonId, version = 'client') => {
         const { selectedAnalysisIds, policyAnalyses } = get();
-        
+
         // Use selected analyses, or all if none selected
-        const analysisIdsToUse = selectedAnalysisIds.size > 0 
+        const analysisIdsToUse = selectedAnalysisIds.size > 0
           ? Array.from(selectedAnalysisIds)
           : policyAnalyses.map(a => a.id);
 
@@ -1791,7 +2271,7 @@ export const useUI = create<UIState>()(
         set({ proposalLoading: true });
 
         try {
-          const response = await fetch(`/api/proposals/${proposalId}`);
+          const response = await fetch(`/ api / proposals / ${proposalId}`);
 
           if (!response.ok) {
             throw new Error("Failed to load proposal");
@@ -1827,6 +2307,11 @@ export const useUI = create<UIState>()(
           const response = await fetch(`/api/proposals/by-case/${caseId}`);
 
           if (!response.ok) {
+            // ✅ Casos nuevos o sin propuesta: silenciar error y establecer null
+            if (response.status === 404 || response.status === 403) {
+              set({ activeProposal: null, proposalLoading: false });
+              return;
+            }
             throw new Error("Failed to load proposal");
           }
 
@@ -1845,6 +2330,79 @@ export const useUI = create<UIState>()(
           set({ proposalLoading: false });
           console.error("Error loading proposal by case:", error);
           // Don't show error toast - it's okay if no proposal exists yet
+        }
+      },
+
+      // ✅ NUEVO: Establecer organización activa
+      setCurrentOrgId: (orgId: string) => {
+        set({ currentOrgId: orgId });
+      },
+
+      // ✅ NUEVO: Resetear todo el estado del workspace al cambiar de organización
+      // Esto garantiza que no se mezclen datos de diferentes organizaciones
+      resetWorkspaceState: () => {
+        console.log('🧹 [resetWorkspaceState] Limpiando estado del workspace...');
+        set({
+          // Resetear casos
+          cases: [],
+          casesLoaded: false,
+          casesLoading: false,
+          currentCaseId: null,
+          
+          // Resetear mensajes y chat
+          messages: [],
+          briefingCase: null,
+          
+          // Resetear políticas
+          policies: [],
+          policiesLoaded: false,
+          policiesLoading: false,
+          
+          // Resetear análisis de pólizas
+          policyAnalyses: [],
+          policyAnalysesLoaded: false,
+          policyAnalysesLoading: false,
+          selectedPolicyAnalysisId: null,
+          
+          // Resetear comparaciones
+          activeComparison: null,
+          comparisonLoading: false,
+          selectedAnalysisIds: new Set<string>(),
+          
+          // Resetear propuestas
+          activeProposal: null,
+          proposalLoading: false,
+          
+          // Resetear renovaciones
+          renewals: [],
+          renewalsLoaded: false,
+          renewalsLoading: false,
+          
+          // Resetear compliance
+          activeComplianceRecord: null,
+          complianceLoading: false,
+          
+          // Resetear brief
+          brief: {},
+          
+          // Resetear fase de aprobación
+          approvalPhase: 'pending',
+          caseApproved: false,
+          caseApproving: false,
+          caseApprovalError: null,
+          
+          // Limpiar datos pendientes del landing
+          landingDataPending: null,
+        });
+        
+        // Limpiar localStorage para evitar contaminación
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.removeItem('briki-ui-state');
+            console.log('✅ [resetWorkspaceState] Estado limpiado completamente');
+          } catch (error) {
+            console.error('❌ [resetWorkspaceState] Error limpiando localStorage:', error);
+          }
         }
       },
 
@@ -1899,24 +2457,238 @@ export const useUI = create<UIState>()(
         return [];
       },
 
-      fetchRenewals: async () => {
-        const { renewalsLoading, renewalsLoaded } = get();
-        if (renewalsLoading || renewalsLoaded) {
+      fetchRenewals: async (caseId?: string) => {
+        const { renewalsLoading, currentCaseId } = get();
+        const targetCaseId = caseId || currentCaseId;
+        
+        if (renewalsLoading) {
           return;
         }
+        
+        if (!targetCaseId) {
+          console.log('⏭️ [fetchRenewals] No caseId available, skipping...');
+          return;
+        }
+        
         set(() => ({ renewalsLoading: true }));
         try {
-          const renewals = await loadRenewals();
+          console.log('📋 [fetchRenewals] Loading renewals for case:', targetCaseId);
+          const renewals = await loadRenewals(targetCaseId);
           const withStatus = renewals.map((renewal: any) => ({
             ...renewal,
             status: renewal.status ?? deriveRenewalStatus(renewal.renewalDateISO),
           }));
           get().setRenewals(withStatus);
+          console.log('✅ [fetchRenewals] Loaded', renewals.length, 'renewals');
         } catch (error) {
+          console.error('❌ [fetchRenewals] Error:', error);
           set(() => ({ renewalsLoading: false }));
           throw error;
         }
       },
+      
+      // ✅ FASE 3 RENOVACIONES: Crear renovación
+      createRenewal: async (data) => {
+        try {
+          console.log('📝 [createRenewal] Creating renewal:', data.planName);
+          const result = await createRenewal(data);
+          
+          // Transform to RenewalRecord format and add to state
+          const newRenewal: RenewalRecord = {
+            id: result.renewal.id,
+            carrier: result.renewal.carrier,
+            plan: result.renewal.planName,
+            renewalDateISO: result.renewal.renewalDate,
+            premium: {
+              amountMinor: result.renewal.currentPremiumMinor,
+              currency: result.renewal.currency || 'COP',
+            },
+            status: result.renewal.renewalWindowStatus,
+            reminderSet: result.renewal.reminderSet || false,
+            policyId: result.renewal.policyAnalysisId || undefined,
+          };
+          
+          set((state) => {
+            const nextRenewals = [...state.renewals, newRenewal];
+            const renewalsView = nextRenewals.map(renewalToView);
+            const nextState = { ...state, renewals: nextRenewals };
+            const filtered = computeFilteredSortedRenewals(nextState);
+            const filteredView = filtered.map(renewalToView);
+            return {
+              renewals: nextRenewals,
+              _cachedRenewalsView: renewalsView,
+              _cachedFilteredRenewalsView: filteredView,
+            };
+          });
+          
+          toast.success(`Renovación "${data.planName}" creada exitosamente`);
+          console.log('✅ [createRenewal] Created:', result.renewal.id);
+          return newRenewal;
+        } catch (error: any) {
+          console.error('❌ [createRenewal] Error:', error);
+          toast.error(`Error al crear renovación: ${error.message}`);
+          throw error;
+        }
+      },
+      
+      // ✅ FASE 3 RENOVACIONES: Actualizar renovación
+      updateRenewal: async (id, data) => {
+        try {
+          console.log('📝 [updateRenewal] Updating renewal:', id);
+          const result = await updateRenewal(id, data);
+          
+          set((state) => {
+            const nextRenewals = state.renewals.map((r) => {
+              if (r.id !== id) return r;
+              return {
+                ...r,
+                carrier: data.carrier ?? r.carrier,
+                plan: data.planName ?? r.plan,
+                renewalDateISO: data.renewalDate ?? r.renewalDateISO,
+                reminderSet: data.reminderSet ?? r.reminderSet,
+                status: result.renewal?.renewalWindowStatus ?? r.status,
+              };
+            });
+            const renewalsView = nextRenewals.map(renewalToView);
+            const nextState = { ...state, renewals: nextRenewals };
+            const filtered = computeFilteredSortedRenewals(nextState);
+            const filteredView = filtered.map(renewalToView);
+            return {
+              renewals: nextRenewals,
+              _cachedRenewalsView: renewalsView,
+              _cachedFilteredRenewalsView: filteredView,
+            };
+          });
+          
+          toast.success('Renovación actualizada');
+          console.log('✅ [updateRenewal] Updated:', id);
+        } catch (error: any) {
+          console.error('❌ [updateRenewal] Error:', error);
+          toast.error(`Error al actualizar: ${error.message}`);
+          throw error;
+        }
+      },
+      
+      // ✅ FASE 3 RENOVACIONES: Eliminar renovación
+      deleteRenewal: async (id) => {
+        try {
+          console.log('🗑️ [deleteRenewal] Deleting renewal:', id);
+          await deleteRenewal(id);
+          
+          set((state) => {
+            const nextRenewals = state.renewals.filter((r) => r.id !== id);
+            const renewalsView = nextRenewals.map(renewalToView);
+            const nextState = { ...state, renewals: nextRenewals };
+            const filtered = computeFilteredSortedRenewals(nextState);
+            const filteredView = filtered.map(renewalToView);
+            return {
+              renewals: nextRenewals,
+              _cachedRenewalsView: renewalsView,
+              _cachedFilteredRenewalsView: filteredView,
+            };
+          });
+          
+          toast.success('Renovación eliminada');
+          console.log('✅ [deleteRenewal] Deleted:', id);
+        } catch (error: any) {
+          console.error('❌ [deleteRenewal] Error:', error);
+          toast.error(`Error al eliminar: ${error.message}`);
+          throw error;
+        }
+      },
+      
+      // ✅ FASE 3 RENOVACIONES: Auto-detectar renovaciones
+      detectRenewals: async (caseId, daysAhead = 90) => {
+        try {
+          console.log('🔍 [detectRenewals] Detecting renewals for case:', caseId);
+          const result = await detectRenewals(caseId, daysAhead);
+          
+          // Reload renewals to get the newly created ones
+          await get().fetchRenewals(caseId);
+          
+          const created = result.created?.length || 0;
+          const skipped = result.skipped?.length || 0;
+          
+          if (created > 0) {
+            toast.success(`${created} renovación(es) detectada(s) automáticamente`);
+          } else {
+            toast.info('No se detectaron nuevas renovaciones pendientes');
+          }
+          
+          console.log('✅ [detectRenewals] Result:', { created, skipped });
+          return { created, skipped };
+        } catch (error: any) {
+          console.error('❌ [detectRenewals] Error:', error);
+          toast.error(`Error al detectar renovaciones: ${error.message}`);
+          throw error;
+        }
+      },
+      
+      // ✅ FASE 3 RENOVACIONES: Obtener estadísticas
+      getRenewalStats: async (caseId) => {
+        try {
+          return await getRenewalStats(caseId);
+        } catch (error: any) {
+          console.error('❌ [getRenewalStats] Error:', error);
+          throw error;
+        }
+      },
+      
+      // ✅ FASE 6 RENOVACIONES: Iniciar comparación desde renovación
+      startRenewalComparison: (renewalId, policyAnalysisId) => {
+        console.log('🔄 [startRenewalComparison] Starting comparison for renewal:', renewalId);
+        
+        // Si tenemos policyAnalysisId, pre-seleccionarlo para la comparación
+        if (policyAnalysisId) {
+          const newSet = new Set<string>([policyAnalysisId]);
+          set({ selectedAnalysisIds: newSet });
+          console.log('✅ [startRenewalComparison] Pre-selected analysis:', policyAnalysisId);
+        } else {
+          // Si no hay policyAnalysisId, limpiar selección y dejar que el usuario seleccione
+          set({ selectedAnalysisIds: new Set<string>() });
+          console.log('ℹ️ [startRenewalComparison] No policy analysis linked, clearing selection');
+        }
+        
+        // Navegar al tab de comparaciones
+        get().setActiveTab('comparisons');
+        toast.info('Selecciona las pólizas a comparar y genera la comparativa con IA');
+      },
+      
+      // ✅ FASE 7 RENOVACIONES: Generar propuesta desde renovación
+      generateRenewalProposal: async (renewalId, policyAnalysisId) => {
+        const { currentCaseId, activeComparison } = get();
+        
+        if (!currentCaseId) {
+          toast.error('No hay caso activo para generar propuesta');
+          return;
+        }
+        
+        console.log('📄 [generateRenewalProposal] Generating proposal for renewal:', renewalId);
+        
+        // Si tenemos policyAnalysisId, pre-seleccionarlo
+        if (policyAnalysisId) {
+          const newSet = new Set<string>([policyAnalysisId]);
+          set({ selectedAnalysisIds: newSet });
+          console.log('✅ [generateRenewalProposal] Pre-selected analysis:', policyAnalysisId);
+        }
+        
+        try {
+          // Generar propuesta usando la comparación activa si existe
+          await get().generateProposal(
+            currentCaseId, 
+            activeComparison?.id, 
+            'client'
+          );
+          
+          // Navegar al tab de propuesta
+          get().setActiveTab('proposal');
+          console.log('✅ [generateRenewalProposal] Proposal generated, navigated to proposal tab');
+        } catch (error: any) {
+          console.error('❌ [generateRenewalProposal] Error:', error);
+          // El error ya se muestra en generateProposal
+        }
+      },
+      
       setRenewalsFilters: (filters) =>
         set((state) => {
           const nextFilters = sanitizeRenewalsFilters({ ...state.renewalsFilters, ...filters });
@@ -2362,11 +3134,24 @@ function ensureComplianceCheckedForJurisdiction(
   };
 }
 
-function appendComplianceEvent(log: ComplianceAuditEvent[], event: ComplianceAuditEvent): ComplianceAuditEvent[] {
-  if (log.length === 0) {
-    return [event];
+// Renamed ComplianceAuditEvent to LocalComplianceEvent
+type LocalComplianceEvent = {
+  type: "ComplianceOpen" | "ChecklistToggle" | "CompliancePass" | "SendAttempt" | "SendBlocked" | "SendSuccess";
+  ts: number;
+  payload?: any;
+};
+
+
+function appendComplianceEvent(log: LocalComplianceEvent[] | undefined, event: LocalComplianceEvent): LocalComplianceEvent[] {
+  // Guard: Ensure log is an array
+  const safeLog = Array.isArray(log) ? log : [];
+
+  // Keep only last 50 events
+  const newLog = [...safeLog, event];
+  if (newLog.length > 50) {
+    return newLog.slice(newLog.length - 50);
   }
-  return [...log, event];
+  return newLog;
 }
 
 function shallowEqualComplianceState(

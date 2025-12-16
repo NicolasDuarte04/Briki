@@ -25,13 +25,22 @@ const ConversationPane = dynamic(() => import("@/components/Chat/ConversationPan
 interface HomeClientProps {
   initialStep?: UIStep;
   threadId?: string;
+  orgId?: string; // ✅ CORRECCIÓN: orgId desde SSR para evitar race condition
 }
 
-export default function HomeClient({ initialStep = "landing", threadId }: HomeClientProps) {
+export default function HomeClient({ initialStep = "landing", threadId, orgId }: HomeClientProps) {
+  // 🔍 DEBUG: Log al inicio del componente
+  console.log('🔍 [HomeClient] INICIO - Props recibidas:', {
+    initialStep,
+    threadId,
+    orgId,
+    timestamp: new Date().toISOString(),
+  });
+
   const initializedRef = useRef(false);
   const pathname = usePathname(); // ✅ FASE 2: Obtener pathname para verificación de ruta
   // ✅ FASE 3: Agregar landingDataPending para detectar origen desde LandingPage
-  const { step, rightOpen, toggleRight, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage, currentCaseId, setCurrentCaseId, setMessages, setBrief, landingDataPending } = useUI();
+  const { step, rightOpen, toggleRightPanel, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage, currentCaseId, setCurrentCaseId, setMessages, setBrief, landingDataPending } = useUI();
   // Usar el valor del store como fuente de verdad para la lógica de renderizado
   const currentStep = step; // Leer siempre desde Zustand después de la sincronización
 
@@ -163,32 +172,37 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
         setCurrentCaseId(threadId);
         setStep('conversation');
 
-        // ✅ CORRECCIÓN: Resetear caseApproving al cargar caso desde URL
-        // IMPORTANTE: NO resetear caseApproved aquí, se sincronizará desde BD en WorkspaceTabs
-        // Si el caso tiene status: 'active', caseApproved se establecerá en true y NUNCA puede volverse false
-        useUI.setState({ caseApproving: false });
+        // ✅ CORRECCIÓN CRÍTICA: Si el threadId es un UUID real, establecer approvalPhase='completed' INMEDIATAMENTE
+        // Esto asegura que los botones NUNCA aparezcan mientras se carga el caso
+        // La sincronización desde BD confirmará el estado, pero por defecto asumimos que el caso ya fue aprobado
+        useUI.setState({ 
+          caseApproving: false,
+          approvalPhase: 'completed' // ✅ CRÍTICO: Ocultar botones inmediatamente para casos existentes
+        });
+        console.log('✅ [HomeClient] approvalPhase=completed INMEDIATO para caso existente (botones ocultos)');
 
-        // ✅ CORRECCIÓN CRÍTICA: Sincronizar caseApproved desde BD inmediatamente si es un caso histórico
-        // Esto asegura que si el caso tiene status: 'active', caseApproved se establece en true
+        // ✅ Sincronizar caseApproved desde BD (confirmación, pero los botones ya están ocultos)
         const syncCaseApproved = async () => {
           try {
             const response = await fetch(`/api/cases/${threadId}`);
             if (response.ok) {
               const { case: caseData } = await response.json();
               if (caseData.status === 'active') {
-                // ✅ REGLA DE NEGOCIO: Casos activos SIEMPRE tienen caseApproved=true y NUNCA puede volverse false
                 useUI.getState().setCaseApproved(true);
-                console.log('✅ [HomeClient] Caso activo detectado desde URL, caseApproved=true (NUNCA puede volverse false)');
+                console.log('✅ [HomeClient] Confirmado: caso activo desde BD, caseApproved=true');
+              } else if (caseData.status === 'draft') {
+                // ✅ CASO ESPECIAL: Caso en draft - podría necesitar aprobación
+                // Pero como ya tiene UUID, los botones deben permanecer ocultos
+                console.log('ℹ️ [HomeClient] Caso en draft detectado, botones permanecen ocultos (ya tiene caseId)');
               }
             }
           } catch (error) {
             console.warn('⚠️ [HomeClient] Error sincronizando caseApproved desde BD:', error);
-            // No bloquear el flujo si falla la sincronización
           }
         };
         syncCaseApproved();
 
-        console.log('✅ [HomeClient] caseApproving reseteado al cargar caso desde URL (caseApproved se mantiene o se sincroniza desde BD)');
+        console.log('✅ [HomeClient] Estado inicial establecido para caso existente');
       }
     }
   }, [threadId, landingDataPending, setCurrentCaseId, setStep]); // ✅ CORRECCIÓN: Agregar landingDataPending a dependencias
@@ -307,7 +321,7 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
     <div className="h-dvh min-h-0 w-full flex flex-col overflow-auto">
       <Hotkeys
         primaryAction={primaryAction}
-        onToggleRightPanel={toggleRight}
+        onToggleRightPanel={toggleRightPanel}
         onSetStep={(index) => {
           const next = steps[index - 1];
           if (next) setStep(next);
@@ -391,13 +405,14 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
               </motion.div>
             </div>
           ) : (
-            <div className="relative z-10 flex flex-1 flex-col bg-background min-h-0 overflow-auto">
+            <div className="relative z-10 flex flex-1 flex-col bg-background min-h-0 h-full overflow-hidden">
               <motion.div
                 key="conversation"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
+                className="flex-1 flex flex-col min-h-0 h-full"
               >
                 {/* Solo mostrar Canvas para steps que requieren el panel izquierdo */}
                 {(currentStep === "conversation" || currentStep === "compliance" || currentStep === "sourcing") ? (
@@ -427,7 +442,7 @@ export default function HomeClient({ initialStep = "landing", threadId }: HomeCl
                             {/* Panel de Tabs: Siempre visible en este flujo */}
                             <div className="flex-1 min-h-0 overflow-y-auto">
                               {/* WorkspaceTabs necesita acceso al caseId actual, asegúrate que lo reciba */}
-                              <WorkspaceTabs />
+                              <WorkspaceTabs {...(orgId && { orgId })} />
                             </div>
                           </div>
                         );

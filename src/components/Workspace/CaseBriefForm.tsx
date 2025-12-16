@@ -33,14 +33,18 @@ interface CaseBriefFormProps {
     activeCaseData?: CaseData | null; // ✅ FASE 1: Recibir activeCaseData para detectar casos históricos
     onEditComplete?: () => void; // ✅ CORRECCIÓN: Callback para volver al resumen después de guardar
     isEditingMode?: boolean; // ✅ CORRECCIÓN: Prop para forzar modo edición desde WorkspaceTabs
+    orgId?: string; // ✅ CORRECCIÓN: orgId desde SSR para evitar race condition en PdfUploader
 }
 
-export default function CaseBriefForm({ initialData, activeCaseData, onEditComplete, isEditingMode = false }: CaseBriefFormProps = {}) {
+export default function CaseBriefForm({ initialData, activeCaseData, onEditComplete, isEditingMode = false, orgId: propOrgId }: CaseBriefFormProps = {}) {
     const router = useRouter();
     const { brief, setBrief, currentCaseId, approveCurrentCase, caseApproving, caseApproved, setCaseApproved, setInitialMessage } = useUI();
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [orgId, setOrgId] = useState<string | null>(null); // ✅ Estado para orgId
+    const [fetchedOrgId, setFetchedOrgId] = useState<string | null>(null); // ✅ Estado para orgId (fallback)
     const t = useTranslations("workspace.caseBrief");
+    
+    // ✅ CORRECCIÓN: Usar propOrgId si está disponible, sino usar fetchedOrgId
+    const orgId = propOrgId || fetchedOrgId;
 
     // ✅ FASE 6: Hook para validación de clientes con modal (unificado con BriefForm)
     const { validateAndResolveClient, isLoading: isClientValidationLoading, modalState, setModalState } = useClientValidation(true);
@@ -75,22 +79,28 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
         return false;
     }, [currentCaseId, activeCaseData, isEditingMode]);
 
-    // ✅ Obtener orgId al montar el componente
+    // ✅ CORRECCIÓN: Solo obtener orgId si no viene por props (fallback)
     useEffect(() => {
+        // Si ya tenemos orgId por props, no hacer fetch
+        if (propOrgId) {
+            console.log('✅ [CaseBriefForm] orgId recibido por props (SSR):', propOrgId);
+            return;
+        }
+        
         const fetchOrgId = async () => {
             try {
                 const response = await fetch('/api/auth/me');
                 if (response.ok) {
                     const { orgId } = await response.json();
-                    console.log('✅ [CaseBriefForm] orgId obtenido:', orgId);
-                    setOrgId(orgId);
+                    console.log('✅ [CaseBriefForm] orgId obtenido por fetch (fallback):', orgId);
+                    setFetchedOrgId(orgId);
                 }
             } catch (error) {
                 console.error("❌ [CaseBriefForm] Error fetching orgId for PdfUploader:", error);
             }
         };
         fetchOrgId();
-    }, []);
+    }, [propOrgId]);
 
     // ✅ FASE 3: Cargar TODA la información desde activeCaseData
     useEffect(() => {
@@ -300,7 +310,8 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
 
             // ✅ Modo creación: Usar función extendida desde lib/case-actions.ts
             // ✅ FASE 6B: Usar skipNavigation para interceptar y realizar análisis automático
-            const createdCaseId = await createCaseIfNeeded(
+            // createCaseIfNeeded ahora retorna { caseId, clientId }
+            const result = await createCaseIfNeeded(
                 briefUpdate,
                 router,
                 {
@@ -311,6 +322,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                     skipNavigation: true // ✅ FASE 6B: Evitar navegación automática para inyectar análisis
                 }
             );
+            const createdCaseId = result.caseId;
 
             // ✅ FASE 6B: Lógica de Análisis Automático de Primera Póliza
             // Si se subieron archivos, intentar analizar el primero
@@ -414,7 +426,8 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             setBrief(currentBrief);
 
             // ✅ FASE 6: Usar createCaseIfNeeded extendido con modal de validación y saveUserMessage
-            const caseId = await createCaseIfNeeded(
+            // createCaseIfNeeded ahora retorna { caseId, clientId } para evitar doble validación
+            const result = await createCaseIfNeeded(
                 currentBrief,
                 router,
                 {
@@ -429,27 +442,13 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             // ✅ FASE 6: Si el caso ya existía (caseId === currentCaseId), aprobar el caso
             // Si el caso fue recién creado, createCaseIfNeeded navegó con router.push()
             // En navegación SPA, el código continúa ejecutándose, así que verificamos si navegó
-            if (caseId && caseId === currentCaseId) {
-                console.log('✅ [CaseBriefForm] FASE 6: Caso ya existe, aprobando caso:', caseId);
+            if (result.caseId && result.caseId === currentCaseId) {
+                console.log('✅ [CaseBriefForm] FASE 6: Caso ya existe, aprobando caso:', result.caseId);
 
-                // Obtener clientId desde el brief (ya fue validado en createCaseIfNeeded si aplicaba)
-                let clientId: string | null = null;
-                if (currentBrief.clientName && currentBrief.clientName.trim()) {
-                    // ✅ FASE 6: Ya fue validado en createCaseIfNeeded, obtener desde brief o validar nuevamente
-                    try {
-                        // Intentar obtener clientId del brief si existe
-                        clientId = (currentBrief as any).selectedClientId || null;
-
-                        // Si no existe en brief, validar nuevamente (puede ser necesario si el caso ya existía)
-                        if (!clientId) {
-                            clientId = await validateAndResolveClient(currentBrief.clientName);
-                            console.log('✅ [CaseBriefForm] Cliente validado/resuelto para aprobación:', clientId);
-                        }
-                    } catch (error: any) {
-                        console.warn('⚠️ [CaseBriefForm] Error al validar cliente para aprobación (continuando sin cliente):', error);
-                        // No bloquear el flujo si la validación del cliente falla
-                    }
-                }
+                // ✅ CORRECCIÓN: Usar clientId ya validado por createCaseIfNeeded
+                // NO re-validar para evitar que aparezca el modal 2 veces
+                const clientId = result.clientId || (currentBrief as any).selectedClientId || null;
+                console.log('✅ [CaseBriefForm] Usando clientId ya validado:', clientId);
 
                 // Aprobar el caso existente
                 const success = await approveCurrentCase(clientId);
@@ -460,7 +459,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 }
             } else {
                 // ✅ FASE 6: Si el caso fue recién creado, createCaseIfNeeded ya navegó
-                console.log('✅ [CaseBriefForm] FASE 6: Caso creado exitosamente, navegando a:', caseId);
+                console.log('✅ [CaseBriefForm] FASE 6: Caso creado exitosamente, navegando a:', result.caseId);
             }
         } catch (error: any) {
             console.error('❌ [CaseBriefForm] FASE 6: Error en aprobación con validación:', error);

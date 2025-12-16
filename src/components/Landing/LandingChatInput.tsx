@@ -104,31 +104,63 @@ export function LandingChatInput() {
     };
 
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
 
-        console.log('📄 Frontend: Archivo seleccionado:', file.name, file.type, file.size);
+        // ✅ Convertir FileList a Array para iterar
+        const fileArray = Array.from(files);
+        console.log('📄 Frontend: Archivos seleccionados:', fileArray.length);
+        
+        // Validar tamaño de cada archivo (máx 10MB)
+        const validFiles = fileArray.filter(file => {
+            if (file.size > 10 * 1024 * 1024) {
+                console.warn('⚠️ Archivo muy grande:', file.name);
+                return false;
+            }
+            return true;
+        });
+        
+        if (validFiles.length === 0) {
+            alert('❌ Los archivos seleccionados exceden el límite de 10MB');
+            event.target.value = '';
+            return;
+        }
+        
         setIsUploading(true);
 
         try {
-            const formData = new FormData();
-            formData.append('pdf', file);
-            console.log('📡 Frontend: FormData creado');
+            // ✅ Procesar todos los archivos en paralelo
+            const uploadPromises = validFiles.map(async (file) => {
+                console.log('🚀 Frontend: Subiendo', file.name);
+                const formData = new FormData();
+                formData.append('pdf', file);
 
-            console.log('🚀 Frontend: Enviando a /api/upload/pdf...');
-            const response = await fetch('/api/upload/pdf', {
-                method: 'POST',
-                body: formData
+                const response = await fetch('/api/upload/pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                console.log('📡 Frontend: Respuesta para', file.name, ':', result.success);
+
+                if (result.success && result.mode === 'temp' && result.tempUpload) {
+                    return result.tempUpload;
+                } else {
+                    console.error('❌ Error subiendo', file.name, ':', result.error);
+                    return null;
+                }
             });
 
-            const result = await response.json();
-            console.log('📡 Frontend: Respuesta recibida:', result);
-
-            if (result.success && result.mode === 'temp' && result.tempUpload) {
-                setTempUploads((prev) => [...prev, result.tempUpload]);
-                console.log('✅ Upload temporal listo:', result.tempUpload);
-            } else {
-                alert(`❌ Error: ${result.error}`);
+            const results = await Promise.all(uploadPromises);
+            const successfulUploads = results.filter(Boolean);
+            
+            if (successfulUploads.length > 0) {
+                setTempUploads((prev) => [...prev, ...successfulUploads]);
+                console.log('✅ Uploads temporales listos:', successfulUploads.length);
+            }
+            
+            if (successfulUploads.length < validFiles.length) {
+                alert(`⚠️ ${validFiles.length - successfulUploads.length} archivo(s) fallaron al subir`);
             }
             
         } catch (error) {
@@ -230,6 +262,7 @@ export function LandingChatInput() {
                 ref={fileInputRef}
                 type="file"
                 accept=".pdf"
+                multiple // ✅ Permitir selección múltiple de PDFs
                 onChange={handleFileChange}
                 className="hidden"
             />

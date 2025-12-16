@@ -52,8 +52,37 @@ export type CoverageKindParsed = z.infer<typeof CoverageKindSchema>;
 export const ChannelSchema = z.enum(["direct", "broker", "agent", "marketplace", "api"]);
 export type ChannelParsed = z.infer<typeof ChannelSchema>;
 
-export const RenewalStatusSchema = z.enum(["ok", "dueSoon", "overdue"]);
-export type RenewalStatusParsed = z.infer<typeof RenewalStatusSchema>;
+// ✅ FASE RENOVACIONES: Status de ventana de renovación (urgencia)
+export const RenewalWindowStatusSchema = z.enum(["ok", "dueSoon", "overdue"]);
+export type RenewalWindowStatusParsed = z.infer<typeof RenewalWindowStatusSchema>;
+
+// Legacy alias for backwards compatibility
+export const RenewalStatusSchema = RenewalWindowStatusSchema;
+export type RenewalStatusParsed = RenewalWindowStatusParsed;
+
+// ✅ FASE RENOVACIONES: Status del proceso de renovación
+export const RenewalProcessStatusSchema = z.enum([
+  "pending",    // Awaiting review
+  "in_review",  // Being analyzed  
+  "approved",   // Ready to renew
+  "renewed",    // Successfully renewed
+  "expired",    // Expired without renewal
+]);
+export type RenewalProcessStatusParsed = z.infer<typeof RenewalProcessStatusSchema>;
+
+// ✅ FASE RENOVACIONES: Tipos de alertas de renovación
+export const RenewalAlertTypeSchema = z.enum([
+  "reminder",
+  "premium_increase",
+  "coverage_change",
+  "expiry_warning",
+  "document_required",
+]);
+export type RenewalAlertTypeParsed = z.infer<typeof RenewalAlertTypeSchema>;
+
+// ✅ FASE RENOVACIONES: Severidad de alertas
+export const AlertSeveritySchema = z.enum(["info", "warning", "critical"]);
+export type AlertSeverityParsed = z.infer<typeof AlertSeveritySchema>;
 
 export const RenewalWindowDaysSchema = z.union([
   z.literal(30),
@@ -449,6 +478,7 @@ export const ProposalSchema = z
   .strict();
 export type ProposalParsed = z.infer<typeof ProposalSchema>;
 
+// ✅ FASE RENOVACIONES: Schema legacy para compatibilidad con mock existente
 export const RenewalRecordSchema = z
   .object({
     id: z.string(),
@@ -456,12 +486,89 @@ export const RenewalRecordSchema = z
     plan: z.string(),
     renewalDateISO: IsoDateTimeStringSchema,
     premium: MoneySchema,
-    status: RenewalStatusSchema,
+    status: RenewalWindowStatusSchema, // Using window status for legacy
     reminderSet: z.boolean(),
     policyId: z.string().optional(),
   })
   .strict();
 export type RenewalRecordParsed = z.infer<typeof RenewalRecordSchema>;
+
+// ✅ FASE RENOVACIONES: Schema completo para renovación desde BD
+export const RenewalFullSchema = z
+  .object({
+    id: z.string(),
+    caseId: z.string(),
+    policyAnalysisId: z.string().optional().nullable(),
+    orgId: z.string(),
+    
+    // Policy identification
+    carrier: z.string(),
+    policyNumber: z.string().optional().nullable(),
+    planName: z.string(),
+    
+    // Validity dates
+    currentStartDate: IsoDateTimeStringSchema,
+    currentEndDate: IsoDateTimeStringSchema,
+    renewalDate: IsoDateTimeStringSchema,
+    
+    // Financial data
+    currentPremium: MoneySchema,
+    proposedPremium: MoneySchema.optional().nullable(),
+    premiumChangePct: z.number().optional().nullable(),
+    
+    // Status tracking
+    status: RenewalProcessStatusSchema,
+    renewalWindowStatus: RenewalWindowStatusSchema,
+    
+    // Reminders
+    reminderSet: z.boolean(),
+    reminderDate: IsoDateTimeStringSchema.optional().nullable(),
+    
+    // Metadata
+    notes: z.string().optional().nullable(),
+    createdAt: IsoDateTimeStringSchema,
+    updatedAt: IsoDateTimeStringSchema,
+  })
+  .strict();
+export type RenewalFullParsed = z.infer<typeof RenewalFullSchema>;
+
+// ✅ FASE RENOVACIONES: Historial de renovaciones
+export const RenewalHistorySchema = z
+  .object({
+    id: z.string(),
+    renewalId: z.string(),
+    periodStart: IsoDateTimeStringSchema,
+    periodEnd: IsoDateTimeStringSchema,
+    premium: MoneySchema,
+    changes: z.object({
+      premiumChange: z.number().optional(),
+      coveragesAdded: z.array(z.string()).optional(),
+      coveragesRemoved: z.array(z.string()).optional(),
+      deductibleChange: z.number().optional(),
+    }).optional().nullable(),
+    policyAnalysisId: z.string().optional().nullable(),
+    artifactId: z.string().optional().nullable(),
+    createdAt: IsoDateTimeStringSchema,
+  })
+  .strict();
+export type RenewalHistoryParsed = z.infer<typeof RenewalHistorySchema>;
+
+// ✅ FASE RENOVACIONES: Alertas de renovación
+export const RenewalAlertSchema = z
+  .object({
+    id: z.string(),
+    renewalId: z.string(),
+    alertType: RenewalAlertTypeSchema,
+    severity: AlertSeveritySchema,
+    message: z.string(),
+    sentAt: IsoDateTimeStringSchema.optional().nullable(),
+    acknowledgedAt: IsoDateTimeStringSchema.optional().nullable(),
+    dismissedAt: IsoDateTimeStringSchema.optional().nullable(),
+    userId: z.string().optional().nullable(),
+    createdAt: IsoDateTimeStringSchema,
+  })
+  .strict();
+export type RenewalAlertParsed = z.infer<typeof RenewalAlertSchema>;
 
 export const ComparisonWeightsSchema = z
   .object({
