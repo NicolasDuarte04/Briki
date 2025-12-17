@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { complianceChecklistItems } from "@/lib/compliance";
+import { complianceChecklistItems, complianceJurisdictions, type ComplianceJurisdiction } from "@/lib/compliance";
 import { useUI } from "@/lib/ui/state";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -32,6 +32,7 @@ export function ComplianceModal() {
   // Use individual selectors to avoid creating new objects on each render
   const complianceOpen = useUI((state) => state.complianceOpen);
   const complianceJurisdiction = useUI((state) => state.complianceJurisdiction);
+  const setComplianceJurisdiction = useUI((state) => state.setComplianceJurisdiction);
   const checked = useUI((state) => state.checked);
   const closeCompliance = useUI((state) => state.closeCompliance);
   // ✅ FASE 32: Use persistent action
@@ -45,6 +46,10 @@ export function ComplianceModal() {
   const complianceStartDate = useUI((state) => state.complianceStartDate);
   const complianceEndDate = useUI((state) => state.complianceEndDate);
   const validateComplianceDates = useUI((state) => state.validateComplianceDates);
+  // ✅ Verificación de vigencia en fecha específica
+  const checkVigencyDate = useUI((state) => state.checkVigencyDate);
+  const setCheckVigencyDate = useUI((state) => state.setCheckVigencyDate);
+  const lastVigencyCheck = useUI((state) => state.lastVigencyCheck);
   // ✅ FASE 1: Selector de póliza
   const policyAnalyses = useUI((state) => state.policyAnalyses);
   const selectedCompliancePolicyId = useUI((state) => state.selectedCompliancePolicyId);
@@ -140,6 +145,27 @@ export function ComplianceModal() {
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* ✅ Jurisdiction Selector */}
+          <section className="space-y-3 rounded-lg border p-3 bg-muted/40">
+            <Label className="font-semibold">Jurisdicción</Label>
+            <Select
+              value={complianceJurisdiction}
+              onValueChange={(value) => setComplianceJurisdiction(value as ComplianceJurisdiction)}
+              disabled={complianceLoading}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Seleccionar jurisdicción..." />
+              </SelectTrigger>
+              <SelectContent>
+                {complianceJurisdictions.map((jurisdiction) => (
+                  <SelectItem key={jurisdiction} value={jurisdiction}>
+                    {jurisdictionTranslations(`${jurisdiction}.title`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </section>
+
           {/* ✅ FASE 1: Policy Selector */}
           {policyAnalyses.length > 0 && (
             <section className="space-y-3 rounded-lg border p-3 bg-muted/40">
@@ -207,7 +233,7 @@ export function ComplianceModal() {
               className="w-full"
               onClick={() => {
                 if (complianceStartDate && complianceEndDate) {
-                  validateComplianceDates(complianceStartDate, complianceEndDate);
+                  validateComplianceDates(complianceStartDate, complianceEndDate, checkVigencyDate);
                 } else {
                   toast.error("Seleccione ambas fechas");
                 }
@@ -216,6 +242,56 @@ export function ComplianceModal() {
             >
               Validar Vigencia
             </Button>
+
+            {/* ✅ Verificación de vigencia en fecha específica */}
+            <div className="mt-3 pt-3 border-t space-y-2">
+              <Label className="text-xs text-muted-foreground">Verificar si la póliza está activa en fecha:</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="date"
+                  value={checkVigencyDate || ''}
+                  onChange={(e) => setCheckVigencyDate(e.target.value || undefined)}
+                  className="h-8 text-xs flex-1"
+                  placeholder="Fecha a verificar"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCheckVigencyDate(new Date().toISOString().split('T')[0])}
+                  className="text-xs"
+                >
+                  Hoy
+                </Button>
+              </div>
+              {checkVigencyDate && (
+                <p className="text-xs text-muted-foreground">
+                  La validación verificará si la póliza estaba/está activa el {new Date(checkVigencyDate).toLocaleDateString('es-CO')}.
+                </p>
+              )}
+            </div>
+
+            {/* ✅ Mostrar resultado de verificación de vigencia */}
+            {lastVigencyCheck && (
+              <div className={`mt-3 p-3 rounded-md text-sm ${
+                lastVigencyCheck.isActive 
+                  ? 'bg-green-50 border border-green-200 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200'
+                  : 'bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950 dark:border-amber-800 dark:text-amber-200'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">
+                    {lastVigencyCheck.isActive ? '✅ Vigente' : '⚠️ No vigente'}
+                  </span>
+                  {lastVigencyCheck.daysRemaining !== null && lastVigencyCheck.daysRemaining !== undefined && (
+                    <Badge variant={lastVigencyCheck.daysRemaining > 30 ? 'default' : 'destructive'}>
+                      {lastVigencyCheck.daysRemaining > 0 
+                        ? `${lastVigencyCheck.daysRemaining} días restantes`
+                        : `Venció hace ${Math.abs(lastVigencyCheck.daysRemaining)} días`}
+                    </Badge>
+                  )}
+                </div>
+                <p className="mt-1 text-xs opacity-80">{lastVigencyCheck.message}</p>
+              </div>
+            )}
           </section>
 
           {/* KYC Section */}

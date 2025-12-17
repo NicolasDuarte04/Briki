@@ -753,11 +753,15 @@ export interface UIState {
   // ✅ FASE 32: Compliance Actions
   loadComplianceRecord: (caseId: string) => Promise<void>;
   updateComplianceItem: (itemId: string, checked: boolean) => Promise<void>;
-  validateComplianceDates: (start: string, end: string) => Promise<void>;
+  validateComplianceDates: (start: string, end: string, checkDate?: string) => Promise<void>;
   verifyKyc: () => Promise<void>;
   saveComplianceRecord: () => Promise<void>; // ✅ New Persistence Action
   hydrateComplianceDatesFromPolicies: () => void; // ✅ Auto-hidratar fechas desde pólizas
   setSelectedCompliancePolicyId: (policyId: string | null) => void; // ✅ FASE 1: Selector de póliza
+  setComplianceJurisdiction: (jurisdiction: ComplianceJurisdiction) => void; // ✅ Selector de jurisdicción
+  checkVigencyDate: string | undefined; // ✅ Fecha para verificar vigencia
+  setCheckVigencyDate: (date: string | undefined) => void;
+  lastVigencyCheck: { isActive: boolean; message: string; daysRemaining?: number | null } | null;
   openCompliance: (jurisdiction: ComplianceJurisdiction) => void;
   closeCompliance: () => void;
   toggleCompliance: (itemId: ComplianceItemId) => void;
@@ -1053,6 +1057,8 @@ export const useUI = create<UIState>()(
       complianceStartDate: undefined,
       complianceEndDate: undefined,
       selectedCompliancePolicyId: null, // ✅ FASE 1: Póliza seleccionada
+      checkVigencyDate: undefined, // ✅ Fecha para verificar vigencia
+      lastVigencyCheck: null, // ✅ Resultado de verificación de vigencia
 
       followupCadenceDays: [30, 60, 90],
       followupAuditLog: [],
@@ -1498,11 +1504,11 @@ export const useUI = create<UIState>()(
         }
       },
 
-      validateComplianceDates: async (start: string, end: string) => {
+      validateComplianceDates: async (start: string, end: string, checkDate?: string) => {
         const { currentCaseId } = get();
         if (!currentCaseId) return;
 
-        set({ complianceLoading: true, complianceValidationErrors: [] });
+        set({ complianceLoading: true, complianceValidationErrors: [], lastVigencyCheck: null });
 
         try {
           const response = await fetch('/api/compliance/validate-dates', {
@@ -1511,31 +1517,45 @@ export const useUI = create<UIState>()(
             body: JSON.stringify({
               startDate: start,
               endDate: end,
-              caseId: currentCaseId
+              checkDate: checkDate || undefined
             })
           });
 
-          // ✅ FASE 38: Check response status before parsing
           if (!response.ok) {
             throw new Error(`Validation failed: ${response.status}`);
           }
 
           const data = await response.json();
 
+          // Guardar resultado de vigencyCheck si existe
+          if (data.vigencyCheck) {
+            set({ lastVigencyCheck: data.vigencyCheck });
+          }
+
           if (!data.valid) {
             set({
               complianceValidationErrors: data.errors || ["Fechas inválidas"],
               complianceLoading: false
             });
-            // ✅ FASE 38: Defer toast to avoid hooks mismatch
-            setTimeout(() => toast.error("Validación de fechas fallida"), 0);
+            setTimeout(() => toast.error(data.errors?.[0] || "Validación de fechas fallida"), 0);
           } else {
             set({
               complianceValidationErrors: [],
               complianceLoading: false
             });
-            // ✅ FASE 38: Defer toast to avoid hooks mismatch
-            setTimeout(() => toast.success("Fechas validadas correctamente"), 0);
+            
+            // Mostrar mensaje según modo de validación
+            if (data.vigencyCheck) {
+              setTimeout(() => {
+                if (data.vigencyCheck.isActive) {
+                  toast.success(data.vigencyCheck.message);
+                } else {
+                  toast.warning(data.vigencyCheck.message);
+                }
+              }, 0);
+            } else {
+              setTimeout(() => toast.success(`Vigencia válida: ${data.vigencyDays} días`), 0);
+            }
 
             // Trigger auto-save
             get().saveComplianceRecord();
@@ -1547,7 +1567,6 @@ export const useUI = create<UIState>()(
             complianceValidationErrors: ["Error de conexión"],
             complianceLoading: false
           });
-          // ✅ FASE 38: Defer toast to avoid hooks mismatch
           setTimeout(() => toast.error("Error al validar fechas"), 0);
         }
       },
@@ -1612,6 +1631,17 @@ export const useUI = create<UIState>()(
           console.error('❌ [state.ts] Error saving compliance record:', error);
           toast.error("Error al guardar cambios de cumplimiento");
         }
+      },
+
+      // ✅ Selector de jurisdicción para compliance
+      setComplianceJurisdiction: (jurisdiction: ComplianceJurisdiction) => {
+        set({ complianceJurisdiction: jurisdiction });
+        console.log('✅ [setComplianceJurisdiction] Changed to:', jurisdiction);
+      },
+
+      // ✅ Configurar fecha para verificación de vigencia
+      setCheckVigencyDate: (date: string | undefined) => {
+        set({ checkVigencyDate: date });
       },
 
       // ✅ FASE 1: Seleccionar póliza para validación de compliance
