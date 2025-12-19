@@ -188,10 +188,12 @@ interface RenewalsAuditEvent {
 
 const RENEWALS_REFERENCE_DATE_ISO = "2025-03-01T00:00:00.000Z";
 const RENEWALS_REFERENCE_DATE = new Date(RENEWALS_REFERENCE_DATE_ISO);
-const RENEWAL_WINDOWS: RenewalWindowDays[] = [30, 60, 90];
+// null represents "All" - no time restriction
+const RENEWAL_WINDOWS: (RenewalWindowDays | null)[] = [null, 30, 60, 90];
+const RENEWAL_WINDOWS_NUMERIC: (30 | 60 | 90)[] = [30, 60, 90]; // For badge counting
 
 const defaultRenewalsFilters: RenewalsFilters = {
-  windowDays: 90,
+  windowDays: null, // Default to "All" - show all policies for user confidence
   carriers: [],
   statuses: [],
 };
@@ -383,7 +385,10 @@ function deriveRenewalStatus(renewalDateISO: string, referenceDate = RENEWALS_RE
 }
 
 function sanitizeRenewalsFilters(filters: RenewalsFilters): RenewalsFilters {
-  const windowDays = RENEWAL_WINDOWS.includes(filters.windowDays) ? filters.windowDays : 90;
+  // null means "All" - show all policies
+  const windowDays = filters.windowDays === null || RENEWAL_WINDOWS.includes(filters.windowDays) 
+    ? filters.windowDays 
+    : null; // Default to "All" for invalid values
   const carriers = Array.isArray(filters.carriers) ? dedupeStrings(filters.carriers) : [];
   const statuses = Array.isArray(filters.statuses)
     ? dedupeStatuses(filters.statuses.filter((status): status is RenewalStatus => isRenewalStatus(status)))
@@ -429,19 +434,174 @@ function dedupeStatuses(values: RenewalStatus[]): RenewalStatus[] {
   return result;
 }
 
+
+function mapAnalysisToRenewal(analysis: PolicyAnalysis): RenewalRecord | null {
+  const data = analysis.extractedData || {};
+  
+  // 1. Try to find expiration date from multiple possible field names
+  const dateStr = data.effective_to 
+    || data.expiration_date 
+    || data.fecha_fin 
+    || data.vigencia_hasta
+    || data.end_date
+    || data.policy_end_date
+    || data.fecha_vencimiento
+    || data.vencimiento
+    // Also check nested structures
+    || data.validity?.end
+    || data.validity?.to
+    || data.vigencia?.hasta
+    || data.vigencia?.fin;
+  
+  let renewalDateISO: string;
+  let hasValidDate = false;
+  
+  if (dateStr) {
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      renewalDateISO = date.toISOString();
+      hasValidDate = true;
+    } else {
+      // Invalid date format - use far future date as fallback
+      renewalDateISO = new Date('2099-12-31').toISOString();
+    }
+  } else {
+    // No date found - use far future date so it appears but doesn't trigger urgency
+    renewalDateISO = new Date('2099-12-31').toISOString();
+  }
+
+  // 2. Extract premium
+  let amountMinor = 0;
+  let currency: CurrencyCode = 'COP';
+  
+  const premiumValue = data.premium_total 
+    || data.premium 
+    || data.prima_total 
+    || data.prima
+    || data.financials?.premium_total
+    || data.financials?.premium;
+    
+  if (typeof premiumValue === 'number') {
+    amountMinor = Math.round(premiumValue * 100); // Assume extracted is major units
+  } else if (data.premium_total_amount && typeof data.premium_total_amount === 'number') {
+    amountMinor = data.premium_total_amount; // Assume minor if explicit
+  }
+  
+  const currencyValue = data.currency || data.moneda || data.financials?.currency;
+  if (currencyValue && typeof currencyValue === 'string' && ['COP', 'USD', 'MXN', 'EUR'].includes(currencyValue)) {
+    currency = currencyValue as CurrencyCode;
+  }
+
+  // 3. Determine carrier and plan - search more fields
+  // Helper to safely extract string from potential object
+  const extractString = (value: unknown): string | null => {
+    if (typeof value === 'string') return value;
+    if (value && typeof value === 'object') {
+      // Handle objects like {name: "...", contact: "..."}
+      const obj = value as Record<string, unknown>;
+      if (typeof obj.name === 'string') return obj.name;
+      if (typeof obj.nombre === 'string') return obj.nombre;
+    }
+    return null;
+  };
+
+  const carrierRaw = data.insurer 
+    || data.carrier 
+    || data.aseguradora 
+    || data.insurer_name
+    || data.company
+    || data.compania
+    || data.metadata?.insurer;
+  const carrier = extractString(carrierRaw) || "Aseguradora Desconocida";
+    
+  const planRaw = data.plan_name 
+    || data.product 
+    || data.plan 
+    || data.policy_name
+    || data.producto
+    || data.nombre_plan
+    || data.policy_number
+    || analysis.artifact?.fileName;
+  const plan = extractString(planRaw) || "Póliza Sin Nombre";
+
+  // 4. Derive status - use 'ok' if no valid date (we don't know urgency)
+  const status = hasValidDate ? deriveRenewalStatus(renewalDateISO) : 'ok';
+
+  return {
+    id: `derived-${analysis.id}`, // Deterministic ID
+    carrier,
+    plan,
+    renewalDateISO,
+    premium: { amountMinor, currency },
+    status,
+    reminderSet: false, // Default for derived
+    policyId: analysis.id
+  };
+}
+
 export function computeFilteredSortedRenewals(
-  state: Pick<UIState, "renewals" | "renewalsFilters" | "renewalsSorting">
+  state: Pick<UIState, "renewals" | "renewalsFilters" | "renewalsSorting" | "policyAnalyses">
 ): RenewalRecord[] {
-  const { renewals, renewalsFilters, renewalsSorting } = state;
-  const filtered = renewals.filter((renewal) => {
-    if (renewalsFilters.carriers.length > 0 && !renewalsFilters.carriers.includes(renewal.carrier)) {
+  // DEFENSIVE: Handle corrupted/undefined state gracefully
+  const renewals = state.renewals ?? [];
+  const policyAnalyses = state.policyAnalyses ?? [];
+  const renewalsFilters = state.renewalsFilters ?? defaultRenewalsFilters;
+  const renewalsSorting = state.renewalsSorting ?? defaultRenewalsSorting;
+
+  // 1. STRICT DEDUPLICATION using Map keyed by policyId
+  // This guarantees absolutely unique entries
+  const renewalMap = new Map<string, RenewalRecord>();
+
+  // First, add backend renewals (they have priority)
+  for (const renewal of renewals) {
+    const key = renewal.policyId || renewal.id; // Use policyId if available, else id
+    if (!renewalMap.has(key)) {
+      renewalMap.set(key, renewal);
+    }
+  }
+
+  // 2. Deduplicate policyAnalyses by id before mapping
+  const seenAnalysisIds = new Set<string>();
+  const uniqueAnalyses = policyAnalyses.filter(analysis => {
+    if (seenAnalysisIds.has(analysis.id)) {
       return false;
     }
-    if (renewalsFilters.statuses.length > 0 && !renewalsFilters.statuses.includes(renewal.status)) {
+    seenAnalysisIds.add(analysis.id);
+    return true;
+  });
+
+  // 3. Derive renewals from unique policy analyses (OPTIMISTIC UI)
+  // Only add if not already present from backend
+  for (const analysis of uniqueAnalyses) {
+    const key = analysis.id;
+    if (!renewalMap.has(key)) {
+      const derived = mapAnalysisToRenewal(analysis);
+      if (derived) {
+        renewalMap.set(key, derived);
+      }
+    }
+  }
+
+  // 4. Convert Map to array
+  const allRenewals = Array.from(renewalMap.values());
+
+  // 5. Apply filters with safe defaults
+  const carriers = Array.isArray(renewalsFilters.carriers) ? renewalsFilters.carriers : [];
+  const statuses = Array.isArray(renewalsFilters.statuses) ? renewalsFilters.statuses : [];
+  const windowDays = renewalsFilters.windowDays;
+
+  const filtered = allRenewals.filter((renewal) => {
+    if (carriers.length > 0 && !carriers.includes(renewal.carrier)) {
       return false;
     }
-    if (!isWithinWindow(renewal.renewalDateISO, renewalsFilters.windowDays)) {
+    if (statuses.length > 0 && !statuses.includes(renewal.status)) {
       return false;
+    }
+    // null/undefined windowDays = "All" - skip time window filtering
+    if (windowDays !== null && windowDays !== undefined && typeof windowDays === 'number') {
+      if (!isWithinWindow(renewal.renewalDateISO, windowDays as 30 | 60 | 90)) {
+        return false;
+      }
     }
     return true;
   });
@@ -451,17 +611,50 @@ export function computeFilteredSortedRenewals(
 }
 
 export function computeRenewalWindowCounts(
-  state: Pick<UIState, "renewals">
-): Record<RenewalWindowDays, number> {
-  const counts: Record<RenewalWindowDays, number> = {
+  state: Pick<UIState, "renewals" | "policyAnalyses">
+): { 30: number; 60: number; 90: number; all: number } {
+  // DEFENSIVE: Handle corrupted/undefined state gracefully
+  const renewals = state.renewals ?? [];
+  const policyAnalyses = state.policyAnalyses ?? [];
+  
+  // Use same deduplication logic as computeFilteredSortedRenewals
+  const renewalMap = new Map<string, RenewalRecord>();
+
+  // Backend renewals first (priority)
+  for (const renewal of renewals) {
+    const key = renewal.policyId || renewal.id;
+    if (!renewalMap.has(key)) {
+      renewalMap.set(key, renewal);
+    }
+  }
+
+  // Deduplicate policyAnalyses
+  const seenAnalysisIds = new Set<string>();
+  for (const analysis of policyAnalyses) {
+    if (seenAnalysisIds.has(analysis.id)) continue;
+    seenAnalysisIds.add(analysis.id);
+    
+    const key = analysis.id;
+    if (!renewalMap.has(key)) {
+      const derived = mapAnalysisToRenewal(analysis);
+      if (derived) {
+        renewalMap.set(key, derived);
+      }
+    }
+  }
+
+  const allRenewals = Array.from(renewalMap.values());
+
+  const counts: { 30: number; 60: number; 90: number; all: number } = {
     30: 0,
     60: 0,
     90: 0,
+    all: allRenewals.length, // Total count for "All" filter
   };
 
-  for (const renewal of state.renewals) {
-    for (const window of RENEWAL_WINDOWS) {
-      if (isWithinWindow(renewal.renewalDateISO, window)) {
+  for (const renewal of allRenewals) {
+    for (const window of RENEWAL_WINDOWS_NUMERIC) {
+      if (renewal.renewalDateISO && isWithinWindow(renewal.renewalDateISO, window)) {
         counts[window] += 1;
       }
     }
@@ -470,7 +663,7 @@ export function computeRenewalWindowCounts(
   return counts;
 }
 
-function isWithinWindow(renewalDateISO: string, windowDays: RenewalWindowDays): boolean {
+function isWithinWindow(renewalDateISO: string, windowDays: 30 | 60 | 90): boolean {
   const renewalDate = Date.parse(renewalDateISO);
   if (!Number.isFinite(renewalDate)) return false;
   const diffMs = renewalDate - RENEWALS_REFERENCE_DATE.getTime();
@@ -717,9 +910,9 @@ export interface UIState {
   selectedFieldName: string | null; // For auto-scroll to specific field
   activeTab: WorkspaceTab; // ✅ Global active tab state
   // Cache properties (internal use)
-  _cachedPoliciesView?: PolicyView[];
-  _cachedRenewalsView?: RenewalView[];
-  _cachedFilteredRenewalsView?: RenewalView[];
+  _cachedPoliciesView?: PolicyView[] | undefined;
+  _cachedRenewalsView?: RenewalView[] | undefined;
+  _cachedFilteredRenewalsView?: RenewalView[] | undefined;
   _cachedPolicyAnalysesView?: PolicyAnalysisView[] | undefined;
   setInitialMessage: (message: string) => void;
   setSelectedField: (field: string | null) => void; // ✅ NUEVO
@@ -818,7 +1011,7 @@ export interface UIState {
   setReminder: (id: string, reminderSet: boolean) => void;
   logRenewalsEvent: (type: RenewalsEventType, payload?: Record<string, unknown>) => void;
   selectFilteredSortedRenewals: () => RenewalRecord[];
-  selectWindowCounts: () => Record<RenewalWindowDays, number>;
+  selectWindowCounts: () => { 30: number; 60: number; 90: number; all: number };
   isReminderSet: (id: string) => boolean;
   // Returns tone and status only; components must translate labels client-side.
   getRenewalStatusChip: (status: RenewalStatus) => RenewalStatusMeta;
@@ -1026,12 +1219,12 @@ export const useUI = create<UIState>()(
       renewalsLoading: false,
       renewalsLoaded: false,
       renewalsFilters: {
-        status: [],
-        daysUntilRenewal: [],
+        windowDays: null, // Default to "All" - show all policies
         carriers: [],
+        statuses: [],
       },
       renewalsSorting: {
-        sortBy: 'renewalDate',
+        sortBy: 'date',
         sortDir: 'asc',
       },
       renewalsAuditLog: [],
@@ -2846,7 +3039,10 @@ export const useUI = create<UIState>()(
             policyAnalyses: data.analyses || [],
             policyAnalysesLoaded: true,
             policyAnalysesLoading: false,
-            _cachedPolicyAnalysesView: undefined // Clear cache
+            _cachedPolicyAnalysesView: undefined, // Clear cache
+            // Clear renewals caches to trigger derived recalculation
+            _cachedRenewalsView: undefined,
+            _cachedFilteredRenewalsView: undefined
           });
         } catch (error: any) {
           console.error('❌ [fetchPolicyAnalyses] Error:', error.message);
@@ -2864,7 +3060,10 @@ export const useUI = create<UIState>()(
         set({
           policyAnalyses: analyses,
           policyAnalysesLoaded: true,
-          _cachedPolicyAnalysesView: undefined // Clear cache
+          _cachedPolicyAnalysesView: undefined, // Clear cache
+          // Clear renewals caches to trigger derived recalculation
+          _cachedRenewalsView: undefined,
+          _cachedFilteredRenewalsView: undefined
         });
       },
 
@@ -2935,7 +3134,10 @@ export const useUI = create<UIState>()(
           const { policyAnalyses } = get();
           set({
             policyAnalyses: [...policyAnalyses, data.analysis],
-            _cachedPolicyAnalysesView: undefined // Clear cache
+            _cachedPolicyAnalysesView: undefined, // Clear cache
+            // Clear renewals caches to trigger derived recalculation
+            _cachedRenewalsView: undefined,
+            _cachedFilteredRenewalsView: undefined
           });
 
           return data.analysis;

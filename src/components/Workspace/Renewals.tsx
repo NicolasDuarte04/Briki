@@ -140,7 +140,9 @@ export default function Renewals() {
   const statusOptions = STATUS_ORDER.map((status) => ({ value: status, label: tStatus(status) }));
 
   const handleWindowChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const windowDays = Number.parseInt(event.target.value, 10) as RenewalWindowDays;
+    const value = event.target.value;
+    // "all" represents null (no time restriction)
+    const windowDays = value === "all" ? null : (Number.parseInt(value, 10) as RenewalWindowDays);
     setFilters({ windowDays });
   };
 
@@ -271,24 +273,29 @@ export default function Renewals() {
               </Button>
             </div>
             <ul className="flex flex-wrap items-center gap-1.5" aria-label={t("filters.window.label")} data-print="hide">
-              {RENEWAL_WINDOWS.map((window) => (
-                <li key={window}>
-                  <Badge 
-                    variant={filters.windowDays === window ? "default" : "outline"} 
-                    className={cn(
-                      "font-medium text-[13px] px-2 py-0.5 rounded-full transition-colors",
-                      filters.windowDays === window 
-                        ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/15" 
-                        : "hover:bg-muted/50"
-                    )}
-                  >
-                    {tMeta(`${window}`)}
-                    <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[12px] leading-none text-foreground/80">
-                      {windowCounts[window] ?? 0}
-                    </span>
-                  </Badge>
-                </li>
-              ))}
+              {RENEWAL_WINDOWS.map((window) => {
+                const key = window === null ? "all" : window;
+                const count = window === null ? windowCounts.all : windowCounts[window];
+                return (
+                  <li key={key}>
+                    <Badge 
+                      variant={filters.windowDays === window ? "default" : "outline"} 
+                      className={cn(
+                        "font-medium text-[13px] px-2 py-0.5 rounded-full transition-colors cursor-pointer",
+                        filters.windowDays === window 
+                          ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/15" 
+                          : "hover:bg-muted/50"
+                      )}
+                      onClick={() => setFilters({ windowDays: window })}
+                    >
+                      {tMeta(key.toString())}
+                      <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-[12px] leading-none text-foreground/80">
+                        {count ?? 0}
+                      </span>
+                    </Badge>
+                  </li>
+                );
+              })}
             </ul>
           </div>
       </CardHeader>
@@ -304,15 +311,18 @@ export default function Renewals() {
                   <select
                     id="renewals-window"
                     className="w-full rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-sm shadow-sm focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring/40"
-                    value={filters.windowDays}
+                    value={filters.windowDays === null ? "all" : filters.windowDays}
                     onChange={handleWindowChange}
                     data-print="hide"
                   >
-                    {RENEWAL_WINDOWS.map((window) => (
-                      <option key={window} value={window}>
-                        {tMeta(`${window}`)}
-                      </option>
-                    ))}
+                    {RENEWAL_WINDOWS.map((window) => {
+                      const optionValue = window === null ? "all" : window;
+                      return (
+                        <option key={optionValue} value={optionValue}>
+                          {tMeta(optionValue.toString())}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </CardContent>
@@ -432,25 +442,30 @@ export default function Renewals() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        renewals.map((renewal) => (
-                          <TableRow key={renewal.id}>
-                            <TableCell className="px-4 py-3 truncate min-w-[10rem]">{renewal.carrier}</TableCell>
-                            <TableCell className="px-4 py-3 truncate min-w-[12rem]">{renewal.plan}</TableCell>
-                            <TableCell className="px-4 py-3 tabular-nums font-medium">{formatRenewalDate(renewal.renewalDateISO, locale, dateFormatterOptions)}</TableCell>
-                            <TableCell className="px-4 py-3 text-right tabular-nums font-medium">{formatRenewalPremium(renewal.premium, locale)}</TableCell>
-                            <TableCell className="px-4 py-3">{renderStatusBadge(renewal.status, renewal.reminderSet)}</TableCell>
-                            <TableCell className="px-4 py-3 text-right min-w-[16rem]" data-print="hide">
-                              <ActionsGroup
-                                record={renewal}
-                                onNudge={handleNudge}
-                                onReminder={() => handleOpenReminder(renewal.id)}
-                                onCompare={() => handleCompare(renewal)}
-                                onProposal={() => handleProposal(renewal)}
-                                isGeneratingProposal={generatingProposalFor === renewal.id}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))
+                        renewals.map((renewal) => {
+                          const isPending = isPlaceholderDate(renewal.renewalDateISO);
+                          return (
+                            <TableRow key={renewal.id} className={isPending ? "bg-muted/30" : ""}>
+                              <TableCell className="px-4 py-3 truncate min-w-[10rem]">{renewal.carrier}</TableCell>
+                              <TableCell className="px-4 py-3 truncate min-w-[12rem]">{renewal.plan}</TableCell>
+                              <TableCell className={`px-4 py-3 tabular-nums font-medium ${isPending ? "text-muted-foreground italic" : ""}`}>
+                                {formatRenewalDate(renewal.renewalDateISO, locale, dateFormatterOptions)}
+                              </TableCell>
+                              <TableCell className="px-4 py-3 text-right tabular-nums font-medium">{formatRenewalPremium(renewal.premium, locale)}</TableCell>
+                              <TableCell className="px-4 py-3">{renderStatusBadge(renewal.status, renewal.reminderSet)}</TableCell>
+                              <TableCell className="px-4 py-3 text-right min-w-[16rem]" data-print="hide">
+                                <ActionsGroup
+                                  record={renewal}
+                                  onNudge={handleNudge}
+                                  onReminder={() => handleOpenReminder(renewal.id)}
+                                  onCompare={() => handleCompare(renewal)}
+                                  onProposal={() => handleProposal(renewal)}
+                                  isGeneratingProposal={generatingProposalFor === renewal.id}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -460,37 +475,42 @@ export default function Renewals() {
                   {renewals.length === 0 ? (
                     <p className="text-sm text-muted-foreground">{t("empty")}</p>
                   ) : (
-                    renewals.map((renewal) => (
-                      <article key={renewal.id} className="rounded-lg border border-border bg-card p-4 shadow-sm">
-                        <header className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold">{renewal.carrier}</p>
-                            <p className="text-xs text-muted-foreground">{renewal.plan}</p>
-                          </div>
-                          {renderStatusBadge(renewal.status, renewal.reminderSet)}
-                        </header>
-                        <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <dt className="text-muted-foreground uppercase tracking-wide">{tColumns("date")}</dt>
-                            <dd className="font-medium">{formatRenewalDate(renewal.renewalDateISO, locale, dateFormatterOptions)}</dd>
-                          </div>
-                          <div>
-                            <dt className="text-muted-foreground uppercase tracking-wide">{tColumns("premium")}</dt>
-                            <dd className="font-medium">{formatRenewalPremium(renewal.premium, locale)}</dd>
-                          </div>
-                        </dl>
-                        <footer className="mt-4 border-t border-border pt-3" data-print="hide">
-                          <ActionsGroup
-                            record={renewal}
-                            onNudge={handleNudge}
-                            onReminder={() => handleOpenReminder(renewal.id)}
-                            onCompare={() => handleCompare(renewal)}
-                            onProposal={() => handleProposal(renewal)}
-                            isGeneratingProposal={generatingProposalFor === renewal.id}
-                          />
-                        </footer>
-                      </article>
-                    ))
+                    renewals.map((renewal) => {
+                      const isPending = isPlaceholderDate(renewal.renewalDateISO);
+                      return (
+                        <article key={renewal.id} className={`rounded-lg border border-border bg-card p-4 shadow-sm ${isPending ? "bg-muted/30" : ""}`}>
+                          <header className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-semibold">{renewal.carrier}</p>
+                              <p className="text-xs text-muted-foreground">{renewal.plan}</p>
+                            </div>
+                            {renderStatusBadge(renewal.status, renewal.reminderSet)}
+                          </header>
+                          <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                              <dt className="text-muted-foreground uppercase tracking-wide">{tColumns("date")}</dt>
+                              <dd className={`font-medium ${isPending ? "text-muted-foreground italic" : ""}`}>
+                                {formatRenewalDate(renewal.renewalDateISO, locale, dateFormatterOptions)}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground uppercase tracking-wide">{tColumns("premium")}</dt>
+                              <dd className="font-medium">{formatRenewalPremium(renewal.premium, locale)}</dd>
+                            </div>
+                          </dl>
+                          <footer className="mt-4 border-t border-border pt-3" data-print="hide">
+                            <ActionsGroup
+                              record={renewal}
+                              onNudge={handleNudge}
+                              onReminder={() => handleOpenReminder(renewal.id)}
+                              onCompare={() => handleCompare(renewal)}
+                              onProposal={() => handleProposal(renewal)}
+                              isGeneratingProposal={generatingProposalFor === renewal.id}
+                            />
+                          </footer>
+                        </article>
+                      );
+                    })
                   )}
                 </div>
               </Fragment>
@@ -852,7 +872,8 @@ function extractCarriers(records: RenewalRecord[]): string[] {
   return Array.from(seen).sort((a, b) => a.localeCompare(b));
 }
 
-const RENEWAL_WINDOWS: RenewalWindowDays[] = [30, 60, 90];
+// null represents "All" - no time restriction
+const RENEWAL_WINDOWS: (RenewalWindowDays | null)[] = [null, 30, 60, 90];
 
 function defaultReminderDate(): string {
   const date = new Date();
@@ -864,8 +885,24 @@ function defaultReminderDate(): string {
   return `${year}-${month}-${day}`;
 }
 
+// Placeholder date used when no valid expiration date is found
+const PLACEHOLDER_DATE_YEAR = 2099;
+
+function isPlaceholderDate(renewalDateISO: string): boolean {
+  try {
+    const date = new Date(renewalDateISO);
+    return date.getFullYear() === PLACEHOLDER_DATE_YEAR;
+  } catch {
+    return false;
+  }
+}
+
 function formatRenewalDate(renewalDateISO: string, locale: string, options: FormatDateOptions): string {
   try {
+    // Check if this is a placeholder date (no real date found)
+    if (isPlaceholderDate(renewalDateISO)) {
+      return "Fecha pendiente";
+    }
     return formatDate(renewalDateISO, { locale, ...options });
   } catch {
     return "--";

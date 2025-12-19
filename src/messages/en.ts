@@ -814,6 +814,7 @@ const en = {
       },
       meta: {
         window: {
+          "all": "All Policies",
           "30": "Renewals in 30 days",
           "60": "Renewals in 60 days",
           "90": "Renewals in 90 days",
@@ -866,7 +867,8 @@ const en = {
         nudgeMessage: "Client notified about the renewal.",
         reminderSet: "Reminder saved.",
       },
-      empty: "No renewals in this range.",
+      empty: "No policies found. Upload documents in the Policies tab to see renewals.",
+      emptyFiltered: "No renewals match the selected filters.",
       sort: {
         date: "Sort by date",
         premium: "Sort by premium",

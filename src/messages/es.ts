@@ -821,6 +821,7 @@ const es = {
       },
       meta: {
         window: {
+          "all": "Todas las Pólizas",
           "30": "Renovaciones en 30 días",
           "60": "Renovaciones en 60 días",
           "90": "Renovaciones en 90 días",
@@ -873,7 +874,8 @@ const es = {
         nudgeMessage: "Cliente notificado sobre la renovación.",
         reminderSet: "Recordatorio guardado.",
       },
-      empty: "No hay renovaciones en este rango.",
+      empty: "No se encontraron pólizas. Sube documentos en el tab Pólizas para ver las renovaciones.",
+      emptyFiltered: "No hay renovaciones que coincidan con los filtros seleccionados.",
       sort: {
         date: "Ordenar por fecha",
         premium: "Ordenar por prima",

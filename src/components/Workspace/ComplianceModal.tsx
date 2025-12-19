@@ -70,6 +70,16 @@ export function ComplianceModal() {
   );
   const jurisdictionChecked = checked[complianceJurisdiction] ?? {};
 
+  // ✅ Deduplicate policyAnalyses to avoid React key conflicts
+  const uniquePolicyAnalyses = useMemo(() => {
+    const seen = new Set<string>();
+    return policyAnalyses.filter((analysis) => {
+      if (seen.has(analysis.id)) return false;
+      seen.add(analysis.id);
+      return true;
+    });
+  }, [policyAnalyses]);
+
   const jurisdictionTitle = jurisdictionTranslations(`${complianceJurisdiction}.title`);
   const modalDescription = uiTranslations("description", { jurisdiction: jurisdictionTitle });
   const jurisdictionItemLabels = useMemo(() => {
@@ -138,13 +148,13 @@ export function ComplianceModal() {
         }
       }}
     >
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{uiTranslations("title")}</DialogTitle>
           <DialogDescription>{modalDescription}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-6 flex-1 overflow-y-auto pr-2">
           {/* ✅ Jurisdiction Selector */}
           <section className="space-y-3 rounded-lg border p-3 bg-muted/40">
             <Label className="font-semibold">Jurisdicción</Label>
@@ -167,7 +177,7 @@ export function ComplianceModal() {
           </section>
 
           {/* ✅ FASE 1: Policy Selector */}
-          {policyAnalyses.length > 0 && (
+          {uniquePolicyAnalyses.length > 0 && (
             <section className="space-y-3 rounded-lg border p-3 bg-muted/40">
               <Label className="font-semibold">Póliza a Validar</Label>
               <Select
@@ -178,18 +188,18 @@ export function ComplianceModal() {
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Seleccionar póliza..." />
                 </SelectTrigger>
-                <SelectContent>
-                  {policyAnalyses.map((analysis) => {
+                <SelectContent className="max-h-[200px]">
+                  {uniquePolicyAnalyses.map((analysis) => {
                     const data = analysis.extractedData as Record<string, any>;
                     const policyNumber = data?.policy_number || data?.policyNumber || data?.numeroPoliza || 'Sin número';
                     const insurerName = data?.insurer_name || data?.insurerName || data?.aseguradora || 'Aseguradora';
                     const fileName = analysis.artifact?.fileName || 'PDF';
                     return (
-                      <SelectItem key={analysis.id} value={analysis.id}>
-                        <span className="flex items-center gap-2">
-                          <span className="font-medium">{policyNumber}</span>
-                          <span className="text-muted-foreground">- {insurerName}</span>
-                          <span className="text-xs text-muted-foreground/60">({fileName})</span>
+                      <SelectItem key={analysis.id} value={analysis.id} className="max-w-full">
+                        <span className="flex items-center gap-2 max-w-[350px]">
+                          <span className="font-medium truncate max-w-[100px]">{policyNumber}</span>
+                          <span className="text-muted-foreground truncate max-w-[120px]">- {insurerName}</span>
+                          <span className="text-xs text-muted-foreground/60 truncate max-w-[100px]">({fileName})</span>
                         </span>
                       </SelectItem>
                     );

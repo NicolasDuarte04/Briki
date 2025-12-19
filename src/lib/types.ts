@@ -90,8 +90,9 @@ export type RenewalStatus = 'ok' | 'dueSoon' | 'overdue';
 
 /**
  * Renewal window days
+ * null = "All" (no time restriction)
  */
-export type RenewalWindowDays = 30 | 60 | 90;
+export type RenewalWindowDays = 30 | 60 | 90 | null;
 
 /**
  * Comparison playbook types
@@ -558,8 +559,8 @@ export interface RenewalView extends Omit<RenewalRecord, "premium"> {
  * Renewal filters
  */
 export interface RenewalsFilters {
-  /** Window days filter */
-  windowDays: RenewalWindowDays;
+  /** Window days filter (null = show all) */
+  windowDays: RenewalWindowDays | null;
   /** Carrier filters */
   carriers: string[];
   /** Status filters */
