@@ -17,7 +17,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { useUI } from "@/lib/ui/state";
+import { 
+  useUI, 
+  computeFilteredSortedRenewals, 
+  computeRenewalWindowCounts,
+  computeAvailableCarriers 
+} from "@/lib/ui/state";
 import {
   type Money,
   type RenewalRecord,
@@ -69,23 +74,6 @@ type SortIndicatorProps = {
   direction: RenewalsSortDir;
 };
 
-// Custom hooks to properly use selectors and avoid infinite re-renders
-function useWindowCounts() {
-  // Get the selector function
-  const selectWindowCounts = useUI((state) => state.selectWindowCounts);
-  
-  // Memoize the result based on the selector function reference
-  return useMemo(() => selectWindowCounts(), [selectWindowCounts]);
-}
-
-function useFilteredSortedRenewals() {
-  // Get the selector function
-  const selectFilteredSortedRenewals = useUI((state) => state.selectFilteredSortedRenewals);
-
-  // Memoize the result based on the selector function reference
-  return useMemo(() => selectFilteredSortedRenewals(), [selectFilteredSortedRenewals]);
-}
-
 export default function Renewals() {
   const [dialogState, setDialogState] = useState<ReminderDialogState>(() => ({
     open: false,
@@ -93,22 +81,24 @@ export default function Renewals() {
     date: defaultReminderDate(),
   }));
 
-  // Use proper selectors to avoid infinite loops
-  const renewalsData = useUI((state) => state.renewals);
-  const setFilters = useUI((state) => state.setRenewalsFilters);
-  const setSorting = useUI((state) => state.setRenewalsSorting);
-  const logEvent = useUI((state) => state.logRenewalsEvent);
-  const setReminder = useUI((state) => state.setReminder);
+  // ✅ Direct state subscriptions for reactivity
+  const rawRenewals = useUI((state) => state.renewals);
+  const policyAnalyses = useUI((state) => state.policyAnalyses);
   const filters = useUI((state) => state.renewalsFilters);
   const sorting = useUI((state) => state.renewalsSorting);
   const renewalsLoading = useUI((state) => state.renewalsLoading);
   const renewalsLoaded = useUI((state) => state.renewalsLoaded);
+  
+  // Actions
+  const setFilters = useUI((state) => state.setRenewalsFilters);
+  const setSorting = useUI((state) => state.setRenewalsSorting);
+  const logEvent = useUI((state) => state.logRenewalsEvent);
+  const setReminder = useUI((state) => state.setReminder);
   const getRenewalStatusChip = useUI((state) => state.getRenewalStatusChip);
   
   // ✅ FASE 5: Auto-detección de renovaciones
   const detectRenewals = useUI((state) => state.detectRenewals);
   const currentCaseId = useUI((state) => state.currentCaseId);
-  const policyAnalyses = useUI((state) => state.policyAnalyses);
   const [isDetecting, setIsDetecting] = useState(false);
   
   // ✅ FASE 6: Comparaciones desde renovación
@@ -119,9 +109,24 @@ export default function Renewals() {
   const proposalLoading = useUI((state) => state.proposalLoading);
   const [generatingProposalFor, setGeneratingProposalFor] = useState<string | null>(null);
   
-  // Use custom hooks to avoid infinite re-renders
-  const windowCounts = useWindowCounts();
-  const renewals = useFilteredSortedRenewals();
+  // ✅ REACTIVE: Compute filtered renewals when dependencies change
+  const renewals = useMemo(() => {
+    return computeFilteredSortedRenewals({
+      renewals: rawRenewals,
+      policyAnalyses,
+      renewalsFilters: filters,
+      renewalsSorting: sorting
+    });
+  }, [rawRenewals, policyAnalyses, filters, sorting]);
+  
+  // ✅ REACTIVE: Compute window counts when data changes
+  const windowCounts = useMemo(() => {
+    return computeRenewalWindowCounts({
+      renewals: rawRenewals,
+      policyAnalyses
+    });
+  }, [rawRenewals, policyAnalyses]);
+  
   const showSkeleton = renewalsLoading && !renewalsLoaded;
   
   const t = useTranslations(RENEWALS_PREFIX);
@@ -135,7 +140,13 @@ export default function Renewals() {
   const locale = useLocale();
   const dateFormatterOptions = useMemo<FormatDateOptions>(() => ({ dateStyle: "medium" }), []);
 
-  const carriers = useMemo(() => extractCarriers(renewalsData), [renewalsData]);
+  // ✅ REACTIVE: Carriers extracted from all renewals (backend + derived from policyAnalyses)
+  const carriers = useMemo(() => {
+    return computeAvailableCarriers({
+      renewals: rawRenewals,
+      policyAnalyses
+    });
+  }, [rawRenewals, policyAnalyses]);
 
   const statusOptions = STATUS_ORDER.map((status) => ({ value: status, label: tStatus(status) }));
 
@@ -860,16 +871,6 @@ function SortIndicator({ active, direction }: SortIndicatorProps) {
       {direction === "asc" ? "↑" : "↓"}
     </span>
   );
-}
-
-function extractCarriers(records: RenewalRecord[]): string[] {
-  const seen = new Set<string>();
-  for (const record of records) {
-    if (!seen.has(record.carrier)) {
-      seen.add(record.carrier);
-    }
-  }
-  return Array.from(seen).sort((a, b) => a.localeCompare(b));
 }
 
 // null represents "All" - no time restriction

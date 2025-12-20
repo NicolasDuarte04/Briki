@@ -186,8 +186,16 @@ interface RenewalsAuditEvent {
   payload?: Record<string, unknown>;
 }
 
-const RENEWALS_REFERENCE_DATE_ISO = "2025-03-01T00:00:00.000Z";
-const RENEWALS_REFERENCE_DATE = new Date(RENEWALS_REFERENCE_DATE_ISO);
+// Helper: Get current date at midnight UTC for consistent comparisons
+function getReferenceDate(): Date {
+  const now = new Date();
+  now.setUTCHours(0, 0, 0, 0);
+  return now;
+}
+
+// Placeholder date for policies without valid expiration date
+const PLACEHOLDER_DATE_PREFIX = '2099-';
+
 // null represents "All" - no time restriction
 const RENEWAL_WINDOWS: (RenewalWindowDays | null)[] = [null, 30, 60, 90];
 const RENEWAL_WINDOWS_NUMERIC: (30 | 60 | 90)[] = [30, 60, 90]; // For badge counting
@@ -368,13 +376,21 @@ function sanitizeShareUrl(url: string | undefined): string {
   }
 }
 
-function deriveRenewalStatus(renewalDateISO: string, referenceDate = RENEWALS_REFERENCE_DATE): RenewalStatus {
+function deriveRenewalStatus(renewalDateISO: string): RenewalStatus {
+  // Placeholder dates (2099) are always "ok" - no urgency
+  if (renewalDateISO.startsWith(PLACEHOLDER_DATE_PREFIX)) {
+    return "ok";
+  }
+  
   const renewalTime = Date.parse(renewalDateISO);
   if (!Number.isFinite(renewalTime)) {
     return "ok";
   }
+  
+  const referenceDate = getReferenceDate();
   const diffMs = renewalTime - referenceDate.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
   if (diffDays < 0) {
     return "overdue";
   }
@@ -663,11 +679,67 @@ export function computeRenewalWindowCounts(
   return counts;
 }
 
+/**
+ * Computes available carriers from all renewals (backend + derived from policyAnalyses).
+ * Uses the same merging logic as computeFilteredSortedRenewals to ensure consistency.
+ */
+export function computeAvailableCarriers(
+  state: Pick<UIState, "renewals" | "policyAnalyses">
+): string[] {
+  const renewals = state.renewals ?? [];
+  const policyAnalyses = state.policyAnalyses ?? [];
+
+  // Use same deduplication logic as computeFilteredSortedRenewals
+  const renewalMap = new Map<string, RenewalRecord>();
+
+  // Backend renewals first (priority)
+  for (const renewal of renewals) {
+    const key = renewal.policyId || renewal.id;
+    if (!renewalMap.has(key)) {
+      renewalMap.set(key, renewal);
+    }
+  }
+
+  // Derive from policyAnalyses
+  const seenAnalysisIds = new Set<string>();
+  for (const analysis of policyAnalyses) {
+    if (seenAnalysisIds.has(analysis.id)) continue;
+    seenAnalysisIds.add(analysis.id);
+
+    const key = analysis.id;
+    if (!renewalMap.has(key)) {
+      const derived = mapAnalysisToRenewal(analysis);
+      if (derived) {
+        renewalMap.set(key, derived);
+      }
+    }
+  }
+
+  // Extract unique carriers
+  const carrierSet = new Set<string>();
+  for (const renewal of renewalMap.values()) {
+    if (renewal.carrier && renewal.carrier.trim()) {
+      carrierSet.add(renewal.carrier);
+    }
+  }
+
+  return Array.from(carrierSet).sort((a, b) => a.localeCompare(b));
+}
+
 function isWithinWindow(renewalDateISO: string, windowDays: 30 | 60 | 90): boolean {
+  // Placeholder dates (2099) are excluded from time-based filters
+  if (renewalDateISO.startsWith(PLACEHOLDER_DATE_PREFIX)) {
+    return false;
+  }
+  
   const renewalDate = Date.parse(renewalDateISO);
   if (!Number.isFinite(renewalDate)) return false;
-  const diffMs = renewalDate - RENEWALS_REFERENCE_DATE.getTime();
+  
+  const referenceDate = getReferenceDate();
+  const diffMs = renewalDate - referenceDate.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  // Window: from TODAY to TODAY + windowDays
   return diffDays >= 0 && diffDays <= windowDays;
 }
 
@@ -1012,6 +1084,7 @@ export interface UIState {
   logRenewalsEvent: (type: RenewalsEventType, payload?: Record<string, unknown>) => void;
   selectFilteredSortedRenewals: () => RenewalRecord[];
   selectWindowCounts: () => { 30: number; 60: number; 90: number; all: number };
+  selectAvailableCarriers: () => string[];
   isReminderSet: (id: string) => boolean;
   // Returns tone and status only; components must translate labels client-side.
   getRenewalStatusChip: (status: RenewalStatus) => RenewalStatusMeta;
@@ -2976,6 +3049,7 @@ export const useUI = create<UIState>()(
         }),
       selectFilteredSortedRenewals: () => computeFilteredSortedRenewals(get()),
       selectWindowCounts: () => computeRenewalWindowCounts(get()),
+      selectAvailableCarriers: () => computeAvailableCarriers(get()),
       isReminderSet: (id) => get().renewals.some((renewal) => renewal.id === id && renewal.reminderSet),
       getRenewalStatusChip: (status) => renewalStatusMetaMap[status] ?? renewalStatusMetaMap.ok,
       selectPoliciesView: () => {

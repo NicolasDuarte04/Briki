@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { complianceChecklistItems, complianceJurisdictions, type ComplianceJurisdiction } from "@/lib/compliance";
+import { complianceChecklistItems, complianceJurisdictions, type JurisdictionCode } from "@/lib/compliance";
 import { useUI } from "@/lib/ui/state";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -160,7 +160,7 @@ export function ComplianceModal() {
             <Label className="font-semibold">Jurisdicción</Label>
             <Select
               value={complianceJurisdiction}
-              onValueChange={(value) => setComplianceJurisdiction(value as ComplianceJurisdiction)}
+              onValueChange={(value) => setComplianceJurisdiction(value as JurisdictionCode)}
               disabled={complianceLoading}
             >
               <SelectTrigger className="w-full">
