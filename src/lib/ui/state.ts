@@ -1357,7 +1357,29 @@ export const useUI = create<UIState>()(
       clearInitialMessage: () => set({ initialMessage: "" }),                  // ✅ Implementación simple
       setCurrentCaseId: (id: string | null) => {
         set((state) => {
-          const newState = { ...state, currentCaseId: id };
+          // ✅ Clean case-specific data when switching cases to prevent stale data
+          const isChangingCase = state.currentCaseId !== id && id !== null;
+          
+          const newState = { 
+            ...state, 
+            currentCaseId: id,
+            // Clear case-specific data when switching to a different case
+            ...(isChangingCase && {
+              policyAnalyses: [],
+              policyAnalysesLoaded: false,
+              activeComparison: null,
+              activeProposal: null,
+              // Clear caches
+              _cachedPolicyAnalysesView: undefined,
+              _cachedRenewalsView: undefined,
+              _cachedFilteredRenewalsView: undefined
+            })
+          };
+          
+          if (isChangingCase) {
+            console.log(`🔄 [setCurrentCaseId] Switching case: ${state.currentCaseId} → ${id}, clearing case-specific data`);
+          }
+          
           persistState(newState);
           return newState;
         });

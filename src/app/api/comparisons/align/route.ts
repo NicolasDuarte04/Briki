@@ -51,21 +51,29 @@ export async function POST(request: NextRequest) {
 
         console.log(`✅ Found ${analyses.length} analyses out of ${analysisIds.length} requested`);
 
+        // ✅ RESILIENCE: Log missing IDs but continue if we have at least 2 valid analyses
         if (analyses.length !== analysisIds.length) {
             const foundIds = analyses.map(a => a.id);
             const missingIds = analysisIds.filter(id => !foundIds.includes(id));
-            console.error(`❌ Missing analyses: ${missingIds.join(', ')}`);
-            console.error(`   Found: ${foundIds.join(', ')}`);
-            console.error(`   Current orgId filter: ${currentOrg.id}`);
+            console.warn(`⚠️  ${missingIds.length} analyses not found (possibly from other org or deleted)`);
+            console.warn(`   Missing: ${missingIds.join(', ')}`);
+            console.warn(`   Found: ${foundIds.join(', ')}`);
+            console.warn(`   Current orgId filter: ${currentOrg.id}`);
 
-            return NextResponse.json(
-                {
-                    error: 'Some analyses could not be found or you do not have access',
-                    missing: missingIds,
-                    found: foundIds.length
-                },
-                { status: 404 }
-            );
+            // Only fail if we don't have enough valid analyses
+            if (analyses.length < 2) {
+                return NextResponse.json(
+                    {
+                        error: 'At least 2 valid analyses are required for comparison',
+                        message: 'Algunas pólizas no están disponibles. Recarga la página para actualizar.',
+                        missing: missingIds,
+                        found: foundIds.length
+                    },
+                    { status: 400 }
+                );
+            }
+
+            console.log(`📊 Proceeding with ${analyses.length} available analyses (${missingIds.length} skipped)`);
         }
 
         // 3. Align with AI
@@ -101,10 +109,19 @@ export async function POST(request: NextRequest) {
             searchQuery: ""
         };
 
+        // ✅ Delete old comparisons for this case to ensure only one active comparison
+        // This implements "upsert" semantics: 1 case = 1 comparison (latest)
+        await prisma.comparison.deleteMany({
+            where: { caseId }
+        });
+
+        // ✅ Save with actual found analysis IDs (not the originally requested ones)
+        const foundAnalysisIds = analyses.map(a => a.id);
+        
         const comparison = await prisma.comparison.create({
             data: {
                 caseId,
-                analysisIds,
+                analysisIds: foundAnalysisIds,
                 result: JSON.parse(JSON.stringify({ rows: comparisonRows })), // Proper Json serialization
                 filters: JSON.parse(JSON.stringify(defaultFilters)),
                 userId: user.id

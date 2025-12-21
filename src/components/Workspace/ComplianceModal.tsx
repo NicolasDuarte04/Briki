@@ -29,7 +29,7 @@ import { toast } from "sonner";
 import { ComplianceItemConfirmDialog } from "./ComplianceItemConfirmDialog";
 
 export function ComplianceModal() {
-  // Use individual selectors to avoid creating new objects on each render
+  //Use individual selectors to avoid creating new objects on each render
   const complianceOpen = useUI((state) => state.complianceOpen);
   const complianceJurisdiction = useUI((state) => state.complianceJurisdiction);
   const setComplianceJurisdiction = useUI((state) => state.setComplianceJurisdiction);

@@ -1,14 +1,14 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUI } from "@/lib/ui/state";
 import { ComparisonTable } from "./Comparison/ComparisonTable";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Sparkles, FileText } from "lucide-react";
+import { Loader2, Sparkles, FileText, RefreshCw } from "lucide-react";
 
 export default function Comparison() {
   const t = useTranslations("workspace.comparisons");
@@ -26,13 +26,39 @@ export default function Comparison() {
   const selectionCount = selectedAnalysisIds.size;
   const canGenerateProposal = selectionCount >= 1;
 
-  // Derived State
-  const hasEnoughPolicies = policyAnalyses.length >= 2;
+  // ✅ Filter analyses to only include those from current case (prevents stale data)
+  const validAnalyses = useMemo(() => {
+    if (!currentCaseId) return [];
+    return policyAnalyses.filter(a => a.caseId === currentCaseId);
+  }, [policyAnalyses, currentCaseId]);
+
+  // Derived State - use validAnalyses instead of all policyAnalyses
+  const hasEnoughPolicies = validAnalyses.length >= 2;
+
+  // ✅ Check if comparison is outdated (new analyses added or removed)
+  const isComparisonOutdated = useMemo(() => {
+    if (!activeComparison) return false;
+    
+    const currentAnalysisIds = validAnalyses.map(a => a.id).sort();
+    const comparisonAnalysisIds = [...activeComparison.analysisIds].sort();
+    
+    // Different count = outdated
+    if (currentAnalysisIds.length !== comparisonAnalysisIds.length) {
+      return true;
+    }
+    
+    // Different IDs = outdated
+    return !currentAnalysisIds.every((id, idx) => id === comparisonAnalysisIds[idx]);
+  }, [activeComparison, validAnalyses]);
+
+  // Show regeneration button when there's no comparison OR comparison is outdated
+  const showGenerateButton = !activeComparison || isComparisonOutdated;
 
   const handleAlign = async () => {
     // Error handling is managed in state.ts with toasts
-    if (currentCaseId) {
-      await alignCoveragesSemantically(currentCaseId, policyAnalyses.map(a => a.id));
+    if (currentCaseId && validAnalyses.length >= 2) {
+      console.log(`🔍 Comparing ${validAnalyses.length} analyses for case ${currentCaseId}`);
+      await alignCoveragesSemantically(currentCaseId, validAnalyses.map(a => a.id));
     }
   };
 
@@ -64,7 +90,7 @@ export default function Comparison() {
             </CardDescription>
           </div>
 
-          {!activeComparison && (
+          {showGenerateButton && (
             <Button
               onClick={handleAlign}
               disabled={comparisonLoading}
@@ -73,7 +99,12 @@ export default function Comparison() {
               {comparisonLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Alineando...
+                  {isComparisonOutdated ? 'Regenerando...' : 'Alineando...'}
+                </>
+              ) : isComparisonOutdated ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Regenerar Comparación ({validAnalyses.length} pólizas)
                 </>
               ) : (
                 <>
@@ -132,7 +163,7 @@ export default function Comparison() {
             <Sparkles className="h-12 w-12 text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-semibold text-foreground">Listo para comparar</h3>
             <p className="text-muted-foreground max-w-md mt-2">
-              Haz clic en "Generar Comparativa con IA" para que nuestro motor semántico alinee las coberturas de las {policyAnalyses.length} pólizas disponibles.
+              Haz clic en "Generar Comparativa con IA" para que nuestro motor semántico alinee las coberturas de las {validAnalyses.length} pólizas disponibles.
             </p>
             <Button
               onClick={handleAlign}
