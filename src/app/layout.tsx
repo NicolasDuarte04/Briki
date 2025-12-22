@@ -3,6 +3,7 @@ import { Geist_Mono, Inter, DM_Sans, Newsreader } from "next/font/google";
 import "./globals.css";
 import LoadingProvider from "@/components/LoadingProvider";
 import AuthProvider from "@/components/AuthProvider";
+import { ThemeProvider } from "@/lib/theme";
 import { Analytics } from "@vercel/analytics/next";
 import ChunkLoadErrorBoundary from "@/components/ErrorBoundary";
 
@@ -259,11 +260,13 @@ export default function RootLayout({
       </head>
       <body className="antialiased min-h-screen flex flex-col">
         <ChunkLoadErrorBoundary>
-          <LoadingProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
-          </LoadingProvider>
+          <ThemeProvider>
+            <LoadingProvider>
+              <AuthProvider>
+                {children}
+              </AuthProvider>
+            </LoadingProvider>
+          </ThemeProvider>
         </ChunkLoadErrorBoundary>
         <Analytics />
       </body>

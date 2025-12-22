@@ -1,51 +1,97 @@
 "use client";
 
-import { SidebarLink, useSidebar } from "@/components/ui/sidebar";
+import { 
+  SidebarLink, 
+  SidebarSection, 
+  SidebarLinkWithSubmenu,
+  useSidebar 
+} from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useUI } from "@/lib/ui/state";
-import { getWorkspaceLinks } from "@/config/navigation";
+import { getWorkspaceSections, type NavItem } from "@/config/navigation";
 import { usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
 import type { Locale } from "@/lib/routes/workspace";
 import { motion } from "framer-motion";
 
 export default function SidebarNav() {
-  // ✅ FASE 1: Eliminado setStep - ya no se necesita para navegación
   const { openChatPanel } = useUI();
   const { open, animate } = useSidebar();
   const pathname = usePathname();
   const locale = useLocale() as Locale;
 
-  // ✅ FASE 1: Eliminado handleLogoClick - la navegación se maneja completamente por Next.js
+  // Get locale-aware sections with items
+  const sections = getWorkspaceSections(locale);
 
-  // Get locale-aware links with icons
-  const links = getWorkspaceLinks(locale);
-
-  // Check if a link is active based on the current pathname
-  const isLinkActive = (link: typeof links[0]) => {
+  /**
+   * Check if a link is active based on the current pathname.
+   * Works for both top-level links and subItems.
+   */
+  const isLinkActive = (matchPath: string) => {
     // Remove locale prefix from pathname for comparison
     const pathWithoutLocale = pathname.replace(`/${locale}`, '');
     
     // Exact match for the matchPath
-    if (pathWithoutLocale === link.matchPath) {
+    if (pathWithoutLocale === matchPath) {
       return true;
     }
     
     // For nested routes, check if path starts with matchPath followed by '/'
-    // This prevents false positives like /agent-tools matching /agent
-    if (pathWithoutLocale.startsWith(link.matchPath + '/')) {
+    if (pathWithoutLocale.startsWith(matchPath + '/')) {
       return true;
     }
     
     return false;
   };
 
+  /**
+   * Render a navigation item.
+   * - If it has subItems, render SidebarLinkWithSubmenu
+   * - Otherwise, render regular SidebarLink
+   */
+  const renderNavItem = (item: NavItem) => {
+    const hasSubItems = item.subItems && item.subItems.length > 0;
+    
+    if (hasSubItems && item.subItems) {
+      return (
+        <SidebarLinkWithSubmenu
+          key={item.matchPath}
+          link={{
+            label: item.label,
+            href: item.href,
+            icon: item.icon,
+            matchPath: item.matchPath,
+            subItems: item.subItems,
+          }}
+          isActive={isLinkActive(item.matchPath)}
+          isSubItemActive={isLinkActive}
+          disabled={item.disabled ?? false}
+        />
+      );
+    }
+    
+    return (
+      <SidebarLink
+        key={item.matchPath}
+        link={{
+          label: item.label,
+          href: item.href,
+          icon: item.icon,
+          matchPath: item.matchPath,
+        }}
+        isActive={isLinkActive(item.matchPath)}
+        disabled={item.disabled ?? false}
+      />
+    );
+  };
+
   return (
     <div className="flex h-full flex-col justify-between">
       <div>
+        {/* Logo */}
         <Link
           href="/landing"
           aria-label="Home"
@@ -64,8 +110,8 @@ export default function SidebarNav() {
           </span>
         </Link>
         
-        {/* Chat button - positioned after logo */}
-        <div className="mt-4 mb-4">
+        {/* Chat button */}
+        <div className="mt-4 mb-6">
           <Button
             onClick={openChatPanel}
             variant="outline"
@@ -86,19 +132,18 @@ export default function SidebarNav() {
           </Button>
         </div>
         
-        <div className="flex flex-col">
-          {links.map((link) => (
-            <SidebarLink 
-              key={link.label} 
-              link={link} 
-              isActive={isLinkActive(link)}
-            />
+        {/* Navigation Sections */}
+        <nav className="flex flex-col">
+          {sections.map((section) => (
+            <SidebarSection key={section.id} title={section.title}>
+              {section.items.map(renderNavItem)}
+            </SidebarSection>
           ))}
-        </div>
+        </nav>
       </div>
+      
+      {/* Footer spacer */}
       <div />
     </div>
   );
 }
-
-

@@ -2,9 +2,10 @@
 
 import { Sidebar, SidebarBody } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useUI } from "@/lib/ui/state";
 import AgentSidebar from "@/components/AgentSidebar";
+import { DashboardHeader } from "@/components/header";
 
 export default function BrikiSidebarLayout({
   children,
@@ -41,9 +42,15 @@ export default function BrikiSidebarLayout({
         </Sidebar>
         <div
           id="main-content"
-          className="flex-1 min-w-0 min-h-screen flex flex-col overflow-y-auto"
+          className="flex-1 min-w-0 min-h-screen flex flex-col overflow-hidden"
         >
-          {children}
+          {/* Header fijo con controles de usuario y tema */}
+          <DashboardHeader />
+          
+          {/* Contenido principal con scroll independiente */}
+          <main className="flex-1 overflow-y-auto">
+            {children}
+          </main>
         </div>
       </div>
   );
