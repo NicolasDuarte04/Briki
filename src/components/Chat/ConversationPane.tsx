@@ -586,26 +586,18 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
       const result = await response.json();
 
-      // ✅ FASE 8: Parsear contenido para referencias interactivas
-      const parsedContent = parseMessageContent(result.response);
-
+      // ✅ Pasar contenido como string - MarkdownContent se encarga del renderizado enriquecido
       const assistantResponse: ChatMessage = {
         id: `assistant-${Date.now()}`,
         role: "assistant",
-        content: parsedContent, // Usar contenido parseado (ReactNode)
+        content: result.response, // String - se renderiza con Markdown en Message.tsx
         createdAt: Date.now(),
         agent: { label: chatTranslations("agents.sourcing") },
       };
       addMessage(assistantResponse);
 
       // ✅ FASE 2.2: Guardar respuesta del agente en BD
-      // Nota: Guardamos el texto original (result.response) en la BD, no el ReactNode
-      // Al recargar, deberíamos volver a parsear si queremos interactividad (TODO)
-      const messageToSave = {
-        ...assistantResponse,
-        content: result.response // Guardar string original
-      };
-      await saveMessageToDB(messageToSave);
+      await saveMessageToDB(assistantResponse);
 
       if (!isSourcing) {
         startSourcing();
@@ -998,7 +990,8 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
                     )}>
                       <Message
                         role={m.role}
-                        content={typeof m.content === 'string' ? parseMessageContent(m.content) : m.content}
+                        /* Pasar contenido directamente - MarkdownContent se encarga del formato */
+                        content={m.content}
                         {...(m.agent && m.agent.label ? {
                           agent: {
                             label: m.agent.label,
@@ -1011,6 +1004,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
                         isGroupEnd={isGroupEnd}
                         timestamp={displayTimestamp}
                         {...(shouldShowApproveButton ? { onApprove: handleApprovalOrchestration } : {})}
+                        onPdfReferenceClick={handleViewInPdf}
                       />
                     </div>
                   </div>

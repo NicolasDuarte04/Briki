@@ -24,10 +24,12 @@ interface MessageProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "conte
   isTyping?: boolean;
   timestamp?: string;
   onApprove?: () => void;
+  /** Callback cuando el usuario hace clic en una referencia a PDF */
+  onPdfReferenceClick?: (field: string, page: number, analysisId?: string) => void;
 }
 
 export const Message = forwardRef<HTMLDivElement, MessageProps>(function Message(
-  { role, content, agent, className, isGroupStart, isGroupEnd, isTyping, timestamp, onApprove, ...rest },
+  { role, content, agent, className, isGroupStart, isGroupEnd, isTyping, timestamp, onApprove, onPdfReferenceClick, ...rest },
   ref
 ) {
   const isUser = role === "user";
@@ -86,8 +88,13 @@ export const Message = forwardRef<HTMLDivElement, MessageProps>(function Message
           {...(agent?.label ? { title: agent.label } : {})}
           {...(agent?.tag ? { tagLabel: agent.tag } : {})}
           {...(timestamp ? { timestamp } : {})}
-          body={<div className="break-words">{content}</div>}
+          /* Si el contenido es string, pasarlo como stringContent para renderizado Markdown */
+          {...(isStringContent 
+            ? { stringContent: content as string } 
+            : { body: <div className="break-words">{content}</div> }
+          )}
           onApprove={onApprove || (() => {})}
+          {...(onPdfReferenceClick ? { onPdfReferenceClick } : {})}
         />
       ) : (
         <div className="max-w-full">

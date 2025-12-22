@@ -8,16 +8,22 @@ import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 import { Edit3, RotateCcw } from "lucide-react";
 import { useUI } from "@/lib/ui/state";
+import MarkdownContent from "@/components/Chat/MarkdownContent";
 
 export interface MessageAgentProps extends React.HTMLAttributes<HTMLDivElement> {
   title?: string;
   roleLabel?: string;
   tagLabel?: string;
   timestamp?: string;
-  body: React.ReactNode;
+  /** Contenido como ReactNode (tradicional) */
+  body?: React.ReactNode;
+  /** Contenido como string para renderizar con Markdown (alternativa a body) */
+  stringContent?: string;
   onApprove?: () => void;
   onEdit?: () => void;
   onRerun?: () => void;
+  /** Callback cuando el usuario hace clic en una referencia a PDF */
+  onPdfReferenceClick?: (field: string, page: number, analysisId?: string) => void;
 }
 
 export const MessageAgent: React.FC<MessageAgentProps> = ({
@@ -26,9 +32,11 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
   tagLabel,
   timestamp,
   body,
+  stringContent,
   onApprove,
   onEdit,
   onRerun,
+  onPdfReferenceClick,
   className,
   ...rest
 }) => {
@@ -99,7 +107,15 @@ export const MessageAgent: React.FC<MessageAgentProps> = ({
 
       <CardContent className="px-5 pb-4 pt-0">
         <div className="text-sm leading-relaxed text-foreground/90">
-          {body}
+          {/* Si hay stringContent, usar MarkdownContent para renderizado enriquecido */}
+          {stringContent ? (
+            <MarkdownContent 
+              content={stringContent} 
+              {...(onPdfReferenceClick ? { onPdfReferenceClick } : {})}
+            />
+          ) : (
+            body
+          )}
         </div>
       </CardContent>
 
