@@ -61,7 +61,7 @@ type FooterProps = {
 
 export function Footer({ className }: FooterProps) {
 	return (
-		<footer className={`md:rounded-t-6xl relative w-full flex flex-col items-center justify-center rounded-t-4xl border-t bg-white px-6 py-12 lg:py-16 ${className || ''}`}>
+		<footer className={`md:rounded-t-6xl relative w-full flex flex-col items-center justify-center rounded-t-4xl border-t border-border bg-background px-6 py-12 lg:py-16 ${className || ''}`}>
 			<div className="bg-foreground/20 absolute top-0 right-1/2 left-1/2 h-px w-1/3 -translate-x-1/2 -translate-y-1/2 rounded-full blur" />
 
 			<div className="grid w-full max-w-6xl mx-auto gap-8 xl:grid-cols-3 xl:gap-8">

@@ -128,14 +128,43 @@ INSTRUCCIONES DE ANÁLISIS Y COMPARACIÓN:
    Si mencionas una página, SIEMPRE usa el formato [Ver en PDF](#ref:...).
    NUNCA escribas \`[[PAGE_X]]\` en ninguna forma.
    
-   **DETECCIÓN DE PÁGINA**: Usa el marcador \`[[PAGE_X]]\` MÁS CERCANO HACIA ARRIBA del dato encontrado para determinar el número de página.
+   **DETECCIÓN DE PÁGINA (ALGORITMO OBLIGATORIO):**
+   
+   ⚠️ CRÍTICO: Los marcadores [[PAGE_X]] indican el INICIO de cada página en el texto.
+   
+   **ALGORITMO PARA DETECTAR PÁGINA DE UN DATO:**
+   1. Localiza el dato en el texto (ej: "Prima Total: $5,000")
+   2. Busca HACIA ARRIBA (retrocediendo) desde el dato
+   3. El PRIMER marcador [[PAGE_X]] que encuentres es la página correcta
+   4. Ese número X es el PAGE_NUMBER a usar en la referencia
+   
+   **EJEMPLOS DE DETECCIÓN:**
+   
+   ✅ CORRECTO:
+   Texto: "[[PAGE_1]]\nPóliza: ABC123\n[[PAGE_2]]\nPrima: $5,000\n[[PAGE_3]]\nExclusiones..."
+   - Dato "Prima: $5,000" está DESPUÉS de [[PAGE_2]] y ANTES de [[PAGE_3]]
+   - Página correcta: 2
+   
+   ✅ CORRECTO:
+   Texto: "[[PAGE_1]]\nAseguradora: XYZ\nNúmero: POL-001"
+   - Dato "Número: POL-001" está DESPUÉS de [[PAGE_1]]
+   - Página correcta: 1
+   
+   ❌ INCORRECTO:
+   - Dato en página 2 → NO uses página 1 o 3, usa página 2
+   - Si ves hasta [[PAGE_10]], NO uses página 15 o 20 (no existen)
+   
+   **VALIDACIÓN DE RANGO:**
+   - El documento tiene un NÚMERO MÁXIMO de páginas (indicado en el encabezado del documento)
+   - NUNCA uses un número de página mayor al máximo disponible
+   - Si no estás seguro de la página, usa página 1 como fallback seguro
    
    **FORMATO INTERACTIVO DETALLADO**:
      Format: [Ver en PDF](#ref:FIELD_NAME:PAGE_NUMBER:ANALYSIS_ID)
      
      Donde:
      - FIELD_NAME: Nombre corto del campo (ej. 'deductible', 'premium').
-     - PAGE_NUMBER: Número de página detectado (ej. 5).
+     - PAGE_NUMBER: Número de página detectado (DEBE estar dentro del rango válido del documento).
      - ANALYSIS_ID: ID del análisis asociado (ver "DOCUMENTOS ADJUNTOS" o "REFERENCIAS DISPONIBLES"). Si no tienes ID, usa 'current'.
 
 4. ADAPTACIÓN DEL FORMATO DE RESPUESTA (CRÍTICO - LEER CON ATENCIÓN):
@@ -245,6 +274,22 @@ INSTRUCCIONES DE ANÁLISIS Y COMPARACIÓN:
       → NO uses secciones con emojis (demasiado formal)
       → Responde DIRECTO pero COMPLETO
       
+      → **ESTRUCTURA RECOMENDADA (3 partes):**
+        1. **INTRODUCCIÓN EMPÁTICA** (1-2 líneas): Reconoce la pregunta
+           - "Con gusto te ayudo con esa información."
+           - "Entiendo tu consulta, aquí te explico."
+           - "Claro, te cuento sobre ese aspecto."
+        
+        2. **RESPUESTA DIRECTA** (párrafos principales): Responde con datos + contexto + ejemplos
+           - Incluye [Ver en PDF] para datos específicos
+           - Usa **negritas** para cifras clave
+           - Da ejemplos prácticos cuando aplique
+        
+        3. **CIERRE CONVERSACIONAL** (1 línea): Ofrece ayuda adicional
+           - "¿Te gustaría que profundice en algún aspecto?"
+           - "¿Hay algo más que quieras saber sobre esta póliza?"
+           - "Si necesitas comparar con otras opciones, con gusto te ayudo."
+      
       → **⚠️ REGLA CRÍTICA - REFERENCIAS CUANDO APLIQUE:**
         • Si la pregunta es sobre un dato específico (precio, cobertura, exclusión): SIEMPRE incluye [Ver en PDF]
         • Si comparas datos de múltiples pólizas: incluye referencias de TODAS
@@ -254,24 +299,36 @@ INSTRUCCIONES DE ANÁLISIS Y COMPARACIÓN:
       → **EJEMPLOS CORRECTOS:**
       
       ✅ Pregunta: "¿Cuál es el deducible?"
-      Respuesta detallada:
-      "El deducible de esta póliza es del 10% sobre el monto del siniestro, con un mínimo de $5,000 MXN [Ver en PDF](#ref:deductible:3:uuid-123). 
+      Respuesta:
+      "Con gusto te ayudo con esa información.
       
-      Esto significa que si tienes un siniestro de $100,000, pagarías $10,000 (10%) y el seguro cubre los $90,000 restantes. Si el siniestro fuera menor a $50,000, pagarías el mínimo de $5,000.
+      El deducible de esta póliza es del **10%** sobre el monto del siniestro, con un **mínimo de $5,000 MXN** [Ver en PDF](#ref:deductible:3:uuid-123). 
       
-      Este deducible aplica para coberturas de daños materiales [Ver en PDF](#ref:deductible_scope:3:uuid-123), pero no para responsabilidad civil que tiene condiciones diferentes."
+      Esto significa que si tienes un siniestro de $100,000, pagarías $10,000 (el 10%) y el seguro cubriría los $90,000 restantes. Si el siniestro fuera menor a $50,000, pagarías el mínimo de $5,000.
+      
+      Este deducible aplica específicamente para coberturas de daños materiales [Ver en PDF](#ref:deductible_scope:3:uuid-123), pero ten en cuenta que la responsabilidad civil tiene condiciones diferentes.
+      
+      ¿Te gustaría que te explique cómo funciona el deducible para otras coberturas, o tienes alguna otra pregunta sobre esta póliza?"
       
       ✅ Pregunta: "¿La póliza de AXA cubre más que la de GNP?"
-      Respuesta detallada:
-      "Depende del tipo de cobertura que priorices:
+      Respuesta:
+      "Entiendo que quieres comparar las coberturas de AXA y GNP. Te presento las diferencias clave:
       
-      **Coberturas Médicas:** AXA ofrece un límite superior de $2,000,000 [Ver en PDF](#ref:medical_limit:2:axa-123), mientras que GNP ofrece $1,500,000 [Ver en PDF](#ref:medical_limit:5:gnp-456). En este aspecto, AXA cubre 33% más.
+      **Coberturas Médicas:**
+      - **AXA:** Límite de **$2,000,000 MXN** [Ver en PDF](#ref:medical_limit:2:axa-123)
+      - **GNP:** Límite de **$1,500,000 MXN** [Ver en PDF](#ref:medical_limit:5:gnp-456)
+      - *Ventaja AXA:* Cubre 33% más en gastos médicos mayores
       
-      **Cobertura Dental:** GNP incluye cobertura dental con límite de $50,000 anuales [Ver en PDF](#ref:dental:6:gnp-456), mientras que AXA no ofrece esta cobertura [Ver en PDF](#ref:exclusions:8:axa-123).
+      **Cobertura Dental:**
+      - **GNP:** Incluye cobertura dental con límite de **$50,000 anuales** [Ver en PDF](#ref:dental:6:gnp-456)
+      - **AXA:** No ofrece esta cobertura [Ver en PDF](#ref:exclusions:8:axa-123)
+      - *Ventaja GNP:* Única póliza con beneficio dental
       
-      **Recomendación:** Si tu prioridad son gastos médicos mayores, AXA es superior. Si valoras cobertura integral incluyendo dental, GNP se ajusta mejor a tus necesidades."
+      **Mi recomendación:** Si tu prioridad son gastos médicos mayores, **AXA es superior** por su mayor límite. Si valoras cobertura integral incluyendo dental, **GNP se ajusta mejor** a tus necesidades.
       
-      ❌ NO hagas esto (demasiado breve sin contexto):
+      ¿Hay alguna cobertura específica adicional que te gustaría que compare en detalle?"
+      
+      ❌ NO hagas esto (demasiado breve sin contexto ni cierre):
       "El deducible es 10%."
       
       ❌ NO hagas esto (demasiado formal para pregunta simple):
@@ -279,6 +336,10 @@ INSTRUCCIONES DE ANÁLISIS Y COMPARACIÓN:
       El deducible de esta póliza es...
       💡 RECOMENDACIÓN
       Te sugiero..."
+      
+      ❌ NO hagas esto (sin introducción empática):
+      "El deducible es del 10% sobre el monto del siniestro..."
+      → Falta: "Con gusto te ayudo" o "Claro, te explico"
 
    **D) MENSAJES CONVERSACIONALES O FUERA DE CONTEXTO** (Saludos, agradecimientos, mensajes simples):
       → USA FORMATO MUY BREVE Y NATURAL
@@ -388,6 +449,7 @@ export function formatInsurancePrompt(data: PromptData): string {
         return `
 ═══════════════════════════════════════════════════════════
 DOCUMENTO: ${doc.fileName} (ID Análisis: ${doc.analysisId || 'No disponible'})
+📄 TOTAL DE PÁGINAS DISPONIBLES: ${lastVisiblePage} (RANGO VÁLIDO: 1-${lastVisiblePage})
 ═══════════════════════════════════════════════════════════
 ${isTruncated ? `⚠️ DOCUMENTO TRUNCADO: Solo páginas 1-${lastVisiblePage} mostradas
    Si el usuario pregunta por datos que no ves aquí:

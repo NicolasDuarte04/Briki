@@ -16,7 +16,7 @@ export default function FooterNav({ className, fullBleed = false }: { className?
       role="navigation"
       aria-label="Footer navigation"
       className={cn(
-        "w-full border-t bg-white px-safe",
+        "w-full border-t border-border bg-background px-safe",
         fullBleed ? undefined : "rounded-t-lg",
         className
       )}

@@ -43,7 +43,7 @@ export async function analyzeInsuranceDocuments(request: AnalysisRequest): Promi
         { role: 'user', content: formattedPrompt }
       ],
       max_tokens: maxTokens,
-      temperature: 0.5, // Ajustar para respuestas más consistentes
+      temperature: 0.6, // ✅ Balanceo óptimo: consistencia técnica + naturalidad conversacional
     });
 
     const result = response.choices[0]?.message?.content || 'No se pudo generar un análisis. Intenta de nuevo.';
