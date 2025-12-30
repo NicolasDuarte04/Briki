@@ -4,14 +4,17 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CaseStatusBadge } from './CaseStatusBadge';
-import { Clock, FileText, Briefcase, Calendar, Trash2 } from 'lucide-react';
+import { PinButton } from '@/components/Workspace/PinButton';
+import { Clock, FileText, Briefcase, Trash2 } from 'lucide-react';
 
 interface CaseCardProps {
   caseData: any;
   onDelete?: (caseId: string) => void;
+  /** Whether this case is pinned by the user */
+  isPinned?: boolean;
 }
 
-export function CaseCard({ caseData, onDelete }: CaseCardProps) {
+export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps) {
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('es-ES', {
       year: 'numeric',
@@ -45,6 +48,11 @@ export function CaseCard({ caseData, onDelete }: CaseCardProps) {
             </div>
             <div className="flex items-center gap-2">
               <CaseStatusBadge status={caseData.status} />
+              <PinButton
+                entityId={caseData.id}
+                entityType="case"
+                isPinned={isPinned}
+              />
               {onDelete && (
                 <Button
                   variant="ghost"

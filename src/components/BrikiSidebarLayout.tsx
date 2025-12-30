@@ -44,7 +44,7 @@ export default function BrikiSidebarLayout({
           id="main-content"
           className="flex-1 min-w-0 min-h-screen flex flex-col overflow-hidden"
         >
-          {/* Header fijo con controles de usuario y tema */}
+          {/* Barra de herramientas (toolbar visual, no landmark semántico) */}
           <DashboardHeader />
           
           {/* Contenido principal con scroll independiente */}

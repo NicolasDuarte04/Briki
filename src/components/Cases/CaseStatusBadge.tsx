@@ -13,31 +13,31 @@ export function CaseStatusBadge({ status }: CaseStatusBadgeProps) {
         return {
           label: 'Borrador',
           variant: 'secondary' as const,
-          color: 'text-gray-500'
+          color: 'text-muted-foreground'
         };
       case 'active':
         return {
           label: 'Activo',
           variant: 'default' as const,
-          color: 'text-blue-500'
+          color: 'text-primary'
         };
       case 'completed':
         return {
           label: 'Completado',
           variant: 'outline' as const,
-          color: 'text-green-500'
+          color: 'text-green-500 dark:text-green-400'
         };
       case 'archived':
         return {
           label: 'Archivado',
           variant: 'secondary' as const,
-          color: 'text-gray-400'
+          color: 'text-muted-foreground/70'
         };
       default:
         return {
           label: status,
           variant: 'outline' as const,
-          color: 'text-gray-500'
+          color: 'text-muted-foreground'
         };
     }
   };

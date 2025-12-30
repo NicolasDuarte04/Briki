@@ -6,19 +6,21 @@ import {
   getContinueItem,
   getRecentPolicies, 
   getRecentProposals,
-  getRenewalsBuckets
+  getRecentCases
 } from '@/lib/data/workspace';
 import type { 
   RecentPolicy, 
-  RecentProposal 
+  RecentProposal,
+  RecentCase
 } from '@/lib/data/workspace';
 import { Skeleton } from '@/components/ui/skeleton';
-import { InboxServer } from '@/components/Workspace/Inbox';
 import { ContinueCard } from '@/components/Workspace/ContinueCard';
 import { QuickActions } from '@/components/Workspace/QuickActions';
 import { Recents } from '@/components/Workspace/Recents';
-import { RenewalsRadar } from '@/components/Workspace/RenewalsRadar';
+import { RecentCases } from '@/components/Workspace/RecentCases';
+import { PinnedCases } from '@/components/Workspace/PinnedCases';
 import { PinnedClients } from '@/components/Workspace/PinnedClients';
+import { PinnedPolicies } from '@/components/Workspace/PinnedPolicies';
 import { ZeroState } from '@/components/Workspace/ZeroState';
 import { pathForEntity, pathForCases } from '@/lib/routes/workspace';
 import type { Locale } from '@/lib/routes/workspace';
@@ -67,40 +69,14 @@ function RecentsSkeleton() {
   );
 }
 
-function RenewalsRadarSkeleton() {
+function PinnedSkeleton() {
   return (
     <div className="rounded-card shadow-elev-sm bg-[var(--card)] p-6">
       <Skeleton className="h-6 w-48 mb-4" />
-      <div className="grid grid-cols-2 gap-4">
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    </div>
-  );
-}
-
-function InboxSkeleton() {
-  return (
-    <div className="rounded-card shadow-elev-sm bg-[var(--card)] p-6">
-      <Skeleton className="h-6 w-32 mb-4" />
-      <div className="space-y-3">
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-        <Skeleton className="h-12 w-full" />
-      </div>
-    </div>
-  );
-}
-
-function PinnedClientsSkeleton() {
-  return (
-    <div className="rounded-card shadow-elev-sm bg-[var(--card)] p-6">
-      <Skeleton className="h-6 w-48 mb-4" />
-      <div className="grid grid-cols-2 gap-4">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-20 w-full" />
+      <div className="flex flex-wrap gap-2">
+        <Skeleton className="h-7 w-24 rounded-full" />
+        <Skeleton className="h-7 w-32 rounded-full" />
+        <Skeleton className="h-7 w-28 rounded-full" />
       </div>
     </div>
   );
@@ -178,14 +154,37 @@ async function RecentProposalsWrapper({ orgId, locale }: { orgId: string; locale
   );
 }
 
-async function RenewalsRadarWrapper({ orgId, locale }: { orgId: string; locale: Locale }) {
-  const renewals = await getRenewalsBuckets(orgId);
+async function RecentCasesWrapper({ orgId, locale }: { orgId: string; locale: Locale }) {
+  const cases = await getRecentCases(orgId);
   
-  return <RenewalsRadar renewals={renewals} locale={locale} />;
+  // Adapt RecentCase to RecentCaseItem format
+  const items = cases.map((caseItem: RecentCase) => ({
+    id: caseItem.id,
+    title: caseItem.title,
+    client: caseItem.client_name,
+    status: caseItem.status,
+    updated_at: caseItem.updated_at,
+  }));
+  
+  return (
+    <RecentCases
+      title="Recientes: Casos"
+      items={items}
+      locale={locale}
+    />
+  );
+}
+
+async function PinnedCasesWrapper({ userId, orgId, locale }: { userId: string; orgId: string; locale: Locale }) {
+  return <PinnedCases userId={userId} orgId={orgId} locale={locale} />;
 }
 
 async function PinnedClientsWrapper({ userId, orgId, locale }: { userId: string; orgId: string; locale: Locale }) {
   return <PinnedClients userId={userId} orgId={orgId} locale={locale} />;
+}
+
+async function PinnedPoliciesWrapper({ userId, orgId, locale }: { userId: string; orgId: string; locale: Locale }) {
+  return <PinnedPolicies userId={userId} orgId={orgId} locale={locale} />;
 }
 
 // ============================================================================
@@ -287,37 +286,37 @@ export default async function DashboardPage({
             </Suspense>
           </div>
           
-          {/* Row 2: Recientes: Pólizas + Recientes: Propuestas */}
+          {/* Row 2: Recientes: Casos (izquierda) + Recientes: Pólizas (derecha) */}
+          <div className="md:col-span-6">
+            <Suspense fallback={<RecentsSkeleton />}>
+              <RecentCasesWrapper orgId={orgId} locale={locale} />
+            </Suspense>
+          </div>
+          
           <div className="md:col-span-6">
             <Suspense fallback={<RecentsSkeleton />}>
               <RecentPoliciesWrapper orgId={orgId} locale={locale} />
             </Suspense>
           </div>
           
-          <div className="md:col-span-6">
-            <Suspense fallback={<RecentsSkeleton />}>
-              <RecentProposalsWrapper orgId={orgId} locale={locale} />
+          {/* Row 3: Casos anclados (full width) */}
+          <div className="md:col-span-12">
+            <Suspense fallback={<PinnedSkeleton />}>
+              <PinnedCasesWrapper userId={userId} orgId={orgId} locale={locale} />
             </Suspense>
           </div>
           
-          {/* Row 3: Radar de Renovaciones (full width) */}
+          {/* Row 4: Clientes anclados (full width) */}
           <div className="md:col-span-12">
-            <Suspense fallback={<RenewalsRadarSkeleton />}>
-              <RenewalsRadarWrapper orgId={orgId} locale={locale} />
-            </Suspense>
-          </div>
-          
-          {/* Row 4: Bandeja de entrada (full width) */}
-          <div className="md:col-span-12">
-            <Suspense fallback={<InboxSkeleton />}>
-              <InboxServer userId={userId} orgId={orgId} />
-            </Suspense>
-          </div>
-          
-          {/* Row 5: Clientes anclados (full width) */}
-          <div className="md:col-span-12">
-            <Suspense fallback={<PinnedClientsSkeleton />}>
+            <Suspense fallback={<PinnedSkeleton />}>
               <PinnedClientsWrapper userId={userId} orgId={orgId} locale={locale} />
+            </Suspense>
+          </div>
+          
+          {/* Row 5: Pólizas ancladas (full width) */}
+          <div className="md:col-span-12">
+            <Suspense fallback={<PinnedSkeleton />}>
+              <PinnedPoliciesWrapper userId={userId} orgId={orgId} locale={locale} />
             </Suspense>
           </div>
         </div>

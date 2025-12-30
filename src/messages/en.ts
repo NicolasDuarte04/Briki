@@ -406,23 +406,6 @@ const en = {
     accountMenuTitle: "Open account menu",
     accountInitials: "BR",
   },
-  sourcing: {
-    status: {
-      body: "Fetching plans…",
-      sourcesLabel: "Source systems",
-      microStepsLabel: "Sourcing steps",
-      microSteps: ["Logging in…", "Reading portal…", "Parsing PDFs…"],
-      cardTitle: "Sourcing in progress",
-      stopAction: "Stop sourcing",
-      rows: [
-        { name: "Carrier portal login", provenance: "Portal" },
-        { name: "Plan API sync", provenance: "API" },
-        { name: "PDF ingestion", provenance: "PDF" },
-        { name: "Benefit mapping", provenance: "Portal" },
-      ],
-      chipAria: "{provenance} source system",
-    },
-  },
   workspace: {
     tabs: {
       caseBrief: "Case Brief",

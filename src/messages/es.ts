@@ -406,23 +406,6 @@ const es = {
     accountMenuTitle: "Abrir menú de cuenta",
     accountInitials: "BR",
   },
-  sourcing: {
-    status: {
-      body: "Buscando planes…",
-      sourcesLabel: "Orígenes de datos",
-      microStepsLabel: "Pasos del proceso",
-      microSteps: ["Iniciando sesión…", "Leyendo portal…", "Analizando PDFs…"],
-      cardTitle: "Obtención en curso",
-      stopAction: "Detener obtención",
-      rows: [
-        { name: "Inicio de sesión en portal", provenance: "Portal" },
-        { name: "Sincronización API de planes", provenance: "API" },
-        { name: "Ingesta de PDFs", provenance: "PDF" },
-        { name: "Mapeo de beneficios", provenance: "Portal" },
-      ],
-      chipAria: "Fuente {provenance}",
-    },
-  },
   workspace: {
     tabs: {
       caseBrief: "Resumen",

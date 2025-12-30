@@ -30,6 +30,7 @@ export type TempUpload = {
   charactersExtracted?: number;
   fileHash?: string;
   extractedText?: string;
+  isExistingArtifact?: boolean; // ✅ CORRECCIÓN: Flag para identificar pólizas ya persistidas (no eliminables)
 };
 
 // Define el tipo para opciones de cliente
@@ -146,6 +147,32 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     freeText: initialData?.briefData?.freeText || (shouldUseBriefFallback ? brief?.freeText : '') || '',
   });
 
+  // ✅ CORRECCIÓN: Estado para guardar datos iniciales en modo edición (para detección de cambios)
+  const [initialFormSnapshot, setInitialFormSnapshot] = useState<CaseBriefData | null>(null);
+  const [initialArtifactCount, setInitialArtifactCount] = useState<number>(0);
+  
+  // ✅ CORRECCIÓN: Capturar snapshot inicial cuando se entra a modo edición
+  useEffect(() => {
+    if (mode === 'edit' && initialData && !initialFormSnapshot) {
+      const snapshot: CaseBriefData = {
+        insurance_category: initialData.insurance_category || '',
+        max_budget: initialData.max_budget ?? null,
+        budget_currency: initialData.budget_currency || 'COP',
+        required_coverages: initialData.required_coverages || [],
+        client_profile: initialData.client_profile || '',
+        notes: initialData.briefData?.freeText || '',
+        clientName: initialData.clientName || '',
+        businessType: initialData.businessType || '',
+        employees: initialData.employees ?? null,
+        coverage: '',
+        freeText: initialData.briefData?.freeText || '',
+      };
+      setInitialFormSnapshot(snapshot);
+      setInitialArtifactCount(initialData.artifacts?.length || 0);
+      console.log('📸 [BriefForm] Snapshot inicial capturado para detección de cambios');
+    }
+  }, [mode, initialData, initialFormSnapshot]);
+
   // ✅ FASE 4: Limpiar formData SIEMPRE cuando currentCaseId cambia a null (navegación a new-thread-placeholder)
   // Los datos de Landing se cargarán después de la limpieza en otro useEffect
   useEffect(() => {
@@ -247,6 +274,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           charactersExtracted: provenance.charactersExtracted || undefined,
           fileHash: provenance.fileHash || undefined,
           extractedText: artifact.contentText || undefined,
+          isExistingArtifact: true, // ✅ CORRECCIÓN: Marcar como póliza existente (no eliminable)
         };
       });
   }, []);
@@ -281,6 +309,31 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
   // Estado para uploads temporales - inicializado con artifacts convertidos si estamos en modo edición
   const [tempUploads, setTempUploads] = useState<TempUpload[]>(initialTempUploads);
+
+  // ✅ CORRECCIÓN: Detectar si hay cambios en el formulario respecto al snapshot inicial
+  // Esto permite mostrar/ocultar el botón "Actualizar Caso" solo cuando hay modificaciones
+  // NOTA: Este useMemo DEBE estar DESPUÉS de la declaración de tempUploads para evitar TDZ error
+  const hasFormChanges = useMemo(() => {
+    // Solo aplicar detección de cambios en modo edición
+    if (mode !== 'edit' || !initialFormSnapshot) return false;
+    
+    // Comparar campos editables (excluir insurance_category y clientName que están bloqueados)
+    const editableFieldsChanged = 
+      formData.max_budget !== initialFormSnapshot.max_budget ||
+      formData.budget_currency !== initialFormSnapshot.budget_currency ||
+      JSON.stringify(formData.required_coverages) !== JSON.stringify(initialFormSnapshot.required_coverages) ||
+      formData.client_profile !== initialFormSnapshot.client_profile ||
+      formData.notes !== initialFormSnapshot.notes ||
+      formData.businessType !== initialFormSnapshot.businessType ||
+      formData.employees !== initialFormSnapshot.employees;
+    
+    // Detectar si se añadieron nuevos tempUploads (pólizas)
+    // Los tempUploads nuevos NO tienen isExistingArtifact = true
+    const newUploadsCount = tempUploads.filter(u => !u.isExistingArtifact).length;
+    const hasNewUploads = newUploadsCount > 0;
+    
+    return editableFieldsChanged || hasNewUploads;
+  }, [mode, formData, initialFormSnapshot, tempUploads]);
 
   // ✅ CORRECCIÓN CRÍTICA: Sincronizar automáticamente formData con brief global cuando se va a aprobar
   // Esto asegura que cuando se hace click en "Aprobar" o "Aprobar y Continuar Análisis",
@@ -800,8 +853,23 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     }
   }, [onApprove, onSubmit, formData, tempUploads, setBrief, mode, formData.insurance_category, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId]);
 
+  // ✅ CORRECCIÓN UX: Estado combinado para mostrar overlay de procesamiento
+  const isProcessing = isSubmitting || caseApproving || caseResolvingClient;
+
   return (
-    <Card className="w-full max-w-4xl mx-auto">
+    <Card className="w-full max-w-4xl mx-auto relative">
+      {/* ✅ CORRECCIÓN UX: Overlay de procesamiento visual inmediato */}
+      {isProcessing && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
+          <div className="flex flex-col items-center gap-3 p-6">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="font-medium text-foreground">
+              {caseResolvingClient ? 'Validando cliente...' : 'Procesando...'}
+            </p>
+            <p className="text-sm text-muted-foreground">Por favor espera un momento.</p>
+          </div>
+        </div>
+      )}
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
@@ -818,10 +886,15 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             <Label htmlFor="insurance_category" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
               Categoría de Seguro *
+              {/* ✅ CORRECCIÓN: Indicar que no es editable en modo edición */}
+              {mode === 'edit' && (
+                <span className="text-xs text-muted-foreground font-normal">(No editable)</span>
+              )}
             </Label>
             <Select
               value={formData.insurance_category}
               onValueChange={(value) => updateField('insurance_category', value)}
+              disabled={mode === 'edit'} // ✅ CORRECCIÓN: Bloquear en modo edición
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona el tipo de seguro" />
@@ -947,24 +1020,32 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           {/* Información del Negocio (campos existentes) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="clientName">Nombre del Cliente</Label>
+              <Label htmlFor="clientName">
+                Nombre del Cliente
+                {/* ✅ CORRECCIÓN: Indicar que no es editable en modo edición */}
+                {mode === 'edit' && (
+                  <span className="ml-2 text-xs text-muted-foreground font-normal">(No editable)</span>
+                )}
+              </Label>
               <div className="relative client-combobox-container">
                 <Input
                   id="clientName"
                   placeholder="Escribir nombre del cliente..."
                   value={clientSearchTerm}
                   onChange={(e) => handleClientSearchChange(e.target.value)}
-                  onFocus={() => setIsClientComboboxOpen(true)}
+                  onFocus={() => mode !== 'edit' && setIsClientComboboxOpen(true)} // ✅ CORRECCIÓN: No abrir dropdown en modo edición
                   className="w-full"
+                  disabled={mode === 'edit'} // ✅ CORRECCIÓN: Bloquear en modo edición
                 />
-                {isClientComboboxOpen && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto">
+                {/* ✅ CORRECCIÓN: No mostrar dropdown en modo edición */}
+                {isClientComboboxOpen && mode !== 'edit' && (
+                  <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
                     {isClientListLoading ? (
-                      <div className="px-2 py-1.5 text-sm text-gray-500">Cargando clientes...</div>
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">Cargando clientes...</div>
                     ) : clientList.filter(client =>
                       client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
                     ).length === 0 ? (
-                      <div className="px-2 py-1.5 text-sm text-gray-500">No se encontraron clientes.</div>
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No se encontraron clientes.</div>
                     ) : (
                       clientList
                         .filter(client =>
@@ -974,7 +1055,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                           <div
                             key={client.id}
                             onClick={() => handleClientSelect(client)}
-                            className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-gray-100 rounded-sm"
+                            className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
                           >
                             <Check
                               className={cn(
@@ -1079,9 +1160,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                               {upload.pageCount ? `${upload.pageCount} páginas` : ''}
                               {upload.pageCount && upload.fileSize ? ' • ' : ''}
                               {upload.fileSize ? `${Math.round(upload.fileSize / 1024)} KB` : ''}
+                              {/* ✅ CORRECCIÓN: Indicar si es póliza existente (no eliminable) */}
+                              {upload.isExistingArtifact && ' • Póliza guardada'}
                             </p>
                           </div>
                         </div>
+                        {/* ✅ CORRECCIÓN: Solo mostrar botón X si NO es póliza existente */}
+                        {!upload.isExistingArtifact && (
                         <Button
                           type="button"
                           variant="ghost"
@@ -1092,6 +1177,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                         >
                           <X className="h-4 w-4" />
                         </Button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1104,20 +1190,33 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           )}
 
           {/* Botón de Envío */}
-          {/* Botón de Envío */}
-          {/* ✅ CORRECCIÓN CRÍTICA: Usar shouldShowApprovalButtons para ocultar botón al aprobar */}
-          {shouldShowApprovalButtons() && (
+          {/* ✅ CORRECCIÓN: Lógica separada para modo edición vs creación */}
+          {mode === 'edit' ? (
+            // ✅ MODO EDICIÓN: Mostrar botón solo si hay cambios detectados
+            hasFormChanges && (
             <div className="flex justify-end pt-4">
               <Button
                 type="submit"
-                disabled={mode === 'edit'
-                  ? (isSubmitting || caseResolvingClient || approvalPhase === 'processing')
-                  : (isSubmitting || caseResolvingClient || !areApprovalButtonsEnabled())}
+                  disabled={isSubmitting || caseResolvingClient}
                 className="min-w-[140px]"
               >
-                {caseResolvingClient ? 'Validando cliente...' : (isSubmitting || approvalPhase === 'processing') ? 'Procesando...' : mode === 'edit' ? 'Guardar Datos' : 'Buscar Planes'}
+                  {isSubmitting ? 'Procesando...' : 'Actualizar Caso'}
               </Button>
             </div>
+            )
+          ) : (
+            // ✅ MODO CREACIÓN: Usar lógica de aprobación original
+            shouldShowApprovalButtons() && (
+              <div className="flex justify-end pt-4">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || caseResolvingClient || !areApprovalButtonsEnabled()}
+                  className="min-w-[140px]"
+                >
+                  {caseResolvingClient ? 'Validando cliente...' : (isSubmitting || approvalPhase === 'processing') ? 'Procesando...' : 'Buscar Planes'}
+                </Button>
+              </div>
+            )
           )}
         </form>
 

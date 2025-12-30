@@ -156,20 +156,32 @@ export function ContinueCard({ item, locale = 'es' }: ContinueCardProps) {
           </div>
         </div>
 
-        {/* Continue button */}
-        <Button 
-          asChild 
-          className="w-full justify-between group"
-          aria-label={`Continuar con ${item.title || item.client_name}`}
-        >
-          <Link href={entityPath}>
-            <span>Continuar</span>
-            <ChevronRight 
-              className="size-4 transition-transform group-hover:translate-x-0.5" 
-              aria-hidden="true"
-            />
-          </Link>
-        </Button>
+        {/* Action buttons: Resumen + Continuar */}
+        <div className="flex gap-2">
+          <Button 
+            asChild 
+            variant="outline"
+            className="flex-1"
+            aria-label={`Ver resumen de ${item.title || item.client_name}`}
+          >
+            <Link href={entityPath}>
+              Resumen
+            </Link>
+          </Button>
+          <Button 
+            asChild 
+            className="flex-1 justify-center group"
+            aria-label={`Continuar con ${item.title || item.client_name}`}
+          >
+            <Link href={`/${locale}/agent/${item.id}`} className="flex items-center gap-1">
+              <span>Continuar</span>
+              <ChevronRight 
+                className="size-4 transition-transform group-hover:translate-x-0.5" 
+                aria-hidden="true"
+              />
+            </Link>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

@@ -6,10 +6,9 @@ import { useUI, type UIState } from "@/lib/ui/state";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, ArrowDown, Search, Code2, Puzzle, Paperclip, Image as ImageIcon, ChevronDown, Loader2 } from "lucide-react";
+import { SendHorizonal, ArrowDown, Loader2, Info } from "lucide-react";
 import Message, { type MessageRole, type MessageAgentMeta } from "@/components/Chat/Message";
 import { useTranslations } from "next-intl";
-import { ProvenanceChip, type ProvenanceTag } from "@/components/Sourcing/ProvenanceChip";
 import { useClientValidation } from "@/hooks/useClientValidation";
 import { createCaseIfNeeded } from "@/lib/case-actions";
 import { ClientValidationModal } from "@/components/Workspace/ClientValidationModal";
@@ -23,12 +22,8 @@ type ChatMessage = Omit<BaseChatMessage, 'content'> & {
   content: string | React.ReactNode;
 };
 
-const SOURCING_PROVENANCE: ProvenanceTag[] = ["API", "Portal", "PDF"];
-
 const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const brief = useUI((state: UIState) => state.brief);
-  const isSourcing = useUI((state: UIState) => state.isSourcing);
-  const startSourcing = useUI((state: UIState) => state.startSourcing);
   const initialMessage = useUI((state: UIState) => state.initialMessage);
   const clearInitialMessage = useUI((state: UIState) => state.clearInitialMessage);
   const setInitialMessage = useUI((state: UIState) => state.setInitialMessage);
@@ -162,7 +157,6 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, []);
 
-  const sourcingTranslations = useTranslations("sourcing.status");
   const chatTranslations = useTranslations("chat");
 
   // Chat state - ahora se usa el estado global de Zustand
@@ -172,18 +166,14 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const [showApprovalButton, setShowApprovalButton] = useState(false);
   const trimmed = value.trim();
 
-  // Agent controls state
-  const [selectedAgent, setSelectedAgent] = useState<string>("sourcing");
-  const [showAgentMenu, setShowAgentMenu] = useState(false);
+  // Helper state
   const [showHelper, setShowHelper] = useState(false);
-  const agentMenuRef = useRef<HTMLDivElement>(null);
   const helperTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement | null>(null);
   const bottomSentinelRef = useRef<HTMLDivElement | null>(null);
   const shouldStickToBottomRef = useRef(true);
-  const prevIsSourcingRef = useRef(isSourcing);
   const hasMountedRef = useRef(false);
   const [showJumpToNewest, setShowJumpToNewest] = useState(false);
   const pendingRafRef = useRef<number | null>(null);
@@ -210,20 +200,6 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       helperTimerRef.current = null;
     }, 2000);
   }
-
-  const sourcingStatusCopy = useMemo(() => {
-    const rawMicroSteps = sourcingTranslations.raw("microSteps");
-    const microSteps = Array.isArray(rawMicroSteps)
-      ? rawMicroSteps.filter((step): step is string => typeof step === "string")
-      : [];
-
-    return {
-      body: sourcingTranslations("body"),
-      sourcesLabel: sourcingTranslations("sourcesLabel"),
-      microStepsLabel: sourcingTranslations("microStepsLabel"),
-      microSteps,
-    };
-  }, [sourcingTranslations]);
 
   const isNearBottom = useCallback((el: HTMLElement) => {
     const threshold = 80;
@@ -281,55 +257,6 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
     hasMountedRef.current = true;
   }, [messages, scrollToBottom]);
-
-
-  useEffect(() => {
-    if (isSourcing && !prevIsSourcingRef.current) {
-      const currentMessages = messages;
-      const hasStatusMessage = currentMessages.some(
-        (message: ChatMessage) => message.role === "assistant" && message.id === "sourcing-status"
-      );
-
-      if (hasStatusMessage) {
-        const updatedMessages = currentMessages.map((message: ChatMessage) =>
-          message.id === "sourcing-status"
-            ? {
-              ...message,
-              content: (
-                <SourcingStatusMessage
-                  body={sourcingStatusCopy.body}
-                  sources={SOURCING_PROVENANCE}
-                  sourcesLabel={sourcingStatusCopy.sourcesLabel}
-                  microSteps={sourcingStatusCopy.microSteps}
-                  microStepsLabel={sourcingStatusCopy.microStepsLabel}
-                />
-              ),
-            }
-            : message
-        );
-        setMessages(updatedMessages);
-      } else {
-        const newStatusMessage: ChatMessage = {
-          id: "sourcing-status",
-          role: "assistant",
-          content: (
-            <SourcingStatusMessage
-              body={sourcingStatusCopy.body}
-              sources={SOURCING_PROVENANCE}
-              sourcesLabel={sourcingStatusCopy.sourcesLabel}
-              microSteps={sourcingStatusCopy.microSteps}
-              microStepsLabel={sourcingStatusCopy.microStepsLabel}
-            />
-          ),
-          createdAt: Date.now(),
-          agent: { label: chatTranslations("agents.sourcing") },
-        };
-        addMessage(newStatusMessage);
-      }
-    }
-
-    prevIsSourcingRef.current = isSourcing;
-  }, [chatTranslations, isSourcing, sourcingStatusCopy, messages, setMessages, addMessage]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -544,6 +471,11 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   const sendMessage = useCallback(async (messageText?: string) => {
     const trimmed = messageText ? messageText.trim() : value.trim();
     if (!trimmed) return;
+    
+    // ✅ CORRECCIÓN UX: Limpiar input INMEDIATAMENTE para feedback instantáneo
+    // Esto debe ocurrir ANTES de cualquier operación async
+    if (!messageText) setValue("");
+    
     const container = scrollContainerRef.current;
     const nearBottom = container ? isNearBottom(container) : true;
     shouldStickToBottomRef.current = nearBottom;
@@ -554,14 +486,19 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       content: trimmed,
       createdAt: Date.now()
     };
+    
+    // Añadir mensaje al chat (visual)
     addMessage(newUserMessage);
-    // ✅ FASE 2.2: Guardar mensaje del usuario en BD
-    await saveMessageToDB(newUserMessage);
 
-    // Solo limpiar el input si no viene de parámetro
-    if (!messageText) setValue("");
+    // ✅ CORRECCIÓN UX: Indicadores de carga INMEDIATAMENTE después de añadir mensaje
     setIsTyping(true);
-    setIsAnalyzing(true); // Iniciar indicador de análisis
+    setIsAnalyzing(true);
+    
+    // ✅ FASE 2.2: Guardar mensaje del usuario en BD (fire-and-forget, no bloquea UI)
+    // La persistencia ocurre en paralelo sin bloquear el flujo principal
+    saveMessageToDB(newUserMessage).catch(err => {
+      console.warn('⚠️ [ConversationPane] Error guardando mensaje (no bloqueante):', err.message);
+    });
 
     try {
       const currentCaseId = useUI.getState().currentCaseId;
@@ -598,10 +535,6 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 
       // ✅ FASE 2.2: Guardar respuesta del agente en BD
       await saveMessageToDB(assistantResponse);
-
-      if (!isSourcing) {
-        startSourcing();
-      }
     } catch (error: any) {
       console.error("Error sending message or processing response:", error);
       // Mostrar mensaje de error al usuario en el chat
@@ -617,7 +550,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
       setIsAnalyzing(false); // Detener indicador de análisis
       setIsTyping(false);
     }
-  }, [brief, chatTranslations, isNearBottom, isSourcing, startSourcing, value, saveMessageToDB, parseMessageContent]);
+  }, [brief, chatTranslations, isNearBottom, value, saveMessageToDB, parseMessageContent]);
 
   // ✅ CORRECCIÓN: Cargar initialMessage desde localStorage si existe (fallback para recargas directas)
   // Con router.push() normalmente no es necesario, pero sirve como fallback si alguien recarga la página
@@ -1099,70 +1032,12 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           </div>
         </div>
 
-        {/* Controls bar - EXACT COPY FROM TEAM */}
-        <div className="flex items-center justify-between gap-2">
-          {/* Left controls */}
-          <div className="flex items-center gap-1">
-            {/* Agent selector */}
-            <div className="relative" ref={agentMenuRef}>
-              <button
-                type="button"
-                onClick={() => setShowAgentMenu(!showAgentMenu)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-muted transition-colors text-sm text-foreground"
-              >
-                {selectedAgent === "sourcing" && <Search className="w-4 h-4 text-primary" />}
-                {selectedAgent === "analysis" && <Code2 className="w-4 h-4 text-primary" />}
-                {selectedAgent === "creative" && <Puzzle className="w-4 h-4 text-primary" />}
-                <span className="font-medium capitalize">
-                  {selectedAgent}
+        {/* Mensaje guía para gestión de archivos - Adaptado a modo claro/oscuro */}
+        <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground">
+          <Info className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>
+            Para cargar pólizas o modificar datos del caso, utiliza el <strong className="text-foreground/80">panel derecho</strong>.
                 </span>
-                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-              </button>
-
-              {/* Agent dropdown menu */}
-              {showAgentMenu && (
-                <div className="absolute bottom-full left-0 mb-2 w-48 bg-popover border border-border rounded-lg shadow-lg overflow-hidden z-50">
-                  <div className="py-1">
-                    {[
-                      { id: "sourcing", label: "Sourcing", icon: Search },
-                      { id: "analysis", label: "Analysis", icon: Code2 },
-                      { id: "creative", label: "Creative", icon: Puzzle }
-                    ].map((agent) => (
-                      <button
-                        key={agent.id}
-                        onClick={() => {
-                          setSelectedAgent(agent.id);
-                          setShowAgentMenu(false);
-                        }}
-                        className="flex items-center gap-2 w-full px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors"
-                      >
-                        <agent.icon className="w-4 h-4" />
-                        {agent.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* File attachment button */}
-            <button
-              type="button"
-              className="p-2 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-              aria-label="Attach file"
-            >
-              <Paperclip className="w-4 h-4" />
-            </button>
-
-            {/* Image button */}
-            <button
-              type="button"
-              className="p-2 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-              aria-label="Add image"
-            >
-              <ImageIcon className="w-4 h-4" />
-            </button>
-          </div>
         </div>
 
         {/* Press Enter to send message - SIMPLE VERSION */}
@@ -1224,68 +1099,3 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
 };
 
 export default ConversationPane;
-
-interface SourcingStatusMessageProps {
-  body: string;
-  sources: ProvenanceTag[];
-  sourcesLabel: string;
-  microSteps?: string[];
-  microStepsLabel?: string;
-}
-
-function SourcingStatusMessage({
-  body,
-  sources,
-  sourcesLabel,
-  microSteps,
-  microStepsLabel,
-}: SourcingStatusMessageProps) {
-  const sourcesTitleId = useId();
-  const microStepsTitleId = useId();
-
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-sm leading-relaxed text-foreground/90">{body}</p>
-
-      <div>
-        <span id={sourcesTitleId} className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
-          {sourcesLabel}
-        </span>
-        <div
-          className="mt-2 flex flex-wrap gap-2"
-          role="list"
-          aria-labelledby={sourcesTitleId}
-        >
-          {sources.map((source) => (
-            <ProvenanceChip
-              key={source}
-              provenance={source}
-              role="listitem"
-              tabIndex={0}
-              ariaLabel={`${source} ${sourcesLabel.toLowerCase()}`}
-            />
-          ))}
-        </div>
-      </div>
-
-      {microSteps && microSteps.length > 0 ? (
-        <div>
-          <span id={microStepsTitleId} className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80">
-            {microStepsLabel}
-          </span>
-          <ol
-            className="mt-2 space-y-1 text-xs text-muted-foreground"
-            aria-labelledby={microStepsTitleId}
-          >
-            {microSteps.map((step, index) => (
-              <li key={`${step}-${index}`} className="flex items-start gap-2">
-                <span className="mt-[6px] inline-flex h-1.5 w-1.5 rounded-full bg-muted-foreground/60" aria-hidden />
-                <span className="flex-1 leading-relaxed text-foreground/80">{step}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      ) : null}
-    </div>
-  );
-}

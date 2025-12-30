@@ -49,7 +49,7 @@ export default function LoadingScreen({
 
   return (
     <div 
-      className={`fixed inset-0 z-[9999] bg-white transition-opacity duration-300 ease-out ${isLoading ? 'opacity-100' : 'opacity-0'}`} 
+      className={`fixed inset-0 z-[9999] bg-background transition-opacity duration-300 ease-out ${isLoading ? 'opacity-100' : 'opacity-0'}`} 
       role="dialog" 
       aria-label="Cargando aplicación Briki" 
       aria-modal="true">

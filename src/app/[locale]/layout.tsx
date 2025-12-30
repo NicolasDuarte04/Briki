@@ -26,9 +26,9 @@ export default async function LocaleLayout({
 
   return (
     <I18nProvider locale={locale} messages={messages}>
-      <main id="main-content" className="flex-1 flex flex-col min-h-0 overflow-y-auto" role="main" aria-label="Contenido principal de la aplicación">
+      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
         {children}
-      </main>
+      </div>
       <CommandPalette />
       <Toaster />
       <DevAxeClient />

@@ -139,7 +139,7 @@ export function CaseForm({ orgId, userId }: CaseFormProps) {
       )}
       
       {success && (
-        <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+        <div className="bg-green-500/10 border border-green-500/20 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg">
           {success}
         </div>
       )}
@@ -263,13 +263,13 @@ export function CaseForm({ orgId, userId }: CaseFormProps) {
             {/* Upload Area */}
             <div
               onClick={() => document.getElementById('file-input')?.click()}
-              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-gray-400 transition-colors"
+              className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
             >
-              <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-              <p className="text-sm text-gray-600">
+              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">
                 {isUploading ? 'Subiendo archivo...' : 'Haz clic para subir PDF'}
               </p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground/70 mt-1">
                 Máximo 10MB por archivo
               </p>
             </div>
@@ -290,12 +290,12 @@ export function CaseForm({ orgId, userId }: CaseFormProps) {
               <div className="space-y-2">
                 <p className="text-sm font-medium">Archivos subidos:</p>
                 {tempUploads.map((upload) => (
-                  <div key={upload.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                  <div key={upload.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
                     <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-blue-500" />
+                      <FileText className="h-4 w-4 text-primary" />
                       <div>
                         <p className="text-sm font-medium">{upload.fileName}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           {(upload.fileSize / 1024 / 1024).toFixed(2)} MB
                           {upload.pageCount && ` • ${upload.pageCount} páginas`}
                         </p>

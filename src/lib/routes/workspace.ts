@@ -99,7 +99,8 @@ export function pathForNewEntity(type: EntityType, locale: Locale): string {
   
   switch (type) {
     case 'case':
-      return `${basePath}/cases/new`;
+      // Los casos se crean exclusivamente desde el agente IA
+      return `/${locale}/agent/new-thread-placeholder`;
     case 'policy':
       return `${basePath}/policies/new`;
     case 'proposal':
@@ -113,7 +114,8 @@ export function pathForNewEntity(type: EntityType, locale: Locale): string {
     case 'renewal':
       return `${basePath}/renewals/new`;
     default:
-      return `${basePath}/cases/new`;
+      // Por defecto, redirigir al agente para creación de casos
+      return `/${locale}/agent/new-thread-placeholder`;
   }
 }
 

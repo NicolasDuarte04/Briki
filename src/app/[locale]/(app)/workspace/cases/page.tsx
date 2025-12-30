@@ -1,6 +1,7 @@
 // /src/app/[locale]/(app)/workspace/cases/page.tsx
 import { getCasesByOrg } from '@/lib/database';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
+import { getUserPins } from '@/lib/data/workspace';
 import { CaseList } from '@/components/Cases/CaseList';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -10,10 +11,16 @@ export const dynamic = 'force-dynamic';
 
 export default async function CasesPage() {
   // Obtener usuario y organización actual
-  const { currentOrg } = await getCurrentOrg();
+  const { user, currentOrg } = await getCurrentOrg();
   
-  // Obtener casos de la organización
-  const cases = await getCasesByOrg(currentOrg.id);
+  // Obtener casos de la organización y pins del usuario
+  const [cases, userPins] = await Promise.all([
+    getCasesByOrg(currentOrg.id),
+    getUserPins(user.id),
+  ]);
+  
+  // Convertir a Set para búsqueda eficiente
+  const pinnedCaseIds = new Set(userPins.cases);
   
   return (
     <div className="container mx-auto py-8 px-4">
@@ -25,7 +32,7 @@ export default async function CasesPage() {
             Gestiona y da seguimiento a todos tus casos de seguros
           </p>
         </div>
-        <Link href="/workspace/cases/new">
+        <Link href="/agent/new-thread-placeholder">
           <Button className="gap-2">
             <PlusCircle className="h-4 w-4" />
             Nuevo Caso
@@ -60,7 +67,7 @@ export default async function CasesPage() {
       </div>
       
       {/* Cases List */}
-      <CaseList cases={cases} orgId={currentOrg.id} />
+      <CaseList cases={cases} orgId={currentOrg.id} pinnedCaseIds={pinnedCaseIds} />
     </div>
   );
 }

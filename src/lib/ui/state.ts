@@ -870,7 +870,6 @@ export interface UIState {
   dashboardViewTime?: number;
   // Navigation & Layout
   step: UIStep;
-  isSourcing: boolean;
   rightOpen: boolean;
   complianceOpen: boolean;
   chatPanelOpen: boolean;
@@ -1037,8 +1036,6 @@ export interface UIState {
   logComplianceSendBlocked: (payload?: Record<string, unknown>) => void;
   logComplianceSendSuccess: (payload?: Record<string, unknown>) => void;
   primaryAction: () => void;
-  startSourcing: () => void;
-  stopSourcing: () => void;
   setBrief: (brief: Partial<CaseBrief>) => void;
   // ✅ FASE 1: Setter para landingDataPending
   setLandingDataPending: (data: { freeText?: string; tempUploads?: any[] } | null) => void;
@@ -1153,6 +1150,32 @@ export interface UIState {
   resetWorkspaceState: () => void;
 }
 
+// ✅ CORRECCIÓN: Función para sanitizar el brief antes de persistir en localStorage
+// Esto evita el error QuotaExceededError al excluir campos pesados como extractedText
+const sanitizeBriefForPersistence = (brief: any): any => {
+  if (!brief) return brief;
+  
+  const sanitized = { ...brief };
+  
+  // Excluir extractedText de tempUploads (puede ser varios MB de texto)
+  if (sanitized.tempUploads && Array.isArray(sanitized.tempUploads)) {
+    sanitized.tempUploads = sanitized.tempUploads.map((upload: any) => {
+      const { extractedText, ...rest } = upload;
+      return rest; // Excluir extractedText pero mantener el resto
+    });
+  }
+  
+  // Excluir contentText de artifacts si existe (texto completo de PDFs)
+  if (sanitized.artifacts && Array.isArray(sanitized.artifacts)) {
+    sanitized.artifacts = sanitized.artifacts.map((artifact: any) => {
+      const { contentText, ...rest } = artifact;
+      return rest; // Excluir contentText pero mantener el resto
+    });
+  }
+  
+  return sanitized;
+};
+
 // ✅ FASE 3: Persistencia de estado (con corrección de contaminación)
 const persistState = (state: Partial<UIState>) => {
   if (typeof window !== 'undefined') {
@@ -1160,25 +1183,27 @@ const persistState = (state: Partial<UIState>) => {
       // Obtener el ID de caso actual o del estado que se está guardando
       const currentCaseId = state.currentCaseId ?? useUI.getState().currentCaseId;
 
+      // ✅ CORRECCIÓN QuotaExceededError: Estrategia "Allowlist" - Solo persistir lo esencial
+      // NO persistir: messages (crece indefinidamente y debe cargarse desde BD)
       const stateToPersist: any = {
         currentCaseId: currentCaseId,
-        messages: state.messages ?? useUI.getState().messages,
         step: state.step ?? useUI.getState().step,
-        // ✅ CORRECCIÓN CRÍTICA: Persistir caseApproved para que se mantenga después de navegar
         caseApproved: state.caseApproved ?? useUI.getState().caseApproved,
       };
 
       // ✅ FASE 3: CORRECCIÓN DE PERSISTENCIA
       // Solo persistir el 'brief' si estamos en un caso activo (NO 'new-thread-placeholder')
       if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
-        stateToPersist.brief = state.brief ?? useUI.getState().brief;
+        // ✅ CORRECCIÓN: Sanitizar brief para excluir campos pesados (extractedText, contentText)
+        const briefToStore = state.brief ?? useUI.getState().brief;
+        stateToPersist.brief = sanitizeBriefForPersistence(briefToStore);
       } else {
         // Si no hay caseId o es 'new-thread-placeholder', no persistir el brief para evitar contaminación.
         console.log('⏭️ [useUI] Omitiendo persistencia de brief: currentCaseId es null o new-thread-placeholder.');
       }
 
       localStorage.setItem('briki-ui-state', JSON.stringify(stateToPersist));
-      console.log('✅ [useUI] Estado persistido:', stateToPersist);
+      console.log('✅ [useUI] Estado persistido (sanitizado):', Object.keys(stateToPersist));
     } catch (error) {
       console.error('❌ [useUI] Error persistiendo estado:', error);
     }
@@ -1267,7 +1292,6 @@ export const useUI = create<UIState>()(
 
       dashboardViewTime: undefined,
       step: "landing",
-      isSourcing: false,
       rightOpen: true,
       sidebarOpen: true,
       sidebarHovered: false,
@@ -1387,16 +1411,13 @@ export const useUI = create<UIState>()(
       setDashboardViewTime: (timestamp: number) => set({ dashboardViewTime: timestamp }), // ✅ AÑADIDO
       setStep: (step) =>
         set((state) => {
-          if (state.isSourcing && step !== "conversation") {
-            return {};
-          }
           const newState = { ...state, step };
           persistState(newState);
           return newState;
         }),
       // Función para aprobación de casos
       approveCurrentCase: async (clientId?: string | null) => {
-        const { brief, currentCaseId, startSourcing } = get();
+        const { brief, currentCaseId } = get();
 
         console.log('🔍 DEBUG approveCurrentCase:', {
           currentCaseId,
@@ -1482,8 +1503,7 @@ export const useUI = create<UIState>()(
           };
           get().addMessage(userAutoMessage);
 
-          // Activar sourcing y enviar mensaje automático
-          get().startSourcing();
+          // Enviar mensaje automático al agente
           await get().sendAutoMessage(autoMessageContent);
 
           return true;
@@ -2202,8 +2222,6 @@ export const useUI = create<UIState>()(
         // eslint-disable-next-line no-console
         console.log("Primary action on step:", get().step);
       },
-      startSourcing: () => set(() => ({ isSourcing: true, step: "conversation" })),
-      stopSourcing: () => set(() => ({ isSourcing: false })),
       // ✅ FASE 1: Setter para landingDataPending (NO se persiste en localStorage)
       setLandingDataPending: (data) => set({ landingDataPending: data }),
       setBrief: (brief) => {

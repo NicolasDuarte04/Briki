@@ -12,9 +12,11 @@ import type { DecryptedClient } from '@/lib/clientsDb';
 interface ClientListProps {
   clients: DecryptedClient[];
   orgId: string;
+  /** Set of pinned client IDs */
+  pinnedClientIds?: Set<string>;
 }
 
-export function ClientList({ clients, orgId }: ClientListProps) {
+export function ClientList({ clients, orgId, pinnedClientIds = new Set() }: ClientListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filtrar clientes por término de búsqueda
@@ -51,7 +53,11 @@ export function ClientList({ clients, orgId }: ClientListProps) {
       {filteredClients.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredClients.map((client) => (
-            <ClientCard key={client.id} client={client} />
+            <ClientCard 
+              key={client.id} 
+              client={client} 
+              isPinned={pinnedClientIds.has(client.id)}
+            />
           ))}
         </div>
       ) : (

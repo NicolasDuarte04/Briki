@@ -29,7 +29,7 @@ export function ComparisonCell({ cell, currency = 'COP' }: ComparisonCellProps) 
         better: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-400",
         worse: "text-rose-600 bg-rose-50 dark:bg-rose-950/30 dark:text-rose-400",
         equal: "text-slate-600 bg-slate-50 dark:bg-slate-900/30 dark:text-slate-400",
-        missing: "text-gray-400"
+        missing: "text-muted-foreground"
     }[status];
 
     // Format the main value

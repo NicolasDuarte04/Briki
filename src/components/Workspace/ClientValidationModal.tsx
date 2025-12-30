@@ -119,16 +119,12 @@ export function ClientValidationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent
-        className="sm:max-w-md"
-        aria-labelledby="client-validation-title"
-        aria-describedby="client-validation-description"
-      >
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle id="client-validation-title">
+          <DialogTitle>
             Cliente no encontrado
           </DialogTitle>
-          <DialogDescription id="client-validation-description">
+          <DialogDescription>
             El cliente <strong>"{clientName}"</strong> no existe entre tus
             clientes registrados. ¿Deseas crearlo?
             <br />

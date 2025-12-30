@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Pin, X } from 'lucide-react';
+import { Pin } from 'lucide-react';
 import { getPinnedClients, type PinnedClient } from '@/lib/data/workspace';
 import { pathForClient, type Locale } from '@/lib/routes/workspace';
 
@@ -117,56 +117,26 @@ export async function PinnedClients({ userId, orgId, locale }: PinnedClientsProp
           // Pinned clients chips
           <div className="flex flex-wrap gap-2">
             {pinnedClients.map((client, index) => (
-              <div
+              <Badge
                 key={client.id}
-                className="group relative inline-flex items-center"
+                asChild
+                variant="outline"
+                className={`
+                  transition-all duration-200
+                  rounded-button
+                  ${getClientColorClass(index)}
+                `}
               >
-                <Badge
-                  asChild
-                  variant="outline"
-                  className={`
-                    transition-all duration-200
-                    pr-7
-                    rounded-button
-                    ${getClientColorClass(index)}
-                  `}
+                <Link
+                  href={pathForClient(client.clientId, locale)}
+                  className="flex items-center gap-1.5"
+                  aria-label={`Ver cliente ${client.clientName}`}
                 >
-                  <Link
-                    href={pathForClient(client.clientId, locale)}
-                    className="flex items-center gap-1.5"
-                    aria-label={`Ver cliente ${client.clientName}`}
-                  >
-                    <span className="font-medium truncate max-w-[120px]">
-                      {client.clientName}
-                    </span>
-                  </Link>
-                </Badge>
-                
-                {/* Unpin button (stub) */}
-                <button
-                  type="button"
-                  className="
-                    absolute right-1 top-1/2 -translate-y-1/2
-                    opacity-0 group-hover:opacity-100
-                    transition-opacity duration-150
-                    p-0.5 rounded-button
-                    hover:bg-destructive/10
-                    focus-visible:opacity-100
-                    focus-visible:outline-none
-                    focus-visible:ring-2
-                    focus-visible:ring-ring
-                  "
-                  aria-label={`Desanclar ${client.clientName}`}
-                  title="Desanclar cliente"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    // TODO: Implement unpin action
-                    console.log('Unpin client:', client.clientId);
-                  }}
-                >
-                  <X className="size-3 text-muted-foreground hover:text-destructive" />
-                </button>
-              </div>
+                  <span className="font-medium truncate max-w-[120px]">
+                    {client.clientName}
+                  </span>
+                </Link>
+              </Badge>
             ))}
           </div>
         )}

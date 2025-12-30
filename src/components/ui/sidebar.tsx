@@ -110,8 +110,8 @@ export const DesktopSidebar = ({
 }) => {
   const { open, setOpen, animate, disableAutoCollapse } = useSidebar();
   return (
-    <>
-      <div 
+    <aside 
+      aria-label="Barra lateral"
         className={cn(
           "h-full hidden md:flex md:flex-col bg-sidebar border-r border-sidebar-border shrink-0 transition-all duration-200 ease-in-out",
           open ? "w-[280px]" : "w-[72px]",
@@ -142,8 +142,7 @@ export const DesktopSidebar = ({
             </motion.div>
           </div>
         </div>
-      </div>
-    </>
+    </aside>
   );
 };
 
@@ -156,8 +155,8 @@ export const MobileSidebar = ({
 }) => {
   const { open, setOpen } = useSidebar();
   return (
-    <>
-      <div
+    <aside
+      aria-label="Barra lateral móvil"
         className={cn(
           "h-10 px-4 py-4 flex flex-row md:hidden items-center justify-between bg-sidebar border-b border-sidebar-border w-full"
         )}
@@ -200,8 +199,7 @@ export const MobileSidebar = ({
             </div>
           )}
         </AnimatePresence>
-      </div>
-    </>
+    </aside>
   );
 };
 
@@ -293,9 +291,9 @@ export const SidebarSection = ({
   
   return (
     <div className={cn("mb-4", className)}>
-      {/* Header de sección */}
+      {/* Etiqueta de sección (no es heading para evitar romper jerarquía del documento) */}
       <div className="mb-2 px-2">
-        <motion.h3
+        <motion.div
           animate={{
             display: animate ? (open ? "block" : "none") : "block",
             opacity: animate ? (open ? 1 : 0) : 1,
@@ -303,7 +301,7 @@ export const SidebarSection = ({
           className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
         >
           {title}
-        </motion.h3>
+        </motion.div>
         {/* Icono de puntos cuando está colapsado */}
         <motion.div
           animate={{

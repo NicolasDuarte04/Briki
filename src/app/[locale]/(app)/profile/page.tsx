@@ -52,7 +52,7 @@ export default async function ProfilePage() {
   const notificationsPolicyAlerts = user?.profile?.notificationsPolicyAlerts ?? false;
 
   return (
-    <div className="min-h-screen flex flex-col bg-neutral-50">
+    <div className="min-h-screen flex flex-col bg-background">
       <ProfileNav />
       <div className="mx-auto w-full max-w-4xl px-6 py-8">
         <Suspense>

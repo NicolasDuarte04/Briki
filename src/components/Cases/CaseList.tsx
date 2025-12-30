@@ -22,9 +22,11 @@ import {
 interface CaseListProps {
   cases: any[];
   orgId: string;
+  /** Set of pinned case IDs */
+  pinnedCaseIds?: Set<string>;
 }
 
-export function CaseList({ cases, orgId }: CaseListProps) {
+export function CaseList({ cases, orgId, pinnedCaseIds = new Set() }: CaseListProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -114,6 +116,7 @@ export function CaseList({ cases, orgId }: CaseListProps) {
               key={caseItem.id} 
               caseData={caseItem} 
               onDelete={handleDeleteClick}
+              isPinned={pinnedCaseIds.has(caseItem.id)}
             />
           ))}
         </div>

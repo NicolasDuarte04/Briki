@@ -102,8 +102,8 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
                 </div>
               ) : (
                 <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                    <Mail className="h-5 w-5 text-gray-400" />
+                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                    <Mail className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">Email</div>
@@ -130,8 +130,8 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
                 </div>
               ) : (
                 <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                    <Phone className="h-5 w-5 text-gray-400" />
+                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                    <Phone className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">Teléfono</div>
@@ -152,8 +152,8 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
                 </div>
               ) : (
                 <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
-                    <MapPin className="h-5 w-5 text-gray-400" />
+                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                    <MapPin className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div>
                     <div className="text-sm text-muted-foreground">Dirección</div>
@@ -184,12 +184,12 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
           </Card>
           
           {/* Security Notice */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
             <div className="flex gap-3">
-              <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+              <Shield className="h-5 w-5 text-primary mt-0.5" />
               <div>
-                <h3 className="font-semibold text-blue-900 text-sm">Seguridad de Datos</h3>
-                <p className="text-xs text-blue-700 mt-1">
+                <h3 className="font-semibold text-foreground text-sm">Seguridad de Datos</h3>
+                <p className="text-xs text-muted-foreground mt-1">
                   Todos los datos personales de este cliente están cifrados en la base de datos usando encriptación AES-256. 
                   Solo los miembros autorizados de tu organización pueden acceder a esta información.
                 </p>

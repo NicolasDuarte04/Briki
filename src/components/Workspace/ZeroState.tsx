@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, UserPlus, Equal, Check, Circle } from 'lucide-react';
-import { pathForNewEntity, pathForAgent, type Locale } from '@/lib/routes/workspace';
+import { FileText, UserPlus, FolderKanban, MessageSquare, Check, Circle } from 'lucide-react';
+import { pathForNewEntity, pathForAgent, pathForCases, pathForClients, type Locale } from '@/lib/routes/workspace';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -10,7 +10,7 @@ import { pathForNewEntity, pathForAgent, type Locale } from '@/lib/routes/worksp
 
 interface ZeroStateProps {
   /**
-   * Optional progress tracking - steps completed (0-3)
+   * Optional progress tracking - steps completed (0-4)
    * If not provided, shows all steps as pending
    */
   completedSteps?: number;
@@ -51,9 +51,9 @@ interface Step {
 /**
  * ZeroState - First-run guidance for new workspace users
  * 
- * Server-compatible component that displays a friendly 3-step onboarding
- * flow in Spanish. Guides users to upload a policy, create a client,
- * and start a comparison. Includes progress tracking and direct action links.
+ * Server-compatible component that displays a friendly 4-step onboarding
+ * flow in Spanish. Guides users to create a case with the agent, manage clients,
+ * manage cases, and analyze individual policies. Includes progress tracking and direct action links.
  */
 export function ZeroState({ 
   completedSteps = 0, 
@@ -69,30 +69,39 @@ export function ZeroState({
   const steps: Step[] = [
     {
       id: 1,
-      title: 'Sube tu primera póliza',
-      description: 'Arrastra un PDF o haz clic para seleccionar. Te ayudaremos a extraer la información clave.',
-      icon: <FileText className="size-6 text-primary" aria-hidden="true" />,
-      actionLabel: 'Subir PDF',
+      title: 'Crea tu primer caso',
+      description: 'Navega a la interfaz de agente o haz clic aquí para abrirla. Te ayudaremos a través del diligenciamiento de un formulario especializado a formar un estudio específico de las necesidades de tus clientes extrayendo la información clave de las pólizas que consideres pertinentes.',
+      icon: <MessageSquare className="size-6 text-primary" aria-hidden="true" />,
+      actionLabel: 'Ir al chat con el Agente',
       actionHref: pathForAgent(locale),
       isCompleted: completedSteps >= 1,
     },
     {
       id: 2,
-      title: 'Crea un cliente',
-      description: 'Agrega la información básica de tu primer cliente para empezar a organizar tus casos.',
+      title: 'Complementa los detalles de tu cliente',
+      description: 'Complementa la información básica del cliente creado anteriormente o crea nuevos clientes desde 0 con casos específicos junto con sus datos detallados para empezar a organizar tus casos.',
       icon: <UserPlus className="size-6 text-primary" aria-hidden="true" />,
-      actionLabel: 'Nuevo cliente',
-      actionHref: pathForNewEntity('client', locale),
+      actionLabel: 'Ver clientes',
+      actionHref: pathForClients(locale),
       isCompleted: completedSteps >= 2,
     },
     {
       id: 3,
-      title: 'Inicia una comparación',
-      description: 'Compara opciones de pólizas lado a lado para encontrar la mejor cobertura.',
-      icon: <Equal className="size-6 text-primary" aria-hidden="true" />,
-      actionLabel: 'Comparar pólizas',
-      actionHref: `${pathForNewEntity('case', locale)}?kind=comparison`,
+      title: 'Gestiona los casos de tu organización',
+      description: 'Dentro de tu organización puedes crear, eliminar, cargar conversaciones históricas y visualizar resúmenes breves de los casos creados. Para cargar las conversaciones debes usar la sección de "Chats" en el panel derecho, y para visualizar y eliminar tus casos asociados puedes hacerlo desde el gestor de casos.',
+      icon: <FolderKanban className="size-6 text-primary" aria-hidden="true" />,
+      actionLabel: 'Gestor de Casos',
+      actionHref: pathForCases(locale),
       isCompleted: completedSteps >= 3,
+    },
+    {
+      id: 4,
+      title: 'Analiza tus pólizas individuales',
+      description: 'No debes tener necesariamente un caso para analizar pólizas. Si quieres tener un análisis integral de las pólizas de forma individual y crear tu banco de pólizas asociado a tu organización puedes hacerlo perfectamente desde aquí.',
+      icon: <FileText className="size-6 text-primary" aria-hidden="true" />,
+      actionLabel: 'Cargar pólizas',
+      actionHref: '#', // Temporalmente desconectado hasta que se cree /polices
+      isCompleted: completedSteps >= 4,
     },
   ];
 
@@ -131,14 +140,14 @@ export function ZeroState({
               ¡Bienvenido a Briki! 👋
             </h1>
             <p className="text-muted-foreground text-body max-w-xl mx-auto">
-              Vamos a configurar tu espacio en tres pasos sencillos. 
-              En menos de 5 minutos estarás listo para gestionar tus pólizas.
+              Vamos a configurar tu espacio en cuatro pasos sencillos. 
+              En pocos minutos estarás listo para gestionar tus casos y pólizas.
             </p>
           </div>
 
           {/* Progress indicator */}
           <div className="flex items-center justify-center gap-2 pt-2">
-            {[1, 2, 3].map((step) => (
+            {[1, 2, 3, 4].map((step) => (
               <div
                 key={step}
                 className={`h-1.5 w-12 rounded-full transition-colors ${

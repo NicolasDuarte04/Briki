@@ -86,7 +86,7 @@ export function UpdatePasswordForm({ locale }: UpdatePasswordFormProps) {
   return (
     <form action={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="newPassword" className="block text-sm font-medium text-foreground/90 mb-1">
           New password
         </label>
         <div className="relative">
@@ -106,7 +106,7 @@ export function UpdatePasswordForm({ locale }: UpdatePasswordFormProps) {
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-700"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
             aria-label={showPassword ? 'Hide password' : 'Show password'}
           >
             {showPassword ? (
@@ -139,7 +139,7 @@ export function UpdatePasswordForm({ locale }: UpdatePasswordFormProps) {
                         : passwordStrength.strength >= 2
                         ? 'bg-yellow-500'
                         : 'bg-red-500'
-                      : 'bg-gray-200'
+                      : 'bg-muted'
                   }`}
                 />
               ))}
@@ -158,7 +158,7 @@ export function UpdatePasswordForm({ locale }: UpdatePasswordFormProps) {
       </div>
 
       <div>
-        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground/90 mb-1">
           Confirm password
         </label>
         <Input

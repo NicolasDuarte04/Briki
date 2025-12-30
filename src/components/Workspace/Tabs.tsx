@@ -444,6 +444,12 @@ export function WorkspaceTabs({ orgId }: WorkspaceTabsProps = {}) {
             const { case: caseData } = await response.json();
             setActiveCaseData(caseData);
             console.log('✅ [WorkspaceTabs] Datos del caso recargados después de editar, incluyendo nuevos artifacts');
+            
+            // ✅ CORRECCIÓN: Refrescar policyAnalyses para sincronizar tab "Pólizas"
+            // Esto permite que las nuevas pólizas añadidas aparezcan disponibles para análisis
+            const { fetchPolicyAnalyses } = useUI.getState();
+            await fetchPolicyAnalyses(currentCaseId);
+            console.log('✅ [WorkspaceTabs] Tab Pólizas refrescado con nuevos artifacts');
           }
         } catch (error) {
           console.warn('⚠️ [WorkspaceTabs] Error recargando datos después de editar:', error);

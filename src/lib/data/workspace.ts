@@ -12,6 +12,7 @@
  */
 
 import { createServerSupabase } from '@/lib/supabase/server';
+import { prisma } from '@/lib/prisma';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -52,34 +53,24 @@ export interface RecentProposal {
 }
 
 /**
- * Renewal item with expiration date (exact DTO)
+ * Recent case item (exact DTO)
  */
-export interface RenewalItem {
+export interface RecentCase {
   id: string;
   title: string;
   client_name: string;
   status: string;
   updated_at: string;
-  expire_at: string;
 }
 
 /**
- * Renewals grouped by time buckets
+ * Pinned case (future implementation)
  */
-export interface RenewalsBuckets {
-  lt30: RenewalItem[];
-  d30_60: RenewalItem[];
-  d60_90: RenewalItem[];
-}
-
-/**
- * Inbox item (future implementation)
- */
-export interface InboxItem {
+export interface PinnedCase {
   id: string;
-  kind: string;
-  payload: unknown;
-  dueAt: string | null;
+  caseId: string;
+  caseName: string;
+  clientName: string;
   createdAt: string;
 }
 
@@ -93,9 +84,39 @@ export interface PinnedClient {
   createdAt: string;
 }
 
+/**
+ * Pinned policy (future implementation)
+ */
+export interface PinnedPolicy {
+  id: string;
+  policyId: string;
+  policyName: string;
+  clientName: string;
+  createdAt: string;
+}
+
+/**
+ * User pins structure stored in user_preferences.ui_preferences
+ */
+export interface UserPins {
+  cases: string[];
+  clients: string[];
+  policies: string[];
+}
+
+/**
+ * Entity types that can be pinned
+ */
+export type PinnableEntityType = 'case' | 'client' | 'policy';
+
 // ============================================================================
 // CONSTANTS
 // ============================================================================
+
+/**
+ * Maximum number of pins per entity type
+ */
+const MAX_PINS_PER_TYPE = 10;
 
 /**
  * Stage mappings for cases table v1 adapter
@@ -214,121 +235,318 @@ export async function getRecentProposals(orgId: string): Promise<RecentProposal[
 }
 
 /**
- * Gets renewals grouped by time buckets based on expiration dates
+ * Gets recent cases for an organization (all stages)
  * 
- * Uses UTC boundaries to ensure consistent bucketing regardless of server timezone.
- * 
- * TODO: Add cases.expire_at as timestamptz column
- * TODO: Recommended index: (org_id, expire_at ASC)
- * TODO: RLS policy on cases table to enforce org_id scoping
+ * Unlike getRecentPolicies/getRecentProposals which filter by stage,
+ * this returns the most recent cases regardless of their stage.
  * 
  * @param orgId - Organization ID
- * @returns Renewals grouped into 3 time buckets
+ * @returns Array of recent cases (max 3)
  */
-export async function getRenewalsBuckets(orgId: string): Promise<RenewalsBuckets> {
+export async function getRecentCases(orgId: string): Promise<RecentCase[]> {
   const supabase = await createServerSupabase();
 
-  // Compute UTC date boundaries
-  const now = new Date();
-  const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const addDaysUTC = (d: number) => new Date(startUTC.getTime() + d * 24 * 60 * 60 * 1000);
-  const d30 = addDaysUTC(30);
-  const d60 = addDaysUTC(60);
-  const d90 = addDaysUTC(90);
-
-  // Query cases with expire_at within the 90-day window
   const { data, error } = await supabase
     .from('cases')
-    .select('id, title, client_name, status, updated_at, expire_at')
+    .select('id, client_name, status, stage, updated_at')
     .eq('org_id', orgId)
-    .not('expire_at', 'is', null)
-    .gte('expire_at', startUTC.toISOString())
-    .lte('expire_at', d90.toISOString())
-    .order('expire_at', { ascending: true });
+    .order('updated_at', { ascending: false })
+    .limit(3);
 
-  if (error || !data || data.length === 0) {
-    return {
-      lt30: [],
-      d30_60: [],
-      d60_90: [],
-    };
+  if (error || !data) {
+    console.error('[getRecentCases] Error:', error);
+    return [];
   }
 
-  // Initialize buckets
-  const buckets: RenewalsBuckets = {
-    lt30: [],
-    d30_60: [],
-    d60_90: [],
+  return data.map((item) => ({
+    id: item.id,
+    title: item.client_name ?? 'Caso sin nombre',
+    client_name: item.client_name ?? 'Sin nombre',
+    status: item.status,
+    updated_at: item.updated_at,
+  }));
+}
+
+// ============================================================================
+// PINS FUNCTIONS
+// ============================================================================
+
+/**
+ * Gets user pins from user_preferences.ui_preferences
+ * 
+ * @param userId - User ID
+ * @returns UserPins object with arrays of pinned entity IDs
+ */
+export async function getUserPins(userId: string): Promise<UserPins> {
+  const supabase = await createServerSupabase();
+  
+  const { data, error } = await supabase
+    .from('user_preferences')
+    .select('ui_preferences')
+    .eq('user_id', userId)
+    .maybeSingle();
+  
+  if (error) {
+    console.error('[getUserPins] Error:', error);
+    return { cases: [], clients: [], policies: [] };
+  }
+  
+  // Parse pins from ui_preferences JSONB
+  const uiPrefs = data?.ui_preferences as Record<string, unknown> | null;
+  const pins = uiPrefs?.pins as UserPins | undefined;
+  
+  return {
+    cases: Array.isArray(pins?.cases) ? pins.cases : [],
+    clients: Array.isArray(pins?.clients) ? pins.clients : [],
+    policies: Array.isArray(pins?.policies) ? pins.policies : [],
   };
-
-  // Group items into buckets based on UTC boundaries
-  for (const item of data) {
-    if (!item.expire_at) continue;
-
-    const expireAt = new Date(item.expire_at);
-    if (isNaN(expireAt.getTime())) continue;
-
-    const renewalItem: RenewalItem = {
-      id: item.id,
-      title: item.title ?? 'Póliza sin nombre',
-      client_name: item.client_name ?? 'Sin nombre',
-      status: item.status,
-      updated_at: item.updated_at,
-      expire_at: item.expire_at,
-    };
-
-    // Categorize into buckets using UTC boundaries
-    if (expireAt < d30) {
-      buckets.lt30.push(renewalItem);
-    } else if (expireAt >= d30 && expireAt < d60) {
-      buckets.d30_60.push(renewalItem);
-    } else if (expireAt >= d60 && expireAt <= d90) {
-      buckets.d60_90.push(renewalItem);
-    }
-  }
-
-  return buckets;
 }
 
 /**
- * Gets inbox items for a user (actionable notifications/tasks)
+ * Toggles a pin for an entity (add if not pinned, remove if pinned)
  * 
- * TODO: Create inbox_items table:
- *       (id, user_id, org_id, kind, payload, due_at, created_at, completed_at)
- * TODO: Recommended index: (user_id, org_id, completed_at, due_at)
+ * @param userId - User ID
+ * @param entityId - Entity ID to pin/unpin
+ * @param entityType - Type of entity ('case' | 'client' | 'policy')
+ * @returns Object with isPinned (new state) and success flag
+ */
+export async function togglePin(
+  userId: string,
+  entityId: string,
+  entityType: PinnableEntityType
+): Promise<{ isPinned: boolean; success: boolean; error?: string }> {
+  const supabase = await createServerSupabase();
+  
+  try {
+    // 1. Get current preferences
+    const { data: existing, error: fetchError } = await supabase
+      .from('user_preferences')
+      .select('ui_preferences')
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (fetchError) {
+      console.error('[togglePin] Fetch error:', fetchError);
+      return { isPinned: false, success: false, error: 'Error fetching preferences' };
+    }
+    
+    // 2. Parse current pins
+    const uiPrefs = (existing?.ui_preferences as Record<string, unknown>) || {};
+    const currentPins = (uiPrefs.pins as UserPins) || { cases: [], clients: [], policies: [] };
+    
+    // 3. Determine array key based on entity type
+    const arrayKey = entityType === 'case' ? 'cases' : 
+                     entityType === 'client' ? 'clients' : 'policies';
+    
+    // 4. Get current array (ensure it's an array)
+    const currentArray = Array.isArray(currentPins[arrayKey]) ? currentPins[arrayKey] : [];
+    
+    // 5. Toggle: add or remove
+    const isCurrentlyPinned = currentArray.includes(entityId);
+    let newArray: string[];
+    
+    if (isCurrentlyPinned) {
+      // Remove from array
+      newArray = currentArray.filter(id => id !== entityId);
+    } else {
+      // Check limit before adding
+      if (currentArray.length >= MAX_PINS_PER_TYPE) {
+        return { 
+          isPinned: false, 
+          success: false, 
+          error: `Límite de ${MAX_PINS_PER_TYPE} elementos anclados alcanzado` 
+        };
+      }
+      // Add to array
+      newArray = [...currentArray, entityId];
+    }
+    
+    // 6. Build updated pins object
+    const updatedPins: UserPins = {
+      ...currentPins,
+      cases: arrayKey === 'cases' ? newArray : (currentPins.cases || []),
+      clients: arrayKey === 'clients' ? newArray : (currentPins.clients || []),
+      policies: arrayKey === 'policies' ? newArray : (currentPins.policies || []),
+    };
+    
+    // 7. Build updated ui_preferences
+    const updatedUiPrefs = {
+      ...uiPrefs,
+      pins: updatedPins,
+    };
+    
+    // 8. Upsert user_preferences
+    const { error: upsertError } = await supabase
+      .from('user_preferences')
+      .upsert({
+        user_id: userId,
+        ui_preferences: updatedUiPrefs,
+        updated_at: new Date().toISOString(),
+      }, {
+        onConflict: 'user_id',
+      });
+    
+    if (upsertError) {
+      console.error('[togglePin] Upsert error:', upsertError);
+      return { isPinned: isCurrentlyPinned, success: false, error: 'Error saving pin' };
+    }
+    
+    return { isPinned: !isCurrentlyPinned, success: true };
+    
+  } catch (error) {
+    console.error('[togglePin] Unexpected error:', error);
+    return { isPinned: false, success: false, error: 'Unexpected error' };
+  }
+}
+
+/**
+ * Checks if an entity is pinned by the user
+ * 
+ * @param userId - User ID
+ * @param entityId - Entity ID to check
+ * @param entityType - Type of entity
+ * @returns boolean indicating if entity is pinned
+ */
+export async function isEntityPinned(
+  userId: string,
+  entityId: string,
+  entityType: PinnableEntityType
+): Promise<boolean> {
+  const pins = await getUserPins(userId);
+  const arrayKey = entityType === 'case' ? 'cases' : 
+                   entityType === 'client' ? 'clients' : 'policies';
+  return pins[arrayKey].includes(entityId);
+}
+
+/**
+ * Gets pinned cases for a user with full case data
  * 
  * @param userId - User ID
  * @param orgId - Organization ID
- * @returns Array of inbox items (empty in v1)
+ * @returns Array of pinned cases (max 10)
  */
-export async function getInboxItems(
+export async function getPinnedCases(
   userId: string,
   orgId: string
-): Promise<InboxItem[]> {
-  // v1: Return empty array until inbox_items table is created
-  return [];
+): Promise<PinnedCase[]> {
+  const pins = await getUserPins(userId);
+  
+  if (pins.cases.length === 0) {
+    return [];
+  }
+  
+  const supabase = await createServerSupabase();
+  const { data, error } = await supabase
+    .from('cases')
+    .select('id, client_name, status, updated_at')
+    .in('id', pins.cases)
+    .eq('org_id', orgId)
+    .limit(MAX_PINS_PER_TYPE);
+  
+  if (error) {
+    console.error('[getPinnedCases] Error:', error);
+    return [];
+  }
+  
+  if (!data) {
+    return [];
+  }
+  
+  return data.map((item) => ({
+    id: item.id,
+    caseId: item.id,
+    caseName: item.client_name ?? 'Sin nombre',
+    clientName: item.client_name ?? 'Sin nombre',
+    createdAt: item.updated_at,
+  }));
 }
 
 /**
- * Gets pinned clients for a user
+ * Gets pinned clients for a user with full client data (decrypted names)
  * 
- * TODO: Create pins table:
- *       (user_id, org_id, client_id, created_at)
- * TODO: Recommended index: (user_id, org_id, created_at DESC)
+ * Uses Prisma transaction with decrypt_pii() to properly decrypt client names.
  * 
  * @param userId - User ID
  * @param orgId - Organization ID
- * @returns Array of pinned clients (max 10, empty in v1)
+ * @returns Array of pinned clients with decrypted names (max 10)
  */
 export async function getPinnedClients(
   userId: string,
   orgId: string
 ): Promise<PinnedClient[]> {
-  // v1: Return empty array until pins table is created
-  // When implemented, limit to 10 results
-  return [];
+  const pins = await getUserPins(userId);
+  
+  if (pins.clients.length === 0) {
+    return [];
+  }
+  
+  const encryptionKey = process.env.APP_ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    console.error('[getPinnedClients] APP_ENCRYPTION_KEY not configured');
+    return [];
+  }
+  
+  try {
+    // Use Prisma transaction to decrypt client names
+    const clients = await prisma.$transaction(async (tx) => {
+      // Set encryption key for this transaction
+      await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
+      
+      // Query and decrypt pinned clients
+      // Using ANY() for array comparison in PostgreSQL
+      return tx.$queryRaw<Array<{
+        id: string;
+        name: string | null;
+        created_at: Date;
+      }>>`
+        SELECT 
+          id::text,
+          public.decrypt_pii(name_enc) as name,
+          created_at
+        FROM public.clients
+        WHERE id = ANY(${pins.clients}::uuid[])
+          AND org_id = ${orgId}::uuid
+        ORDER BY created_at DESC
+        LIMIT ${MAX_PINS_PER_TYPE}
+      `;
+    }, {
+      timeout: 30000, // 30 seconds timeout for decryption
+    });
+    
+    return clients.map((client) => ({
+      id: client.id,
+      clientId: client.id,
+      clientName: client.name ?? 'Sin nombre',
+      createdAt: client.created_at.toISOString(),
+    }));
+    
+  } catch (error) {
+    console.error('[getPinnedClients] Error decrypting clients:', error);
+    return [];
+  }
 }
 
+/**
+ * Gets pinned policies for a user with full policy data
+ * 
+ * @param userId - User ID
+ * @param orgId - Organization ID
+ * @returns Array of pinned policies (max 10)
+ */
+export async function getPinnedPolicies(
+  userId: string,
+  orgId: string
+): Promise<PinnedPolicy[]> {
+  const pins = await getUserPins(userId);
+  
+  if (pins.policies.length === 0) {
+    return [];
+  }
+  
+  // Note: policies table may not exist yet - return empty for now
+  // When implemented, query policy_analyses or similar table
+  return [];
+}
 
 /**
  * Gets the ID of the most recently updated agent thread for an organization.

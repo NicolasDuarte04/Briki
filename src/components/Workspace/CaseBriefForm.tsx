@@ -193,6 +193,14 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
         console.log('✏️ [CaseBriefForm] Modo edición activado (caso histórico)');
     };
 
+    // ✅ CORRECCIÓN: Función para cancelar edición sin guardar cambios
+    const handleCancel = useCallback(() => {
+        console.log('❌ [CaseBriefForm] Cancelando edición - volviendo al resumen sin guardar');
+        if (onEditComplete) {
+            onEditComplete();
+        }
+    }, [onEditComplete]);
+
     // ✅ FASE 3: Usar función extendida desde lib/case-actions.ts
     // La función local createCaseIfNeeded ha sido movida a lib/case-actions.ts
 
@@ -255,12 +263,19 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
 
             // ✅ CORRECCIÓN: Si estamos en modo edición, actualizar caso y comunicar con agente
             if (isEditing && currentCaseId && orgId) {
+                // ✅ FASE DETECCIÓN: Guardar IDs de artifacts existentes ANTES de actualizar
+                const previousArtifactIds = new Set(
+                    (activeCaseData?.artifacts || []).map((a: any) => a.id)
+                );
+                const previousArtifactCount = previousArtifactIds.size;
+                
                 console.log('✏️ [CaseBriefForm] Modo edición detectado - Actualizando caso y comunicando con agente', {
                     isEditing,
                     currentCaseId,
                     orgId,
                     hasActiveCaseData: !!activeCaseData,
-                    artifactsCount: activeCaseData?.artifacts?.length || 0
+                    previousArtifactCount,
+                    newUploadsCount: data.tempUploads?.length || 0
                 });
 
                 // 1. Actualizar el caso en BD
@@ -280,18 +295,37 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                     throw new Error(errorData.error || 'Error al actualizar el caso');
                 }
 
-                console.log('✅ [CaseBriefForm] Caso actualizado exitosamente');
+                // ✅ FASE DETECCIÓN: Obtener caso actualizado con artifacts nuevos
+                const updateResponseData = await updateResponse.json();
+                const updatedArtifacts = updateResponseData.case?.artifacts || [];
+                
+                // Detectar nuevas pólizas comparando con las anteriores
+                const newArtifacts = updatedArtifacts.filter(
+                    (a: any) => !previousArtifactIds.has(a.id)
+                );
+                
+                console.log('✅ [CaseBriefForm] Caso actualizado exitosamente', {
+                    totalArtifacts: updatedArtifacts.length,
+                    newArtifactsCount: newArtifacts.length,
+                    newArtifactNames: newArtifacts.map((a: any) => a.fileName)
+                });
 
                 // 2. Comunicar con el agente para que responda a la información actualizada
                 // ✅ CORRECCIÓN CRÍTICA: Generar mensaje completo con TODA la información del formulario
-                // Usar generateInitialMessageFromBrief para incluir TODOS los campos, no solo freeText
-                const { startSourcing, sendAutoMessage } = useUI.getState();
+                const { sendAutoMessage } = useUI.getState();
                 const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
-                const autoMessageContent = generateInitialMessageFromBrief(briefUpdate) || "He actualizado la información del caso. Por favor, analiza los cambios y proporciona recomendaciones actualizadas.";
-                console.log('📝 [CaseBriefForm] Mensaje generado para agente:', autoMessageContent.substring(0, 100) + '...');
+                let autoMessageContent = generateInitialMessageFromBrief(briefUpdate) || "He actualizado la información del caso. Por favor, analiza los cambios y proporciona recomendaciones actualizadas.";
+                
+                // ✅ FASE DETECCIÓN: Si hay nuevas pólizas, añadir mensaje especial
+                if (newArtifacts.length > 0) {
+                    const newPolicyNames = newArtifacts.map((a: any) => a.fileName).join(', ');
+                    autoMessageContent += `\n\n📄 **Nuevas pólizas añadidas:** He cargado ${newArtifacts.length} nueva(s) póliza(s) al caso: ${newPolicyNames}.\n\nPuedes analizarlas en el tab **'Pólizas'** para que las compare con el panorama actual del cliente.`;
+                    console.log('📄 [CaseBriefForm] Nuevas pólizas detectadas, mensaje enriquecido');
+                }
+                
+                console.log('📝 [CaseBriefForm] Mensaje generado para agente:', autoMessageContent.substring(0, 150) + '...');
 
-                // Activar sourcing y enviar mensaje automático
-                startSourcing();
+                // Enviar mensaje automático al agente
                 await sendAutoMessage(autoMessageContent);
 
                 console.log('✅ [CaseBriefForm] Mensaje enviado al agente para responder a la información actualizada');
@@ -501,13 +535,37 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
         }
     }, [currentCaseId, setBrief, validateAndResolveClient, router, setInitialMessage, approveCurrentCase]); // ✅ FASE 6: Dependencias actualizadas
 
+    // ✅ CORRECCIÓN UX: Estado combinado para mostrar overlay de procesamiento
+    const isProcessingCase = isSubmitting || caseApproving;
+
     return (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-1">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-1 relative">
+            {/* ✅ CORRECCIÓN UX: Overlay de procesamiento visual inmediato */}
+            {isProcessingCase && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+                    <div className="flex flex-col items-center gap-3 p-6 bg-card rounded-lg shadow-lg border">
+                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                        <p className="font-medium text-foreground">Procesando...</p>
+                        <p className="text-sm text-muted-foreground">Por favor espera un momento.</p>
+                    </div>
+                </div>
+            )}
+            
             <header className="pb-2 flex justify-between items-center">
                 <h1 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
                     {t("title")}
                 </h1>
-                {!isEditing && (
+                {/* ✅ CORRECCIÓN: Mostrar botón Cancelar en modo edición, Editar en modo resumen */}
+                {isEditing ? (
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleCancel}
+                        disabled={isSubmitting || caseApproving}
+                    >
+                        Cancelar
+                    </Button>
+                ) : (
                     <Button variant="outline" size="sm" onClick={handleEdit}>
                         Editar
                     </Button>

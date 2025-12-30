@@ -97,7 +97,7 @@ export default function SidebarNav() {
           aria-label="Home"
           className="group flex items-center rounded-md py-2 pr-2 pl-0 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-sidebar-border bg-white text-sm shadow-sm transition-colors group-hover:border-sidebar-ring group-focus-visible:border-sidebar-ring">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-sidebar-border bg-background text-sm shadow-sm transition-colors group-hover:border-sidebar-ring group-focus-visible:border-sidebar-ring">
             <Image
               src="/brand/briki-logo-2.png"
               alt=""
@@ -133,7 +133,7 @@ export default function SidebarNav() {
         </div>
         
         {/* Navigation Sections */}
-        <nav className="flex flex-col">
+        <nav className="flex flex-col" aria-label="Navegación principal">
           {sections.map((section) => (
             <SidebarSection key={section.id} title={section.title}>
               {section.items.map(renderNavItem)}

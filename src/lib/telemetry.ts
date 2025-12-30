@@ -15,7 +15,7 @@ export function trackEvent(eventName: string, properties?: Record<string, any>) 
  * @param properties Properties including actionType and msFromView
  */
 export function trackDashboardActionFirst(properties: {
-  actionType: 'analyze_pdf' | 'new_comparison' | 'new_proposal' | 'new_client';
+  actionType: 'analyze_pdf' | 'new_comparison' | 'new_proposal' | 'new_client' | 'create_case' | 'analyze_policy' | 'manage_profile';
   msFromView: number;
 }) {
   trackEvent('dashboard_action_first', properties);

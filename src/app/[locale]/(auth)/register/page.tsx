@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RegisterPage(): ReactElement {
   return (
-    <div className="flex min-h-screen w-full bg-white lg:h-screen">
+    <div className="flex min-h-screen w-full bg-background lg:h-screen">
       <div className="flex w-full flex-col lg:flex-row">
         {/* Left Panel - Form */}
         <section className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16">

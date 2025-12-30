@@ -125,15 +125,13 @@ export function Canvas({
   right,
   className,
   rightOpen = true,
-  isSourcing = false,
 }: {
   left: ReactNode;
   right: ReactNode;
   className?: string;
   rightOpen?: boolean;
-  isSourcing?: boolean;
 }) {
-  const showRight = rightOpen || isSourcing;
+  const showRight = rightOpen;
   const innerPadding = "px-4 pb-8 pt-6 sm:px-6";
   
   // Initialize with DEFAULT_RATIO for consistent SSR/CSR hydration

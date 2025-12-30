@@ -10,7 +10,6 @@ import { useUI, type UIStep } from "@/lib/ui/state";
 import { motion, AnimatePresence } from "framer-motion";
 import WorkspaceTabs from "@/components/Workspace/Tabs";
 import CaseBrief from "@/components/Workspace/CaseBrief";
-import SourcingProgressWidget from "@/components/Sourcing/SourcingProgressWidget";
 import HotkeysGuide from "@/components/HotkeysGuide";
 import dynamic from "next/dynamic";
 import { ComplianceGate } from "@/components/Workspace/ComplianceGate";
@@ -40,7 +39,7 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
   const initializedRef = useRef(false);
   const pathname = usePathname(); // ✅ FASE 2: Obtener pathname para verificación de ruta
   // ✅ FASE 3: Agregar landingDataPending para detectar origen desde LandingPage
-  const { step, rightOpen, toggleRightPanel, primaryAction, setStep, isSourcing, stopSourcing, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage, currentCaseId, setCurrentCaseId, setMessages, setBrief, landingDataPending } = useUI();
+  const { step, rightOpen, toggleRightPanel, primaryAction, setStep, briefingCase, startBriefing, completeBriefing, cancelBriefing, setInitialMessage, initialMessage, currentCaseId, setCurrentCaseId, setMessages, setBrief, landingDataPending } = useUI();
   // Usar el valor del store como fuente de verdad para la lógica de renderizado
   const currentStep = step; // Leer siempre desde Zustand después de la sincronización
 
@@ -48,7 +47,6 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
   console.log('HomeClient Debug:', {
     currentStep,
     rightOpen,
-    isSourcing,
     initialStep,
     step
   });
@@ -415,10 +413,9 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
                 className="flex-1 flex flex-col min-h-0 h-full"
               >
                 {/* Solo mostrar Canvas para steps que requieren el panel izquierdo */}
-                {(currentStep === "conversation" || currentStep === "compliance" || currentStep === "sourcing") ? (
+                {(currentStep === "conversation" || currentStep === "compliance") ? (
                   <Canvas
                     rightOpen={rightOpen}
-                    isSourcing={isSourcing}
                     left={
                       currentStep === "conversation" || currentStep === "compliance" ? (
                         <ConversationPane />
@@ -427,28 +424,17 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
                       )
                     }
                     right={(() => {
-                      // --- MODIFICACIÓN CLAVE ---
-                      if (currentStep === "conversation" || isSourcing) { // Mostrar panel derecho en conversación Y sourcing
+                      if (currentStep === "conversation") {
                         return (
                           <div className="flex h-full flex-col overflow-hidden">
-                            {/* Widget de progreso: Se muestra solo si isSourcing es true */}
-                            {isSourcing && (
-                              <div className="flex-shrink-0 border-b border-border/50 p-2">
-                                {/* Asegúrate que SourcingProgressWidget acepte estas props */}
-                                <SourcingProgressWidget compact onStop={stopSourcing} />
-                              </div>
-                            )}
-
-                            {/* Panel de Tabs: Siempre visible en este flujo */}
+                            {/* Panel de Tabs: Siempre visible en conversación */}
                             <div className="flex-1 min-h-0 overflow-y-auto">
-                              {/* WorkspaceTabs necesita acceso al caseId actual, asegúrate que lo reciba */}
                               <WorkspaceTabs {...(orgId && { orgId })} />
                             </div>
                           </div>
                         );
                       }
 
-                      // Mantener la lógica para otros steps si existen
                       if (currentStep === "compliance") {
                         return (
                           <div className="flex h-full flex-col">
@@ -456,7 +442,7 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
                           </div>
                         );
                       }
-                      // Fallback o lógica para otros steps
+                      // Fallback
                       return <div className="p-4">Panel derecho para: {currentStep}</div>;
                     })()}
                   />

@@ -84,6 +84,9 @@ export async function PUT(request: NextRequest) {
                 orgId: currentOrg.id, // Medida de seguridad: solo actualizar si el caso pertenece a la org del usuario.
             },
             data: caseUpdatePayload,
+            include: {
+                artifacts: true, // ✅ CORRECCIÓN: Incluir artifacts para detección de nuevas pólizas en frontend
+            },
         });
 
         // ✅ FASE 3: Procesar PDFs temporales y moverlos a rutas persistentes
@@ -222,7 +225,15 @@ export async function PUT(request: NextRequest) {
             }
         }
 
-        return NextResponse.json({ success: true, case: updatedCase });
+        // ✅ CORRECCIÓN: Recargar caso con artifacts DESPUÉS de crearlos
+        // updatedCase solo incluye artifacts que existían ANTES del update
+        // Los nuevos artifacts se crearon después, así que recargamos
+        const finalCase = await prisma.case.findUnique({
+            where: { id: caseId },
+            include: { artifacts: true },
+        });
+
+        return NextResponse.json({ success: true, case: finalCase });
     } catch (error: any) {
         console.error('ERROR [API/CASES/UPDATE]:', error);
         return NextResponse.json({ error: 'Failed to update case' }, { status: 500 });

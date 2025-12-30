@@ -14,8 +14,7 @@ export default function AuthLayout({
 }>) {
   return (
     <div 
-      className="relative flex min-h-screen flex-col bg-white text-slate-900"
-      style={{ colorScheme: 'light' }}
+      className="relative flex min-h-screen flex-col bg-background text-foreground"
     >
       <header className="absolute top-0 left-0 right-0 z-10 px-6 pt-6 sm:px-8 sm:pt-8 lg:px-16 lg:pt-10">
         <Link

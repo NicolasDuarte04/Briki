@@ -3,13 +3,16 @@ import Link from 'next/link';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Mail, Phone, MapPin, User, Shield } from 'lucide-react';
+import { PinButton } from '@/components/Workspace/PinButton';
 import type { DecryptedClient } from '@/lib/clientsDb';
 
 interface ClientCardProps {
   client: DecryptedClient;
+  /** Whether this client is pinned by the user */
+  isPinned?: boolean;
 }
 
-export function ClientCard({ client }: ClientCardProps) {
+export function ClientCard({ client, isPinned = false }: ClientCardProps) {
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('es-ES', {
       year: 'numeric',
@@ -19,8 +22,8 @@ export function ClientCard({ client }: ClientCardProps) {
   };
   
   return (
-    <Link href={`/workspace/clients/${client.id}`}>
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+    <Card className="hover:shadow-lg transition-shadow h-full relative group">
+      <Link href={`/workspace/clients/${client.id}`} className="block h-full">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2 flex-1">
@@ -37,6 +40,12 @@ export function ClientCard({ client }: ClientCardProps) {
                 </div>
               </div>
             </div>
+            {/* Pin button - stops propagation to prevent Link activation */}
+            <PinButton
+              entityId={client.id}
+              entityType="client"
+              isPinned={isPinned}
+            />
           </div>
         </CardHeader>
         
@@ -94,7 +103,7 @@ export function ClientCard({ client }: ClientCardProps) {
         <CardFooter className="pt-3 border-t text-xs text-muted-foreground">
           Creado {formatDate(client.createdAt)}
         </CardFooter>
-      </Card>
-    </Link>
+      </Link>
+    </Card>
   );
 }

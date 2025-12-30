@@ -1,6 +1,7 @@
 // /src/app/[locale]/(app)/workspace/clients/page.tsx
-import { getClientsByOrg, getClientStatsByOrg } from '@/lib/clientsDb';
+import { getClientsByOrg } from '@/lib/clientsDb';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
+import { getUserPins } from '@/lib/data/workspace';
 import { ClientList } from '@/components/Clients/ClientList';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -10,11 +11,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export const dynamic = 'force-dynamic';
 
 export default async function ClientsPage() {
-  const { currentOrg } = await getCurrentOrg();
+  const { user, currentOrg } = await getCurrentOrg();
   
-  // Obtener clientes y estadísticas
-  const clients = await getClientsByOrg(currentOrg.id);
-  const stats = await getClientStatsByOrg(currentOrg.id);
+  // Obtener clientes y pins del usuario en paralelo
+  // NOTA: Stats se calculan en memoria para evitar transacciones duplicadas
+  const [clients, userPins] = await Promise.all([
+    getClientsByOrg(currentOrg.id),
+    getUserPins(user.id),
+  ]);
+  
+  // Calcular stats en memoria (evita llamada duplicada a getClientsByOrg)
+  const stats = {
+    total: clients.length,
+    withEmail: clients.filter(c => c.email).length,
+    withPhone: clients.filter(c => c.phone).length,
+    withAddress: clients.filter(c => c.address).length,
+  };
+  
+  // Convertir a Set para búsqueda eficiente
+  const pinnedClientIds = new Set(userPins.clients);
   
   return (
     <div className="container mx-auto py-8 px-4">
@@ -104,7 +119,7 @@ export default async function ClientsPage() {
       </div>
       
       {/* Clients List */}
-      <ClientList clients={clients} orgId={currentOrg.id} />
+      <ClientList clients={clients} orgId={currentOrg.id} pinnedClientIds={pinnedClientIds} />
     </div>
   );
 }
