@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { login } from "../actions";
+import { createBrowserSupabase } from "@/lib/supabase/client";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -16,6 +17,7 @@ export default function LoginForm() {
   const [submitted, setSubmitted] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [nextUrl, setNextUrl] = useState<string | null>(null);
   const [nextUrlWarning, setNextUrlWarning] = useState<string | null>(null);
@@ -122,6 +124,52 @@ export default function LoginForm() {
     }
   };
 
+  /**
+   * Inicia el flujo de autenticación OAuth con Google mediante Supabase Auth.
+   * Redirige al usuario a la página de login de Google y luego al callback.
+   */
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    setServerError(null);
+
+    try {
+      const supabase = createBrowserSupabase();
+      
+      // Construir la URL de callback usando la variable de entorno o fallback
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const redirectTo = `${siteUrl}/auth/callback`;
+
+      console.log('🔐 [LoginForm] Iniciando OAuth con Google...', { redirectTo });
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+
+      if (error) {
+        console.error('❌ [LoginForm] Error en OAuth:', error);
+        setServerError(error.message || 'Failed to sign in with Google');
+        setIsGoogleLoading(false);
+        return;
+      }
+
+      // Supabase redirige automáticamente a data.url (página de Google)
+      // El navegador navegará allí, así que no necesitamos hacer nada más
+      console.log('✅ [LoginForm] Redirigiendo a Google OAuth...', { url: data.url });
+      
+    } catch (err) {
+      console.error('❌ [LoginForm] Error inesperado en OAuth:', err);
+      setServerError('An unexpected error occurred. Please try again.');
+      setIsGoogleLoading(false);
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="w-full max-w-[440px] space-y-6">
       {/* Hidden field for next URL */}
@@ -222,9 +270,15 @@ export default function LoginForm() {
           {isLoading ? 'Signing in...' : 'Sign in'}
         </Button>
 
-        {/* Secondary Action */}
-        <Button type="button" variant="outline" className="w-full h-11" disabled={isLoading}>
-          Continue with Google
+        {/* Secondary Action - Google OAuth */}
+        <Button 
+          type="button" 
+          variant="outline" 
+          className="w-full h-11" 
+          disabled={isLoading || isGoogleLoading}
+          onClick={handleGoogleSignIn}
+        >
+          {isGoogleLoading ? 'Connecting to Google...' : 'Continue with Google'}
         </Button>
       </div>
 

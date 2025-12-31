@@ -319,22 +319,44 @@ export async function login(formData: FormData): Promise<ActionResult> {
   }
 }
 
-// Helper function to handle OAuth sign in (for future use)
+/**
+ * Inicia el flujo de autenticación OAuth con el proveedor especificado.
+ * 
+ * NOTA: Esta función es un Server Action para casos donde se necesite
+ * iniciar OAuth desde el servidor. Para uso client-side, se recomienda
+ * usar directamente createBrowserSupabase().auth.signInWithOAuth()
+ * como se hace en LoginForm.tsx.
+ * 
+ * @param provider - El proveedor OAuth ('google')
+ * @returns ActionResult con el resultado de la operación
+ */
 export async function signInWithOAuth(provider: 'google') {
   const supabase = await createServerSupabase()
+  
+  // Usar /auth/callback (consolidado) en lugar de /api/auth/callback
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const redirectTo = `${siteUrl}/auth/callback`
+  
+  console.log('🔐 [signInWithOAuth] Iniciando OAuth...', { provider, redirectTo })
   
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/callback`,
+      redirectTo,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent',
+      },
     },
   })
 
   if (error) {
+    console.error('❌ [signInWithOAuth] Error:', error)
     return { success: false, error: error.message }
   }
 
   if (data.url) {
+    console.log('✅ [signInWithOAuth] Redirigiendo a:', data.url)
     redirect(data.url)
   }
 
