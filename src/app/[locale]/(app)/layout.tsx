@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
 import BrikiSidebarLayout from '@/components/BrikiSidebarLayout'
 import OrgStateSync from '@/components/Workspace/OrgStateSync'
+import { OperationBlockerProvider } from '@/components/Workspace/OperationBlockerProvider'
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg'
 
 type AppLayoutProps = {
@@ -60,6 +61,8 @@ export default async function AppLayout({ children, params }: AppLayoutProps) {
     <BrikiSidebarLayout>
       {/* ✅ Componente vigilante para sincronizar estado con la organización activa */}
       {orgId && <OrgStateSync orgId={orgId} />}
+      {/* ✅ Modal bloqueante para operaciones en curso (pins, etc.) */}
+      <OperationBlockerProvider />
       {children}
     </BrikiSidebarLayout>
   )
