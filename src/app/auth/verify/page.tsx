@@ -12,10 +12,10 @@ function VerifyContent() {
   const email = searchParams.get('email')
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Mail className="h-8 w-8" />
           </div>
           <CardTitle className="text-2xl font-bold">Check your email</CardTitle>
@@ -24,11 +24,11 @@ function VerifyContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-lg bg-gray-50 p-3 text-center">
-            <p className="font-medium text-gray-900">{email || 'your email address'}</p>
+          <div className="rounded-lg bg-muted p-3 text-center">
+            <p className="font-medium text-foreground">{email || 'your email address'}</p>
           </div>
           
-          <p className="text-center text-sm text-gray-600">
+          <p className="text-center text-sm text-muted-foreground">
             Click the link in your email to verify your account and get started with Briki.
           </p>
           
@@ -38,9 +38,9 @@ function VerifyContent() {
             </Button>
           </div>
           
-          <p className="text-center text-xs text-gray-500">
+          <p className="text-center text-xs text-muted-foreground">
             Didn&apos;t receive an email? Check your spam folder or{' '}
-            <Link href="/register" className="text-blue-600 hover:underline">
+            <Link href="/register" className="text-primary hover:underline">
               try signing up again
             </Link>
           </p>

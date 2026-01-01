@@ -216,8 +216,11 @@ export default async function DashboardPage({
     // ✅ CORRECCIÓN: Detectar errores de conexión a la base de datos
     const isDatabaseError = 
       error.message?.includes('Database connection') ||
+      error.message?.includes('Database authentication') ||
       error.message?.includes('Can\'t reach database server') ||
       error.message?.includes('database server is running') ||
+      error.message?.includes('authentication failed') ||
+      error.message?.includes('Circuit breaker open') ||
       error.name === 'PrismaClientInitializationError' ||
       error.code === 'P1001' ||
       error.code === 'P2024';

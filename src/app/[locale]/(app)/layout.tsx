@@ -1,10 +1,12 @@
 import { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
+import { isRedirectError } from 'next/dist/client/components/redirect-error'
 
 import { createServerSupabase } from '@/lib/supabase/server'
 import BrikiSidebarLayout from '@/components/BrikiSidebarLayout'
 import OrgStateSync from '@/components/Workspace/OrgStateSync'
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg'
+import LoadingProvider from '@/components/LoadingProvider'
 
 type AppLayoutProps = {
   children: ReactNode
@@ -38,10 +40,14 @@ export default async function AppLayout({ children, params }: AppLayoutProps) {
   // ✅ NUEVO: Obtener la organización actual para sincronizar el estado del cliente
   let orgId: string | null = null;
   try {
-    const { currentOrg } = await getCurrentOrg();
+    const { currentOrg } = await getCurrentOrg({ redirectIfNoOrg: false });
     orgId = currentOrg?.id || null;
   } catch (error) {
-    // Si falla getCurrentOrg, dejar que el usuario continúe
+    // ✅ CORRECCIÓN: Permitir que los redirects de Next.js se propaguen
+    if (isRedirectError(error)) {
+      throw error;
+    }
+    // Si falla getCurrentOrg por otro motivo, dejar que el usuario continúe
     // (podría estar en onboarding de organización)
     console.warn('Could not get current org in layout:', error);
   }
@@ -57,10 +63,12 @@ export default async function AppLayout({ children, params }: AppLayoutProps) {
 
   // Render protected content with sidebar shell
   return (
-    <BrikiSidebarLayout>
-      {/* ✅ Componente vigilante para sincronizar estado con la organización activa */}
-      {orgId && <OrgStateSync orgId={orgId} />}
-      {children}
-    </BrikiSidebarLayout>
+    <LoadingProvider>
+      <BrikiSidebarLayout locale={locale}>
+        {/* ✅ Componente vigilante para sincronizar estado con la organización activa */}
+        {orgId && <OrgStateSync orgId={orgId} />}
+        {children}
+      </BrikiSidebarLayout>
+    </LoadingProvider>
   )
 }

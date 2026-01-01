@@ -132,7 +132,7 @@ export default function LoginForm() {
       <div className="space-y-8">
         {/* Email Field */}
         <div className="space-y-2">
-          <Label htmlFor="email">Email address</Label>
+          <Label htmlFor="email" style={{ color: 'rgba(249, 249, 251, 1)' }}>Email address</Label>
           <Input
             id="email"
             name="email"
@@ -142,7 +142,7 @@ export default function LoginForm() {
             onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
             aria-invalid={showEmailError ? "true" : "false"}
             aria-describedby={showEmailError ? "email-error" : undefined}
-            className="h-11"
+            className="h-11 bg-white/5 border-white/20 text-white placeholder:text-white/40 focus:border-white/40 focus:ring-white/10"
             disabled={isLoading}
           />
           {showEmailError && (
@@ -154,7 +154,7 @@ export default function LoginForm() {
 
         {/* Password Field */}
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password" style={{ color: 'rgba(249, 249, 251, 1)' }}>Password</Label>
           <div className="relative">
             <Input
               id="password"
@@ -175,7 +175,7 @@ export default function LoginForm() {
                     ? "password-helper"
                     : undefined
               }
-              className="h-11 pr-11"
+              className="h-11 pr-11 bg-white/5 border-white/20 text-white placeholder:text-white/40 focus:border-white/40 focus:ring-white/10"
               disabled={isLoading}
             />
             <button
@@ -218,12 +218,21 @@ export default function LoginForm() {
             {serverError}
           </p>
         )}
-        <Button type="submit" className="w-full h-11" disabled={isLoading}>
+        <Button 
+          type="submit" 
+          className="w-full h-11 bg-[#F6EFEF] text-[#0F172A] hover:bg-[#F6EFEF]/90 transition-colors font-medium" 
+          disabled={isLoading}
+        >
           {isLoading ? 'Signing in...' : 'Sign in'}
         </Button>
 
         {/* Secondary Action */}
-        <Button type="button" variant="outline" className="w-full h-11" disabled={isLoading}>
+        <Button 
+          type="button" 
+          variant="outline" 
+          className="w-full h-11 border-white/20 text-white hover:bg-white/10 transition-colors"
+          disabled={isLoading}
+        >
           Continue with Google
         </Button>
       </div>
@@ -232,14 +241,16 @@ export default function LoginForm() {
       <div className="flex items-center justify-center gap-3 text-sm">
         <Link
           href="/forgot-password"
-          className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          style={{ color: 'rgba(255, 255, 255, 1)' }}
         >
           Forgot password
         </Link>
         <span className="text-muted-foreground">|</span>
         <Link
           href="/register"
-          className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          style={{ color: 'rgba(255, 255, 255, 1)' }}
         >
           Create account
         </Link>

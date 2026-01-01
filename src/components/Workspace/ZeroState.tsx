@@ -127,9 +127,9 @@ export function ZeroState({
           </div>
           
           <div className="space-y-2">
-            <h1 className="text-headline font-bold text-foreground">
+            <h2 className="text-headline font-bold text-foreground">
               ¡Bienvenido a Briki! 👋
-            </h1>
+            </h2>
             <p className="text-muted-foreground text-body max-w-xl mx-auto">
               Vamos a configurar tu espacio en tres pasos sencillos. 
               En menos de 5 minutos estarás listo para gestionar tus pólizas.

@@ -15,13 +15,17 @@ export default function LoginPage(): ReactElement {
     <div className="flex min-h-screen w-full bg-white lg:h-screen">
       <div className="flex w-full flex-col lg:flex-row">
         {/* Left Panel - Form */}
-        <section className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16">
+        <section 
+          className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16"
+          style={{ backgroundColor: 'rgba(21, 26, 30, 1)', color: 'rgba(255, 255, 255, 1)' }}
+        >
           <div className="mx-auto w-full max-w-[440px]">
             <div className="space-y-8">
               {/* Back Button */}
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+                className="inline-flex items-center gap-2 hover:opacity-80 transition-colors"
+                style={{ color: 'rgba(255, 255, 255, 1)' }}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -41,10 +45,16 @@ export default function LoginPage(): ReactElement {
 
               {/* Heading */}
               <div className="space-y-3">
-                <h1 className="text-[44px] font-semibold leading-tight tracking-tight text-slate-900">
+                <h1 
+                  className="text-[44px] font-semibold leading-tight tracking-tight"
+                  style={{ color: 'rgba(255, 255, 255, 1)' }}
+                >
                   Welcome back
                 </h1>
-                <p className="text-base text-slate-600">
+                <p 
+                  className="text-base"
+                  style={{ color: 'rgba(255, 255, 255, 0.7)' }}
+                >
                   Sign in to keep your policy workflows organized and in sync.
                 </p>
               </div>

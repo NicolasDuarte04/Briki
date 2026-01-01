@@ -122,15 +122,15 @@ export function DevAccountActions({ userId }: DevAccountActionsProps) {
   }
 
   return (
-    <div className="mt-12 p-6 border-2 border-red-200 rounded-lg bg-red-50">
+    <div className="mt-12 p-6 border-2 border-red-200 dark:border-red-800 rounded-lg bg-red-50 dark:bg-red-950/30">
       {/* Header de la zona de peligro */}
       <div className="flex items-start gap-3 mb-4">
-        <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+        <AlertCircle className="w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
         <div>
-          <h3 className="font-bold text-lg text-red-900">
+          <h3 className="font-bold text-lg text-red-900 dark:text-red-200">
             Zona de Peligro (Solo Desarrollo)
           </h3>
-          <p className="text-sm text-red-700 mt-1">
+          <p className="text-sm text-red-700 dark:text-red-300 mt-1">
             Estas acciones solo están disponibles en entorno de desarrollo.
             Son destructivas y no se pueden deshacer.
           </p>
@@ -138,37 +138,37 @@ export function DevAccountActions({ userId }: DevAccountActionsProps) {
       </div>
 
       {/* Divider */}
-      <div className="border-t border-red-200 my-4" />
+      <div className="border-t border-red-200 dark:border-red-800 my-4" />
 
       {/* Sección de eliminación de cuenta */}
       <div className="space-y-3">
         <div>
-          <h4 className="font-semibold text-sm text-red-900 mb-1">
+          <h4 className="font-semibold text-sm text-red-900 dark:text-red-200 mb-1">
             Eliminar Cuenta Completamente
           </h4>
-          <p className="text-xs text-red-700 mb-3">
+          <p className="text-xs text-red-700 dark:text-red-300 mb-3">
             Esta acción eliminará permanentemente:
           </p>
-          <ul className="text-xs text-red-700 space-y-1 mb-4 pl-4">
+          <ul className="text-xs text-red-700 dark:text-red-300 space-y-1 mb-4 pl-4">
             <li className="flex items-start gap-2">
-              <span className="text-red-600">•</span>
-              <span>Usuario de <code className="bg-red-100 px-1 rounded">auth.users</code></span>
+              <span className="text-red-600 dark:text-red-400">•</span>
+              <span>Usuario de <code className="bg-red-100 dark:bg-red-900/50 px-1 rounded">auth.users</code></span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-red-600">•</span>
-              <span>Perfil de <code className="bg-red-100 px-1 rounded">public.profiles</code></span>
+              <span className="text-red-600 dark:text-red-400">•</span>
+              <span>Perfil de <code className="bg-red-100 dark:bg-red-900/50 px-1 rounded">public.profiles</code></span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-red-600">•</span>
-              <span>Membresías de <code className="bg-red-100 px-1 rounded">public.org_members</code></span>
+              <span className="text-red-600 dark:text-red-400">•</span>
+              <span>Membresías de <code className="bg-red-100 dark:bg-red-900/50 px-1 rounded">public.org_members</code></span>
             </li>
             <li className="flex items-start gap-2">
-              <span className="text-red-600">•</span>
+              <span className="text-red-600 dark:text-red-400">•</span>
               <span>Todos los datos asociados (por CASCADE)</span>
             </li>
           </ul>
-          <p className="text-xs text-red-700 font-medium mb-3">
-            ID del usuario: <code className="bg-red-100 px-1 py-0.5 rounded text-[10px]">{userId}</code>
+          <p className="text-xs text-red-700 dark:text-red-300 font-medium mb-3">
+            ID del usuario: <code className="bg-red-100 dark:bg-red-900/50 px-1 py-0.5 rounded text-[10px]">{userId}</code>
           </p>
         </div>
 
@@ -193,7 +193,7 @@ export function DevAccountActions({ userId }: DevAccountActionsProps) {
         </Button>
 
         {/* Nota adicional */}
-        <p className="text-[10px] text-red-600 italic">
+        <p className="text-[10px] text-red-600 dark:text-red-400 italic">
           Útil para: limpiar usuarios de prueba, resetear estado entre tests, debugging de auth
         </p>
       </div>

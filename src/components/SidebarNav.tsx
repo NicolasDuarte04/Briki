@@ -13,18 +13,22 @@ import Link from "next/link";
 import { useUI } from "@/lib/ui/state";
 import { getWorkspaceSections, type NavItem } from "@/config/navigation";
 import { usePathname } from "next/navigation";
-import { useLocale } from "next-intl";
 import type { Locale } from "@/lib/routes/workspace";
 import { motion } from "framer-motion";
 
-export default function SidebarNav() {
+interface SidebarNavProps {
+  locale: string;
+}
+
+export default function SidebarNav({ locale }: SidebarNavProps) {
   const { openChatPanel } = useUI();
   const { open, animate } = useSidebar();
   const pathname = usePathname();
-  const locale = useLocale() as Locale;
+  // const locale = useLocale() as Locale; // Removed to fix "No intl context found" error
+  const currentLocale = locale as Locale;
 
   // Get locale-aware sections with items
-  const sections = getWorkspaceSections(locale);
+  const sections = getWorkspaceSections(currentLocale);
 
   /**
    * Check if a link is active based on the current pathname.
@@ -32,7 +36,7 @@ export default function SidebarNav() {
    */
   const isLinkActive = (matchPath: string) => {
     // Remove locale prefix from pathname for comparison
-    const pathWithoutLocale = pathname.replace(`/${locale}`, '');
+    const pathWithoutLocale = pathname.replace(`/${currentLocale}`, '');
     
     // Exact match for the matchPath
     if (pathWithoutLocale === matchPath) {

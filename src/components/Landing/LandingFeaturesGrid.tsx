@@ -13,7 +13,7 @@ export function LandingFeaturesGrid() {
                     <Card className="group overflow-hidden shadow-black/5 sm:col-span-3 sm:rounded-none sm:rounded-tl-xl transition-transform duration-300 ease-out hover:scale-[1.02]">
                         <CardHeader>
                             <div className="md:p-6">
-                                <p className="text-lg font-semibold sm:text-2xl">{t('compare.title')}</p>
+                                <p className="text-lg font-semibold sm:text-2xl text-foreground">{t('compare.title')}</p>
                                 <p className="text-muted-foreground mt-3 max-w-sm text-sm">{t('compare.description')}</p>
                             </div>
                         </CardHeader>
@@ -32,7 +32,7 @@ export function LandingFeaturesGrid() {
                     </Card>
 
                     <Card className="group overflow-hidden shadow-zinc-950/5 sm:col-span-2 sm:rounded-none sm:rounded-tr-xl transition-transform duration-300 ease-out hover:scale-[1.02]">
-                        <p className="mx-auto my-6 max-w-md text-balance px-6 text-center text-lg font-semibold sm:text-2xl md:p-6">{t('proposal.title')}</p>
+                        <p className="mx-auto my-6 max-w-md text-balance px-6 text-center text-lg font-semibold sm:text-2xl md:p-6 text-foreground">{t('proposal.title')}</p>
                         <p className="mx-auto max-w-md text-balance px-6 text-center text-sm text-muted-foreground">{t('proposal.description')}</p>
 
                         <CardContent className="mt-auto h-fit">
@@ -50,7 +50,7 @@ export function LandingFeaturesGrid() {
                         </CardContent>
                     </Card>
                     <Card className="group p-6 shadow-black/5 sm:col-span-2 sm:rounded-none sm:rounded-bl-xl md:p-12 transition-transform duration-300 ease-out hover:scale-[1.02]">
-                        <p className="mx-auto mb-6 max-w-md text-balance text-center text-lg font-semibold sm:text-2xl">{t('copilot.title')}</p>
+                        <p className="mx-auto mb-6 max-w-md text-balance text-center text-lg font-semibold sm:text-2xl text-foreground">{t('copilot.title')}</p>
                         <p className="mx-auto mb-12 max-w-md text-balance text-center text-sm text-muted-foreground">{t('copilot.description')}</p>
 
                         <div className="flex justify-center gap-6">
@@ -65,7 +65,7 @@ export function LandingFeaturesGrid() {
                     </Card>
                     <Card className="group relative shadow-black/5 sm:col-span-3 sm:rounded-none sm:rounded-br-xl transition-transform duration-300 ease-out hover:scale-[1.02]">
                         <CardHeader className="p-6 md:p-12">
-                            <p className="text-lg font-semibold sm:text-2xl">{t('generate.title')}</p>
+                            <p className="text-lg font-semibold sm:text-2xl text-foreground">{t('generate.title')}</p>
                             <p className="text-muted-foreground mt-2 max-w-sm text-sm">{t('generate.description')}</p>
                         </CardHeader>
                         <CardContent className="relative h-fit px-6 pb-6 md:px-12 md:pb-12">

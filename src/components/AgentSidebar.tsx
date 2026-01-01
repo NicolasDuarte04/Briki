@@ -5,7 +5,11 @@ import { useUI } from "@/lib/ui/state";
 import SidebarChatPanel from "@/components/SidebarChatPanel";
 import SidebarNav from "@/components/SidebarNav";
 
-export default function AgentSidebar() {
+interface AgentSidebarProps {
+  locale: string;
+}
+
+export default function AgentSidebar({ locale }: AgentSidebarProps) {
   const { cases, chatPanelOpen, fetchCases } = useUI();
   
   // ✅ OPTIMIZACIÓN CRÍTICA: Cargar casos al iniciar la página (cada vez que se monta)
@@ -16,5 +20,5 @@ export default function AgentSidebar() {
     fetchCases();
   }, []); // ✅ Solo ejecutar al montar (inicio de página)
   
-  return chatPanelOpen ? <SidebarChatPanel cases={cases} /> : <SidebarNav />;
+  return chatPanelOpen ? <SidebarChatPanel cases={cases} locale={locale} /> : <SidebarNav locale={locale} />;
 }

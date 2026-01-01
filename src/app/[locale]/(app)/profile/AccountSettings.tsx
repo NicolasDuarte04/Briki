@@ -367,17 +367,17 @@ export function AccountSettings({
 
   const getRoleIcon = (role: 'owner' | 'admin' | 'member') => {
     switch (role) {
-      case 'owner': return <Crown className="h-4 w-4 text-amber-500" />;
-      case 'admin': return <Shield className="h-4 w-4 text-blue-500" />;
-      case 'member': return <User className="h-4 w-4 text-gray-500" />;
+      case 'owner': return <Crown className="h-4 w-4 text-amber-500 dark:text-amber-400" />;
+      case 'admin': return <Shield className="h-4 w-4 text-blue-500 dark:text-blue-300" />;
+      case 'member': return <User className="h-4 w-4 text-gray-500 dark:text-gray-400" />;
     }
   };
 
   const getRoleBadge = (role: 'owner' | 'admin' | 'member') => {
     const styles = {
-      owner: 'bg-amber-100 text-amber-800 border-amber-200',
-      admin: 'bg-blue-100 text-blue-800 border-blue-200',
-      member: 'bg-gray-100 text-gray-800 border-gray-200',
+      owner: 'bg-amber-100 dark:bg-amber-950/30 text-amber-900 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+      admin: 'bg-blue-600 dark:bg-blue-700 text-white border-blue-600 dark:border-blue-700',
+      member: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700',
     };
     const labels = { owner: 'Propietario', admin: 'Administrador', member: 'Miembro' };
     return (
@@ -580,11 +580,11 @@ export function AccountSettings({
     <div>
       {/* Breadcrumb */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900">Account settings</h1>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">Account settings</h1>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-8">
+      <div className="border-b border-gray-200 dark:border-gray-700 mb-8">
         <nav className="flex gap-8" aria-label="Account sections">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id;
@@ -595,8 +595,8 @@ export function AccountSettings({
                 className={`
                   pb-3 px-1 text-sm relative transition-colors flex items-center gap-2
                   ${isActive 
-                    ? 'text-gray-900 font-semibold' 
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'text-gray-900 dark:text-white font-semibold' 
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }
                 `}
               >
@@ -620,12 +620,12 @@ export function AccountSettings({
         {activeTab === 'personal' && (
           <>
             {/* Name Card */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-sm font-medium text-gray-700 mb-1">Name</h3>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</h3>
                   {!isEditingName ? (
-                    <p className="text-base text-gray-900">
+                    <p className="text-base text-gray-900 dark:text-white">
                       {nameValue || 'Not set'}
                       {lastSavedField === 'name' && (
                         <span className="ml-2 text-sm text-green-600">Saved</span>
@@ -681,23 +681,23 @@ export function AccountSettings({
             </div>
 
             {/* Email Card (read-only) */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-700 mb-1">Email</h3>
-                  <p className="text-base text-gray-900">{email}</p>
-                  <p className="text-xs text-gray-500 mt-1">Your email cannot be changed</p>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</h3>
+                  <p className="text-base text-gray-900 dark:text-white">{email}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Your email cannot be changed</p>
                 </div>
               </div>
             </div>
 
             {/* Phone Card */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-sm font-medium text-gray-700 mb-1">Phone</h3>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Phone</h3>
                   {!isEditingPhone ? (
-                    <p className="text-base text-gray-900">
+                    <p className="text-base text-gray-900 dark:text-white">
                       {phoneValue || 'Not set'}
                       {lastSavedField === 'phone' && (
                         <span className="ml-2 text-sm text-green-600">Saved</span>
@@ -754,12 +754,12 @@ export function AccountSettings({
             </div>
 
             {/* Address Card */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-sm font-medium text-gray-700 mb-1">Address</h3>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</h3>
                   {!isEditingAddress ? (
-                    <p className="text-base text-gray-900">
+                    <p className="text-base text-gray-900 dark:text-white">
                       {addressValue || 'Not set'}
                       {lastSavedField === 'address' && (
                         <span className="ml-2 text-sm text-green-600">Saved</span>
@@ -816,18 +816,18 @@ export function AccountSettings({
             </div>
 
             {/* Language Card */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-sm font-medium text-gray-700 mb-1">Language</h3>
-                  <p className="text-sm text-gray-500 mb-3">Choose your preferred language</p>
+                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Language</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">Choose your preferred language</p>
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleLocaleChange('en')}
                       className={`px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
                         locale === 'en'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-card text-foreground border-border hover:bg-muted'
                       }`}
                     >
                       English ✓
@@ -836,8 +836,8 @@ export function AccountSettings({
                       onClick={() => handleLocaleChange('es')}
                       className={`px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
                         locale === 'es'
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-card text-foreground border-border hover:bg-muted'
                       }`}
                     >
                       Español
@@ -850,9 +850,9 @@ export function AccountSettings({
         )}
 
         {activeTab === 'security' && (
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-2">Password</h3>
-            <p className="text-sm text-gray-600 mb-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Password</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Reset your password by receiving a secure reset link via email. You&apos;ll be able to create a new password after clicking the link.
             </p>
             <Button 
@@ -875,11 +875,11 @@ export function AccountSettings({
           <div className="space-y-6">
             {/* Invitaciones pendientes */}
             {pendingInvitations.length > 0 && (
-              <div className="bg-white rounded-lg border border-blue-200 p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-800 p-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <Bell className="h-5 w-5 text-blue-600" />
-                  <h3 className="text-base font-semibold text-gray-900">Invitaciones pendientes</h3>
-                  <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                  <Bell className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">Invitaciones pendientes</h3>
+                  <span className="bg-blue-600 text-white text-xs font-medium px-2 py-0.5 rounded-full">
                     {pendingInvitations.length}
                   </span>
                 </div>
@@ -888,23 +888,23 @@ export function AccountSettings({
                   {pendingInvitations.map((invitation) => (
                     <div 
                       key={invitation.id} 
-                      className="p-4 bg-blue-50 border border-blue-100 rounded-lg"
+                      className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-800 rounded-lg"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">
-                            Invitación de <span className="text-blue-600">{invitation.organizationName}</span>
+                          <p className="font-medium text-gray-900 dark:text-white">
+                            Invitación de <span className="text-blue-600 dark:text-blue-400">{invitation.organizationName}</span>
                           </p>
-                          <p className="text-sm text-gray-600 mt-1">
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                             {invitation.inviterName || invitation.inviterEmail || 'Un miembro'} te ha invitado a unirte como{' '}
                             <span className="font-medium">
                               {invitation.role === 'admin' ? 'Administrador' : 'Miembro'}
                             </span>
                           </p>
                           {invitation.message && (
-                            <p className="text-sm text-gray-500 mt-2 italic">"{invitation.message}"</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 italic">"{invitation.message}"</p>
                           )}
-                          <p className="text-xs text-gray-400 mt-2">
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                             Recibida {new Date(invitation.createdAt).toLocaleDateString('es-ES', { 
                               day: 'numeric', month: 'short', year: 'numeric' 
                             })}
@@ -958,28 +958,28 @@ export function AccountSettings({
             
             {/* Sin invitaciones */}
             {pendingInvitations.length === 0 && !loadingInvitations && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <div className="text-center py-4">
-                  <Bell className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="text-sm text-gray-500">No tienes invitaciones pendientes</p>
+                  <Bell className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No tienes invitaciones pendientes</p>
                 </div>
               </div>
             )}
             
             {loadingInvitations && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-center py-4 gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                  <span className="text-sm text-gray-500">Cargando invitaciones...</span>
+                  <Loader2 className="h-5 w-5 animate-spin text-gray-400 dark:text-gray-500" />
+                  <span className="text-sm text-gray-500 dark:text-gray-400">Cargando invitaciones...</span>
                 </div>
               </div>
             )}
 
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900">Product updates</h3>
-                  <p className="text-sm text-gray-500 mt-1">Receive emails about new features and improvements</p>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white">Product updates</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Receive emails about new features and improvements</p>
                 </div>
                 <input 
                   type="checkbox" 
@@ -991,11 +991,11 @@ export function AccountSettings({
               </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-gray-900">Policy alerts</h3>
-                  <p className="text-sm text-gray-500 mt-1">Get notified about important policy changes</p>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white">Policy alerts</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Get notified about important policy changes</p>
                 </div>
                 <input 
                   type="checkbox" 
@@ -1012,23 +1012,23 @@ export function AccountSettings({
         {activeTab === 'team' && (
           <div className="space-y-6">
             {/* Selector de Organización */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Building2 className="h-5 w-5 text-blue-600" />
-                <h3 className="text-base font-semibold text-gray-900">Organización activa</h3>
+                <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Organización activa</h3>
               </div>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Selecciona la organización con la que deseas trabajar. Todos los casos, clientes y análisis se filtrarán según esta selección.
               </p>
               
               {loadingOrgs ? (
-                <div className="flex items-center gap-2 text-gray-500">
+                <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="text-sm">Cargando organizaciones...</span>
                 </div>
               ) : organizations.length === 0 ? (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">No tienes organizaciones. Contacta al administrador.</p>
+                <div className="p-4 bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <p className="text-sm text-yellow-800 dark:text-yellow-300">No tienes organizaciones. Contacta al administrador.</p>
                 </div>
               ) : (
                 <div className="flex items-center gap-4">
@@ -1066,24 +1066,24 @@ export function AccountSettings({
               )}
 
               {selectedOrg && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <p className="text-sm text-blue-800">
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-800">
+                  <p className="text-sm text-blue-800 dark:text-blue-300">
                     <span className="font-medium">Trabajando en:</span> {selectedOrg.name}
                   </p>
-                  <p className="text-xs text-blue-600 mt-1">
-                    Slug: <code className="bg-blue-100 px-1 rounded">{selectedOrg.slug}</code>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    Slug: <code className="bg-blue-100 dark:bg-blue-900/50 px-1 rounded">{selectedOrg.slug}</code>
                   </p>
                 </div>
               )}
             </div>
 
             {/* Invitar Miembros */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center gap-2 mb-4">
-                <UserPlus className="h-5 w-5 text-green-600" />
-                <h3 className="text-base font-semibold text-gray-900">Invitar miembros</h3>
+                <UserPlus className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Invitar miembros</h3>
               </div>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Invita a nuevos usuarios a unirse a tu organización por email.
               </p>
               
@@ -1127,10 +1127,10 @@ export function AccountSettings({
                 {/* Divider */}
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-gray-200" />
+                    <span className="w-full border-t border-gray-200 dark:border-gray-700" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white px-2 text-gray-500">o comparte el link</span>
+                    <span className="bg-white dark:bg-gray-800 px-2 text-gray-500 dark:text-gray-400">o comparte el link</span>
                   </div>
                 </div>
 
@@ -1141,7 +1141,7 @@ export function AccountSettings({
                     value="Link de invitación (próximamente)"
                     readOnly
                     disabled
-                    className="flex-1 bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed"
+                    className="flex-1 bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-400 dark:text-gray-500 cursor-not-allowed"
                   />
                   <Button
                     variant="outline"
@@ -1155,21 +1155,21 @@ export function AccountSettings({
                     </span>
                   </Button>
                 </div>
-                <p className="text-xs text-gray-400 flex items-center gap-1">
+                <p className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
                   <Clock className="h-3 w-3" />
                   La funcionalidad de link compartido estará disponible próximamente
                 </p>
                 
                 {/* Invitaciones enviadas pendientes */}
                 {sentInvitations.length > 0 && (
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <h4 className="text-sm font-medium text-gray-700 mb-3">Invitaciones enviadas pendientes</h4>
+                  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Invitaciones enviadas pendientes</h4>
                     <div className="space-y-2">
                       {sentInvitations.map((inv) => (
-                        <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div key={inv.id} className="flex items-center justify-between p-3 bg-muted dark:bg-gray-700 rounded-lg">
                           <div>
-                            <p className="text-sm font-medium text-gray-900">{inv.inviteeEmail}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm font-medium text-foreground dark:text-white">{inv.inviteeEmail}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
                               Enviada {new Date(inv.createdAt).toLocaleDateString('es-ES')}
                               {inv.expiresAt && ` · Expira ${new Date(inv.expiresAt).toLocaleDateString('es-ES')}`}
                             </p>
@@ -1191,13 +1191,13 @@ export function AccountSettings({
             </div>
 
             {/* Lista de Miembros del Equipo */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-purple-600" />
-                  <h3 className="text-base font-semibold text-gray-900">Miembros del equipo</h3>
+                  <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">Miembros del equipo</h3>
                 </div>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
                   {loadingMembers ? (
                     <span className="flex items-center gap-1">
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -1211,17 +1211,17 @@ export function AccountSettings({
               
               {loadingMembers ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400 dark:text-gray-500" />
                 </div>
               ) : teamMembers.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
                   <p className="text-sm">No hay miembros en esta organización</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-gray-100 dark:divide-gray-700">
                   {teamMembers.map((member) => (
-                    <div key={member.userId} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between group hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors">
+                    <div key={member.userId} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between group hover:bg-muted dark:hover:bg-gray-700 -mx-2 px-2 rounded-lg transition-colors">
                       <div className="flex items-center gap-4">
                         {/* Avatar */}
                         <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
@@ -1230,13 +1230,13 @@ export function AccountSettings({
                         
                         {/* Info */}
                         <div>
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-gray-900 dark:text-white">
                             {member.name || 'Usuario sin nombre'}
                             {member.isCurrentUser && (
-                              <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Tú</span>
+                              <span className="ml-2 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-2 py-0.5 rounded-full">Tú</span>
                             )}
                           </p>
-                          <p className="text-sm text-gray-500">{member.email || 'Email no disponible'}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{member.email || 'Email no disponible'}</p>
                         </div>
                       </div>
                       
@@ -1279,10 +1279,10 @@ export function AccountSettings({
                         ) : (
                           getRoleBadge(member.role)
                         )}
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
                           Desde {new Date(member.joinedAt).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })}
                         </span>
-                        <ChevronRight className="h-4 w-4 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ChevronRight className="h-4 w-4 text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     </div>
                   ))}
@@ -1290,12 +1290,12 @@ export function AccountSettings({
               )}
 
               {/* Nota sobre funcionalidad */}
-              <div className="mt-6 pt-4 border-t border-gray-100">
-                <p className="text-xs text-gray-500 flex items-center gap-2">
-                  <span className="inline-block w-2 h-2 rounded-full bg-green-400"></span>
+              <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-400 dark:bg-green-500"></span>
                   Los propietarios pueden cambiar roles entre Admin y Member
                 </p>
-                <p className="text-xs text-gray-400 mt-1 ml-4">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 ml-4">
                   La eliminación de miembros estará disponible próximamente
                 </p>
               </div>
@@ -1304,31 +1304,31 @@ export function AccountSettings({
         )}
 
         {activeTab === 'audit' && (
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-4">Audit Log</h3>
-            <p className="text-sm text-gray-600 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-4">Audit Log</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
               Historial de auditoría del sistema. Solo visible para administradores y propietarios.
             </p>
             
             {loadingAuditLogs ? (
-              <p className="text-sm text-gray-500">Cargando registros de auditoría...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Cargando registros de auditoría...</p>
             ) : auditLogs.length === 0 ? (
-              <p className="text-sm text-gray-500">No hay registros de auditoría disponibles.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">No hay registros de auditoría disponibles.</p>
             ) : (
               <div className="space-y-4 max-h-96 overflow-y-auto">
                 {auditLogs.map((log) => (
-                  <div key={log.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                  <div key={log.id} className="border dark:border-gray-700 rounded-lg p-4 hover:bg-muted dark:hover:bg-gray-700 transition-colors">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-semibold text-gray-900">{log.action}</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="font-semibold text-foreground dark:text-white">{log.action}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
                           {new Date(log.createdAt).toLocaleString()}
                         </p>
                         {log.actor && (
-                          <p className="text-sm text-gray-500">Actor: {log.actor}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Actor: {log.actor}</p>
                         )}
                         {log.tool && (
-                          <p className="text-sm text-gray-500">Tool: {log.tool}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">Tool: {log.tool}</p>
                         )}
                       </div>
                       {log.severity && (
@@ -1337,7 +1337,7 @@ export function AccountSettings({
                             ? 'bg-red-100 text-red-800'
                             : log.severity === 'warning'
                             ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-blue-100 text-blue-800'
+                            : 'bg-blue-600 text-white'
                         }`}>
                           {log.severity}
                         </span>
@@ -1345,8 +1345,8 @@ export function AccountSettings({
                     </div>
                     {log.payload && (
                       <div className="mt-2">
-                        <p className="text-xs text-gray-500">Payload:</p>
-                        <pre className="text-xs bg-gray-50 p-2 rounded mt-1 overflow-x-auto">
+                        <p className="text-xs text-muted-foreground dark:text-gray-400">Payload:</p>
+                        <pre className="text-xs bg-muted dark:bg-gray-900 p-2 rounded mt-1 overflow-x-auto">
                           {JSON.stringify(log.payload, null, 2)}
                         </pre>
                       </div>

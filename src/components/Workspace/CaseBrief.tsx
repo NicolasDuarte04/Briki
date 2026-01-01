@@ -17,9 +17,9 @@ export default function CaseBrief() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <header className="pb-1">
-        <h1 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
           {t("title")}
-        </h1>
+        </h2>
       </header>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">

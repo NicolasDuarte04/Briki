@@ -290,7 +290,7 @@ export function CaseForm({ orgId, userId }: CaseFormProps) {
               <div className="space-y-2">
                 <p className="text-sm font-medium">Archivos subidos:</p>
                 {tempUploads.map((upload) => (
-                  <div key={upload.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                  <div key={upload.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-blue-500" />
                       <div>

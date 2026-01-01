@@ -45,6 +45,20 @@ export function pathForAgent(locale: Locale): string {
 }
 
 /**
+ * Get the login route
+ */
+export function pathForLogin(locale: Locale): string {
+  return `/${locale}/login`;
+}
+
+/**
+ * Get the contact route
+ */
+export function pathForContact(locale: Locale): string {
+  return `/${locale}/contact`;
+}
+
+/**
  * Get the cases route
  */
 export function pathForCases(locale: Locale): string {

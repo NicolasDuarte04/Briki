@@ -38,7 +38,7 @@ export default function PasswordField({ id, label, hint, errorMessage }: Passwor
           autoComplete="current-password"
           aria-describedby={describedBy}
           aria-invalid={Boolean(errorMessage)}
-          className="h-12 pr-14 border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+          className="h-12 pr-14 border-slate-300 bg-white text-slate-900 placeholder:text-slate-500"
         />
         <Button
           type="button"

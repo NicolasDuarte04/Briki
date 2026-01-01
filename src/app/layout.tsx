@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter, DM_Sans, Newsreader } from "next/font/google";
 import "./globals.css";
-import LoadingProvider from "@/components/LoadingProvider";
 import AuthProvider from "@/components/AuthProvider";
 import { ThemeProvider } from "@/lib/theme";
 import { Analytics } from "@vercel/analytics/next";
@@ -261,11 +260,9 @@ export default function RootLayout({
       <body className="antialiased min-h-screen flex flex-col">
         <ChunkLoadErrorBoundary>
           <ThemeProvider>
-            <LoadingProvider>
-              <AuthProvider>
-                {children}
-              </AuthProvider>
-            </LoadingProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
           </ThemeProvider>
         </ChunkLoadErrorBoundary>
         <Analytics />

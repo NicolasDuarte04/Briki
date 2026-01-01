@@ -2,7 +2,7 @@ import type { Config } from "tailwindcss";
 import defaultTheme from "tailwindcss/defaultTheme";
 
 const config: Config = {
-  // darkMode: ["class"], // Disabled for light-only theme
+  darkMode: ["class"],
   content: [
     "./src/app/**/*.{ts,tsx,mdx}",
     "./src/pages/**/*.{ts,tsx,mdx}",
@@ -78,6 +78,35 @@ const config: Config = {
         "chart-3": "hsl(var(--chart-3))",
         "chart-4": "hsl(var(--chart-4))",
         "chart-5": "hsl(var(--chart-5))",
+        
+        // Briki premium semantic tokens
+        "briki-bg": "var(--briki-bg)",
+        "briki-surface-1": "var(--briki-surface-1)",
+        "briki-surface-2": "var(--briki-surface-2)",
+        "briki-border": "var(--briki-border)",
+        "briki-border-subtle": "var(--briki-border-subtle)",
+        "briki-text": "var(--briki-text)",
+        "briki-text-muted": "var(--briki-text-muted)",
+        "briki-text-subtle": "var(--briki-text-subtle)",
+        "briki-primary": "var(--briki-primary)",
+        "briki-primary-surface": "var(--briki-primary-surface)",
+        "briki-primary-border": "var(--briki-primary-border)",
+        "briki-primary-foreground": "var(--briki-primary-foreground)",
+        "briki-success": "var(--briki-success)",
+        "briki-success-surface": "var(--briki-success-surface)",
+        "briki-success-border": "var(--briki-success-border)",
+        "briki-success-foreground": "var(--briki-success-foreground)",
+        "briki-warning": "var(--briki-warning)",
+        "briki-warning-surface": "var(--briki-warning-surface)",
+        "briki-warning-border": "var(--briki-warning-border)",
+        "briki-warning-foreground": "var(--briki-warning-foreground)",
+        "briki-info": "var(--briki-info)",
+        "briki-info-surface": "var(--briki-info-surface)",
+        "briki-info-border": "var(--briki-info-border)",
+        "briki-info-foreground": "var(--briki-info-foreground)",
+        "briki-accent-warm": "var(--briki-accent-warm)",
+        "briki-accent-warm-hover": "var(--briki-accent-warm-hover)",
+        "briki-accent-warm-active": "var(--briki-accent-warm-active)",
       },
       fontFamily: {
         sans: [

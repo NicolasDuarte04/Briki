@@ -17,7 +17,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useSafeTranslations } from '@/hooks/useSafeTranslations';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { pathForCases, pathForClients, getProfilePath, pathForAgent } from '@/lib/routes/workspace';
+import { pathForCases, pathForClients, getProfilePath, pathForLogin, pathForContact } from '@/lib/routes/workspace';
 
 export function LandingNavigation() {
   const [isDetached, setIsDetached] = useState(false);
@@ -115,9 +115,8 @@ export function LandingNavigation() {
   }, []);
 
   const navLinks = [
-    { label: t('features'), href: '#how' },
-    { label: t('demo'), href: '#demo' },
-    { label: t('pricing'), href: '#pricing' },
+    { label: t('features'), href: '#producto' },
+    { label: t('contact'), href: pathForContact(locale as 'en' | 'es') },
   ];
 
   const getUserInitials = () => {
@@ -233,8 +232,13 @@ export function LandingNavigation() {
           ? "rounded-full px-4 py-1 h-8 text-sm bg-[var(--briki-primary)] text-white hover:opacity-90"
           : "rounded-full px-4 py-1 h-8 text-sm bg-white/10 text-slate-50 hover:bg-white/20 border border-white/20"
         }
+        style={detached ? {
+          backgroundColor: 'rgba(250, 250, 250, 0.1)',
+          border: '1px solid rgba(219, 215, 215, 0.1)',
+          color: 'var(--briki-text)',
+        } : undefined}
       >
-        <Link href={pathForAgent(locale as 'en' | 'es')}>
+        <Link href={pathForLogin(locale as 'en' | 'es')}>
           {t('start')}
         </Link>
       </Button>
@@ -255,7 +259,13 @@ export function LandingNavigation() {
           />
         </div>
         <nav className="fixed top-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300" aria-label="Primary">
-        <div className="bg-white rounded-full px-6 py-2.5 shadow-[0_4px_16px_rgba(15,23,42,0.1)] flex items-center gap-6">
+        <div 
+          className="bg-white rounded-full px-6 py-2.5 shadow-[0_4px_16px_rgba(15,23,42,0.1)] flex items-center gap-6"
+          style={{
+            color: 'rgba(220, 232, 244, 0.1)',
+            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          }}
+        >
           <Link href="/" className="flex items-center gap-2">
             <Image 
               src="/brand/briki-logo-2.png" 
@@ -268,15 +278,34 @@ export function LandingNavigation() {
             <span className="text-sm font-semibold text-[var(--briki-text)] font-smooth">Briki</span>
           </Link>
           <div className="flex items-center gap-6">
-            {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-sm hover:opacity-70 transition-opacity text-[var(--briki-text-muted)] font-medium font-smooth"
-              >
-                {link.label}
-              </a>
-            ))}
+            {navLinks.map((link) => {
+              // Use anchor tag for hash links, Next.js Link for routes
+              const isHashLink = link.href.startsWith('#');
+              const linkClassName = "text-sm hover:opacity-70 transition-opacity text-[var(--briki-text-muted)] font-medium font-smooth";
+              
+              if (isHashLink) {
+                return (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className={linkClassName}
+                  >
+                    {link.label}
+                  </a>
+                );
+              }
+              
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={linkClassName}
+                  prefetch={true}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           </div>
           <div className="flex items-center gap-2">
             <AuthButton detached={true} />
@@ -301,7 +330,7 @@ export function LandingNavigation() {
       </div>
       <nav className="fixed top-0 left-0 right-0 z-50 transition-all duration-300" aria-label="Primary">
       <div className="max-w-screen-2xl mx-auto px-6 sm:px-8">
-        <div className="rounded-2xl bg-white/5 backdrop-blur-md px-6 py-3 flex items-center justify-between mt-6 border border-white/10">
+        <div className="rounded-[7px] bg-white/5 backdrop-blur-md px-6 py-3 flex items-center justify-between mt-6 border border-white/10">
           <Link href="/" className="flex items-center gap-2">
               <Image 
               src="/brand/briki-logo-2.png" 
@@ -315,15 +344,34 @@ export function LandingNavigation() {
             <span className="text-sm text-slate-50 font-medium font-smooth">Briki</span>
           </Link>
           <div className="flex items-center gap-8">
-            {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-sm text-slate-100/85 hover:text-slate-50 transition-colors font-medium font-smooth"
-              >
-                {link.label}
-              </a>
-            ))}
+            {navLinks.map((link) => {
+              // Use anchor tag for hash links, Next.js Link for routes
+              const isHashLink = link.href.startsWith('#');
+              const linkClassName = "text-sm text-slate-100/85 hover:text-slate-50 transition-colors font-medium font-smooth";
+              
+              if (isHashLink) {
+                return (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className={linkClassName}
+                  >
+                    {link.label}
+                  </a>
+                );
+              }
+              
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={linkClassName}
+                  prefetch={true}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
             <div className="flex items-center gap-2">
               <AuthButton detached={false} />
             </div>

@@ -23,7 +23,9 @@ export default function AuthLayout({
           className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm font-semibold text-slate-600 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
           aria-label="Back to Briki homepage"
         >
-          <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-600">
+          <span 
+            className="relative flex h-10 w-10 items-center justify-center rounded-full"
+          >
             <Image
               src="/brand/briki-logo-2.png"
               alt=""
@@ -34,7 +36,17 @@ export default function AuthLayout({
               priority
             />
           </span>
-          <span className="text-base font-semibold tracking-tight">Briki</span>
+          <span 
+            className="text-xl font-bold tracking-tight"
+            style={{ 
+              color: 'rgba(255, 255, 255, 1)',
+              position: 'absolute',
+              left: '109px',
+              top: '51px'
+            }}
+          >
+            Briki
+          </span>
         </Link>
       </header>
       {children}

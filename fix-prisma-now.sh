@@ -13,8 +13,8 @@ echo "✅ Cleaned up conflicting files"
 # Set environment variables from .env.local
 echo ""
 echo "2. Loading environment variables..."
-export DATABASE_URL="postgresql://postgres.vkzukorwsllzhpnzdmlo:nebnob-gegvYt-hoccu7@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true"
-export DIRECT_URL="postgresql://postgres.vkzukorwsllzhpnzdmlo:nebnob-gegvYt-hoccu7@aws-1-us-east-2.pooler.supabase.com:5432/postgres"
+export DATABASE_URL="postgresql://postgres.vkzukorwsllzhpnzdmlo:7lf2JjMHfDy2Wbtq@aws-1-us-east-2.pooler.supabase.com:6543/postgres?pgbouncer=true"
+export DIRECT_URL="postgresql://postgres.vkzukorwsllzhpnzdmlo:7lf2JjMHfDy2Wbtq@aws-1-us-east-2.pooler.supabase.com:5432/postgres"
 echo "✅ Environment variables set"
 
 # Generate Prisma client

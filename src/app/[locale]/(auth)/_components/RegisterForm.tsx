@@ -103,18 +103,18 @@ export default function RegisterForm(): JSX.Element {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-[440px] space-y-8">
+    <form onSubmit={handleSubmit} className="w-full max-w-[440px] space-y-6">
       {/* Server Error */}
       {serverError && (
-        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-md bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
           {serverError}
         </div>
       )}
       
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Email Field */}
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email" style={{ color: 'rgba(249, 249, 251, 1)' }}>Email address</Label>
           <Input
             id="email"
             type="email"
@@ -126,11 +126,11 @@ export default function RegisterForm(): JSX.Element {
             onBlur={() => setTouched((prev) => ({ ...prev, email: true }))}
             aria-invalid={showEmailError ? "true" : "false"}
             aria-describedby={showEmailError ? "email-error" : undefined}
-            className="h-11"
+            className="h-11 bg-white/5 border-white/20 text-white placeholder:text-white/40 focus:border-white/40 focus:ring-white/10"
             disabled={isLoading}
           />
           {showEmailError && (
-            <p id="email-error" className="text-sm text-destructive">
+            <p id="email-error" className="text-sm text-red-400">
               {emailError}
             </p>
           )}
@@ -138,7 +138,7 @@ export default function RegisterForm(): JSX.Element {
 
         {/* Password Field */}
         <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password" style={{ color: 'rgba(249, 249, 251, 1)' }}>Password</Label>
           <div className="relative">
             <Input
               id="password"
@@ -153,13 +153,13 @@ export default function RegisterForm(): JSX.Element {
               }}
               aria-invalid={showPasswordError ? "true" : "false"}
               aria-describedby={showPasswordError ? "password-error" : undefined}
-              className="h-11 pr-11"
+              className="h-11 pr-11 bg-white/5 border-white/20 text-white placeholder:text-white/40 focus:border-white/40 focus:ring-white/10"
               disabled={isLoading}
             />
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
-              className="absolute right-0 top-0 h-11 w-11 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+              className="absolute right-0 top-0 h-11 w-11 flex items-center justify-center text-white/60 hover:text-white transition-colors disabled:opacity-50"
               aria-label={showPassword ? "Hide password" : "Show password"}
               disabled={isLoading}
             >
@@ -171,7 +171,7 @@ export default function RegisterForm(): JSX.Element {
             </button>
           </div>
           {showPasswordError && (
-            <p id="password-error" className="text-sm text-destructive">
+            <p id="password-error" className="text-sm text-red-400">
               {passwordError}
             </p>
           )}
@@ -179,24 +179,30 @@ export default function RegisterForm(): JSX.Element {
       </div>
 
       {/* Primary Action */}
-      <div className="space-y-4">
-        <Button type="submit" className="w-full h-11" disabled={isLoading}>
+      <div className="space-y-3">
+        <Button 
+          type="submit" 
+          className="w-full h-11 bg-[#F6EFEF] text-[#0F172A] hover:bg-[#F6EFEF]/90 transition-colors font-medium" 
+          disabled={isLoading}
+        >
           {isLoading ? 'Creating account...' : 'Create account'}
         </Button>
 
         {/* Policy Line */}
-        <p className="text-sm text-muted-foreground text-center">
+        <p className="text-sm text-center" style={{ color: 'rgba(255, 255, 255, 0.6)' }}>
           By selecting &ldquo;Create account&rdquo;, I agree to the{" "}
           <Link
             href="/privacy"
-            className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            style={{ color: 'rgba(255, 255, 255, 1)' }}
           >
             Privacy Policy
           </Link>{" "}
           and{" "}
           <Link
             href="/terms"
-            className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            style={{ color: 'rgba(255, 255, 255, 1)' }}
           >
             Terms of Use
           </Link>
@@ -206,10 +212,11 @@ export default function RegisterForm(): JSX.Element {
 
       {/* Sign In Link */}
       <div className="text-center text-sm">
-        <span className="text-muted-foreground">Already have an account? </span>
+        <span style={{ color: 'rgba(255, 255, 255, 0.6)' }}>Already have an account? </span>
         <Link
           href="/login"
-          className="text-primary underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="underline hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          style={{ color: 'rgba(255, 255, 255, 1)' }}
         >
           Sign in
         </Link>

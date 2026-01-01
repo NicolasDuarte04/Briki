@@ -9,9 +9,10 @@ import type { Case } from "@/lib/types";
 
 interface SidebarChatPanelProps {
   cases: Case[];
+  locale: string;
 }
 
-export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
+export default function SidebarChatPanel({ cases, locale }: SidebarChatPanelProps) {
   const { closeChatPanel } = useUI();
   const router = useRouter();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -135,9 +136,6 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
     closeChatPanel();
 
     // Navegar a placeholder para nuevo chat
-    const currentPath = window.location.pathname;
-    const localeMatch = currentPath.match(/\/(es|en)\//);
-    const locale = localeMatch ? localeMatch[1] : 'es';
     router.push(`/${locale}/agent/new-thread-placeholder`);
   };
 
@@ -206,9 +204,6 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
         console.log(`✅ [SidebarChatPanel] Zustand updated for case ${caseId} (tempUploads limpiados)`);
 
         // --- PASO 5: Navegar al Agente ---
-        const currentPath = window.location.pathname;
-        const localeMatch = currentPath.match(/\/(es|en)\//);
-        const locale = localeMatch ? localeMatch[1] : 'es';
         const targetUrl = `/${locale}/agent/${caseId}`;
         console.log(`✅ [SidebarChatPanel] Navigating to: ${targetUrl}`);
         router.push(targetUrl); // Usar router.push para navegación SPA

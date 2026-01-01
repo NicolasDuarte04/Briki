@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import Canvas from "@/components/Canvas";
 import Hotkeys from "@/components/Hotkeys";
 import Landing from "@/components/Landing";
-import FooterNav from "@/components/FooterNav";
 import { useUI, type UIStep } from "@/lib/ui/state";
 import { motion, AnimatePresence } from "framer-motion";
 import WorkspaceTabs from "@/components/Workspace/Tabs";
@@ -466,7 +465,6 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
                     <div>Current step: {currentStep}</div>
                   </div>
                 )}
-                <FooterNav className="mt-4" fullBleed />
               </motion.div>
             </div>
           )}

@@ -1,140 +1,156 @@
 'use client';
-import React from 'react';
-import type { ComponentProps, ReactNode } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
-import { InstagramIcon, LinkedinIcon, YoutubeIcon, MailIcon } from 'lucide-react';
-import Image from 'next/image';
-import { useSafeTranslations } from '@/hooks/useSafeTranslations';
 
-interface FooterLink {
-	title: string;
-	href: string;
-	icon?: React.ComponentType<{ className?: string }>;
-}
-
-interface FooterSection {
-	label: string;
-	links: FooterLink[];
-}
-
+/**
+ * LandingFooter - Minimal footer section
+ * 
+ * Mirrors Cursor's footer with organized link columns and social links.
+ * Muted typography, low contrast, cohesive with overall design.
+ */
 export function LandingFooter() {
-    const { t } = useSafeTranslations('footer');
+  const footerSections = [
+    {
+      title: 'Product',
+      links: [
+        { label: 'Features', href: '#features' },
+        { label: 'Workspace', href: '#workspace' },
+        { label: 'AI Assistant', href: '#ai-assistant' },
+      ],
+    },
+    {
+      title: 'Resources',
+      links: [
+        { label: 'Docs', href: '#docs' },
+        { label: 'Changelog', href: '#changelog' },
+        { label: 'Status', href: '#status' },
+      ],
+    },
+    {
+      title: 'Company',
+      links: [
+        { label: 'About', href: '#about' },
+        { label: 'Careers', href: '#careers' },
+        { label: 'Contact', href: '#contact' },
+      ],
+    },
+    {
+      title: 'Legal',
+      links: [
+        { label: 'Terms', href: '#terms' },
+        { label: 'Privacy', href: '#privacy' },
+      ],
+    },
+    {
+      title: 'Connect',
+      links: [
+        { label: 'LinkedIn', href: '#linkedin' },
+        { label: 'X', href: '#x' },
+        { label: 'YouTube', href: '#youtube' },
+      ],
+    },
+  ];
 
-    const footerLinks: FooterSection[] = [
-        {
-            label: t('product.label'),
-            links: [
-                { title: t('product.links.features'), href: '#how' },
-                { title: t('product.links.pricing'), href: '#pricing' },
-                { title: t('product.links.demo'), href: '#demo' },
-                { title: t('product.links.integration'), href: '/' },
-            ],
-        },
-        {
-            label: t('company.label'),
-            links: [
-                { title: t('company.links.about'), href: '/about' },
-                { title: t('company.links.careers'), href: 'mailto:talent@brikiapp.com' },
-                { title: t('company.links.privacy'), href: '/privacy' },
-                { title: t('company.links.terms'), href: '/terms' },
-            ],
-        },
-        {
-            label: t('resources.label'),
-            links: [
-                { title: t('resources.links.help'), href: '/help' },
-                { title: t('resources.links.contact'), href: 'mailto:contact@brikiapp.com' },
-                { title: t('resources.links.blog'), href: '/blog' },
-                { title: t('resources.links.documentation'), href: '/docs' },
-            ],
-        },
-        {
-            label: t('social.label'),
-            links: [
-                { title: t('social.links.linkedin'), href: 'https://www.linkedin.com/company/brikiapp/', icon: LinkedinIcon },
-                { title: t('social.links.email'), href: 'mailto:contact@brikiapp.com', icon: MailIcon },
-                { title: t('social.links.instagram'), href: '#', icon: InstagramIcon },
-                { title: t('social.links.youtube'), href: '#', icon: YoutubeIcon },
-            ],
-        },
-    ];
-	return (
-		<footer className="md:rounded-t-6xl relative w-full flex flex-col items-center justify-center rounded-t-4xl border-t bg-white px-6 pt-12 pb-32 lg:pt-16 lg:pb-40">
-			<div className="bg-foreground/20 absolute top-0 right-1/2 left-1/2 h-px w-1/3 -translate-x-1/2 -translate-y-1/2 rounded-full blur" />
+  return (
+    <footer
+      className="relative w-full py-16 px-6 sm:px-8 border-t"
+      style={{
+        backgroundColor: 'rgba(21, 26, 30, 1)',
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+      }}
+      aria-labelledby="footer-heading"
+    >
+      <div className="w-full max-w-[1200px] mx-auto">
+        {/* Footer grid */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+          {footerSections.map((section, index) => (
+            <div key={index}>
+              <h3
+                className="mb-4"
+                style={{
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  letterSpacing: '0.01em',
+                }}
+              >
+                {section.title}
+              </h3>
+              <ul className="space-y-3">
+                {section.links.map((link, linkIndex) => (
+                  <li key={linkIndex}>
+                    <a
+                      href={link.href}
+                      className="transition-colors duration-200 hover:text-briki-accent-warm"
+                      style={{
+                        fontSize: '14px',
+                        color: 'rgba(248, 250, 252, 0.5)',
+                        fontWeight: '400',
+                      }}
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
 
-			<div className="grid w-full max-w-6xl mx-auto gap-8 xl:grid-cols-3 xl:gap-8">
-				<AnimatedContainer className="space-y-4">
-					<div className="flex items-center gap-2">
-						<Image
-							src="/brand/briki-logo-2.png"
-							alt="Briki logo"
-							width={32}
-							height={32}
-							className="w-8 h-8"
-							priority
-						/>
-						<span className="text-lg font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent select-none font-inter">
-							Briki
-						</span>
-					</div>
-					<p className="text-muted-foreground mt-8 text-sm md:mt-0">
-						© {new Date().getFullYear()} Briki. {t('rights')}
-					</p>
-				</AnimatedContainer>
-
-				<div className="mt-10 grid grid-cols-2 gap-8 md:grid-cols-4 xl:col-span-2 xl:mt-0">
-					{footerLinks.map((section, index) => (
-						<AnimatedContainer key={section.label} delay={0.1 + index * 0.1}>
-							<div className="mb-10 md:mb-0">
-								<h3 className="text-xs font-semibold text-foreground mb-4">{section.label}</h3>
-								<ul className="text-muted-foreground mt-4 space-y-2 text-sm">
-									{section.links.map((link) => (
-										<li key={link.title}>
-											<a
-												href={link.href}
-												className="hover:text-foreground inline-flex items-center transition-all duration-300"
-												target={link.href.startsWith('http') ? '_blank' : undefined}
-												rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-											>
-												{link.icon && <link.icon className="me-1 size-4" />}
-												{link.title}
-											</a>
-										</li>
-									))}
-								</ul>
-							</div>
-						</AnimatedContainer>
-					))}
-				</div>
-			</div>
-		</footer>
-	);
+        {/* Bottom bar */}
+        <div
+          className="pt-8 border-t flex flex-col md:flex-row justify-between items-center gap-4"
+          style={{
+            borderColor: 'rgba(255, 255, 255, 0.06)',
+          }}
+        >
+          <p
+            style={{
+              fontSize: '13px',
+              color: 'rgba(248, 250, 252, 0.4)',
+              fontWeight: '400',
+            }}
+          >
+            © 2025 Briki. All rights reserved.
+          </p>
+          <div className="flex items-center gap-6">
+            <a
+              href="#linkedin"
+              className="transition-colors duration-200 hover:text-briki-accent-warm"
+              style={{
+                fontSize: '13px',
+                color: 'rgba(248, 250, 252, 0.4)',
+                fontWeight: '400',
+              }}
+              aria-label="LinkedIn"
+            >
+              LinkedIn
+            </a>
+            <a
+              href="#x"
+              className="transition-colors duration-200 hover:text-briki-accent-warm"
+              style={{
+                fontSize: '13px',
+                color: 'rgba(248, 250, 252, 0.4)',
+                fontWeight: '400',
+              }}
+              aria-label="X (Twitter)"
+            >
+              X
+            </a>
+            <a
+              href="#youtube"
+              className="transition-colors duration-200 hover:text-briki-accent-warm"
+              style={{
+                fontSize: '13px',
+                color: 'rgba(248, 250, 252, 0.4)',
+                fontWeight: '400',
+              }}
+              aria-label="YouTube"
+            >
+              YouTube
+            </a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
 }
-
-type ViewAnimationProps = {
-	delay?: number;
-	className?: string;
-	children: ReactNode;
-};
-
-function AnimatedContainer({ className, delay = 0.1, children }: ViewAnimationProps) {
-	const shouldReduceMotion = useReducedMotion();
-
-	if (shouldReduceMotion) {
-		return <div className={className}>{children}</div>;
-	}
-
-	return (
-		<div className={className}>
-			<motion.div
-				initial={{ filter: 'blur(4px)', translateY: -8, opacity: 0 }}
-				whileInView={{ filter: 'blur(0px)', translateY: 0, opacity: 1 }}
-				viewport={{ once: true }}
-				transition={{ delay, duration: 0.8 }}
-			>
-				{children}
-			</motion.div>
-		</div>
-	);
-}
-

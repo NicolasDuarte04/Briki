@@ -1,5 +1,6 @@
 // src/lib/helpers/getCurrentOrg.ts
 import { redirect } from 'next/navigation';
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { getUserOrganizations } from '@/app/actions/organizationActions';
 import { checkDatabaseHealth } from '@/lib/prisma';
@@ -10,9 +11,9 @@ import { checkDatabaseHealth } from '@/lib/prisma';
  * 
  * @returns {Promise<{ user, currentOrg }>} Usuario autenticado y su organización actual
  * @throws {redirect} Redirige a /login si no hay usuario
- * @throws {redirect} Redirige a /onboarding/organization si no hay organización
+ * @throws {redirect} Redirige a /onboarding/organization si no hay organización (salvo que redirectIfNoOrg sea false)
  */
-export async function getCurrentOrg() {
+export async function getCurrentOrg(options: { redirectIfNoOrg?: boolean } = { redirectIfNoOrg: true }) {
     // ✅ CORRECCIÓN CRÍTICA: Verificación exhaustiva de variables de entorno
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
         console.error('❌ Supabase environment variables are not configured.');
@@ -51,6 +52,17 @@ export async function getCurrentOrg() {
                 break; // Éxito, salir del loop
             } catch (prismaError: any) {
                 retryCount++;
+
+                // ✅ NUEVO: Detectar errores fatales de autenticación para no reintentar
+                if (
+                    prismaError.message?.includes('authentication failed') ||
+                    prismaError.message?.includes('password authentication failed') ||
+                    prismaError.message?.includes('Circuit breaker open') ||
+                    prismaError.message?.includes('Too many authentication errors')
+                ) {
+                    console.error('❌ Fatal authentication error:', prismaError.message);
+                    throw new Error(`Database authentication failed: ${prismaError.message}`);
+                }
 
                 // ✅ CORRECCIÓN CRÍTICA: Detectar errores de conexión por código Y por mensaje
                 // PrismaClientInitializationError puede no tener código P1001, pero tiene el mensaje específico
@@ -114,7 +126,11 @@ export async function getCurrentOrg() {
         }
 
         if (!organizations || organizations.length === 0) {
-            redirect('/onboarding/organization');
+            if (options.redirectIfNoOrg) {
+                redirect('/onboarding/organization');
+            } else {
+                return { user, currentOrg: null };
+            }
         }
 
         // ✅ CORRECCIÓN CRÍTICA: Leer preferencia de organización activa del usuario
@@ -151,12 +167,22 @@ export async function getCurrentOrg() {
 
         if (!currentOrg) {
             console.error("Organization data is missing in the membership object.");
-            redirect('/onboarding/organization');
+            if (options.redirectIfNoOrg) {
+                redirect('/onboarding/organization');
+            } else {
+                return { user, currentOrg: null };
+            }
         }
 
         return { user, currentOrg };
 
     } catch (error: any) {
+        // ✅ CORRECCIÓN: No loguear los redirects de Next.js como errores
+        // redirect() lanza un error especial NEXT_REDIRECT que debe propagarse
+        if (isRedirectError(error)) {
+            throw error;
+        }
+        
         console.error('❌ An error occurred in getCurrentOrg:', error.message);
         // Si es un error de timeout, el log lo mostrará.
         // Volver a lanzar el error para que la API que lo llama pueda manejarlo y devolver un 500.

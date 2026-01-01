@@ -15,6 +15,12 @@ const badgeVariants = cva(
           "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
         destructive:
           "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20",
+        success:
+          "bg-briki-success-surface text-briki-success border-briki-success-border [a&]:hover:opacity-90",
+        warning:
+          "bg-briki-warning-surface text-briki-warning border-briki-warning-border [a&]:hover:opacity-90",
+        info:
+          "bg-briki-info-surface text-briki-info border-briki-info-border [a&]:hover:opacity-90",
         outline:
           "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
       },

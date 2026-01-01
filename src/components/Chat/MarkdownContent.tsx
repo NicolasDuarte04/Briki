@@ -245,7 +245,7 @@ export const MarkdownContent = React.memo<MarkdownContentProps>(function Markdow
           <Button
             variant="secondary"
             size="sm"
-            className="mx-1 h-6 px-2 text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 border-blue-200 inline-flex items-center"
+            className="mx-1 h-6 px-2 text-xs bg-blue-600 text-white hover:bg-blue-700 border-blue-600 inline-flex items-center"
             onClick={(e) => {
               e.preventDefault(); // ✅ CRÍTICO: Prevenir navegación por defecto
               e.stopPropagation(); // ✅ CRÍTICO: Evitar propagación del evento

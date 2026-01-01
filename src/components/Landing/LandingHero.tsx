@@ -1,80 +1,117 @@
 'use client';
 
-import { LandingChatInput } from '@/components/Landing/LandingChatInput';
-import { useEffect } from 'react';
-import { useSafeTranslations } from '@/hooks/useSafeTranslations';
-import { useLocale } from 'next-intl';
-import { trackEvent } from '@/lib/analytics';
-import { pathForAgent } from '@/lib/routes/workspace';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { useLocale } from 'next-intl';
+import { pathForLogin } from '@/lib/routes/workspace';
+import Link from 'next/link';
+import Image from 'next/image';
+import { LandingDashboardDemo } from './demos/LandingDashboardDemo';
 
 export function LandingHero() {
-  const bgVariant = process.env.NEXT_PUBLIC_HERO_BG === 'concept' ? 'concept' : 'wave';
-  const { t } = useSafeTranslations('landing.hero');
   const locale = useLocale();
 
-  useEffect(() => {
-    trackEvent('hero_view', { bgVariant });
-  }, [bgVariant]);
-
   return (
-    <section className="landing-hero-section relative min-h-screen flex items-center justify-center overflow-hidden pt-[30px] md:pt-[40px] lg:pt-[50px]" aria-labelledby="landing-hero-heading">
-      {/* Wave background */}
-      <div className={bgVariant === 'concept' ? 'landing-hero-concept' : 'landing-hero'} aria-hidden="true" />
-      
-      {/* Soft fades and vignette to keep wave visible but increase contrast */}
-      <div className="landing-hero-fade" />
-      <div className="landing-hero-vignette" />
-      
-      {/* Content */}
-      <div className="relative z-10 w-full max-w-[1040px] mx-auto px-4 sm:px-6 md:px-8 text-center">
-        <div>
-          {/* Headline: Two-line lockup with controlled break */}
+    <section 
+      className="relative min-h-screen flex flex-col px-6 sm:px-8 pt-40 pb-20"
+      style={{ backgroundColor: 'rgba(21, 26, 30, 1)', color: 'rgba(245, 250, 255, 1)' }}
+      aria-labelledby="hero-heading"
+    >
+      <div className="w-full max-w-[1400px] mx-auto">
+        {/* Hero text content - left aligned */}
+        <div className="mb-16">
           <h1 
-            id="landing-hero-heading" 
-            className="text-center font-serif text-5xl md:text-6xl lg:text-[74px] text-white"
+            id="hero-heading"
+            className="text-[#F1F5F9] mb-6"
             style={{
-              textShadow: '0 1px 2px rgba(0, 0, 0, 0.15)'
+              fontSize: '33px',
+              lineHeight: '1',
+              letterSpacing: '-0.02em',
+              backgroundImage: 'none',
+              backgroundClip: 'unset',
+              WebkitBackgroundClip: 'unset',
+              color: 'rgba(255, 255, 255, 0.85)',
+              fontWeight: '400',
+              backgroundColor: 'unset',
+              background: 'unset',
+              borderColor: 'rgba(0, 0, 0, 0)',
+              borderStyle: 'none',
+              borderImage: 'none',
+              display: 'flex',
+              justifyContent: 'flex-start',
+              alignItems: 'flex-start',
+              gap: '0px',
+              flexWrap: 'wrap'
             }}
           >
-            <span className="block font-semibold">El Nuevo Estándar</span>
-            <span className="block font-semibold">IA Para Brokers</span>
+            The best way to run brokerage.
           </h1>
           
-          {/* Spacing between headline and CTAs responsive */}
-          <div className="h-10 sm:h-12 md:h-12 lg:h-14 xl:h-14"></div>
+          <p 
+            className="text-[#94A3B8] mb-8"
+            style={{
+              fontSize: 'clamp(1.125rem, 1.5vw, 1.25rem)',
+              lineHeight: '1.5',
+              color: 'rgba(248, 250, 252, 0.7)'
+            }}
+          >
+            Briki automates 95% of busy work.
+          </p>
           
-          {/* CTA Button */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-            <Button
-              asChild
-              variant="default"
-              size="sm"
-              className="rounded-full border border-white/20 bg-white/5 text-sm font-semibold text-white shadow-sm backdrop-blur-xl transition-all duration-300 hover:bg-white/10 hover:border-white/30 hover:shadow-md h-8 px-4"
-              onClick={() => {
-                trackEvent('hero_cta_click', { type: 'primary' });
+          <Button
+            asChild
+            className="rounded-full bg-white text-[#050505] hover:bg-white/90 px-6 py-2 text-sm font-semibold h-auto"
+          >
+            <Link href={pathForLogin(locale as 'en' | 'es')}>
+              Start Now!
+            </Link>
+          </Button>
+        </div>
+        
+        {/* Dashboard container - premium demo showcase */}
+        <div 
+          className="relative w-full rounded-[5px] border border-[#334155]/30 p-8 sm:p-14 shadow-[0_8px_40px_rgba(0,0,0,0.24)] overflow-hidden"
+          style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', minHeight: '700px' }}
+        >
+          {/* Art background layer - hidden on mobile for performance */}
+          <div className="absolute inset-0 pointer-events-none hidden sm:block" style={{ zIndex: 0 }}>
+            <Image
+              src="/landing/landscape.png"
+              alt=""
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1200px"
+              style={{
+                objectFit: 'cover',
+                objectPosition: 'center',
+                opacity: 0.95,
               }}
-            >
-              <Link
-                href={pathForAgent(locale as 'en' | 'es')}
-                aria-describedby="landing-hero-heading"
-              >
-                {t('primaryCta')}
-              </Link>
-            </Button>
+              aria-hidden="true"
+            />
+            {/* Subtle vignette overlay - minimal edge fade */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background: 'radial-gradient(circle at 50% 50%, transparent 60%, rgba(21, 26, 30, 0.15) 90%, rgba(21, 26, 30, 0.3) 100%)',
+                pointerEvents: 'none',
+              }}
+              aria-hidden="true"
+            />
           </div>
-          
-          {/* Composer: narrowed for processing fluency */}
-          <div className="mt-1 sm:mt-2 md:mt-2 lg:mt-3">
-            <LandingChatInput />
+
+          {/* Content layer - stays above background */}
+          <div className="relative w-full rounded-[10px]" style={{ zIndex: 10 }}>
+            {/* Dashboard Demo - sized to show art around it */}
+            <div className="w-full flex justify-center rounded-[10px]">
+              <div 
+                className="w-full max-w-[1100px] rounded-md border border-[#64748B]/20 shadow-[0_16px_64px_rgba(0,0,0,0.4)] overflow-hidden"
+                style={{ height: '600px' }}
+              >
+                <LandingDashboardDemo />
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      
-      {/* Navigation sentinel */}
-      <div id="nav-sentinel" className="absolute bottom-0 left-0 right-0 h-1" aria-hidden="true" />
     </section>
   );
 }
-

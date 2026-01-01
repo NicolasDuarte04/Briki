@@ -11,10 +11,12 @@ export default function BrikiSidebarLayout({
   children,
   className,
   disableAutoCollapse = false,
+  locale,
 }: {
   children: React.ReactNode;
   className?: string;
   disableAutoCollapse?: boolean;
+  locale: string;
 }) {
   // 🔍 DEBUG: Log children recibidos
   console.log('🔍 [BrikiSidebarLayout] Renderizando con children:', {
@@ -37,7 +39,7 @@ export default function BrikiSidebarLayout({
     <div className={cn("flex min-h-screen w-full", className)}>
         <Sidebar open={sidebarOpen} setOpen={(value) => setSidebarOpen(typeof value === 'function' ? value(sidebarOpen) : value)} disableAutoCollapse={disableAutoCollapse || chatPanelOpen}>
           <SidebarBody className="border-r border-border/60 h-screen">
-            <AgentSidebar />
+            <AgentSidebar locale={locale} />
           </SidebarBody>
         </Sidebar>
         <div
@@ -48,9 +50,9 @@ export default function BrikiSidebarLayout({
           <DashboardHeader />
           
           {/* Contenido principal con scroll independiente */}
-          <main className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto">
             {children}
-          </main>
+          </div>
         </div>
       </div>
   );

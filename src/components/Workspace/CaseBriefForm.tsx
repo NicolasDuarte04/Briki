@@ -504,9 +504,9 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
     return (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-1">
             <header className="pb-2 flex justify-between items-center">
-                <h1 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
                     {t("title")}
-                </h1>
+                </h2>
                 {!isEditing && (
                     <Button variant="outline" size="sm" onClick={handleEdit}>
                         Editar
