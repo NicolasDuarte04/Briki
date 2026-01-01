@@ -56,6 +56,7 @@ model User {
   profile                     Profile?
   invitations_sent            org_invitations[]      @relation("InvitationsSent")
   invitations_received        org_invitations[]      @relation("InvitationsReceived")
+  userPreferences             UserPreferences?       // ✅ SINCRONIZADO: Relación con preferencias de usuario
 
   @@index([instance_id])
   @@index([is_anonymous])
@@ -421,16 +422,27 @@ model Artifact {
 }
 
 model AuditLog {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  caseId      String?  @map("case_id") @db.Uuid // ✅ Opcional: NULL para eventos de clients u otros recursos sin caso
-  actor       String   @db.VarChar(255)
-  action      String   @db.VarChar(100)
-  tool        String?  @db.VarChar(50)
-  payloadHash String?  @map("payload_hash") @db.VarChar(64)
-  payload     Json?
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  case        Case?    @relation(fields: [caseId], references: [id], onDelete: Cascade) // ✅ Opcional: NULL para eventos sin caso
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId       String?  @map("case_id") @db.Uuid // ✅ Opcional: NULL para eventos de clients u otros recursos sin caso
+  orgId        String?  @map("org_id") @db.Uuid // ✅ SINCRONIZADO: Columna existente en BD
+  userId       String?  @map("user_id") @db.Uuid // ✅ SINCRONIZADO: Columna existente en BD
+  actor        String   @db.VarChar(255)
+  action       String   @db.VarChar(100)
+  tool         String?  @db.VarChar(50)
+  resourceType String?  @map("resource_type") @db.VarChar(50) // ✅ SINCRONIZADO: 'case', 'artifact', 'client', etc.
+  resourceId   String?  @map("resource_id") @db.Uuid // ✅ SINCRONIZADO: ID del recurso afectado
+  severity     String?  @db.VarChar(20) // ✅ SINCRONIZADO: 'info', 'warning', 'error', 'critical'
+  ipAddress    String?  @map("ip_address") @db.VarChar(45) // ✅ SINCRONIZADO: IPv4/IPv6
+  userAgent    String?  @map("user_agent") // ✅ SINCRONIZADO: User agent del navegador
+  payloadHash  String?  @map("payload_hash") @db.VarChar(64)
+  payload      Json?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  case         Case?    @relation(fields: [caseId], references: [id], onDelete: Cascade) // ✅ Opcional: NULL para eventos sin caso
 
+  @@index([orgId], map: "idx_audit_log_org_id")
+  @@index([userId], map: "idx_audit_log_user_id")
+  @@index([resourceType], map: "idx_audit_log_resource_type")
+  @@index([createdAt(sort: Desc)], map: "idx_audit_log_created_at")
   @@map("audit_log")
   @@schema("public")
 }
@@ -503,6 +515,7 @@ model organizations {
   clients         clients[]
   org_members     org_members[]
   org_invitations org_invitations[]
+  userPreferences UserPreferences[] // ✅ SINCRONIZADO: Usuarios con esta org como activa
 
   @@index([slug], map: "idx_organizations_slug")
   @@schema("public")
@@ -554,73 +567,47 @@ model api_keys {
   @@schema("public")
 }
 
-model Account {
-  id                String      @id
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-  User              public_User @relation(fields: [userId], references: [id], onDelete: Cascade)
+/// ============================================================================
+/// USER PREFERENCES - Sincronizado con migración 20251213
+/// ============================================================================
+/// Almacena preferencias de usuario incluyendo organización activa para multi-tenancy
+/// Source: migrations/20251213_multitenancy_context_switching_enhancement.sql
+model UserPreferences {
+  id                      String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                  String         @unique @map("user_id") @db.Uuid
+  activeOrgId             String?        @map("active_org_id") @db.Uuid
+  uiPreferences           Json?          @default("{}") @map("ui_preferences")
+  notificationPreferences Json?          @default("{\"email\": true, \"push\": false, \"renewalReminders\": true, \"policyAlerts\": true}") @map("notification_preferences")
+  createdAt               DateTime?      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime?      @default(now()) @map("updated_at") @db.Timestamptz(6)
 
-  @@unique([provider, providerAccountId])
+  // ✅ Relaciones
+  user                    User           @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  activeOrg               organizations? @relation(fields: [activeOrgId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([userId], map: "idx_user_preferences_user_id")
+  @@index([activeOrgId], map: "idx_user_preferences_active_org_id")
+  @@map("user_preferences")
   @@schema("public")
 }
 
-model public_Profile {
-  id                  String      @id
-  userId              String      @unique
-  name                String?
-  locale              String      @default("en")
-  onboardingCompleted Boolean     @default(false)
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime
-  User                public_User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("Profile")
-  @@schema("public")
-}
-
-model Session {
-  id           String      @id
-  sessionToken String      @unique
-  userId       String
-  expires      DateTime
-  User         public_User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@schema("public")
-}
-
-model public_User {
-  id            String          @id
-  name          String?
-  email         String?         @unique
-  emailVerified DateTime?
-  image         String?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime
-  Account       Account[]
-  Profile       public_Profile?
-  Session       Session[]
-
-  @@map("User")
-  @@schema("public")
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
-  @@schema("public")
-}
+/// ============================================================================
+/// MODELOS LEGACY NEXTAUTH - ELIMINADOS 2025-12-31
+/// ============================================================================
+/// Los siguientes modelos fueron eliminados porque:
+/// 1. Las tablas en BD estaban vacías (0 registros)
+/// 2. La autenticación se maneja completamente con Supabase Auth
+/// 3. No había código que los referenciara
+///
+/// Modelos eliminados:
+/// - Account (reemplazado por auth.identities)
+/// - Session (reemplazado por auth.sessions)
+/// - VerificationToken (manejado por Supabase Auth)
+/// - public_User (reemplazado por auth.users)
+/// - public_Profile (reemplazado por public.profiles)
+///
+/// Migración SQL: 20251231_remove_nextauth_legacy_tables_final.sql
+/// ============================================================================
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model oauth_authorizations {

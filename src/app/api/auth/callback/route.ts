@@ -19,13 +19,13 @@ export async function GET(request: NextRequest) {
   
   // Construir URL de redirect preservando query params
   const redirectUrl = new URL('/auth/callback', requestUrl.origin)
-  
+
   if (code) {
     redirectUrl.searchParams.set('code', code)
   }
   if (next) {
     redirectUrl.searchParams.set('next', next)
-  }
+    }
   
   return NextResponse.redirect(redirectUrl)
 }

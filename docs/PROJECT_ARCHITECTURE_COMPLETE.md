@@ -243,7 +243,7 @@
 ### **3. APIs (`src/app/api/`)**
 
 #### **3.1 APIs de Autenticación**
-- **`auth/callback/route.ts`** - Callback de OAuth
+- **`/auth/callback`** - Callback de OAuth (manejado por `src/app/auth/callback/route.ts`)
 - **`auth/me/route.ts`** - Información del usuario actual
 - **`auth/refresh/route.ts`** - Renovación de tokens
 
@@ -568,8 +568,8 @@ const message = await prisma.message.create({
 
 ### **Flujo de Autenticación**
 
-1. **Login**: Usuario se autentica con Supabase Auth
-2. **Callback**: `/api/auth/callback` procesa el token
+1. **Login**: Usuario se autentica con Supabase Auth (client-side o server-side)
+2. **Callback**: `/auth/callback` procesa el token y asegura creación de entidades (Profile, Organization, Membership)
 3. **Sesión**: Cookie de sesión se establece
 4. **Middleware**: Verifica autenticación en rutas protegidas
 5. **API**: `createServerSupabase()` lee cookies automáticamente

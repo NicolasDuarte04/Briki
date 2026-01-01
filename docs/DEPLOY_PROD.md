@@ -1,66 +1,81 @@
-## Deploy to Vercel (Postgres + Google OAuth)
+## Deploy to Production (Vercel + Supabase)
 
-Practical one-pager to ship. Follow these steps in order.
+Practical one-pager to ship Briki to production. Follow these steps in order.
 
-### 1) Provision Postgres
-- **Vercel Postgres (recommended):** Add the Vercel Postgres integration to your project.
-- Copy the connection strings from the integration:
-  - **POSTGRES_URL_NON_POOLING** (direct) — safest for Prisma migrations.
-  - (Optional) **POSTGRES_URL** (pooled) — better for runtime at scale.
-- External Postgres works too; just grab a standard `postgres://` URL.
+### 1) Provision Database & Auth (Supabase)
+Create a new Supabase project for production.
+
+1. **Get Project Credentials:**
+   - Go to Project Settings > API
+   - Copy `Project URL`, `anon public key`, and `service_role secret`.
+
+2. **Configure Auth URL:**
+   - Go to Authentication > URL Configuration
+   - Set **Site URL** to `https://your-production-domain.com`
+   - Add **Redirect URL**: `https://your-production-domain.com/auth/callback`
+
+3. **Configure Google OAuth:**
+   - Go to Authentication > Providers > Google
+   - Enable it and add Client ID/Secret (see step 2).
 
 ### 2) Create Google OAuth credentials
 In Google Cloud Console → APIs & Services → Credentials:
-- Create Credentials → **OAuth client ID** → Application type: **Web application**.
-- Add Authorized redirect URIs (exact, no wildcards):
-  - `http://localhost:3000/api/auth/callback/google`
-  - `https://YOUR_PROD_DOMAIN/api/auth/callback/google`
-  - (Optional, if you want login on previews) `https://YOUR_PROJECT.vercel.app/api/auth/callback/google` and any branch preview URLs you need
-- Add Authorized JavaScript origins:
-  - `http://localhost:3000`
-  - `https://YOUR_PROD_DOMAIN`
-  - (Optional) `https://YOUR_PROJECT.vercel.app`
-- Save the Client ID and Client Secret.
+
+1. Create Credentials → **OAuth client ID** → Application type: **Web application**.
+2. **Authorized redirect URIs** (CRITICAL):
+   - Add the **Supabase Callback URL** (not your app URL):
+   - `https://<your-project-ref>.supabase.co/auth/v1/callback`
+3. **Authorized JavaScript origins**:
+   - `https://your-production-domain.com`
+   - `https://<your-project-ref>.supabase.co`
+4. Copy Client ID and Client Secret to Supabase Dashboard.
 
 ### 3) Set environment variables in Vercel
 Project → Settings → Environment Variables:
-- **AUTH_GOOGLE_ID** = Google Client ID
-- **AUTH_GOOGLE_SECRET** = Google Client Secret
-- **NEXTAUTH_SECRET** = a strong secret
-  - Generate: `openssl rand -base64 32` (or `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
-- **NEXTAUTH_URL** = `https://YOUR_PROD_DOMAIN` (Production only)
-- **DATABASE_URL** = your Postgres URL
-  - Simple (works now): set to **POSTGRES_URL_NON_POOLING**
-  - At scale (optional): set **DATABASE_URL=POSTGRES_URL** and add **DIRECT_URL=POSTGRES_URL_NON_POOLING**, then update `prisma/schema.prisma` datasource to include `directUrl = env("DIRECT_URL")`
 
-Tip: Mirror these vars for Preview/Development as needed. For Preview logins to work, you must add each preview callback URL to Google.
+**Supabase:**
+- `NEXT_PUBLIC_SUPABASE_URL` = Your Production Supabase Project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` = Your Production Anon Key
+- `SUPABASE_SERVICE_ROLE_KEY` = Your Production Service Role Key
 
-### 4) Run Prisma generate + migrations
-Run these against the production database once after provisioning (and anytime the schema changes):
+**App Configuration:**
+- `NEXT_PUBLIC_SITE_URL` = `https://your-production-domain.com`
+
+**Database (Prisma):**
+- `DATABASE_URL` = Connection string from Supabase (Transaction Mode / port 6543)
+- `DIRECT_URL` = Connection string from Supabase (Session Mode / port 5432)
+
+**Security (Encryption):**
+- `APP_ENCRYPTION_KEY` = 32-byte hex key for PII encryption (pgcrypto)
+
+### 4) Run Database Migrations
+Run this against the production database:
 
 ```bash
-# Ensure DATABASE_URL points at the production DB
-pnpm prisma:generate
-pnpm prisma migrate deploy
+# Ensure DATABASE_URL points at production
+pnpm prisma db push
 ```
 
-Notes:
-- `prisma generate` also runs on install via the repo's postinstall script.
-- If you prefer, use `vercel env pull .env.production.local` and run the above commands with that file active.
+**Note:** `prisma generate` runs automatically during build on Vercel.
 
 ### 5) First-user smoke checklist
-- Open the production URL.
-- Click “Continue with Google” → complete sign-in.
-- You should be redirected back authenticated (no errors in Vercel logs).
-- Verify DB tables exist and a user row was created (Vercel Data view or any SQL client):
-  - Example: `SELECT id, email FROM "User" ORDER BY createdAt DESC LIMIT 5;`
-- Visit a protected route (e.g., `/workspace`) and confirm access/redirects work as expected.
-- Sign out and sign back in.
+1. Open the production URL.
+2. Click “Continue with Google” → complete sign-in.
+3. You should be redirected to `/dashboard` (or `/onboarding` if new).
+4. Verify DB tables:
+   - Check `auth.users` in Supabase Table Editor.
+   - Check `public.profiles`, `public.organizations` were created.
+5. Verify secure routes (`/dashboard`) work correctly.
 
-Common issues:
-- **redirect_uri_mismatch**: Add the exact preview/prod callback URL(s) in Google.
-- **Missing Google credentials**: Set `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` in the correct environment.
-- **JWT/secret errors**: Ensure `NEXTAUTH_SECRET` is set in Vercel and not empty.
-- **DB errors**: Confirm `DATABASE_URL` points to the correct Postgres and that migrations ran.
+### Common Issues
 
+**"Redirect URI mismatch" (Google Error)**
+- You likely put your App URL in Google Console instead of Supabase Callback URL.
+- Fix: Put `https://<project-ref>.supabase.co/auth/v1/callback` in Google Console.
 
+**"AuthApiError: redirect_uri_mismatch" (Supabase Error)**
+- You likely forgot to add your App Callback URL in Supabase Dashboard.
+- Fix: Add `https://your-domain.com/auth/callback` in Supabase Auth > URL Configuration.
+
+**Database Connection Errors**
+- Ensure `DATABASE_URL` is set to the Transaction Pooler (port 6543) for Vercel (serverless environment).

@@ -1,6 +1,6 @@
 # DOCUMENTACIÓN COMPLETA DE APIs
 
-**Versión**: 2.0  
+**Versión**: 2.1  
 **Fecha**: 1 de Febrero, 2025  
 **Objetivo**: Documentación integral de todos los endpoints API del proyecto
 
@@ -33,38 +33,36 @@
 **Respuesta exitosa (200)**:
 ```json
 {
-  "user": {
-    "id": "uuid",
-    "email": "user@example.com"
-  },
+  "userId": "uuid",
   "orgId": "uuid",
-  "userId": "uuid"
+  "email": "user@example.com",
+  "role": "owner" | "admin" | "member"
 }
 ```
 
 **Errores**:
 - `401`: No autenticado
+- `404`: Usuario no tiene organización
 
 ---
 
-### **GET /api/auth/callback**
-**Propósito**: Callback de OAuth (Google, etc.)
+### **GET /auth/callback** (App Route)
+**Propósito**: Callback principal de OAuth (Google, etc.)
 
 **Autenticación**: No requerida (manejado por Supabase)
 
 **Funcionalidad**:
-- Procesa token de OAuth
-- Establece cookie de sesión
-- Redirige a dashboard
+1. Intercambia código OAuth por sesión
+2. Crea/actualiza perfil de usuario
+3. Crea organización y membresía si no existen (paridad con signup)
+4. Redirige a `/dashboard` (o `/onboarding` si está incompleto)
 
 ---
 
-### **GET/POST /api/auth/[...nextauth]**
-**Propósito**: Endpoint de NextAuth.js para autenticación alternativa (si se usa)
+### **GET /api/auth/callback** (Legacy)
+**Propósito**: Redirección de compatibilidad para enlaces antiguos
 
-**Autenticación**: No requerida (manejado por NextAuth)
-
-**Nota**: Este endpoint puede existir si se usa NextAuth.js como alternativa a Supabase Auth, pero el sistema principal usa Supabase Auth
+**Estado**: **DEPRECATED** - Redirige a `/auth/callback`
 
 ---
 
@@ -643,5 +641,3 @@
 - Todas las operaciones verifican que el usuario pertenece a la organización
 - Se usa `getCurrentOrg()` para obtener organización actual
 - RLS (Row Level Security) en PostgreSQL proporciona capa adicional de seguridad
-
-

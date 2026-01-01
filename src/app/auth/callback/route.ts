@@ -121,15 +121,15 @@ export async function GET(req: NextRequest) {
       // Usuario existente - solo asegurar que profile existe
       console.log('ℹ️ [OAuth Callback] Usuario existente con membership, verificando profile...')
       
-      const profile = await prisma.profile.upsert({
-        where: { id: user.id },
+  const profile = await prisma.profile.upsert({
+    where: { id: user.id },
         update: {}, // No actualizamos nada si ya existe
-        create: {
-          id: user.id,
+    create: {
+      id: user.id,
           name: null,
-          locale: 'en'
-        }
-      })
+      locale: 'en'
+    }
+  })
 
       // Redirigir según estado de onboarding
       if (!profile.onboardingCompleted) {
@@ -201,7 +201,7 @@ export async function GET(req: NextRequest) {
     console.log('✅ [OAuth Callback] Transacción completada exitosamente')
 
     // 5. Redirigir según estado de onboarding
-    if (!profile.onboardingCompleted) {
+  if (!profile.onboardingCompleted) {
       console.log('➡️ [OAuth Callback] Redirigiendo a onboarding...')
       redirect('/onboarding')
     } else {
@@ -226,8 +226,8 @@ export async function GET(req: NextRequest) {
       })
 
       if (!fallbackProfile.onboardingCompleted) {
-        redirect('/onboarding')
-      } else {
+    redirect('/onboarding')
+  } else {
         redirect('/dashboard')
       }
     } catch (fallbackError) {

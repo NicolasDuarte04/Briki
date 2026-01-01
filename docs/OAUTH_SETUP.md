@@ -1,234 +1,87 @@
-# Google OAuth Setup Guide
+# Google OAuth Setup Guide (Supabase Auth)
 
-This guide will help you configure Google OAuth for local development.
+This guide helps you configure Google OAuth using Supabase Auth for local development and production.
 
-## Quick Fix Summary
+## Quick Summary
 
-✅ **Completed:**
-- Force Next.js dev server to run on port 3000
-- Updated NextAuth route handler to use Node.js runtime
-- Fixed login buttons to call `signIn('google')`
-- Created setup documentation
+✅ **Architecture:** Using Supabase Auth (not NextAuth)
+✅ **Callback Route:** `/auth/callback` (handles profile/org creation)
+✅ **Client Implementation:** Client-side via `createBrowserSupabase()`
 
-⚠️ **You must complete:**
-1. Create `.env.local` file with correct values
-2. Configure Google OAuth Console
-3. Set up PostgreSQL database
-4. Run database migrations
+## Step 1: Configure Supabase Dashboard
 
----
+1. **Go to Supabase Dashboard** > **Authentication** > **Providers** > **Google**
+2. **Enable Google Provider**
+3. **Configure Credentials:**
+   - **Client ID**: From Google Cloud Console
+   - **Client Secret**: From Google Cloud Console
+4. **Save**
 
-## Step 1: Create `.env.local` File
+## Step 2: Configure Redirect URLs
 
-Create a file named `.env.local` in the `briki/` directory with the following content:
+1. **Go to Supabase Dashboard** > **Authentication** > **URL Configuration**
+2. **Site URL:**
+   - Development: `http://localhost:3000`
+   - Production: `https://your-domain.com`
+3. **Redirect URLs:**
+   Add the following exact URLs:
+   - `http://localhost:3000/auth/callback` (Development)
+   - `https://your-domain.com/auth/callback` (Production)
 
-```bash
-# NextAuth Configuration
-NEXTAUTH_URL=http://localhost:3000
-AUTH_SECRET=your-super-secret-key-change-this-in-production-min-32-chars-long
-NEXTAUTH_SECRET=your-super-secret-key-change-this-in-production-min-32-chars-long
+> ⚠️ **IMPORTANT**: Do NOT use `/api/auth/callback` or `/api/auth/callback/google`. These are legacy NextAuth routes.
 
-# Google OAuth Credentials (get from Google Cloud Console)
-GOOGLE_CLIENT_ID=your-google-client-id-here
-GOOGLE_CLIENT_SECRET=your-google-client-secret-here
-AUTH_GOOGLE_ID=your-google-client-id-here
-AUTH_GOOGLE_SECRET=your-google-client-secret-here
+## Step 3: Configure Environment Variables
 
-# Database
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/briki
-```
+Update your `.env.local` file. Remove any legacy NextAuth variables (`NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `AUTH_GOOGLE_ID`, etc.).
 
-### Generate a Secure AUTH_SECRET
-
-Run this command to generate a strong secret:
+Required variables:
 
 ```bash
-openssl rand -base64 32
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+
+# Site URL (Used for constructing callback URLs)
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
-Copy the output and replace both `AUTH_SECRET` and `NEXTAUTH_SECRET` values with it.
+> **Note:** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are NOT required in `.env.local` if you configured them directly in Supabase Dashboard. If you prefer keeping them in code/env (e.g. for CI/CD), Supabase handles that server-side, but typically for OAuth with Supabase, the credentials live in the Supabase Dashboard.
 
----
+## Step 4: Verify Database Setup
 
-## Step 2: Configure Google OAuth Console
+The OAuth callback (`src/app/auth/callback/route.ts`) automatically handles:
+1. Creating the `User` in `auth.users` (Supabase)
+2. Creating the `Profile` in `public.profiles`
+3. Creating a default **Organization** (`public.organizations`)
+4. Creating the **Membership** (`public.org_members`) as `owner`
 
-1. **Go to Google Cloud Console:**
-   - Visit: https://console.cloud.google.com/apis/credentials
-   - Select your project or create a new one
-
-2. **Create OAuth 2.0 Client ID:**
-   - Click "Create Credentials" → "OAuth client ID"
-   - Application type: "Web application"
-   - Name: "Briki Local Development"
-
-3. **Configure URLs:**
-   
-   **Authorized JavaScript origins:**
-   ```
-   http://localhost:3000
-   ```
-
-   **Authorized redirect URIs:**
-   ```
-   http://localhost:3000/api/auth/callback/google
-   ```
-
-4. **Save and Copy Credentials:**
-   - Click "Create"
-   - Copy the **Client ID** and **Client Secret**
-   - Paste them into your `.env.local` file:
-     - `GOOGLE_CLIENT_ID` = Client ID
-     - `GOOGLE_CLIENT_SECRET` = Client Secret
-     - `AUTH_GOOGLE_ID` = Client ID (same value)
-     - `AUTH_GOOGLE_SECRET` = Client Secret (same value)
-
-5. **Remove Old Redirect URIs:**
-   - Delete any entries for `localhost:5050` or `localhost:3002`
-   - Only keep `localhost:3000`
-
----
-
-## Step 3: Set Up PostgreSQL Database
-
-### Option A: Using Docker (Recommended)
+Ensure your database migrations are applied:
 
 ```bash
-docker run --name briki-postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=briki \
-  -p 5432:5432 \
-  -d postgres:15
-```
-
-### Option B: Install PostgreSQL Locally
-
-```bash
-# macOS
-brew install postgresql@15
-brew services start postgresql@15
-
-# Create database
-createdb briki
-```
-
-### Verify Connection
-
-Your `DATABASE_URL` should be:
-```
-postgresql://postgres:postgres@localhost:5432/briki
-```
-
-Adjust username/password if different.
-
----
-
-## Step 4: Run Database Migrations
-
-```bash
-cd briki
-
-# Generate Prisma client
-pnpm prisma generate
-
-# Push schema to database
 pnpm prisma db push
-
-# (Optional) Open Prisma Studio to verify
-pnpm prisma studio
 ```
 
----
+## Step 5: Test the Flow
 
-## Step 5: Start the Development Server
-
-```bash
-cd briki
-pnpm dev
-```
-
-The server will now **always start on http://localhost:3000**.
-
----
-
-## Step 6: Test the Login Flow
-
-1. Open http://localhost:3000 in your browser
-2. Click the "Login" button in the navbar
-3. You should be redirected to Google's login page
-4. Choose your Google account
-5. You should be redirected back to http://localhost:3000/api/auth/callback/google
-6. Then automatically redirected to the app as an authenticated user
-
-### Expected Behavior:
-- ✅ No "Missing AUTH_SECRET" warnings in terminal
-- ✅ No 405 errors in browser console
-- ✅ No "string did not match expected pattern" errors
-- ✅ User avatar/menu appears after login
-- ✅ `useSession()` returns `{ status: "authenticated" }`
-
----
+1. Open http://localhost:3000/login
+2. Click "Continue with Google"
+3. You should be redirected to Google
+4. After login, redirected back to `/auth/callback`
+5. Finally redirected to `/dashboard` (or `/onboarding` if incomplete)
 
 ## Troubleshooting
 
-### "Missing AUTH_SECRET" Warning
-- Ensure `.env.local` exists with `AUTH_SECRET` set
-- Restart the dev server after creating `.env.local`
+### "Redirect URI mismatch" error from Google
+- Check Google Cloud Console > APIs & Services > Credentials
+- Ensure "Authorized redirect URIs" includes exactly what Supabase tells you (usually `https://<project-ref>.supabase.co/auth/v1/callback`)
+- **Note:** Google talks to Supabase, Supabase talks to your app. So Google needs the Supabase Callback URL, and Supabase needs your App Callback URL (`http://localhost:3000/auth/callback`).
 
-### 405 Method Not Allowed
-- Check that `runtime = "nodejs"` is exported in `route.ts` (already fixed)
-- Clear `.next` folder: `pnpm dev:clean`
+### "AuthApiError: redirect_uri_mismatch" from Supabase
+- Check Supabase Dashboard > Authentication > URL Configuration
+- Ensure `http://localhost:3000/auth/callback` is listed in **Redirect URLs**
 
-### "Safari can't connect to the server"
-- Verify Google OAuth redirect URI is exactly: `http://localhost:3000/api/auth/callback/google`
-- Check that `NEXTAUTH_URL=http://localhost:3000` in `.env.local`
-- Ensure no other service is using port 3000
-
-### Database Connection Failed
-- Verify PostgreSQL is running: `psql -U postgres -d briki`
-- Check `DATABASE_URL` format matches your setup
-- Run `pnpm prisma db push` to create tables
-
-### Still Getting Redirected to Port 3002
-- Kill any process on port 3000: `lsof -ti:3000 | xargs kill -9`
-- Restart dev server: `pnpm dev`
-
----
-
-## Security Notes
-
-⚠️ **Never commit `.env.local` to git** - it's already in `.gitignore`
-
-⚠️ **For production:**
-- Use a different OAuth client (not the localhost one)
-- Set production URLs in Google Console
-- Use a strong, unique `AUTH_SECRET`
-- Use managed database with SSL
-
----
-
-## Verification Checklist
-
-Before considering this complete, verify:
-
-- [ ] `.env.local` exists with all required variables
-- [ ] `AUTH_SECRET` is a strong random string (32+ chars)
-- [ ] Google OAuth client configured with `localhost:3000`
-- [ ] PostgreSQL database running and accessible
-- [ ] `pnpm prisma db push` completed successfully
-- [ ] Dev server starts on http://localhost:3000
-- [ ] Clicking Login redirects to Google
-- [ ] After Google auth, redirected back to app
-- [ ] No console errors or warnings
-- [ ] User session is authenticated
-
----
-
-## Next Steps After Login Works
-
-Once OAuth is working:
-1. Test onboarding flow for new users
-2. Test returning user flow
-3. Verify middleware redirects work correctly
-4. Test logout functionality
-5. Test session persistence across page reloads
-
+### Login loop or stuck at loader
+- Check browser console for errors
+- Verify `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are correct
+- Check server logs for database transaction errors in `/auth/callback`

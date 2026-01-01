@@ -1,143 +1,78 @@
-# 🚀 OAuth Quick Start - 5 Minutes to Working Login
+# 🚀 OAuth Quick Start - Supabase Auth
 
 ## What Was Fixed ✅
 
-I've completed all the code changes needed for Google OAuth:
+The authentication system has been migrated from NextAuth to **Supabase Auth**.
 
-1. ✅ **Locked dev server to port 3000** - Updated `package.json` to force Next.js to always use port 3000
-2. ✅ **Fixed NextAuth route** - Set `runtime = "nodejs"` to avoid Edge runtime issues
-3. ✅ **Fixed login buttons** - Both desktop and mobile login buttons now call `signIn("google")`
-4. ✅ **Auth configuration** - NextAuth is properly configured with Google provider and Prisma adapter
+1. ✅ **Client-side OAuth**: Login button now directly triggers Supabase Auth.
+2. ✅ **Unified Callback**: Using `/auth/callback` to handle user creation, profile setup, and organization provisioning.
+3. ✅ **Full Parity**: OAuth signup now creates Organization and Membership just like email signup.
 
-## What You Need to Do 🔧
+## Quick Setup (5 minutes)
 
-### Quick Setup (5 minutes)
+### 1. Update `.env.local`
 
-#### 1. Create `.env.local` in the `briki/` directory:
-
-```bash
-# Generate a secure secret first
-openssl rand -base64 32
-```
-
-Then create `briki/.env.local`:
+Remove legacy NextAuth variables. Your `.env.local` should look like this:
 
 ```bash
-NEXTAUTH_URL=http://localhost:3000
-AUTH_SECRET=paste-the-generated-secret-here
-NEXTAUTH_SECRET=paste-the-generated-secret-here
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-GOOGLE_CLIENT_ID=your-client-id
-GOOGLE_CLIENT_SECRET=your-client-secret
-AUTH_GOOGLE_ID=your-client-id
-AUTH_GOOGLE_SECRET=your-client-secret
+# App URL
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
+# Database
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/briki
 ```
 
-#### 2. Configure Google OAuth Console
+### 2. Configure Supabase Dashboard
 
-**Go to:** https://console.cloud.google.com/apis/credentials
+**Go to:** Authentication > URL Configuration
 
 **Add these EXACT URLs:**
 
 | Setting | URL |
 |---------|-----|
-| Authorized JavaScript origins | `http://localhost:3000` |
-| Authorized redirect URIs | `http://localhost:3000/api/auth/callback/google` |
+| Site URL | `http://localhost:3000` |
+| Redirect URLs | `http://localhost:3000/auth/callback` |
 
-**❌ Remove these if present:**
-- `http://localhost:3002/*`
-- `http://localhost:5050/*`
+**Go to:** Authentication > Providers > Google
+- Enable Google
+- Enter Client ID & Secret from Google Cloud Console
 
-**Copy credentials to `.env.local`:**
-- Client ID → `GOOGLE_CLIENT_ID` and `AUTH_GOOGLE_ID`
-- Client Secret → `GOOGLE_CLIENT_SECRET` and `AUTH_GOOGLE_SECRET`
+### 3. Verify Google Cloud Console
 
-#### 3. Start PostgreSQL (if not running)
+**Go to:** https://console.cloud.google.com/apis/credentials
 
-**Option A - Docker (recommended):**
-```bash
-docker run --name briki-postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=briki \
-  -p 5432:5432 \
-  -d postgres:15
-```
+Ensure your OAuth 2.0 Client has the **Supabase Callback URL** in "Authorized redirect URIs".
+* It looks like: `https://<your-project-ref>.supabase.co/auth/v1/callback`
 
-**Option B - Homebrew:**
-```bash
-brew services start postgresql@15
-createdb briki
-```
-
-#### 4. Setup Database
-
-```bash
-cd briki
-pnpm prisma db push
-```
-
-#### 5. Start the App
+### 4. Start the App
 
 ```bash
 pnpm dev
 ```
 
-Visit **http://localhost:3000** and click **Login** 🎉
-
----
-
-## Troubleshooting
-
-| Problem | Solution |
-|---------|----------|
-| "Missing AUTH_SECRET" warning | Restart dev server after creating `.env.local` |
-| Port 3000 already in use | Kill process: `lsof -ti:3000 \| xargs kill -9` |
-| 405 errors | Run `pnpm dev:clean` to clear `.next` cache |
-| Can't connect to Google | Verify redirect URI is exactly `http://localhost:3000/api/auth/callback/google` |
-| Database error | Check PostgreSQL is running: `psql -U postgres -d briki -c '\q'` |
-
----
-
-## Automated Setup
-
-For a guided setup, run:
-
-```bash
-cd briki
-./scripts/setup-oauth.sh
-```
-
----
-
-## Files Changed
-
-| File | Change |
-|------|--------|
-| `package.json` | Force dev server to port 3000 |
-| `src/app/api/auth/[...nextauth]/route.ts` | Set `runtime = "nodejs"` |
-| `src/components/BrikiLandingNavbar.tsx` | Added `onClick={() => signIn("google")}` to login buttons |
-| `docs/OAUTH_SETUP.md` | Complete setup documentation |
-| `scripts/setup-oauth.sh` | Automated setup helper |
+Visit **http://localhost:3000/login** and click **Continue with Google** 🎉
 
 ---
 
 ## Expected Flow
 
-1. Click **Login** → Redirects to Google
-2. Choose Google account → Redirects to `http://localhost:3000/api/auth/callback/google`
-3. Callback processes → Redirects to app
-4. ✅ You're logged in! Avatar shows in navbar
+1. Click **Continue with Google** → Redirects to Google
+2. Choose Google account → Redirects to Supabase → Redirects to `http://localhost:3000/auth/callback`
+3. Callback Route (`src/app/auth/callback/route.ts`):
+   - Exchanges code for session
+   - Creates Profile
+   - Creates Organization & Membership (if new user)
+4. Redirects to `/dashboard`
 
----
+## Troubleshooting
 
-## Next Steps After Login Works
-
-- [ ] Test new user onboarding flow
-- [ ] Test returning user flow  
-- [ ] Verify logout works
-- [ ] Test session persistence
-
-See `docs/OAUTH_SETUP.md` for detailed documentation.
-
+| Problem | Solution |
+|---------|----------|
+| "Redirect URI mismatch" | Check Supabase Dashboard URL Configuration. Must include `/auth/callback`. |
+| "Auth session missing" | Ensure `NEXT_PUBLIC_SITE_URL` is set correctly. |
+| Database error | Check server logs. Ensure migrations are applied (`pnpm prisma db push`). |
