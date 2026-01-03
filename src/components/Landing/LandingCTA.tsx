@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useSafeTranslations } from '@/hooks/useSafeTranslations';
+import { MarketingLink } from './MarketingLink';
 
 export function LandingCTA() {
   const { t } = useSafeTranslations('landing.contactCta');
@@ -153,12 +154,9 @@ export function LandingCTA() {
         </div>
         
         <div className="mt-6">
-          <a
-            href="#"
-            className="inline-block hover:opacity-70 transition-opacity text-body text-[var(--briki-text-muted)] underline font-medium font-smooth"
-          >
+          <MarketingLink href="#demo">
             {t('demo')}
-          </a>
+          </MarketingLink>
         </div>
       </div>
     </section>

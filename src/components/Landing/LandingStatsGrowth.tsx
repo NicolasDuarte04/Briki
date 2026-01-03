@@ -34,7 +34,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { TrendingUp, Users, FileText, Clock, Zap } from 'lucide-react';
 import Link from 'next/link';
-import { pathForAgent, toLocale } from '@/lib/routes/workspace';
+import { pathForLogin, toLocale } from '@/lib/routes/workspace';
 
 export function LandingStatsGrowth() {
   const { t } = useSafeTranslations('landing.statsGrowth');
@@ -131,7 +131,7 @@ export function LandingStatsGrowth() {
                 className="font-medium"
                 asChild
               >
-                <Link href={pathForAgent(toLocale(locale))}>
+                <Link href={pathForLogin(toLocale(locale))}>
                   {t('cta.primary')}
                 </Link>
               </Button>

@@ -66,6 +66,20 @@ export function getProfilePath(locale: Locale): string {
 }
 
 /**
+ * Get the login route
+ */
+export function pathForLogin(locale: Locale): string {
+  return `/${locale}/login`;
+}
+
+/**
+ * Get the contact route
+ */
+export function pathForContact(locale: Locale): string {
+  return `/${locale}/contact`;
+}
+
+/**
  * Get route for a specific entity by type and ID
  */
 export function pathForEntity(type: EntityType, id: string, locale: Locale): string {

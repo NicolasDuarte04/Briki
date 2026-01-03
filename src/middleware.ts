@@ -12,8 +12,15 @@ const intlMiddleware = createMiddleware({
 });
 
 export async function middleware(request: NextRequest) {
-  const response = intlMiddleware(request);
   const { pathname } = request.nextUrl;
+
+  // Block invalid /landing/* subroutes - redirect to /landing
+  // This prevents [locale] from capturing "landing" as a locale
+  if (pathname.startsWith('/landing/')) {
+    return NextResponse.redirect(new URL('/landing', request.url));
+  }
+
+  const response = intlMiddleware(request);
 
   // Strip locale prefix if present to check the actual path
   const pathWithoutLocale = pathname.replace(/^\/(es|en)/, '') || '/';
@@ -128,11 +135,12 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  //Matcher optimizado para excluir rutas internas y de activos de Next.js
+  // Matcher optimizado para excluir rutas internas y de activos de Next.js
+  // Nota: /landing (exacto) está excluido, pero /landing/* se procesa para redirigir
   matcher: [
-    // Excluir rutas de API, _next/static, _next/image, assets, favicon.ico, brand, landing, robots.txt, sitemap.xml, iconos PWA
-    '/((?!api|_next/static|_next/image|assets|favicon.ico|brand|landing|robots.txt|sitemap.xml|apple-touch-icon|site.webmanifest|android-chrome|favicon-).*)',
-    // Incluir explícitamente la raíz si es necesario (depende de tu lógica)
-    // '/',
+    // Capturar /landing/* subrutas para redirigir (no excluir completamente)
+    '/landing/:path+',
+    // Excluir rutas de API, _next/static, _next/image, assets, favicon.ico, brand, landing exacto, robots.txt, sitemap.xml, iconos PWA
+    '/((?!api|_next/static|_next/image|assets|favicon.ico|brand|landing$|robots.txt|sitemap.xml|apple-touch-icon|site.webmanifest|android-chrome|favicon-).*)',
   ],
 };

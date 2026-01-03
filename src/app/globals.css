@@ -102,6 +102,11 @@
   --briki-surface-alt: #F8FAFC;
   --briki-border: #E2E8F0;
   --briki-primary: #2563EB;
+  
+  /* Warm accent for marketing CTAs - light theme (deeper orange) */
+  --briki-accent-warm: #EA580C;
+  --briki-accent-warm-hover: #F97316;
+  --briki-accent-warm-active: #C2410C;
 }
 
 /* Dark theme palette */
@@ -147,13 +152,45 @@
 
   --shadow-edge: rgba(0, 0, 0, 0.3);
   
-  /* Briki landing design tokens dark */
+  /* Legacy briki tokens (for backward compatibility) */
   --briki-text: #F8FAFC;
   --briki-text-muted: #94A3B8;
   --briki-surface: #0F172A;
   --briki-surface-alt: #1E293B;
   --briki-border: #334155;
-  --briki-primary: #38BDF8;
+  
+  /* Briki landing design tokens dark - Premium Cursor-like */
+  --briki-bg: #151A1E;
+  --briki-surface-1: #1B2127;
+  --briki-surface-2: #202831;
+  --briki-border-subtle: rgba(255, 255, 255, 0.04);
+  --briki-text-subtle: rgba(255, 255, 255, 0.45);
+  
+  /* Premium accent tokens - muted for dark UI */
+  --briki-primary: #5B8FCC;
+  --briki-primary-surface: rgba(91, 143, 204, 0.10);
+  --briki-primary-border: rgba(91, 143, 204, 0.18);
+  --briki-primary-foreground: rgba(255, 255, 255, 0.95);
+  
+  --briki-success: #4FA892;
+  --briki-success-surface: rgba(79, 168, 146, 0.10);
+  --briki-success-border: rgba(79, 168, 146, 0.18);
+  --briki-success-foreground: rgba(255, 255, 255, 0.95);
+  
+  --briki-warning: #D4A053;
+  --briki-warning-surface: rgba(212, 160, 83, 0.10);
+  --briki-warning-border: rgba(212, 160, 83, 0.18);
+  --briki-warning-foreground: rgba(255, 255, 255, 0.95);
+  
+  --briki-info: #6B8CA8;
+  --briki-info-surface: rgba(107, 140, 168, 0.10);
+  --briki-info-border: rgba(107, 140, 168, 0.18);
+  --briki-info-foreground: rgba(255, 255, 255, 0.95);
+  
+  /* Warm accent for marketing CTAs - Cursor-inspired */
+  --briki-accent-warm: #FB923C;
+  --briki-accent-warm-hover: #FCA55F;
+  --briki-accent-warm-active: #F97316;
 }
 
 
