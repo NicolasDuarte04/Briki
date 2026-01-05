@@ -360,6 +360,9 @@ export const CaseSchema = z
     id: z.string(),
     referenceNumber: z.string(),
     brief: CaseBriefSchema,
+    // ✅ NUEVO: Campos añadidos para sistema de nombres
+    caseName: z.string().optional(), // Nombre descriptivo del caso
+    clientId: z.string().nullable().optional(), // FK a clients
     // ✅ CORRECCIÓN: Agregar clientName que existe en BD pero faltaba en schema
     clientName: z.string().nullable().optional(),
     brokerId: z.string().optional(),

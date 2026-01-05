@@ -458,6 +458,8 @@ export async function createCaseWithOrg(
   additionalData: {
     clientRef?: string;
     clientName?: string;
+    clientId?: string;           // ✅ NUEVO: FK a clients
+    caseName?: string;           // ✅ NUEVO: Nombre descriptivo del caso
     businessType?: string;
     employees?: number;
     status?: 'draft' | 'active' | 'completed' | 'archived';
@@ -482,18 +484,20 @@ export async function createCaseWithOrg(
   
   // ✅ CORRECCIÓN: Construir objeto de datos sin undefined para cumplir con exactOptionalPropertyTypes
   const caseData: any = {
-      orgId,
-      briefData: briefData || {},
+    orgId,
+    briefData: briefData || {},
     status: additionalData.status || 'draft',
     stage: additionalData.stage || 'initial',
     priority: additionalData.priority || 'medium',
-      budget_currency: additionalData.budget_currency || 'COP',
-      required_coverages: additionalData.required_coverages || [],
+    budget_currency: additionalData.budget_currency || 'COP',
+    required_coverages: additionalData.required_coverages || [],
   };
   
   // Solo agregar campos si tienen valor (evitar undefined)
   if (additionalData.clientRef !== undefined) caseData.clientRef = additionalData.clientRef;
   if (additionalData.clientName !== undefined) caseData.clientName = additionalData.clientName;
+  if (additionalData.clientId !== undefined) caseData.clientId = additionalData.clientId; // ✅ NUEVO
+  if (additionalData.caseName !== undefined) caseData.caseName = additionalData.caseName; // ✅ NUEVO
   if (additionalData.businessType !== undefined) caseData.businessType = additionalData.businessType;
   if (additionalData.employees !== undefined) caseData.employees = additionalData.employees;
   if (additionalData.insurance_category !== undefined) caseData.insurance_category = additionalData.insurance_category;

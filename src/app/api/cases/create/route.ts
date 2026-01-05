@@ -5,6 +5,7 @@ import { createCaseWithOrg } from '@/lib/database';
 import { recordAuditLog } from '@/lib/audit';
 import { moveTempToPersistent } from '@/lib/storage/moveTempToPersistent';
 import { findDuplicateArtifact } from '@/lib/storage/findDuplicateArtifact';
+import { generateCaseName } from '@/lib/case-name-generator'; // ✅ NUEVO: Generador de nombres
 import type { Case } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
       userId,
       clientName,
       clientRef,
+      selectedClientId, // ✅ NUEVO: ID del cliente seleccionado (para generar nombre)
       businessType,
       employees,
       status,
@@ -128,6 +130,20 @@ export async function POST(request: NextRequest) {
     // clientName es opcional - usar valor por defecto si no se proporciona
     const finalClientName = clientName || 'Cliente Nuevo';
     
+    // ✅ NUEVO: Generar nombre automático del caso
+    let generatedCaseName: string;
+    try {
+      generatedCaseName = await generateCaseName(
+        selectedClientId || null, 
+        orgId, 
+        finalClientName
+      );
+      console.log('✅ [API/cases/create] Nombre de caso generado:', generatedCaseName);
+    } catch (nameError) {
+      console.warn('⚠️ [API/cases/create] Error generando nombre, usando fallback:', nameError);
+      generatedCaseName = `Caso de ${finalClientName}`;
+    }
+    
     // ✅ FASE 1: Validar insurance_category solo si NO es draft
     // Los casos en modo "draft" pueden no tener insurance_category todavía
     if (status !== 'draft' && !insurance_category) {
@@ -163,6 +179,8 @@ export async function POST(request: NextRequest) {
         // para cumplir con exactOptionalPropertyTypes: solo incluir propiedades con valor
         const additionalData: {
           clientName?: string;
+          clientId?: string;     // ✅ NUEVO
+          caseName?: string;     // ✅ NUEVO
           clientRef?: string;
           businessType?: string;
           employees?: number;
@@ -178,6 +196,8 @@ export async function POST(request: NextRequest) {
         
         // Solo agregar propiedades si tienen valor (no undefined)
         if (finalClientName !== undefined) additionalData.clientName = finalClientName;
+        if (selectedClientId !== undefined) additionalData.clientId = selectedClientId; // ✅ NUEVO
+        if (generatedCaseName !== undefined) additionalData.caseName = generatedCaseName; // ✅ NUEVO
         if (clientRef !== undefined) additionalData.clientRef = clientRef;
         if (businessType !== undefined) additionalData.businessType = businessType;
         if (employees !== undefined) additionalData.employees = employees;

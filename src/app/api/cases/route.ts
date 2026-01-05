@@ -37,6 +37,9 @@ export async function GET(request: NextRequest) {
       severity: dbCase.severity || "medium",
       createdAt: dbCase.createdAt,
       updatedAt: dbCase.updatedAt,
+      // ✅ NUEVO: Campos del sistema de nombres
+      caseName: dbCase.caseName || null,
+      clientId: dbCase.clientId || null,
       clientName: dbCase.clientName || null,
       customer: dbCase.customer || null,
       // Nuevos campos del Brief detallado

@@ -40,16 +40,18 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
     }
 
     return cases.map((caseItem) => {
-      // Extraer título del brief o usar un fallback
-      const title = caseItem.brief?.freeText
-        ? caseItem.brief.freeText.substring(0, 50) + (caseItem.brief.freeText.length > 50 ? '...' : '')
-        : `Case ${caseItem.id}`;
+      // ✅ NUEVO: Usar caseName como título principal con fallbacks robustos
+      const title = caseItem.caseName 
+        || caseItem.clientName 
+        || (caseItem.brief?.freeText
+          ? caseItem.brief.freeText.substring(0, 50) + (caseItem.brief.freeText.length > 50 ? '...' : '')
+          : `Caso #${caseItem.id.substring(0, 8)}`);
 
-      // ✅ CORRECCIÓN: Usar clientName directo (ahora en schema) con fallbacks robustos
+      // Información secundaria del cliente
       const lastMessage = caseItem.clientName
         || caseItem.customer?.name
         || caseItem.brief?.clientName
-        || "No client info";
+        || "Sin información de cliente";
 
       return {
         id: caseItem.id,
@@ -230,11 +232,31 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
     setOpenMenuId(null);
   };
 
-  const handleRenameSubmit = (caseId: string) => {
+  const handleRenameSubmit = async (caseId: string) => {
     const trimmed = renameValue.trim();
     if (trimmed) {
-      // ✅ FUSIÓN CRÍTICA: TODO - Implementar API para renombrar Case
-      console.log('Rename case:', caseId, 'to:', trimmed);
+      try {
+        // ✅ IMPLEMENTADO: Llamar a la API para renombrar el caso
+        const response = await fetch('/api/cases/rename', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ caseId, caseName: trimmed }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error al renombrar');
+        }
+
+        console.log('✅ [SidebarChatPanel] Caso renombrado:', caseId, 'a:', trimmed);
+
+        // Actualizar lista de cases para reflejar el cambio
+        const { refreshCases } = useUI.getState();
+        await refreshCases();
+      } catch (error: any) {
+        console.error('❌ [SidebarChatPanel] Error renombrando caso:', error);
+        alert(`Error al renombrar: ${error.message}`);
+      }
     }
     setRenamingId(null);
     setRenameValue("");

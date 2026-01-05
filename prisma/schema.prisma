@@ -377,8 +377,10 @@ model sso_providers {
 model Case {
   id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orgId              String?          @map("org_id") @db.Uuid
+  clientId           String?          @map("client_id") @db.Uuid // ✅ NUEVO: FK a clients
+  caseName           String           @default("Nuevo Caso") @map("case_name") @db.VarChar(255) // ✅ NUEVO: Nombre descriptivo del caso
   clientRef          String?          @map("client_ref") @db.VarChar(255)
-  clientName         String?          @map("client_name") @db.VarChar(255)
+  clientName         String?          @map("client_name") @db.VarChar(255) // Mantener por compatibilidad
   businessType       String?          @map("business_type") @db.VarChar(255)
   employees          Int?
   status             String           @default("draft") @db.VarChar(50)
@@ -392,14 +394,19 @@ model Case {
   insurance_category String?
   max_budget         Decimal?         @map("max_budget") @db.Decimal(10, 2)
   required_coverages String[]         @default([]) @map("required_coverages")
+  
+  // Relaciones
+  client             clients?         @relation(fields: [clientId], references: [id], onDelete: SetNull) // ✅ NUEVO
   artifacts          Artifact[]
   auditLogs          AuditLog[]
   messages           Message[]
-  policyAnalyses     PolicyAnalysis[] // ✅ NUEVO: Relación con análisis de pólizas
-  comparisons        Comparison[] // ✅ FASE 30: Relación con comparaciones
-  renewals           Renewal[]    // ✅ FASE RENOVACIONES: Relación con renovaciones
+  policyAnalyses     PolicyAnalysis[] // ✅ Relación con análisis de pólizas
+  comparisons        Comparison[]     // ✅ FASE 30: Relación con comparaciones
+  renewals           Renewal[]        // ✅ FASE RENOVACIONES: Relación con renovaciones
   complianceRecords  ComplianceRecord[] // ✅ FASE COMPLIANCE: Registros de cumplimiento
 
+  @@index([clientId], map: "idx_cases_client_id")
+  @@index([caseName], map: "idx_cases_case_name")
   @@map("cases")
   @@schema("public")
 }
@@ -476,6 +483,7 @@ model clients {
   created_at    DateTime?     @default(now()) @db.Timestamptz(6)
   updated_at    DateTime?     @default(now()) @db.Timestamptz(6)
   organizations organizations @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cases         Case[]        // ✅ NUEVO: Relación inversa con casos
 
   @@index([created_at(sort: Desc)], map: "idx_clients_created_at")
   @@index([org_id], map: "idx_clients_org_id")
