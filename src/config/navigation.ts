@@ -15,6 +15,10 @@ import {
   pathForClients,
   getProfilePath,
   pathForAgent,
+  pathForPolicies,
+  pathForPoliciesOverview,
+  pathForPoliciesAnalysis,
+  pathForPoliciesUpload,
 } from '@/lib/routes/workspace';
 import type { Locale } from '@/lib/routes/workspace';
 import { 
@@ -26,7 +30,10 @@ import {
   BookOpen,
   FileText,
   HelpCircle,
-  MoreHorizontal
+  MoreHorizontal,
+  BarChart3,
+  FileSearch,
+  Upload,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -112,10 +119,30 @@ export function getWorkspaceSections(locale: Locale): NavSection[] {
         },
         {
           label: locale === 'es' ? 'Pólizas' : 'Policies',
-          href: '#', // Desconectado por ahora
+          href: pathForPolicies(locale),
           matchPath: '/policies',
           icon: FileText,
-          disabled: true,
+          // ✅ Subítems desplegables para el dashboard de pólizas
+          subItems: [
+            {
+              label: locale === 'es' ? 'Resumen' : 'Overview',
+              href: pathForPoliciesOverview(locale),
+              matchPath: '/policies/overview',
+              icon: BarChart3,
+            },
+            {
+              label: locale === 'es' ? 'Análisis' : 'Analysis',
+              href: pathForPoliciesAnalysis(locale),
+              matchPath: '/policies/analysis',
+              icon: FileSearch,
+            },
+            {
+              label: locale === 'es' ? 'Subir Póliza' : 'Upload Policy',
+              href: pathForPoliciesUpload(locale),
+              matchPath: '/policies/upload',
+              icon: Upload,
+            },
+          ],
         },
       ],
     },

@@ -12,6 +12,7 @@ import {
   Artifact,
   CurrencyCode
 } from './types';
+import { ORG_POLICIES_CONTAINER } from './helpers/getOrgPoliciesContainer';
 import type {
   BrokerProfileParsed,
   CaseParsed,
@@ -350,6 +351,8 @@ function generateAgentResponse(message: string): string {
 
 /**
  * Obtiene todos los casos de una organización con sus relaciones.
+ * NOTA: Excluye automáticamente el case contenedor de pólizas standalone.
+ * 
  * @param orgId - El ID de la organización.
  * @returns Promise<Case[]> - Array de casos con artifacts incluidos.
  */
@@ -357,7 +360,17 @@ export async function getCasesByOrg(orgId: string) {
   if (!orgId) throw new DatabaseError("Organization ID is required.");
   
   const cases = await prisma.case.findMany({
-    where: { orgId },
+    where: { 
+      orgId,
+      // ✅ FILTRO CRÍTICO: Excluir el case contenedor de pólizas standalone
+      // Este case especial tiene status y stage que NUNCA deben aparecer en listas normales
+      NOT: {
+        AND: [
+          { status: ORG_POLICIES_CONTAINER.STATUS },
+          { stage: ORG_POLICIES_CONTAINER.STAGE },
+        ],
+      },
+    },
     include: { 
       artifacts: {
         orderBy: { createdAt: 'desc' }
@@ -572,6 +585,8 @@ export async function assignClientToCase(caseId: string, clientId: string, orgId
 
 /**
  * Obtiene estadísticas de casos por organización.
+ * NOTA: Excluye automáticamente el case contenedor de pólizas standalone.
+ * 
  * @param orgId - El ID de la organización.
  * @returns Promise<object> - Estadísticas de casos.
  */
@@ -579,7 +594,16 @@ export async function getCaseStatsByOrg(orgId: string) {
   if (!orgId) throw new DatabaseError("Organization ID is required.");
   
   const cases = await prisma.case.findMany({
-    where: { orgId },
+    where: { 
+      orgId,
+      // ✅ FILTRO CRÍTICO: Excluir el case contenedor de pólizas standalone
+      NOT: {
+        AND: [
+          { status: ORG_POLICIES_CONTAINER.STATUS },
+          { stage: ORG_POLICIES_CONTAINER.STAGE },
+        ],
+      },
+    },
     include: { artifacts: true }
   });
   

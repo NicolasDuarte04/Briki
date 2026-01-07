@@ -65,6 +65,38 @@ export function getProfilePath(locale: Locale): string {
   return `/${locale}/profile`;
 }
 
+// =============================================================================
+// RUTAS DE PÓLIZAS STANDALONE (Org-level policies)
+// =============================================================================
+
+/**
+ * Get the main policies dashboard route (org-level policies)
+ */
+export function pathForPolicies(locale: Locale): string {
+  return `/${locale}/policies`;
+}
+
+/**
+ * Get the policies overview/metrics route
+ */
+export function pathForPoliciesOverview(locale: Locale): string {
+  return `/${locale}/policies/overview`;
+}
+
+/**
+ * Get the policies analysis route
+ */
+export function pathForPoliciesAnalysis(locale: Locale): string {
+  return `/${locale}/policies/analysis`;
+}
+
+/**
+ * Get the policies upload route
+ */
+export function pathForPoliciesUpload(locale: Locale): string {
+  return `/${locale}/policies/upload`;
+}
+
 /**
  * Get the login route
  */
