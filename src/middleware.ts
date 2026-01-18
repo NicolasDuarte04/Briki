@@ -138,11 +138,9 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Matcher optimizado para excluir rutas internas y de activos de Next.js
-  // Nota: /landing (exacto) está excluido, pero /landing/* se procesa para redirigir
+  // IMPORTANTE: Excluir completamente /landing/* para que las imágenes se sirvan directamente
   matcher: [
-    // Capturar /landing/* subrutas para redirigir (no excluir completamente)
-    '/landing/:path+',
-    // Excluir rutas de API, _next/static, _next/image, assets, favicon.ico, brand, landing exacto, robots.txt, sitemap.xml, iconos PWA
-    '/((?!api|_next/static|_next/image|assets|favicon.ico|brand|landing$|robots.txt|sitemap.xml|apple-touch-icon|site.webmanifest|android-chrome|favicon-).*)',
+    // Excluir: API, _next, assets estáticos, landing (completo), etc.
+    '/((?!api|_next/static|_next/image|assets|favicon.ico|brand|landing|robots.txt|sitemap.xml|apple-touch-icon|site.webmanifest|android-chrome|favicon-).*)',
   ],
 };
