@@ -15,13 +15,17 @@ import { checkDatabaseHealth } from '@/lib/prisma';
 export async function getCurrentOrg() {
     // ✅ CORRECCIÓN CRÍTICA: Verificación exhaustiva de variables de entorno
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-        console.error('❌ Supabase environment variables are not configured.');
+        if (process.env.NODE_ENV !== 'production') {
+            console.error('❌ Supabase environment variables are not configured.');
+        }
         throw new Error('Supabase environment variables are not configured.');
     }
 
     // ✅ CORRECCIÓN CRÍTICA: Verificar variables de base de datos
     if (!process.env.DATABASE_URL && !process.env.DIRECT_URL) {
-        console.error('❌ Database connection variables (DATABASE_URL or DIRECT_URL) are not configured.');
+        if (process.env.NODE_ENV !== 'production') {
+            console.error('❌ Database connection variables (DATABASE_URL or DIRECT_URL) are not configured.');
+        }
         throw new Error('Database connection variables are not configured. Please check your .env.local file.');
     }
 
@@ -31,8 +35,10 @@ export async function getCurrentOrg() {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
 
         if (userError) {
-            // Loguear el error específico de Supabase
-            console.error('❌ Supabase auth.getUser() error:', userError.message);
+            // Loguear el error específico de Supabase solo en desarrollo
+            if (process.env.NODE_ENV !== 'production') {
+                console.error('❌ Supabase auth.getUser() error:', userError.message);
+            }
             throw new Error(`Authentication failed: ${userError.message}`);
         }
 
@@ -62,46 +68,54 @@ export async function getCurrentOrg() {
                     prismaError.message?.includes('Can\'t reach database') ||
                     prismaError.message?.includes('database server is running');
 
-                // ✅ Estrategia 1: Timeout de conexión (P2024) - reintentar con delay
+                // ✅ OPTIMIZACIÓN VERCEL: Delays reducidos para serverless (cold starts ~500ms)
+                // Antes: 1s-15s → Ahora: 200ms-1.5s (compatible con maxDuration: 30s)
+                
+                // ✅ Estrategia 1: Timeout de conexión (P2024) - delay corto
                 if (prismaError.code === 'P2024') {
-                    console.warn(`⚠️ Prisma connection timeout (attempt ${retryCount}/${maxRetries}), retrying...`);
-                    await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Delay progresivo
+                    if (process.env.NODE_ENV !== 'production') {
+                        console.warn(`⚠️ Prisma connection timeout (attempt ${retryCount}/${maxRetries}), retrying...`);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 300 * retryCount)); // 300ms, 600ms, 900ms
                     continue;
                 }
 
-                // ✅ Estrategia 2: Servidor inaccesible (P1001 o PrismaClientInitializationError) - reintentar con delay más largo
+                // ✅ Estrategia 2: Servidor inaccesible (P1001 o PrismaClientInitializationError)
                 if (isConnectionError) {
-                    console.warn(`⚠️ Database server unreachable (attempt ${retryCount}/${maxRetries}):`, {
-                        code: prismaError.code,
-                        name: prismaError.name,
-                        message: prismaError.message?.substring(0, 100)
-                    });
-
-                    // ✅ CORRECCIÓN INTEGRAL: Intentar reconexión automática para errores de conexión
-                    // Solo en el primer intento para evitar múltiples reconexiones innecesarias
-                    // ✅ Esperar antes de reintentar para dar tiempo a recuperación automática de Prisma
-                    await new Promise(resolve => setTimeout(resolve, 2000 * retryCount)); // Delay más largo
+                    if (process.env.NODE_ENV !== 'production') {
+                        console.warn(`⚠️ Database server unreachable (attempt ${retryCount}/${maxRetries}):`, {
+                            code: prismaError.code,
+                            name: prismaError.name,
+                            message: prismaError.message?.substring(0, 100)
+                        });
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 500 * retryCount)); // 500ms, 1s, 1.5s
                     continue;
                 }
 
-                // ✅ Estrategia 3: Engine no conectado aún - delay y reintentar
+                // ✅ Estrategia 3: Engine no conectado aún - delay moderado
                 if (prismaError.message?.includes('Engine is not yet connected') ||
                     prismaError.message?.includes('not yet connected')) {
-                    console.warn(`⚠️ Prisma engine not ready yet (attempt ${retryCount}/${maxRetries}), waiting...`);
-                    // ✅ Delay más largo para dar tiempo al engine a inicializarse
-                    await new Promise(resolve => setTimeout(resolve, 5000 * retryCount));
+                    if (process.env.NODE_ENV !== 'production') {
+                        console.warn(`⚠️ Prisma engine not ready yet (attempt ${retryCount}/${maxRetries}), waiting...`);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 500 * retryCount)); // 500ms, 1s, 1.5s
                     continue;
                 }
 
-                // ✅ Estrategia 4: Otros errores de Prisma - reintentar una vez
+                // ✅ Estrategia 4: Otros errores de Prisma - reintentar rápido
                 if (prismaError.code?.startsWith('P')) {
-                    console.warn(`⚠️ Prisma error ${prismaError.code} (attempt ${retryCount}/${maxRetries}), retrying...`);
-                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    if (process.env.NODE_ENV !== 'production') {
+                        console.warn(`⚠️ Prisma error ${prismaError.code} (attempt ${retryCount}/${maxRetries}), retrying...`);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 200)); // 200ms fijo
                     continue;
                 }
 
                 // ✅ Estrategia 5: Error no relacionado con Prisma - lanzar inmediatamente
-                console.error('❌ Non-Prisma error in getCurrentOrg:', prismaError);
+                if (process.env.NODE_ENV !== 'production') {
+                    console.error('❌ Non-Prisma error in getCurrentOrg:', prismaError);
+                }
                 throw prismaError;
             }
         }
@@ -109,7 +123,9 @@ export async function getCurrentOrg() {
         // ✅ Si llegamos aquí después de maxRetries, lanzar error con contexto
         if (!organizations) {
             const errorMsg = `Database connection failed after ${maxRetries} attempts. Please check your connection and try again.`;
-            console.error('❌', errorMsg);
+            if (process.env.NODE_ENV !== 'production') {
+                console.error('❌', errorMsg);
+            }
             throw new Error(errorMsg);
         }
 
@@ -130,7 +146,9 @@ export async function getCurrentOrg() {
             activeOrgId = preferences?.active_org_id || null;
         } catch (prefError) {
             // Si no hay preferencias guardadas, usar fallback
-            console.warn('No user preferences found, using default organization');
+            if (process.env.NODE_ENV !== 'production') {
+                console.warn('No user preferences found, using default organization');
+            }
         }
 
         // Buscar la organización activa en el array de membresías
@@ -150,14 +168,18 @@ export async function getCurrentOrg() {
         }
 
         if (!currentOrg) {
-            console.error("Organization data is missing in the membership object.");
+            if (process.env.NODE_ENV !== 'production') {
+                console.error("Organization data is missing in the membership object.");
+            }
             redirect('/onboarding/organization');
         }
 
         return { user, currentOrg };
 
     } catch (error: any) {
-        console.error('❌ An error occurred in getCurrentOrg:', error.message);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error('❌ An error occurred in getCurrentOrg:', error.message);
+        }
         // Si es un error de timeout, el log lo mostrará.
         // Volver a lanzar el error para que la API que lo llama pueda manejarlo y devolver un 500.
         throw error;

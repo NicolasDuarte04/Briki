@@ -368,3 +368,126 @@ export async function decryptProfileNamesBatch(inputs: BatchDecryptInput[]): Pro
     return inputs.map(input => ({ id: input.id, decryptedName: null }));
   }
 }
+
+// ============================================================================
+// DESENCRIPTACIÓN BATCH PARA PROFILE (name, phone, address en UNA transacción)
+// ============================================================================
+
+/**
+ * Tipo para los campos encriptados del profile
+ */
+export interface ProfileEncryptedFields {
+  name: Buffer | Uint8Array | null;
+  phone: Buffer | Uint8Array | null;
+  address: Buffer | Uint8Array | null;
+}
+
+/**
+ * Tipo para el resultado de desencriptación del profile
+ */
+export interface ProfileDecryptedFields {
+  name: string | null;
+  phone: string | null;
+  address: string | null;
+}
+
+/**
+ * Desencripta los 3 campos PII del profile (name, phone, address) en UNA SOLA transacción.
+ * 
+ * Esta función optimiza el rendimiento al:
+ * - Usar una única conexión del pool
+ * - Configurar la clave de encriptación una sola vez
+ * - Reducir 3 RTTs a 1 solo RTT
+ * 
+ * @param fields - Objeto con los campos encriptados (name, phone, address)
+ * @returns Objeto con los campos desencriptados
+ * 
+ * @example
+ * const profile = await prisma.profile.findUnique({ where: { id: userId } });
+ * const decrypted = await decryptProfileFieldsBatch({
+ *   name: profile.name,
+ *   phone: profile.phone,
+ *   address: profile.address,
+ * });
+ * // decrypted = { name: 'Juan', phone: '+57123', address: 'Calle 123' }
+ */
+export async function decryptProfileFieldsBatch(
+  fields: ProfileEncryptedFields
+): Promise<ProfileDecryptedFields> {
+  const encryptionKey = process.env.APP_ENCRYPTION_KEY;
+
+  if (!encryptionKey || encryptionKey === 'REPLACE_WITH_A_SECURE_KEY_GENERATED_BY_OPENSSL') {
+    throw new Error(
+      'CRITICAL: APP_ENCRYPTION_KEY no está configurada correctamente en tu archivo .env.local. ' +
+      'Por favor, genera una clave segura y reinicia el servidor.'
+    );
+  }
+
+  // Si todos los campos son null o vacíos, retornar nulls sin ir a la BD
+  const hasName = fields.name && fields.name.length > 0;
+  const hasPhone = fields.phone && fields.phone.length > 0;
+  const hasAddress = fields.address && fields.address.length > 0;
+
+  if (!hasName && !hasPhone && !hasAddress) {
+    return { name: null, phone: null, address: null };
+  }
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      // Configurar la clave de encriptación UNA sola vez
+      await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
+      
+      const decrypted: ProfileDecryptedFields = {
+        name: null,
+        phone: null,
+        address: null,
+      };
+
+      // Desencriptar name si existe
+      if (hasName) {
+        const nameBuffer = Buffer.isBuffer(fields.name) 
+          ? fields.name 
+          : Buffer.from(fields.name!);
+        const nameResult = await tx.$queryRaw<Array<{ decrypted: string }>>`
+          SELECT public.decrypt_pii(${nameBuffer}::bytea) as decrypted
+        `;
+        decrypted.name = nameResult[0]?.decrypted || null;
+      }
+
+      // Desencriptar phone si existe
+      if (hasPhone) {
+        const phoneBuffer = Buffer.isBuffer(fields.phone) 
+          ? fields.phone 
+          : Buffer.from(fields.phone!);
+        const phoneResult = await tx.$queryRaw<Array<{ decrypted: string }>>`
+          SELECT public.decrypt_pii(${phoneBuffer}::bytea) as decrypted
+        `;
+        decrypted.phone = phoneResult[0]?.decrypted || null;
+      }
+
+      // Desencriptar address si existe
+      if (hasAddress) {
+        const addressBuffer = Buffer.isBuffer(fields.address) 
+          ? fields.address 
+          : Buffer.from(fields.address!);
+        const addressResult = await tx.$queryRaw<Array<{ decrypted: string }>>`
+          SELECT public.decrypt_pii(${addressBuffer}::bytea) as decrypted
+        `;
+        decrypted.address = addressResult[0]?.decrypted || null;
+      }
+
+      return decrypted;
+    }, {
+      timeout: 30000, // 30 segundos timeout
+      maxWait: 10000, // Esperar máximo 10s para obtener conexión
+    });
+
+    return result;
+
+  } catch (error) {
+    console.error('[decryptProfileFieldsBatch] Error en transacción batch:', error);
+    // En caso de error, retornar nulls en lugar de lanzar excepción
+    // Esto permite que la página se renderice con datos parciales
+    return { name: null, phone: null, address: null };
+  }
+}

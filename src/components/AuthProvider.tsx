@@ -32,14 +32,6 @@ export function useAuth() {
 }
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
-  // 🔍 DEBUG: Verificar qué tipo de children estamos recibiendo
-  console.log('🔍 [AuthProvider] Renderizando con children:', {
-    childrenType: typeof children,
-    childrenIsArray: Array.isArray(children),
-    childrenConstructor: children?.constructor?.name,
-    childrenKeys: children && typeof children === 'object' ? Object.keys(children as object) : 'N/A',
-  });
-
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
@@ -63,7 +55,9 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         } = await supabase.auth.getSession();
         updateAuthState(initialSession);
       } catch (error) {
-        console.error("[AuthProvider] Error initializing auth:", error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error("[AuthProvider] Error initializing auth:", error);
+        }
         updateAuthState(null);
       }
     };
@@ -75,7 +69,9 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, newSession: Session | null) => {
-        console.log("[AuthProvider] Auth state changed:", event);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log("[AuthProvider] Auth state changed:", event);
+        }
         updateAuthState(newSession);
       }
     );
@@ -92,12 +88,6 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     status,
     ready,
   };
-
-  // 🔍 DEBUG: Verificar children justo antes de renderizar
-  console.log('🔍 [AuthProvider] RENDER - children a renderizar:', {
-    childrenType: typeof children,
-    hasChildren: !!children,
-  });
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

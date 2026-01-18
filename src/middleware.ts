@@ -16,7 +16,9 @@ export async function middleware(request: NextRequest) {
 
   // Block invalid /landing/* subroutes - redirect to /landing
   // This prevents [locale] from capturing "landing" as a locale
-  if (pathname.startsWith('/landing/')) {
+  // EXCEPTION: Allow static assets (images, etc.) to pass through
+  const isStaticAsset = /\.(png|jpg|jpeg|gif|svg|webp|ico|css|js|woff|woff2|ttf|eot|mp4|webm|pdf)$/i.test(pathname);
+  if (pathname.startsWith('/landing/') && !isStaticAsset) {
     return NextResponse.redirect(new URL('/landing', request.url));
   }
 

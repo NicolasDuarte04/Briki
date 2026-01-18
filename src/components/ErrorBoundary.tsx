@@ -24,8 +24,10 @@ class ChunkLoadErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
-    // Log del error para debugging
-    console.error('ChunkLoadErrorBoundary caught an error:', error, errorInfo);
+    // Log del error solo en desarrollo
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('ChunkLoadErrorBoundary caught an error:', error, errorInfo);
+    }
   }
 
   render() {
@@ -61,19 +63,6 @@ class ChunkLoadErrorBoundary extends Component<Props, State> {
         </div>
       );
     }
-    // Eliminar sessionStorage flag al cargar correctamente
-    // if (sessionStorage.getItem('reloaded_after_error')) {
-    //     sessionStorage.removeItem('reloaded_after_error');
-    // }
-    
-    // 🔍 DEBUG: Verificar qué tipo de children estamos recibiendo
-    console.log('🔍 [ChunkLoadErrorBoundary] Renderizando children:', {
-      childrenType: typeof this.props.children,
-      childrenIsArray: Array.isArray(this.props.children),
-      childrenConstructor: this.props.children?.constructor?.name,
-      childrenKeys: this.props.children && typeof this.props.children === 'object' ? Object.keys(this.props.children as object) : 'N/A',
-    });
-    
     return <>{this.props.children}</>;
   }
 }

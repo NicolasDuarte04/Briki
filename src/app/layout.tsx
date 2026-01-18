@@ -193,15 +193,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // 🔍 DEBUG: Verificar qué tipo de children estamos recibiendo
-  console.log('🔍 [RootLayout] Renderizando con children:', {
-    childrenType: typeof children,
-    childrenIsArray: Array.isArray(children),
-    childrenConstructor: children?.constructor?.name,
-    childrenKeys: children && typeof children === 'object' ? Object.keys(children) : 'N/A',
-    isValidElement: children && typeof children === 'object' && 'type' in children,
-  });
-
   return (
     <html lang="es" className={`${inter.variable} ${geistMono.variable} ${dmSans.variable} ${newsreader.variable}`} suppressHydrationWarning>
       <head>

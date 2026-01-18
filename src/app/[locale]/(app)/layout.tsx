@@ -13,9 +13,6 @@ type AppLayoutProps = {
 }
 
 export default async function AppLayout({ children, params }: AppLayoutProps) {
-  // 🔍 DEBUG: Log al inicio del layout
-  console.log('🔍 [AppLayout] SSR - Inicio del layout');
-
   // Extract locale for localized redirects
   const { locale } = await params
 
@@ -44,17 +41,10 @@ export default async function AppLayout({ children, params }: AppLayoutProps) {
   } catch (error) {
     // Si falla getCurrentOrg, dejar que el usuario continúe
     // (podría estar en onboarding de organización)
-    console.warn('Could not get current org in layout:', error);
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Could not get current org in layout:', error);
+    }
   }
-
-  // 🔍 DEBUG: Log antes de renderizar
-  console.log('🔍 [AppLayout] SSR - Renderizando children con:', {
-    locale,
-    userId: user.id,
-    orgId,
-    childrenType: typeof children,
-    childrenIsArray: Array.isArray(children),
-  });
 
   // Render protected content with sidebar shell
   return (

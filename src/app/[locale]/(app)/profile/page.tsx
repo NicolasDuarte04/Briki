@@ -4,7 +4,7 @@ import { getCurrentUserId } from "./actions";
 import { ProfileNav } from "./ProfileNav";
 import { AccountSettings } from "./AccountSettings";
 import { DevAccountActions } from "./DevAccountActions";
-import { decryptProfilePhone, decryptProfileAddress, decryptProfileName } from "@/lib/helpers/profileEncryption";
+import { decryptProfileFieldsBatch } from "@/lib/helpers/profileEncryption";
 
 export default async function ProfilePage() {
   const userId = await getCurrentUserId();
@@ -36,16 +36,16 @@ export default async function ProfilePage() {
     },
   });
 
-  // Desencriptar name, phone y address
-  const initialName = user?.profile?.name 
-    ? (await decryptProfileName(user.profile.name)) ?? ""
-    : "";
-  const initialPhone = user?.profile?.phone 
-    ? (await decryptProfilePhone(user.profile.phone)) ?? ""
-    : "";
-  const initialAddress = user?.profile?.address 
-    ? (await decryptProfileAddress(user.profile.address)) ?? ""
-    : "";
+  // Desencriptar name, phone y address en UNA SOLA transacción (optimización)
+  const decryptedFields = await decryptProfileFieldsBatch({
+    name: user?.profile?.name ?? null,
+    phone: user?.profile?.phone ?? null,
+    address: user?.profile?.address ?? null,
+  });
+  
+  const initialName = decryptedFields.name ?? "";
+  const initialPhone = decryptedFields.phone ?? "";
+  const initialAddress = decryptedFields.address ?? "";
   const locale = (user?.profile?.locale ?? "en") as "en" | "es";
   const email = user?.email ?? "";
   const notificationsProductUpdates = user?.profile?.notificationsProductUpdates ?? false;
