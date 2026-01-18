@@ -404,6 +404,7 @@ model Case {
   comparisons        Comparison[]     // ✅ FASE 30: Relación con comparaciones
   renewals           Renewal[]        // ✅ FASE RENOVACIONES: Relación con renovaciones
   complianceRecords  ComplianceRecord[] // ✅ FASE COMPLIANCE: Registros de cumplimiento
+  linkedPolicies     CasePolicyLink[] // ✅ FASE POLICY_LINKS: Pólizas de org vinculadas a este caso
 
   @@index([clientId], map: "idx_cases_client_id")
   @@index([caseName], map: "idx_cases_case_name")
@@ -679,6 +680,7 @@ model PolicyAnalysis {
   pageReferences    PolicyPageReference[]
   renewals          Renewal[]             // ✅ FASE RENOVACIONES: Pólizas vinculadas a renovaciones
   complianceRecords ComplianceRecord[]    // ✅ FASE COMPLIANCE: Registros vinculados a esta póliza
+  caseLinks         CasePolicyLink[]      // ✅ FASE POLICY_LINKS: Casos que referencian esta póliza
 
   @@index([artifactId])
   @@index([caseId])
@@ -707,6 +709,37 @@ model PolicyPageReference {
   @@index([pageNumber])
   @@index([confidence])
   @@map("policy_page_references")
+  @@schema("public")
+}
+
+/// ============================================================================
+/// CASE POLICY LINKS - Enlaces N:M entre casos y pólizas de organización
+/// ============================================================================
+/// Permite vincular pólizas de la organización (almacenadas en el case contenedor)
+/// a casos específicos sin duplicar datos.
+/// Source: migrations/20260115_create_case_policy_links.sql
+model CasePolicyLink {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId           String   @map("case_id") @db.Uuid
+  policyAnalysisId String   @map("policy_analysis_id") @db.Uuid
+  orgId            String   @map("org_id") @db.Uuid
+  
+  // Metadata del enlace
+  linkType         String   @default("reference") @map("link_type") @db.VarChar(50)
+  linkedAt         DateTime @default(now()) @map("linked_at") @db.Timestamptz(6)
+  linkedBy         String   @map("linked_by") @db.Uuid
+  notes            String?
+  
+  // Relaciones
+  case             Case           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  policyAnalysis   PolicyAnalysis @relation(fields: [policyAnalysisId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, policyAnalysisId], map: "unique_case_policy_link")
+  @@index([caseId], map: "idx_case_policy_links_case_id")
+  @@index([policyAnalysisId], map: "idx_case_policy_links_policy_analysis_id")
+  @@index([orgId], map: "idx_case_policy_links_org_id")
+  @@index([linkedAt(sort: Desc)], map: "idx_case_policy_links_linked_at")
+  @@map("case_policy_links")
   @@schema("public")
 }
 

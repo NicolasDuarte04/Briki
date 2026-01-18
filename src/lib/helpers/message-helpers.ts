@@ -75,11 +75,18 @@ export function generateInitialMessageFromBrief(brief: Partial<CaseBrief>): stri
         parts.push(`Notas adicionales: ${brief.freeText}`);
     }
     
-    // PDFs adjuntos
+    // PDFs adjuntos (locales - subidos desde el computador)
     const tempUploads = (brief as any).tempUploads || [];
     if (tempUploads.length > 0) {
         const pdfNames = tempUploads.map((upload: any) => upload.fileName || 'Documento').join(', ');
         parts.push(`Documentos PDF adjuntos: ${pdfNames}`);
+    }
+    
+    // ✅ FASE POLICY_LINKS: Pólizas vinculadas de la organización (ya analizadas)
+    const linkedPolicyIds = brief.linkedPolicyIds || [];
+    if (linkedPolicyIds.length > 0) {
+        parts.push(`Pólizas de la organización vinculadas: ${linkedPolicyIds.length}`);
+        parts.push('(Estas pólizas ya tienen análisis previo - listas para comparación)');
     }
     
     // Si no hay información, retornar mensaje genérico
@@ -87,7 +94,21 @@ export function generateInitialMessageFromBrief(brief: Partial<CaseBrief>): stri
         return 'He completado el formulario con la información del caso.';
     }
     
-    return `He completado el formulario con la siguiente información:\n\n${parts.join('\n')}`;
+    // ✅ FASE POLICY_LINKS: Mensaje diferenciado según escenario
+    const hasLinkedPolicies = linkedPolicyIds.length > 0;
+    const hasLocalPdfs = tempUploads.length > 0;
+    
+    let introMessage = 'He completado el formulario con la siguiente información:';
+    
+    if (hasLinkedPolicies && !hasLocalPdfs) {
+        // CASO A: Solo pólizas de org - sugerir comparación directa
+        introMessage = 'He completado el formulario y vinculado pólizas de la organización. Por favor, compáralas y recomienda la mejor opción:';
+    } else if (hasLinkedPolicies && hasLocalPdfs) {
+        // CASO B: Mezcla - indicar que hay pólizas listas y otras pendientes
+        introMessage = 'He completado el formulario con pólizas vinculadas y documentos nuevos para analizar:';
+    }
+    
+    return `${introMessage}\n\n${parts.join('\n')}`;
 }
 
 

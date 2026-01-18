@@ -26,10 +26,14 @@ export default function Comparison() {
   const selectionCount = selectedAnalysisIds.size;
   const canGenerateProposal = selectionCount >= 1;
 
-  // ✅ Filter analyses to only include those from current case (prevents stale data)
+  // ✅ Filter analyses to include both:
+  // - Direct analyses (caseId matches current case)
+  // - Linked analyses (linkType === 'linked' from org policies via CasePolicyLink)
   const validAnalyses = useMemo(() => {
     if (!currentCaseId) return [];
-    return policyAnalyses.filter(a => a.caseId === currentCaseId);
+    return policyAnalyses.filter(a => 
+      a.caseId === currentCaseId || a.linkType === 'linked'
+    );
   }, [policyAnalyses, currentCaseId]);
 
   // Derived State - use validAnalyses instead of all policyAnalyses

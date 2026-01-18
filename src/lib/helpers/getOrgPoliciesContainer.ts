@@ -214,7 +214,7 @@ export async function countOrgStandalonePolicies(orgId: string): Promise<number>
  * 
  * @param orgId - ID de la organización
  * @param options - Opciones de paginación
- * @returns Array de PolicyAnalysis del contenedor
+ * @returns Array de PolicyAnalysis del contenedor con artifact y pageReferences
  */
 export async function getOrgStandalonePolicies(
   orgId: string,
@@ -224,6 +224,16 @@ export async function getOrgStandalonePolicies(
   
   if (!containerId) {
     return [];
+  }
+
+  // ✅ Construir opciones de paginación solo si están definidas
+  // Esto evita problemas con exactOptionalPropertyTypes
+  const paginationOptions: { skip?: number; take?: number } = {};
+  if (typeof options.skip === 'number') {
+    paginationOptions.skip = options.skip;
+  }
+  if (typeof options.take === 'number') {
+    paginationOptions.take = options.take;
   }
 
   const policies = await prisma.policyAnalysis.findMany({
@@ -247,8 +257,7 @@ export async function getOrgStandalonePolicies(
       },
     },
     orderBy: { extractedAt: 'desc' },
-    skip: options.skip,
-    take: options.take,
+    ...paginationOptions,
   });
 
   return policies;

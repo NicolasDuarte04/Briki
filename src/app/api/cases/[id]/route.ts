@@ -26,6 +26,23 @@ export async function GET(
         artifacts: {
           orderBy: { createdAt: 'asc' },
         },
+        // ✅ FASE POLICY_LINKS: Incluir pólizas vinculadas de la organización
+        linkedPolicies: {
+          include: {
+            policyAnalysis: {
+              include: {
+                artifact: {
+                  select: {
+                    id: true,
+                    fileName: true,
+                    fileId: true,
+                  },
+                },
+              },
+            },
+          },
+          orderBy: { linkedAt: 'desc' },
+        },
       },
     });
 

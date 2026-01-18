@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       priority,
       briefData,
       tempUploads = [], // PDFs temporales del formulario
+      linkedPolicyIds = [], // ✅ FASE POLICY_LINKS: IDs de pólizas de org a vincular
       // Nuevos campos del Brief detallado
       insurance_category,
       max_budget: rawMaxBudget, // ✅ Validar antes de usar
@@ -411,6 +412,67 @@ export async function POST(request: NextRequest) {
         }
         console.log('✅ [API] Artifact created successfully');
       }
+    }
+    
+    // =========================================================================
+    // ✅ FASE POLICY_LINKS: Vincular pólizas de organización al caso
+    // =========================================================================
+    if (linkedPolicyIds && Array.isArray(linkedPolicyIds) && linkedPolicyIds.length > 0) {
+      console.log(`🔗 [API/cases/create] Vinculando ${linkedPolicyIds.length} pólizas de organización...`);
+      const { prisma } = await import('@/lib/prisma');
+      
+      // Verificar que las pólizas existen y pertenecen a la organización
+      const validPolicies = await prisma.policyAnalysis.findMany({
+        where: {
+          id: { in: linkedPolicyIds },
+          orgId: orgId,
+        },
+        select: { id: true },
+      });
+      
+      const validIds = validPolicies.map(p => p.id);
+      const invalidIds = linkedPolicyIds.filter((id: string) => !validIds.includes(id));
+      
+      if (invalidIds.length > 0) {
+        console.warn(`⚠️ [API/cases/create] ${invalidIds.length} pólizas no encontradas o no pertenecen a la org:`, invalidIds);
+      }
+      
+      // Crear enlaces para las pólizas válidas
+      let linkedCount = 0;
+      for (const policyAnalysisId of validIds) {
+        try {
+          await prisma.casePolicyLink.create({
+            data: {
+              caseId: newCase.id,
+              policyAnalysisId,
+              orgId: orgId,
+              linkedBy: user.id,
+            },
+          });
+          linkedCount++;
+        } catch (linkError: any) {
+          // Ignorar errores de duplicados (constraint unique)
+          if (linkError.code !== 'P2002') {
+            console.error(`❌ [API/cases/create] Error vinculando póliza ${policyAnalysisId}:`, linkError);
+          }
+        }
+      }
+      
+      console.log(`✅ [API/cases/create] Vinculadas ${linkedCount} pólizas de organización al caso`);
+      
+      // Registrar en auditoría
+      await recordAuditLog({
+        caseId: newCase.id,
+        actor: user.id,
+        action: 'org_policies_linked_on_create',
+        tool: 'cases_create_api',
+        payload: {
+          orgId: orgId,
+          linkedCount,
+          requestedCount: linkedPolicyIds.length,
+          invalidCount: invalidIds.length,
+        },
+      });
     }
     
     return NextResponse.json({

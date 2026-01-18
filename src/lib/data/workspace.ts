@@ -13,6 +13,7 @@
 
 import { createServerSupabase } from '@/lib/supabase/server';
 import { prisma } from '@/lib/prisma';
+import { ORG_POLICIES_CONTAINER } from '@/lib/helpers/getOrgPoliciesContainer';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -246,19 +247,27 @@ export async function getRecentProposals(orgId: string): Promise<RecentProposal[
 export async function getRecentCases(orgId: string): Promise<RecentCase[]> {
   const supabase = await createServerSupabase();
 
+  // Obtener más registros para compensar el filtrado posterior
   const { data, error } = await supabase
     .from('cases')
     .select('id, client_name, status, stage, updated_at')
     .eq('org_id', orgId)
     .order('updated_at', { ascending: false })
-    .limit(3);
+    .limit(5);
 
   if (error || !data) {
     console.error('[getRecentCases] Error:', error);
     return [];
   }
 
-  return data.map((item) => ({
+  // ✅ Filtrar en JavaScript: excluir el caso contenedor de pólizas de organización
+  // El campo 'status' contiene '__org_policies_container__' para el caso especial
+  const filteredData = data.filter(item => 
+    item.status !== ORG_POLICIES_CONTAINER.STATUS
+  );
+
+  // Limitar a 3 resultados después del filtrado
+  return filteredData.slice(0, 3).map((item) => ({
     id: item.id,
     title: item.client_name ?? 'Caso sin nombre',
     client_name: item.client_name ?? 'Sin nombre',

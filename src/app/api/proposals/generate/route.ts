@@ -94,8 +94,11 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Fetch policy analyses for the case
-        const allPolicyAnalyses = await prisma.policyAnalysis.findMany({
+        // ✅ FASE POLICY_LINKS: Fetch policy analyses for the case
+        // Includes both direct analyses AND linked via CasePolicyLink
+        
+        // 1. Get DIRECT analyses (caseId matches)
+        const directAnalyses = await prisma.policyAnalysis.findMany({
             where: { caseId },
             orderBy: { createdAt: 'desc' },
             include: {
@@ -106,6 +109,35 @@ export async function POST(request: NextRequest) {
                 }
             }
         });
+        
+        // 2. Get LINKED analyses via CasePolicyLink
+        const linkedPolicyLinks = await prisma.casePolicyLink.findMany({
+            where: { 
+                caseId,
+                orgId 
+            },
+            include: {
+                policyAnalysis: {
+                    include: {
+                        artifact: {
+                            select: {
+                                fileName: true,
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // 3. Combine and deduplicate (direct takes priority)
+        const directIds = new Set(directAnalyses.map(a => a.id));
+        const linkedAnalyses = linkedPolicyLinks
+            .map(link => link.policyAnalysis)
+            .filter(a => !directIds.has(a.id));
+        
+        const allPolicyAnalyses = [...directAnalyses, ...linkedAnalyses];
+        
+        console.log(`📊 [proposals/generate] Análisis: ${directAnalyses.length} directos + ${linkedAnalyses.length} vinculados = ${allPolicyAnalyses.length} total`);
 
         // Filter by selected IDs if provided, otherwise use all (max 3)
         let policyAnalyses = allPolicyAnalyses;

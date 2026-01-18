@@ -140,9 +140,10 @@ export async function createCaseIfNeeded(
         const { orgId, userId } = await authResponse.json();
         console.log('👤 Usuario autenticado:', { orgId, userId });
 
-        // 3. Crear el caso con tempUploads si existen
+        // 3. Crear el caso con tempUploads y linkedPolicyIds si existen
         const tempUploads = (briefData as any).tempUploads || [];
-        console.log('📎 [case-actions] Creando caso con tempUploads:', tempUploads.length);
+        const linkedPolicyIds = briefData.linkedPolicyIds || [];
+        console.log('📎 [case-actions] Creando caso con tempUploads:', tempUploads.length, 'linkedPolicyIds:', linkedPolicyIds.length);
 
         // ✅ CORRECCIÓN CRÍTICA: Asegurar que freeText esté presente en briefData
         // Si no está en briefData, intentar obtenerlo del estado global como último recurso
@@ -180,6 +181,7 @@ export async function createCaseIfNeeded(
                 required_coverages: briefData.required_coverages,
                 client_profile: briefData.client_profile,
                 tempUploads: tempUploads,
+                linkedPolicyIds: linkedPolicyIds, // ✅ FASE POLICY_LINKS: Pólizas de org a vincular
             }),
         });
 
@@ -268,29 +270,64 @@ export async function createCaseIfNeeded(
             (window as any).lastCaseCreation = Date.now();
         }
 
-        // ✅ FASE 19.1: Análisis Pre-Navegación
-        // Esto asegura que el primer mensaje tenga referencias disponibles
+        // ✅ FASE 19.1 + FASE POLICY_LINKS: Análisis Pre-Navegación Inteligente
+        // Diferencia entre pólizas vinculadas (ya analizadas) y locales (pendientes)
         if (!options?.skipNavigation) {
             console.log('📄 [case-actions] Verificando PDFs para análisis pre-navegación...');
+            
+            // Contar pólizas vinculadas de organización (ya tienen análisis previo)
+            const linkedCount = linkedPolicyIds.length;
+            console.log(`🔗 [case-actions] Pólizas de organización vinculadas: ${linkedCount}`);
+            
             try {
-                // Obtener artifacts del caso recién creado
+                // Obtener artifacts del caso recién creado (solo pólizas locales)
                 const artifactsResponse = await fetch(`/api/cases/${caseId}/artifacts`);
 
                 if (artifactsResponse.ok) {
                     const { artifacts } = await artifactsResponse.json();
                     console.log(`📎 [case-actions] ${artifacts.length} artifacts encontrados`);
 
-                    // Filtrar PDFs
-                    const pdfArtifacts = artifacts.filter((a: any) =>
+                    // Filtrar PDFs locales (subidos desde el computador)
+                    const localPdfArtifacts = artifacts.filter((a: any) =>
                         a.contentType === 'application/pdf' ||
                         a.fileName?.toLowerCase().endsWith('.pdf')
                     );
 
-                    if (pdfArtifacts.length > 0) {
-                        console.log(`🤖 [case-actions] Analizando ${pdfArtifacts.length} PDF(s) antes de navegar...`);
+                    // ✅ LÓGICA INTELIGENTE según escenario:
+                    // CASO A: Solo pólizas de org → NO analizar (ya están analizadas)
+                    // CASO B: Mezcla (org + locales) → Analizar solo las locales
+                    // CASO C: Solo locales → Comportamiento original (analizar primera)
 
-                        // Analizar el primer PDF
-                        const firstPdf = pdfArtifacts[0];
+                    if (linkedCount > 0 && localPdfArtifacts.length === 0) {
+                        // CASO A: Solo pólizas de organización vinculadas
+                        console.log('✅ [case-actions] CASO A: Solo pólizas de org vinculadas (ya analizadas)');
+                        console.log(`   → ${linkedCount} póliza(s) lista(s) para comparación directa`);
+                        // NO se necesita análisis - las pólizas ya tienen análisis previo
+                        // El store las cargará automáticamente via fetchPolicyAnalyses
+                        
+                    } else if (linkedCount > 0 && localPdfArtifacts.length > 0) {
+                        // CASO B: Mezcla de pólizas de org + locales
+                        console.log(`🤖 [case-actions] CASO B: ${linkedCount} de org + ${localPdfArtifacts.length} locales`);
+                        console.log('   → Analizando pólizas locales (las de org ya están analizadas)');
+                        
+                        // Analizar solo el primer PDF LOCAL
+                        const firstLocalPdf = localPdfArtifacts[0];
+                        const { analyzePolicyArtifact } = useUI.getState();
+
+                        try {
+                            const analysis = await analyzePolicyArtifact(firstLocalPdf.id);
+                            console.log('✅ [case-actions] Análisis de póliza local completado:', analysis.id);
+                            console.log(`   → ${analysis.pageReferences?.length || 0} referencias creadas`);
+                        } catch (analysisError: any) {
+                            console.error('❌ [case-actions] Error analizando póliza local:', analysisError.message);
+                            // Continuar - las de org siguen disponibles
+                        }
+                        
+                    } else if (localPdfArtifacts.length > 0) {
+                        // CASO C: Solo pólizas locales (comportamiento original)
+                        console.log(`🤖 [case-actions] CASO C: ${localPdfArtifacts.length} póliza(s) local(es)`);
+
+                        const firstPdf = localPdfArtifacts[0];
                         const { analyzePolicyArtifact } = useUI.getState();
 
                         try {
@@ -299,8 +336,7 @@ export async function createCaseIfNeeded(
                             console.log(`   → ${analysis.pageReferences?.length || 0} referencias creadas`);
                         } catch (analysisError: any) {
                             console.error('❌ [case-actions] Error en análisis pre-navegación:', analysisError.message);
-                            console.warn('⚠️ [case-actions] Continuando sin análisis (primer mensaje no tendrá referencias)');
-                            // No fallar todo el flujo, solo continuar sin análisis
+                            console.warn('⚠️ [case-actions] Continuando sin análisis');
                         }
                     } else {
                         console.log('ℹ️ [case-actions] No hay PDFs para analizar');

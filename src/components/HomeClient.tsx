@@ -165,40 +165,87 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
       // ✅ CORRECCIÓN CRÍTICA: Establecer currentCaseId desde threadId cuando es un caseId real
       // Esto es necesario después de recarga de página (window.location.href)
       const currentState = useUI.getState();
-      if (currentState.currentCaseId !== threadId) {
+      
+      // ✅ CORRECCIÓN: Detectar si necesitamos cargar mensajes
+      // Incluso si currentCaseId ya coincide (desde localStorage), los mensajes NO se persisten
+      // y necesitan ser cargados desde BD
+      const needsMessageLoad = currentState.messages.length === 0;
+      const needsCaseIdSet = currentState.currentCaseId !== threadId;
+      
+      if (needsCaseIdSet) {
         console.log(`🔄 [HomeClient] Estableciendo currentCaseId desde threadId: ${threadId}`);
         setCurrentCaseId(threadId);
         setStep('conversation');
-
-        // ✅ CORRECCIÓN CRÍTICA: Si el threadId es un UUID real, establecer approvalPhase='completed' INMEDIATAMENTE
-        // Esto asegura que los botones NUNCA aparezcan mientras se carga el caso
-        // La sincronización desde BD confirmará el estado, pero por defecto asumimos que el caso ya fue aprobado
+      }
+      
+      // ✅ SIEMPRE establecer approvalPhase='completed' para casos existentes
+      if (needsCaseIdSet || currentState.approvalPhase !== 'completed') {
         useUI.setState({ 
           caseApproving: false,
           approvalPhase: 'completed' // ✅ CRÍTICO: Ocultar botones inmediatamente para casos existentes
         });
         console.log('✅ [HomeClient] approvalPhase=completed INMEDIATO para caso existente (botones ocultos)');
+      }
 
-        // ✅ Sincronizar caseApproved desde BD (confirmación, pero los botones ya están ocultos)
-        const syncCaseApproved = async () => {
+      // ✅ CORRECCIÓN CRÍTICA: Cargar mensajes si están vacíos (incluso si currentCaseId ya coincide)
+      // Esto soluciona el bug donde al refrescar, currentCaseId viene de localStorage pero messages=[]
+      if (needsCaseIdSet || needsMessageLoad) {
+        console.log(`🔄 [HomeClient] Sincronizando datos: needsCaseIdSet=${needsCaseIdSet}, needsMessageLoad=${needsMessageLoad}`);
+        
+        // ✅ CORRECCIÓN CRÍTICA: Sincronizar caso completo desde BD (status, brief Y mensajes)
+        // Este patrón replica SidebarChatPanel.tsx para consistencia
+        const syncCaseData = async () => {
           try {
-            const response = await fetch(`/api/cases/${threadId}`);
-            if (response.ok) {
-              const { case: caseData } = await response.json();
+            console.log(`🔄 [HomeClient] Cargando datos completos del caso: ${threadId}`);
+            
+            // 1. Fetch caso Y mensajes en PARALELO (igual que SidebarChatPanel)
+            const [caseResponse, messagesResponse] = await Promise.all([
+              fetch(`/api/cases/${threadId}`),
+              fetch(`/api/cases/${threadId}/messages`)
+            ]);
+
+            // 2. Procesar respuesta del caso
+            if (caseResponse.ok) {
+              const { case: caseData } = await caseResponse.json();
+              
+              // Sincronizar caseApproved según status
               if (caseData.status === 'active') {
                 useUI.getState().setCaseApproved(true);
                 console.log('✅ [HomeClient] Confirmado: caso activo desde BD, caseApproved=true');
               } else if (caseData.status === 'draft') {
-                // ✅ CASO ESPECIAL: Caso en draft - podría necesitar aprobación
-                // Pero como ya tiene UUID, los botones deben permanecer ocultos
                 console.log('ℹ️ [HomeClient] Caso en draft detectado, botones permanecen ocultos (ya tiene caseId)');
               }
+              
+              // ✅ NUEVO: Cargar brief del caso
+              if (caseData.briefData) {
+                // Limpiar tempUploads (PDFs vienen de artifacts, no de tempUploads)
+                const briefData = { ...caseData.briefData };
+                if (briefData.tempUploads) {
+                  delete briefData.tempUploads;
+                }
+                useUI.getState().setBrief(briefData);
+                console.log('✅ [HomeClient] Brief cargado desde BD');
+              }
+            } else {
+              console.warn(`⚠️ [HomeClient] Error obteniendo caso: ${caseResponse.status}`);
             }
+
+            // 3. ✅ NUEVO: Procesar respuesta de mensajes
+            if (messagesResponse.ok) {
+              const messagesData = await messagesResponse.json();
+              const historicalMessages = messagesData.messages || [];
+              useUI.getState().setMessages(historicalMessages);
+              console.log(`✅ [HomeClient] Cargados ${historicalMessages.length} mensajes históricos`);
+            } else {
+              console.warn(`⚠️ [HomeClient] Error obteniendo mensajes: ${messagesResponse.status}`);
+              // No fallar - el caso puede funcionar sin mensajes históricos
+            }
+
           } catch (error) {
-            console.warn('⚠️ [HomeClient] Error sincronizando caseApproved desde BD:', error);
+            console.warn('⚠️ [HomeClient] Error sincronizando datos del caso:', error);
           }
         };
-        syncCaseApproved();
+        syncCaseData();
 
         console.log('✅ [HomeClient] Estado inicial establecido para caso existente');
       }

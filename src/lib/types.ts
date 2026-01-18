@@ -273,6 +273,8 @@ export interface CaseBrief {
     fileHash?: string;
     extractedText?: string;
   }>;
+  /** Linked org policy IDs to be associated with the case */
+  linkedPolicyIds?: string[];
 }
 
 /**
@@ -546,6 +548,9 @@ export type PolicyView = Pick<Policy, "id" | "plan" | "riders"> & {
   artifactId?: string;
   analysisId?: string;
   pageReference?: number;
+  // ✅ FASE POLICY_LINKS: Fields for linked organization policies
+  linkType?: 'direct' | 'linked';
+  linkId?: string; // ID del CasePolicyLink para desvinculación
 };
 
 /**
@@ -666,6 +671,15 @@ export interface PolicyAnalysis {
   createdAt: string;
   /** Last update timestamp */
   updatedAt: string;
+  // ✅ FASE POLICY_LINKS: Fields for linked organization policies
+  /** Type of link: 'direct' (artifact belongs to case) or 'linked' (via CasePolicyLink) */
+  linkType?: 'direct' | 'linked';
+  /** CasePolicyLink ID (only for linked policies) */
+  linkId?: string | null;
+  /** When the policy was linked to the case */
+  linkedAt?: Date | string | null;
+  /** User who linked the policy */
+  linkedBy?: string | null;
   /** Related artifact info (when included) */
   artifact?: {
     id: string;

@@ -100,8 +100,11 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // 4. Get all policy analyses for this case
-    const analyses = await prisma.policyAnalysis.findMany({
+    // ✅ FASE POLICY_LINKS: Get all policy analyses for this case
+    // Includes both direct analyses AND linked via CasePolicyLink
+    
+    // 4a. Get DIRECT analyses (caseId matches)
+    const directAnalyses = await prisma.policyAnalysis.findMany({
       where: {
         caseId: caseId,
         orgId: currentOrg.id
@@ -116,7 +119,35 @@ export async function POST(request: NextRequest) {
       }
     });
     
-    console.log(`📄 Análisis de pólizas encontrados: ${analyses.length}`);
+    // 4b. Get LINKED analyses via CasePolicyLink
+    const linkedPolicyLinks = await prisma.casePolicyLink.findMany({
+      where: {
+        caseId: caseId,
+        orgId: currentOrg.id
+      },
+      include: {
+        policyAnalysis: {
+          include: {
+            artifact: {
+              select: {
+                id: true,
+                fileName: true
+              }
+            }
+          }
+        }
+      }
+    });
+    
+    // 4c. Combine and deduplicate (direct takes priority)
+    const directIds = new Set(directAnalyses.map(a => a.id));
+    const linkedAnalyses = linkedPolicyLinks
+      .map(link => link.policyAnalysis)
+      .filter(a => !directIds.has(a.id));
+    
+    const analyses = [...directAnalyses, ...linkedAnalyses];
+    
+    console.log(`📄 Análisis de pólizas: ${directAnalyses.length} directos + ${linkedAnalyses.length} vinculados = ${analyses.length} total`);
     
     if (analyses.length === 0) {
       return NextResponse.json({

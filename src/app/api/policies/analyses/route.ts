@@ -2,8 +2,10 @@
  * GET /api/policies/analyses
  * 
  * Get policy analyses for a case
+ * Includes both direct analyses AND linked organization policies via CasePolicyLink
  * 
  * FASE 3: API de Análisis de Pólizas
+ * FASE POLICY_LINKS: Extended to include linked org policies
  * Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.3.2
  */
 
@@ -20,8 +22,12 @@ export const runtime = 'nodejs';
  * Query parameters:
  * - caseId: UUID of the case (required)
  * 
+ * Returns both:
+ * - Direct analyses: PolicyAnalysis records where caseId matches
+ * - Linked analyses: PolicyAnalysis records linked via CasePolicyLink table
+ * 
  * @param request - Next.js request object
- * @returns List of policy analyses with page references
+ * @returns List of policy analyses with page references and link metadata
  */
 export async function GET(request: NextRequest) {
   try {
@@ -64,8 +70,8 @@ export async function GET(request: NextRequest) {
     
     console.log(`✅ Caso encontrado: ${caseExists.clientName || caseExists.id}`);
     
-    // 4. Get all policy analyses for this case
-    const analyses = await prisma.policyAnalysis.findMany({
+    // 4. Get DIRECT policy analyses for this case (original behavior)
+    const directAnalyses = await prisma.policyAnalysis.findMany({
       where: {
         caseId: caseId,
         orgId: currentOrg.id // Additional RLS check
@@ -91,23 +97,88 @@ export async function GET(request: NextRequest) {
       }
     });
     
-    console.log(`✅ Análisis encontrados: ${analyses.length}`);
+    console.log(`✅ Análisis directos encontrados: ${directAnalyses.length}`);
     
-    if (analyses.length > 0) {
-      const firstAnalysis = analyses[0];
+    // 5. ✅ FASE POLICY_LINKS: Get LINKED policy analyses via CasePolicyLink
+    const linkedPolicyLinks = await prisma.casePolicyLink.findMany({
+      where: {
+        caseId: caseId,
+        orgId: currentOrg.id
+      },
+      include: {
+        policyAnalysis: {
+          include: {
+            artifact: {
+              select: {
+                id: true,
+                fileName: true,
+                contentType: true,
+                fileId: true,
+                createdAt: true
+              }
+            },
+            pageReferences: {
+              orderBy: {
+                pageNumber: 'asc'
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        linkedAt: 'desc'
+      }
+    });
+    
+    console.log(`✅ Pólizas vinculadas encontradas: ${linkedPolicyLinks.length}`);
+    
+    // 6. Combine and deduplicate analyses
+    // Direct analyses take priority; add linkInfo to linked ones
+    const directAnalysisIds = new Set(directAnalyses.map(a => a.id));
+    
+    // Transform direct analyses with linkType = 'direct'
+    const directWithMeta = directAnalyses.map(analysis => ({
+      ...analysis,
+      linkType: 'direct' as const,
+      linkId: null as string | null,
+      linkedAt: null as Date | null,
+      linkedBy: null as string | null
+    }));
+    
+    // Transform linked analyses with linkType = 'linked'
+    // Only include if not already in direct (avoid duplicates)
+    const linkedWithMeta = linkedPolicyLinks
+      .filter(link => !directAnalysisIds.has(link.policyAnalysis.id))
+      .map(link => ({
+        ...link.policyAnalysis,
+        linkType: 'linked' as const,
+        linkId: link.id,
+        linkedAt: link.linkedAt,
+        linkedBy: link.linkedBy
+      }));
+    
+    // Combine: direct first, then linked
+    const allAnalyses = [...directWithMeta, ...linkedWithMeta];
+    
+    console.log(`✅ Total análisis combinados: ${allAnalyses.length} (${directWithMeta.length} directos + ${linkedWithMeta.length} vinculados)`);
+    
+    if (allAnalyses.length > 0) {
+      const firstAnalysis = allAnalyses[0];
       if (firstAnalysis) {
-        console.log(`   Primer análisis: ${firstAnalysis.id}`);
+        console.log(`   Primer análisis: ${firstAnalysis.id} (${firstAnalysis.linkType})`);
         console.log(`   Archivo: ${firstAnalysis.artifact?.fileName ?? 'N/A'}`);
         console.log(`   Confianza: ${firstAnalysis.overallConfidence}`);
         console.log(`   Referencias: ${firstAnalysis.pageReferences?.length ?? 0}`);
       }
     }
     
-    // 5. Success response
+    // 7. Success response
     return NextResponse.json({
       success: true,
-      analyses: analyses,
-      count: analyses.length
+      analyses: allAnalyses,
+      count: allAnalyses.length,
+      directCount: directWithMeta.length,
+      linkedCount: linkedWithMeta.length
     });
     
   } catch (error: any) {

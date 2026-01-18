@@ -10,9 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield, LinkIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PdfUploader } from '@/components/Upload/PdfUploader';
+import { OrgPolicySelector } from '@/components/Policies/OrgPolicySelector';
 import { useUI } from '@/lib/ui/state';
 import { useClientValidation } from '@/hooks/useClientValidation';
 import { createCaseIfNeeded } from '@/lib/case-actions';
@@ -56,6 +57,8 @@ export type CaseBriefData = {
   freeText: string;
   // Uploads temporales
   tempUploads?: TempUpload[];
+  // ✅ FASE POLICY_LINKS: Pólizas de organización a vincular
+  linkedPolicyIds?: string[];
 };
 
 interface BriefFormProps {
@@ -309,6 +312,9 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
   // Estado para uploads temporales - inicializado con artifacts convertidos si estamos en modo edición
   const [tempUploads, setTempUploads] = useState<TempUpload[]>(initialTempUploads);
+
+  // ✅ FASE POLICY_LINKS: Estado para pólizas de organización seleccionadas
+  const [selectedOrgPolicyIds, setSelectedOrgPolicyIds] = useState<string[]>([]);
 
   // ✅ CORRECCIÓN: Detectar si hay cambios en el formulario respecto al snapshot inicial
   // Esto permite mostrar/ocultar el botón "Actualizar Caso" solo cuando hay modificaciones
@@ -744,12 +750,14 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         coverage: formData.coverage || '',
         freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
         tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
+        linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org seleccionadas
       };
 
       console.log('📝 [BriefForm] Actualizando brief global con TODOS los datos del formulario:', {
         ...briefUpdate,
         freeText: briefUpdate.freeText?.substring(0, 50) + '...',
-        tempUploadsCount: briefUpdate.tempUploads?.length || 0
+        tempUploadsCount: briefUpdate.tempUploads?.length || 0,
+        linkedPolicyIdsCount: selectedOrgPolicyIds?.length || 0
       });
       setBrief(briefUpdate);
 
@@ -770,13 +778,15 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         const formDataWithFreeText = {
           ...formData,
           freeText: formData.notes || formData.freeText || '', // ✅ Prioridad: notes > freeText > ''
-          tempUploads: newTempUploads
+          tempUploads: newTempUploads,
+          linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org
         };
 
         console.log('✏️ [BriefForm] Edit mode: Calling onSubmit with formData + newTempUploads', {
           totalTempUploads: tempUploads.length,
           existingArtifacts: existingArtifactPaths.length,
           newTempUploads: newTempUploads.length,
+          linkedPolicyIds: selectedOrgPolicyIds?.length || 0,
           freeText: formDataWithFreeText.freeText?.substring(0, 50) + '...',
           notes: formData.notes?.substring(0, 50) + '...'
         });
@@ -837,11 +847,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           const formDataWithFreeText = {
             ...formData,
             freeText: formData.notes || formData.freeText || '', // ✅ Prioridad: notes > freeText > ''
-            tempUploads: tempUploads
+            tempUploads: tempUploads,
+            linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org
           };
           console.log('📝 [BriefForm] Fallback mode: Calling onSubmit with formData (notes mapeado a freeText)', {
             freeText: formDataWithFreeText.freeText?.substring(0, 50) + '...',
-            notes: formData.notes?.substring(0, 50) + '...'
+            notes: formData.notes?.substring(0, 50) + '...',
+            linkedPolicyIds: selectedOrgPolicyIds?.length || 0
           });
           await onSubmit(formDataWithFreeText);
         }
@@ -851,7 +863,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       // Re-lanzar el error para que se maneje en el componente padre
       throw error;
     }
-  }, [onApprove, onSubmit, formData, tempUploads, setBrief, mode, formData.insurance_category, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId]);
+  }, [onApprove, onSubmit, formData, tempUploads, selectedOrgPolicyIds, setBrief, mode, formData.insurance_category, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId]);
 
   // ✅ CORRECCIÓN UX: Estado combinado para mostrar overlay de procesamiento
   const isProcessing = isSubmitting || caseApproving || caseResolvingClient;
@@ -1186,6 +1198,23 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
               {/* ✅ CORRECCIÓN CRÍTICA FASE 2.3: NO renderizar artifacts directamente bajo ninguna circunstancia */}
               {/* Si tempUploads está vacío, NO mostrar nada - la conversión se realizará automáticamente en el useEffect */}
+
+              {/* ✅ FASE POLICY_LINKS: Selector de pólizas de la organización */}
+              <div className="space-y-2 mt-6 pt-4 border-t border-dashed">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <LinkIcon className="h-4 w-4" />
+                  Pólizas de la Organización
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Vincula pólizas previamente cargadas a la organización para usarlas como referencia en este caso
+                </p>
+                <OrgPolicySelector
+                  orgId={orgId}
+                  selectedIds={selectedOrgPolicyIds}
+                  onSelectionChange={setSelectedOrgPolicyIds}
+                  disabled={isSubmitting || caseApproving}
+                />
+              </div>
             </div>
           )}
 

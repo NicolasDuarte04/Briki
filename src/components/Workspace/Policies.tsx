@@ -190,25 +190,32 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
     }
   }, [currentCaseId, fetchPolicyAnalyses]);
 
-  // ✅ FASE 6: Transform PolicyAnalysis[] AND Artifacts to PolicyView[]
+  // ✅ FASE 6 + FASE POLICY_LINKS: Transform PolicyAnalysis[] AND Artifacts to PolicyView[]
   // Fusionar artefactos (PDFs subidos) con análisis existentes
+  // IMPORTANTE: Ahora policyAnalyses incluye tanto directas como vinculadas (via CasePolicyLink)
   const rows = React.useMemo(() => {
     // 1. Crear un mapa de análisis por artifactId para acceso rápido
     const analysisMap = new Map(policyAnalyses.map(a => [a.artifactId, a]));
 
-    // 2. Obtener todos los artefactos PDF del caso actual
+    // 2. Obtener todos los artefactos PDF del caso actual (SOLO directos)
     // Si caseData no está disponible, usar array vacío
-    const artifacts = caseData?.artifacts?.filter((a: any) =>
+    const directArtifacts = caseData?.artifacts?.filter((a: any) =>
       a.contentType === 'application/pdf' || a.fileName?.toLowerCase().endsWith('.pdf')
     ) || [];
 
+    // ✅ FASE POLICY_LINKS: Separar análisis directos y vinculados
+    const directAnalyses = policyAnalyses.filter((a: any) => a.linkType === 'direct' || !a.linkType);
+    const linkedAnalyses = policyAnalyses.filter((a: any) => a.linkType === 'linked');
+
     console.log('📊 [Policies] Calculando filas:', {
-      artifactsCount: artifacts.length,
-      analysesCount: policyAnalyses.length
+      directArtifactsCount: directArtifacts.length,
+      directAnalysesCount: directAnalyses.length,
+      linkedAnalysesCount: linkedAnalyses.length,
+      totalAnalysesCount: policyAnalyses.length
     });
 
-    // 3. Mapear artefactos a filas (priorizando datos de análisis si existen)
-    const artifactRows = artifacts.map((artifact: any) => {
+    // 3. Mapear artefactos DIRECTOS a filas (priorizando datos de análisis si existen)
+    const directArtifactRows = directArtifacts.map((artifact: any) => {
       const analysis = analysisMap.get(artifact.id);
 
       if (analysis) {
@@ -226,6 +233,7 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
           artifactId: artifact.id,
           analysisId: analysis.id,
           pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
+          linkType: 'direct' as const,
         };
       } else {
         // CASO B: No hay análisis -> Mostrar fila "pendiente" para permitir análisis manual
@@ -240,15 +248,36 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
           artifactId: artifact.id,
           analysisId: undefined, // undefined activa el botón "Analizar"
           pageReference: 1,
+          linkType: 'direct' as const,
         };
       }
     });
 
-    // 4. Incluir análisis huérfanos (que no coinciden con artifacts actuales)
-    // Esto es defensivo por si hay inconsistencias en BD
-    const orphanAnalyses = policyAnalyses.filter(a => !artifacts.find((art: any) => art.id === a.artifactId));
+    // 4. ✅ FASE POLICY_LINKS: Mapear pólizas VINCULADAS (siempre tienen análisis)
+    // Las pólizas vinculadas vienen de /policies y ya fueron analizadas
+    const linkedRows = linkedAnalyses.map((analysis: any) => ({
+      id: analysis.id,
+      plan: analysis.extractedData?.insurer?.name || analysis.artifact?.fileName || 'Póliza vinculada',
+      premium: analysis.extractedData?.financials?.premium_total || 0,
+      deductible: analysis.extractedData?.deductibles?.[0]?.amount || 0,
+      currency: (analysis.extractedData?.currency as CurrencyCode) || 'USD',
+      riders: analysis.extractedData?.coverages?.map((c: any) => c.name || c.type) || [],
+      confidence: typeof analysis.overallConfidence === 'string'
+        ? parseFloat(analysis.overallConfidence)
+        : analysis.overallConfidence,
+      artifactId: analysis.artifactId,
+      analysisId: analysis.id,
+      pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
+      linkType: 'linked' as const,
+      linkId: analysis.linkId, // ID del CasePolicyLink para posible desvinculación
+    }));
 
-    const orphanRows = orphanAnalyses.map(analysis => ({
+    // 5. Incluir análisis directos "huérfanos" (que no coinciden con artifacts actuales)
+    // Esto es defensivo por si hay inconsistencias en BD (solo para directos)
+    const directArtifactIds = new Set(directArtifacts.map((a: any) => a.id));
+    const orphanDirectAnalyses = directAnalyses.filter((a: any) => !directArtifactIds.has(a.artifactId));
+
+    const orphanRows = orphanDirectAnalyses.map((analysis: any) => ({
       id: analysis.id,
       plan: analysis.extractedData?.insurer?.name || analysis.artifact?.fileName || 'Análisis recuperado',
       premium: analysis.extractedData?.financials?.premium_total || 0,
@@ -261,9 +290,11 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
       artifactId: analysis.artifactId,
       analysisId: analysis.id,
       pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
+      linkType: 'direct' as const,
     }));
 
-    return [...artifactRows, ...orphanRows];
+    // Combinar: artifacts directos primero, luego vinculados, luego huérfanos
+    return [...directArtifactRows, ...linkedRows, ...orphanRows];
   }, [policyAnalyses, caseData]);
 
   return (
