@@ -86,9 +86,17 @@ export default function RegisterForm(): JSX.Element {
         fieldErrors.email = "That email is already registered.";
       } else if (
         normalizedError.includes("weak") ||
+        normalizedError.includes("compromised") ||
+        normalizedError.includes("leaked") ||
+        normalizedError.includes("pwned") ||
         normalizedError.includes("characters")
       ) {
-        fieldErrors.password = "Password is too weak. Please use at least 8 characters.";
+        // Mensaje específico para contraseñas filtradas vs débiles
+        if (normalizedError.includes("compromised") || normalizedError.includes("leaked") || normalizedError.includes("pwned")) {
+          fieldErrors.password = "This password has been found in a data breach. Please choose a different one.";
+        } else {
+          fieldErrors.password = "Password is too weak. Please use at least 8 characters.";
+        }
       } else {
         setServerError(result.error);
       }
