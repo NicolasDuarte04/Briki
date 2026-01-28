@@ -6,12 +6,14 @@ import { CaseList } from '@/components/Cases/CaseList';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle } from 'lucide-react';
+import { getTranslations } from 'next-intl/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CasesPage() {
   // Obtener usuario y organización actual
   const { user, currentOrg } = await getCurrentOrg();
+  const t = await getTranslations('cases');
   
   // Obtener casos de la organización y pins del usuario
   const [cases, userPins] = await Promise.all([
@@ -27,15 +29,15 @@ export default async function CasesPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Casos</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Gestiona y da seguimiento a todos tus casos de seguros
+            {t('subtitle')}
           </p>
         </div>
         <Link href="/agent/new-thread-placeholder">
           <Button className="gap-2">
             <PlusCircle className="h-4 w-4" />
-            Nuevo Caso
+            {t('newCase')}
           </Button>
         </Link>
       </div>
@@ -44,25 +46,25 @@ export default async function CasesPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-card border rounded-lg p-4">
           <div className="text-2xl font-bold">{cases.length}</div>
-          <div className="text-sm text-muted-foreground">Total de Casos</div>
+          <div className="text-sm text-muted-foreground">{t('stats.total')}</div>
         </div>
         <div className="bg-card border rounded-lg p-4">
           <div className="text-2xl font-bold">
             {cases.filter(c => c.status === 'active').length}
           </div>
-          <div className="text-sm text-muted-foreground">Casos Activos</div>
+          <div className="text-sm text-muted-foreground">{t('stats.active')}</div>
         </div>
         <div className="bg-card border rounded-lg p-4">
           <div className="text-2xl font-bold">
             {cases.filter(c => c.status === 'draft').length}
           </div>
-          <div className="text-sm text-muted-foreground">Borradores</div>
+          <div className="text-sm text-muted-foreground">{t('stats.drafts')}</div>
         </div>
         <div className="bg-card border rounded-lg p-4">
           <div className="text-2xl font-bold">
             {cases.filter(c => c.priority === 'urgent' || c.priority === 'high').length}
           </div>
-          <div className="text-sm text-muted-foreground">Alta Prioridad</div>
+          <div className="text-sm text-muted-foreground">{t('stats.highPriority')}</div>
         </div>
       </div>
       

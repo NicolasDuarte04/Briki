@@ -22,30 +22,32 @@ export function ClientCard({ client, isPinned = false }: ClientCardProps) {
   };
   
   return (
-    <Card className="hover:shadow-lg transition-shadow h-full relative group">
+    <Card className="hover:shadow-lg transition-shadow h-full relative group overflow-hidden">
       <Link href={`/workspace/clients/${client.id}`} className="block h-full">
         <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2 flex-1">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
+            <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                 <User className="h-5 w-5 text-primary" />
               </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-lg truncate">
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <h3 className="font-semibold text-lg truncate max-w-full" title={client.name}>
                   {client.name}
                 </h3>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Shield className="h-3 w-3" />
+                  <Shield className="h-3 w-3 shrink-0" />
                   <span>Datos cifrados</span>
                 </div>
               </div>
             </div>
             {/* Pin button - stops propagation to prevent Link activation */}
-            <PinButton
-              entityId={client.id}
-              entityType="client"
-              isPinned={isPinned}
-            />
+            <div className="shrink-0 flex-nowrap">
+              <PinButton
+                entityId={client.id}
+                entityType="client"
+                isPinned={isPinned}
+              />
+            </div>
           </div>
         </CardHeader>
         

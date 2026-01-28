@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { LandingMiniComparisonDemo } from './demos/LandingMiniComparisonDemo';
 
 /**
@@ -415,24 +416,25 @@ function ProposalOutputDemo() {
  */
 export function LandingFeatureTrio() {
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
+  const t = useTranslations('landing.featureTrio');
 
   const features = [
     {
-      title: 'Policy understanding',
-      description: 'Briki reads PDFs and extracts coverages, exclusions, and key terms in seconds.',
-      ctaText: 'Explore policy analysis',
+      titleKey: 'features.policyUnderstanding.title' as const,
+      descriptionKey: 'features.policyUnderstanding.description' as const,
+      ctaKey: 'features.policyUnderstanding.cta' as const,
       demoComponent: <PolicyUnderstandingDemo />,
     },
     {
-      title: 'Fast comparison',
-      description: 'Compare plans side-by-side and highlight what actually matters for the client.',
-      ctaText: 'See comparison',
+      titleKey: 'features.comparison.title' as const,
+      descriptionKey: 'features.comparison.description' as const,
+      ctaKey: 'features.comparison.cta' as const,
       demoComponent: <LandingMiniComparisonDemo />,
     },
     {
-      title: 'Proposal output',
-      description: 'Generate a clean recommendation and next steps you can send instantly.',
-      ctaText: 'View proposal output',
+      titleKey: 'features.proposal.title' as const,
+      descriptionKey: 'features.proposal.description' as const,
+      ctaKey: 'features.proposal.cta' as const,
       demoComponent: <ProposalOutputDemo />,
     },
   ];
@@ -479,7 +481,7 @@ export function LandingFeatureTrio() {
                     letterSpacing: '-0.015em',
                   }}
                 >
-                  {feature.title}
+                  {t(feature.titleKey)}
                 </h3>
                 <p
                   className="mb-3"
@@ -491,7 +493,7 @@ export function LandingFeatureTrio() {
                     letterSpacing: '-0.005em',
                   }}
                 >
-                  {feature.description}
+                  {t(feature.descriptionKey)}
                 </p>
                 {/* Clean white CTA link */}
                 <a
@@ -514,7 +516,7 @@ export function LandingFeatureTrio() {
                     e.currentTarget.style.textDecoration = 'none';
                   }}
                 >
-                  {feature.ctaText}
+                  {t(feature.ctaKey)}
                   <svg
                     width="12"
                     height="12"

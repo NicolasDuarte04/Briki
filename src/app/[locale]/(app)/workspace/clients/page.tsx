@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle, Users, Mail, Phone, MapPin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getTranslations } from 'next-intl/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ClientsPage() {
   const { user, currentOrg } = await getCurrentOrg();
+  const t = await getTranslations('clients');
   
   // Obtener clientes y pins del usuario en paralelo
   // NOTA: Stats se calculan en memoria para evitar transacciones duplicadas
@@ -36,15 +38,15 @@ export default async function ClientsPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{t('title')}</h1>
           <p className="text-muted-foreground mt-1">
-            Gestiona la información de tus clientes de forma segura
+            {t('subtitle')}
           </p>
         </div>
         <Link href="/workspace/clients/new">
           <Button className="gap-2">
             <PlusCircle className="h-4 w-4" />
-            Nuevo Cliente
+            {t('newClient')}
           </Button>
         </Link>
       </div>
@@ -53,7 +55,7 @@ export default async function ClientsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Clientes</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('stats.total')}</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -63,39 +65,39 @@ export default async function ClientsPage() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Con Email</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('stats.withEmail')}</CardTitle>
             <Mail className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.withEmail}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.total > 0 ? Math.round((stats.withEmail / stats.total) * 100) : 0}% del total
+              {stats.total > 0 ? Math.round((stats.withEmail / stats.total) * 100) : 0}% {t('stats.ofTotal')}
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Con Teléfono</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('stats.withPhone')}</CardTitle>
             <Phone className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.withPhone}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.total > 0 ? Math.round((stats.withPhone / stats.total) * 100) : 0}% del total
+              {stats.total > 0 ? Math.round((stats.withPhone / stats.total) * 100) : 0}% {t('stats.ofTotal')}
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Con Dirección</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('stats.withAddress')}</CardTitle>
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.withAddress}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.total > 0 ? Math.round((stats.withAddress / stats.total) * 100) : 0}% del total
+              {stats.total > 0 ? Math.round((stats.withAddress / stats.total) * 100) : 0}% {t('stats.ofTotal')}
             </p>
           </CardContent>
         </Card>
@@ -110,9 +112,9 @@ export default async function ClientsPage() {
             </svg>
           </div>
           <div>
-            <h3 className="font-semibold text-blue-900">Datos Cifrados</h3>
+            <h3 className="font-semibold text-blue-900">{t('security.title')}</h3>
             <p className="text-sm text-blue-700 mt-1">
-              Toda la información personal de tus clientes está cifrada en la base de datos usando encriptación AES-256.
+              {t('security.description')}
             </p>
           </div>
         </div>

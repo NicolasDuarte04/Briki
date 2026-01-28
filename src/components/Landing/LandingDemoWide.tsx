@@ -5,6 +5,7 @@ import { MarketingLink } from './MarketingLink';
 import { LandingAgentDemo } from './demos/LandingAgentDemo';
 import { LandingWorkspaceDemo } from './demos/LandingWorkspaceDemo';
 import { ArrowRight } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 /**
  * LandingDemoWide - Alternating wide demo sections
@@ -13,10 +14,12 @@ import { ArrowRight } from 'lucide-react';
  * Professional, dense, and calm aesthetic.
  */
 export function LandingDemoWide() {
+  const t = useTranslations('landing.demoWide');
+  
   const demos = [
     {
-      title: 'Briki AI Assistant',
-      description: 'Automate comparisons, analyze policies, and draft recommendations with a single prompt.',
+      titleKey: 'demos.agent.title' as const,
+      descriptionKey: 'demos.agent.description' as const,
       learnMoreHref: '#features',
       imageSrc: '/landing/plantsabstract.png',
       imageOpacity: 0.75,
@@ -25,8 +28,8 @@ export function LandingDemoWide() {
       demoComponent: <LandingAgentDemo />,
     },
     {
-      title: 'Work across all your cases',
-      description: 'Start from client chats, PDFs, or policy folders — Briki keeps context everywhere.',
+      titleKey: 'demos.cases.title' as const,
+      descriptionKey: 'demos.cases.description' as const,
       learnMoreHref: '#features',
       imageSrc: '/landing/warm.png',
       imageOpacity: 0.85,
@@ -74,7 +77,7 @@ export function LandingDemoWide() {
                       letterSpacing: '-0.02em',
                     }}
                   >
-                    {demo.title}
+                    {t(demo.titleKey)}
                   </h2>
                   <p
                     style={{
@@ -84,14 +87,14 @@ export function LandingDemoWide() {
                       fontWeight: '400',
                     }}
                   >
-                    {demo.description}
+                    {t(demo.descriptionKey)}
                   </p>
                   {/* Warm accent learn more link */}
                   <MarketingLink 
                     href={demo.learnMoreHref}
                     className="text-sm mt-1"
                   >
-                    Learn more
+                    {t('learnMore')}
                   </MarketingLink>
                 </div>
 
@@ -163,7 +166,7 @@ export function LandingDemoWide() {
                               fontWeight: '500',
                             }}
                           >
-                            Workspace dashboard placeholder
+                            {t('placeholderText')}
                           </span>
                         </div>
                       )}

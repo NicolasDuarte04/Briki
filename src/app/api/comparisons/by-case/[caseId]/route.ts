@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { resolveActiveOrg } from "@/lib/helpers/resolveActiveOrg";
 
 /**
  * GET /api/comparisons/by-case/[caseId]
@@ -9,7 +10,7 @@ import { prisma } from "@/lib/prisma";
  * This is used to load comparisons for historical cases.
  */
 export async function GET(
-    request: NextRequest,
+    _request: NextRequest,
     { params }: { params: Promise<{ caseId: string }> }
 ) {
     try {
@@ -30,42 +31,15 @@ export async function GET(
             );
         }
 
-        // ✅ CORRECCIÓN: Obtener TODAS las membresías del usuario (soporta multi-org)
-        const { data: memberships, error: membershipError } = await supabase
-            .from("org_members")
-            .select("org_id")
-            .eq("user_id", user.id);
-
-        if (membershipError || !memberships || memberships.length === 0) {
+        // ✅ MULTI-TENANCY: Resolver organización activa usando helper centralizado
+        const orgResult = await resolveActiveOrg(user.id, supabase);
+        if (!orgResult.ok) {
             return NextResponse.json(
-                { success: false, message: "User not associated with any organization" },
-                { status: 403 }
+                { success: false, message: orgResult.error },
+                { status: orgResult.errorCode }
             );
         }
-
-        // ✅ Leer preferencia de organización activa
-        let activeOrgId: string | null = null;
-        try {
-            const { data: preferences } = await supabase
-                .from("user_preferences")
-                .select("active_org_id")
-                .eq("user_id", user.id)
-                .single();
-            activeOrgId = preferences?.active_org_id || null;
-        } catch {
-            // Sin preferencias, usar fallback
-        }
-
-        // ✅ Seleccionar membresía: activa preferida o primera disponible
-        let selectedMembership = memberships[0];
-        if (activeOrgId) {
-            const activeMembership = memberships.find(m => m.org_id === activeOrgId);
-            if (activeMembership) {
-                selectedMembership = activeMembership;
-            }
-        }
-
-        const orgId = selectedMembership.org_id;
+        const { orgId } = orgResult;
 
         // Verify case access
         const caseItem = await prisma.case.findUnique({

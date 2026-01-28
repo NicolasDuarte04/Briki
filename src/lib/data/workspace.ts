@@ -276,6 +276,76 @@ export async function getRecentCases(orgId: string): Promise<RecentCase[]> {
   }));
 }
 
+/**
+ * Gets recent organizational policies (standalone policies from the virtual container)
+ * 
+ * This queries PolicyAnalysis records from the org's policy container,
+ * not cases with policy stages. These are the policies uploaded to /policies/analysis.
+ * 
+ * @param orgId - Organization ID
+ * @returns Array of recent policies (max 3)
+ */
+export async function getRecentOrgPolicies(orgId: string): Promise<RecentPolicy[]> {
+  try {
+    // Get policies from the organization's container
+    const policies = await prisma.policyAnalysis.findMany({
+      where: {
+        orgId: orgId,
+        case: {
+          status: ORG_POLICIES_CONTAINER.STATUS,
+          stage: ORG_POLICIES_CONTAINER.STAGE,
+        },
+      },
+      include: {
+        artifact: {
+          select: { fileName: true },
+        },
+      },
+      orderBy: { extractedAt: 'desc' },
+      take: 3,
+    });
+
+    return policies.map((policy) => {
+      const extractedData = policy.extractedData as Record<string, unknown> | null;
+      
+      // Extract readable name from extracted data
+      const policyNumber = extractStringField(extractedData, 'policy_number');
+      const insurer = extractStringField(extractedData, 'insurer');
+      const insuredName = extractStringField(extractedData, 'insured_name') || 
+                          extractStringField(extractedData, 'policyholder');
+      const endDate = extractStringField(extractedData, 'end_date') || 
+                      extractStringField(extractedData, 'expiry_date');
+      
+      // Build title: prefer "Insurer #Number" or filename
+      let title = policy.artifact?.fileName || 'Póliza sin nombre';
+      if (insurer && policyNumber) {
+        title = `${insurer} #${policyNumber}`;
+      } else if (insurer) {
+        title = insurer;
+      } else if (policyNumber) {
+        title = `Póliza #${policyNumber}`;
+      }
+      
+      // Determine status based on confidence
+      const confidence = Number(policy.overallConfidence);
+      const status = confidence >= 0.8 ? 'analyzed' : 
+                     confidence >= 0.5 ? 'partial' : 'pending';
+      
+      return {
+        id: policy.id,
+        title: title,
+        client_name: insuredName || 'Sin asegurado',
+        status: status,
+        updated_at: policy.extractedAt.toISOString(),
+        expire_at: endDate || null,
+      };
+    });
+  } catch (error) {
+    console.error('[getRecentOrgPolicies] Error:', error);
+    return [];
+  }
+}
+
 // ============================================================================
 // PINS FUNCTIONS
 // ============================================================================
@@ -538,6 +608,9 @@ export async function getPinnedClients(
 /**
  * Gets pinned policies for a user with full policy data
  * 
+ * Queries PolicyAnalysis records that are pinned by the user,
+ * extracting readable names from the JSONB extractedData.
+ * 
  * @param userId - User ID
  * @param orgId - Organization ID
  * @returns Array of pinned policies (max 10)
@@ -552,9 +625,83 @@ export async function getPinnedPolicies(
     return [];
   }
   
-  // Note: policies table may not exist yet - return empty for now
-  // When implemented, query policy_analyses or similar table
-  return [];
+  try {
+    // Query pinned policies with artifact data for file name
+    const policies = await prisma.policyAnalysis.findMany({
+      where: {
+        id: { in: pins.policies },
+        orgId: orgId,
+      },
+      include: {
+        artifact: {
+          select: { fileName: true },
+        },
+      },
+      take: MAX_PINS_PER_TYPE,
+    });
+    
+    return policies.map((policy) => {
+      // Extract readable name from extractedData JSONB
+      const extractedData = policy.extractedData as Record<string, unknown> | null;
+      
+      // Try to build a meaningful name from extracted fields
+      const policyNumber = extractStringField(extractedData, 'policy_number');
+      const insurer = extractStringField(extractedData, 'insurer');
+      const insuredName = extractStringField(extractedData, 'insured_name') || 
+                          extractStringField(extractedData, 'policyholder');
+      
+      // Build policy name: prefer "Insurer #Number" or filename
+      let policyName = policy.artifact?.fileName || 'Póliza sin nombre';
+      if (insurer && policyNumber) {
+        policyName = `${insurer} #${policyNumber}`;
+      } else if (insurer) {
+        policyName = insurer;
+      } else if (policyNumber) {
+        policyName = `Póliza #${policyNumber}`;
+      }
+      
+      return {
+        id: policy.id,
+        policyId: policy.id,
+        policyName: policyName,
+        clientName: insuredName || 'Sin asegurado',
+        createdAt: policy.extractedAt.toISOString(),
+      };
+    });
+    
+  } catch (error) {
+    console.error('[getPinnedPolicies] Error fetching pinned policies:', error);
+    return [];
+  }
+}
+
+/**
+ * Helper to safely extract string field from extractedData JSONB
+ * Handles cases where value might be an object with 'name' property
+ */
+function extractStringField(
+  data: Record<string, unknown> | null | undefined,
+  field: string
+): string | null {
+  if (!data || !data[field]) return null;
+  
+  const value = data[field];
+  
+  if (typeof value === 'string') {
+    return value || null;
+  }
+  
+  // Handle nested object like { name: "...", contact: "..." }
+  if (typeof value === 'object' && value !== null) {
+    const obj = value as Record<string, unknown>;
+    if (typeof obj.name === 'string') return obj.name;
+    if (typeof obj.value === 'string') return obj.value;
+    // Try first string value
+    const firstString = Object.values(obj).find(v => typeof v === 'string' && v.length > 0);
+    if (typeof firstString === 'string') return firstString;
+  }
+  
+  return null;
 }
 
 /**

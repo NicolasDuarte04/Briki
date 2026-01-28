@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -5,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronRight, Circle } from 'lucide-react';
 import { pathForEntity, type Locale, type EntityType } from '@/lib/routes/workspace';
+import { useTranslations } from 'next-intl';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -27,9 +30,9 @@ interface ContinueCardProps {
 // ============================================================================
 
 /**
- * Formats a timestamp as relative time in Spanish (e.g., "hace 5 min")
+ * Formats a timestamp as relative time using locale-aware translations
  */
-function formatRelativeTime(isoString: string): string {
+function formatRelativeTime(isoString: string, t: ReturnType<typeof useTranslations>, locale: Locale): string {
   try {
     const date = new Date(isoString);
     const now = new Date();
@@ -39,15 +42,15 @@ function formatRelativeTime(isoString: string): string {
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffMinutes < 1) {
-      return 'hace un momento';
+      return t('justNow');
     } else if (diffMinutes < 60) {
-      return `hace ${diffMinutes} min`;
+      return t('minutesAgo', { count: diffMinutes });
     } else if (diffHours < 24) {
-      return `hace ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
+      return t('hoursAgo', { count: diffHours });
     } else if (diffDays < 7) {
-      return `hace ${diffDays} ${diffDays === 1 ? 'día' : 'días'}`;
+      return t('daysAgo', { count: diffDays });
     } else {
-      return new Date(isoString).toLocaleDateString('es-ES', {
+      return new Date(isoString).toLocaleDateString(locale === 'en' ? 'en-US' : 'es-ES', {
         day: 'numeric',
         month: 'short',
       });
@@ -78,28 +81,31 @@ function mapToEntityType(entityType: string): EntityType {
 /**
  * ContinueCard - Displays the most recent work item for quick resume
  * 
- * Server component that shows a clear CTA to continue working on the last
+ * Client component that shows a clear CTA to continue working on the last
  * updated case/analysis/proposal. Includes client name, relative time, and
  * optional status badge.
  * 
  * @example
  * ```tsx
- * // In server component
+ * // In client component
  * <ContinueCard item={recentItem} locale={params.locale} />
  * ```
  */
-export function ContinueCard({ item, locale = 'es' }: ContinueCardProps) {
+export function ContinueCard({ item, locale = 'en' }: ContinueCardProps) {
+  const t = useTranslations('dashboard.continue');
+  const tTime = useTranslations('dashboard.relativeTime');
+
   if (!item) {
     return (
       <Card className="bg-card rounded-card shadow-elev-sm border border-border">
         <CardHeader className="pb-3">
           <h2 className="text-sm font-semibold text-foreground">
-            Continuar trabajando
+            {t('title')}
           </h2>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            No hay elementos recientes
+            {t('noRecent')}
           </p>
         </CardContent>
       </Card>
@@ -109,13 +115,13 @@ export function ContinueCard({ item, locale = 'es' }: ContinueCardProps) {
   // Use route helper for type-safe, locale-aware paths
   const entityType = mapToEntityType(item.entity_type);
   const entityPath = pathForEntity(entityType, item.id, locale);
-  const relativeTime = formatRelativeTime(item.updated_at);
+  const relativeTime = formatRelativeTime(item.updated_at, tTime, locale);
 
   return (
     <Card className="bg-card rounded-card shadow-elev-sm border border-border hover:shadow-elev-md transition-shadow">
       <CardHeader className="pb-3">
         <h2 className="text-sm font-semibold text-foreground">
-          Continuar trabajando
+          {t('title')}
         </h2>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -156,25 +162,25 @@ export function ContinueCard({ item, locale = 'es' }: ContinueCardProps) {
           </div>
         </div>
 
-        {/* Action buttons: Resumen + Continuar */}
+        {/* Action buttons: Summary + Continue */}
         <div className="flex gap-2">
           <Button 
             asChild 
             variant="outline"
             className="flex-1"
-            aria-label={`Ver resumen de ${item.title || item.client_name}`}
+            aria-label={`${t('viewButton')} ${item.title || item.client_name}`}
           >
             <Link href={entityPath}>
-              Resumen
+              {t('viewButton')}
             </Link>
           </Button>
           <Button 
             asChild 
             className="flex-1 justify-center group"
-            aria-label={`Continuar con ${item.title || item.client_name}`}
+            aria-label={`${t('continueButton')} ${item.title || item.client_name}`}
           >
             <Link href={`/${locale}/agent/${item.id}`} className="flex items-center gap-1">
-              <span>Continuar</span>
+              <span>{t('continueButton')}</span>
               <ChevronRight 
                 className="size-4 transition-transform group-hover:translate-x-0.5" 
                 aria-hidden="true"
@@ -199,7 +205,7 @@ ContinueCard.Skeleton = function ContinueCardSkeleton() {
     <Card 
       className="bg-card rounded-card shadow-elev-sm border border-border"
       aria-busy="true"
-      aria-label="Cargando elemento reciente"
+      aria-label="Loading recent item"
     >
       <CardHeader className="pb-3">
         <Skeleton className="h-5 w-40 bg-muted animate-pulse" />

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { pathForLogin, getDashboardHome } from '@/lib/routes/workspace';
 import { useAuth } from '@/components/AuthProvider';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ import { LandingDashboardDemo } from './demos/LandingDashboardDemo';
 export function LandingHero() {
   const locale = useLocale();
   const { user } = useAuth();
+  const t = useTranslations('landing.mainHero');
   
   // Redirigir a dashboard si hay sesión, o a login si no hay
   const ctaHref = user 
@@ -50,7 +51,7 @@ export function LandingHero() {
               flexWrap: 'wrap'
             }}
           >
-            The best way to run brokerage.
+            {t('heading')}
           </h1>
           
           <p 
@@ -61,7 +62,7 @@ export function LandingHero() {
               color: 'rgba(248, 250, 252, 0.7)'
             }}
           >
-            Briki automates 95% of busy work.
+            {t('subheading')}
           </p>
           
           <Button
@@ -69,7 +70,7 @@ export function LandingHero() {
             className="rounded-full bg-white text-[#050505] hover:bg-white/90 px-6 py-2 text-sm font-semibold h-auto"
           >
             <Link href={ctaHref}>
-              Start Now!
+              {t('cta')}
             </Link>
           </Button>
         </div>

@@ -1,10 +1,11 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
+import { getTranslations } from 'next-intl/server';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { getCaseStatsByOrg } from '@/lib/database';
 import { 
   getContinueItem,
-  getRecentPolicies, 
+  getRecentOrgPolicies, 
   getRecentProposals,
   getRecentCases,
   getUserPins
@@ -17,13 +18,12 @@ import type {
 import { Skeleton } from '@/components/ui/skeleton';
 import { ContinueCard } from '@/components/Workspace/ContinueCard';
 import { QuickActions } from '@/components/Workspace/QuickActions';
-import { Recents } from '@/components/Workspace/Recents';
 import { RecentCases } from '@/components/Workspace/RecentCases';
+import { RecentPolicies } from '@/components/Workspace/RecentPolicies';
 import { PinnedCases } from '@/components/Workspace/PinnedCases';
 import { PinnedClients } from '@/components/Workspace/PinnedClients';
 import { PinnedPolicies } from '@/components/Workspace/PinnedPolicies';
 import { ZeroState } from '@/components/Workspace/ZeroState';
-import { pathForEntity, pathForCases } from '@/lib/routes/workspace';
 import type { Locale } from '@/lib/routes/workspace';
 import DashboardViewTracker from './DashboardViewTracker';
 
@@ -141,6 +141,7 @@ function RecentsSkeleton() {
  * to render immediately while this component loads in background.
  */
 async function DashboardContent({ locale }: { locale: Locale }) {
+  const t = await getTranslations('dashboard');
   // ✅ FASE 3: Obtener auth y datos en paralelo donde sea posible
   const { user, currentOrg } = await getCurrentOrg();
   const orgId = currentOrg.id;
@@ -190,10 +191,10 @@ async function DashboardContent({ locale }: { locale: Locale }) {
         <QuickActions orgId={orgId} locale={locale} />
       </div>
       
-      {/* Row 2: Recientes: Casos (izquierda) + Recientes: Pólizas (derecha) */}
+      {/* Row 2: Recent Cases + Recent Policies */}
       <div className="md:col-span-6">
         <RecentCases
-          title="Recientes: Casos"
+          title={t('recents.cases')}
           items={recentCaseItems}
           locale={locale}
         />
@@ -230,11 +231,15 @@ async function DashboardContent({ locale }: { locale: Locale }) {
 }
 
 /**
- * RecentPoliciesSection - Separate async component for policies
+ * RecentPoliciesSection - Separate async component for organizational policies
  * Allows independent streaming of this section
+ * 
+ * Shows recent policies from the org's policy container (/policies/analysis)
+ * Uses the same stacked card style as RecentCases with a single "Análisis" button
  */
 async function RecentPoliciesSection({ orgId, locale }: { orgId: string; locale: Locale }) {
-  const policies = await getRecentPolicies(orgId);
+  const t = await getTranslations('dashboard');
+  const policies = await getRecentOrgPolicies(orgId);
   
   const items = policies.map((policy: RecentPolicy) => ({
     id: policy.id,
@@ -242,16 +247,13 @@ async function RecentPoliciesSection({ orgId, locale }: { orgId: string; locale:
     client: policy.client_name,
     status: policy.status,
     updated_at: policy.updated_at,
-    href: pathForEntity('policy', policy.id, locale),
   }));
   
   return (
-    <Recents
-      title="Recientes: Pólizas"
+    <RecentPolicies
+      title={t('recents.policies')}
       items={items}
-      viewAllHref={`${pathForCases(locale)}?filter=policies`}
-      emptyActionHref={pathForEntity('case', 'new', locale)}
-      emptyActionLabel="Crear nueva póliza"
+      locale={locale}
     />
   );
 }
@@ -274,12 +276,13 @@ export default async function DashboardPage({
 }) {
   const awaitedParams = await params;
   const locale = awaitedParams.locale as Locale;
+  const t = await getTranslations('dashboard');
   
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
       <DashboardViewTracker />
       <h1 className="text-3xl font-bold mb-8 text-[var(--foreground)]">
-        Resumen
+        {t('title')}
       </h1>
       
       {/* ✅ FASE 5: Todo el contenido pesado va dentro de Suspense */}

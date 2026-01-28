@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Search, Users } from 'lucide-react';
 import type { DecryptedClient } from '@/lib/clientsDb';
+import { useTranslations } from 'next-intl';
 
 interface ClientListProps {
   clients: DecryptedClient[];
@@ -18,6 +19,7 @@ interface ClientListProps {
 
 export function ClientList({ clients, orgId, pinnedClientIds = new Set() }: ClientListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const t = useTranslations('clients.list');
   
   // Filtrar clientes por término de búsqueda
   const filteredClients = clients.filter(client => {
@@ -37,7 +39,7 @@ export function ClientList({ clients, orgId, pinnedClientIds = new Set() }: Clie
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Buscar por nombre, email o teléfono..."
+          placeholder={t('searchPlaceholder')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="pl-10"
@@ -46,7 +48,7 @@ export function ClientList({ clients, orgId, pinnedClientIds = new Set() }: Clie
       
       {/* Results count */}
       <div className="text-sm text-muted-foreground">
-        Mostrando {filteredClients.length} de {clients.length} clientes
+        {t('showingCount', { count: filteredClients.length, total: clients.length })}
       </div>
       
       {/* Clients Grid */}
@@ -65,13 +67,13 @@ export function ClientList({ clients, orgId, pinnedClientIds = new Set() }: Clie
           <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-muted-foreground">
             {searchTerm
-              ? 'No se encontraron clientes con ese término de búsqueda'
-              : 'No hay clientes todavía. Crea tu primer cliente para comenzar.'}
+              ? t('noResults')
+              : t('emptyDescription')}
           </p>
           {!searchTerm && (
             <Button asChild className="mt-4">
               <Link href="/workspace/clients/new">
-                Crear Primer Cliente
+                {t('createFirst')}
               </Link>
             </Button>
           )}

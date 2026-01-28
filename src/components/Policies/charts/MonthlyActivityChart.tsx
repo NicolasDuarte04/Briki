@@ -7,15 +7,19 @@ import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 
-// Dynamically import ReactApexChart to avoid SSR issues
-const ReactApexChart = dynamic(() => import("react-apexcharts"), {
-  ssr: false,
-  loading: () => (
-    <div className="h-[280px] flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Cargando gráfica...</div>
-    </div>
-  ),
-});
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface MonthlyActivityChartTranslations {
+  title: string;
+  description: string;
+  inMonth: string;
+  policiesInMonth: string;
+  vsPreviousMonth: string;
+  policies: string;
+  loadingChart: string;
+}
 
 interface MonthlyData {
   month: string;
@@ -29,6 +33,26 @@ interface MonthlyActivityChartProps {
   previousMonthCount: number;
   currentMonthName: string;
   previousMonthName: string;
+  translations?: MonthlyActivityChartTranslations;
+}
+
+// Dynamically import ReactApexChart to avoid SSR issues
+const ReactApexChart = dynamic(() => import("react-apexcharts"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[280px] flex items-center justify-center">
+      <div className="animate-pulse text-muted-foreground">Loading chart...</div>
+    </div>
+  ),
+});
+
+// Loading component that accepts translated text
+function ChartLoading({ text }: { text: string }) {
+  return (
+    <div className="h-[280px] flex items-center justify-center">
+      <div className="animate-pulse text-muted-foreground">{text}</div>
+    </div>
+  );
 }
 
 export function MonthlyActivityChart({
@@ -37,7 +61,19 @@ export function MonthlyActivityChart({
   previousMonthCount,
   currentMonthName,
   previousMonthName,
+  translations,
 }: MonthlyActivityChartProps) {
+  // Default translations for backwards compatibility
+  const t = translations ?? {
+    title: "Monthly Activity",
+    description: "Policies analyzed in the last 6 months",
+    inMonth: "in {month}",
+    policiesInMonth: "{count} policies in {month}",
+    vsPreviousMonth: "vs previous month",
+    policies: "Policies",
+    loadingChart: "Loading chart...",
+  };
+
   const percentChange = previousMonthCount > 0
     ? Math.round(((currentMonthCount - previousMonthCount) / previousMonthCount) * 100)
     : currentMonthCount > 0 ? 100 : 0;
@@ -106,7 +142,7 @@ export function MonthlyActivityChart({
     },
     tooltip: {
       y: {
-        formatter: (val: number) => `${val} pólizas`,
+        formatter: (val: number) => `${val} ${t.policies.toLowerCase()}`,
       },
     },
     grid: {
@@ -119,7 +155,7 @@ export function MonthlyActivityChart({
 
   const series = [
     {
-      name: "Pólizas",
+      name: t.policies,
       data: data.map((d) => d.count),
     },
   ];
@@ -131,13 +167,13 @@ export function MonthlyActivityChart({
           <div>
             <CardTitle className="text-lg flex items-center gap-2">
               <BarChart3 className="h-5 w-5" />
-              Actividad por Mes
+              {t.title}
             </CardTitle>
-            <CardDescription>Pólizas analizadas en los últimos 6 meses</CardDescription>
+            <CardDescription>{t.description}</CardDescription>
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold">{currentMonthCount}</p>
-            <p className="text-xs text-muted-foreground">en {currentMonthName}</p>
+            <p className="text-xs text-muted-foreground">{t.inMonth.replace('{month}', currentMonthName)}</p>
           </div>
         </div>
       </CardHeader>
@@ -166,10 +202,10 @@ export function MonthlyActivityChart({
                 <span className="text-sm font-medium text-red-600">{percentChange}%</span>
               </div>
             )}
-            <span className="text-sm text-muted-foreground">vs mes anterior</span>
+            <span className="text-sm text-muted-foreground">{t.vsPreviousMonth}</span>
           </div>
           <div className="text-sm text-muted-foreground">
-            {previousMonthCount} pólizas en {previousMonthName}
+            {t.policiesInMonth.replace('{count}', String(previousMonthCount)).replace('{month}', previousMonthName)}
           </div>
         </div>
       </CardContent>

@@ -7,15 +7,22 @@ import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Target, TrendingUp, TrendingDown } from "lucide-react";
 
-// Dynamically import ReactApexChart to avoid SSR issues
-const ReactApexChart = dynamic(() => import("react-apexcharts"), {
-  ssr: false,
-  loading: () => (
-    <div className="h-[250px] flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Cargando gráfica...</div>
-    </div>
-  ),
-});
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface ConfidenceGaugeTranslations {
+  title: string;
+  description: string;
+  averageConfidence: string;
+  excellent: string;
+  acceptable: string;
+  needsReview: string;
+  high: string;
+  medium: string;
+  low: string;
+  loadingChart: string;
+}
 
 interface ConfidenceGaugeProps {
   avgConfidence: number;
@@ -23,7 +30,18 @@ interface ConfidenceGaugeProps {
   mediumCount: number;
   lowCount: number;
   total: number;
+  translations?: ConfidenceGaugeTranslations;
 }
+
+// Dynamically import ReactApexChart to avoid SSR issues
+const ReactApexChart = dynamic(() => import("react-apexcharts"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[250px] flex items-center justify-center">
+      <div className="animate-pulse text-muted-foreground">Loading chart...</div>
+    </div>
+  ),
+});
 
 export function ConfidenceGauge({
   avgConfidence,
@@ -31,7 +49,22 @@ export function ConfidenceGauge({
   mediumCount,
   lowCount,
   total,
+  translations,
 }: ConfidenceGaugeProps) {
+  // Default translations for backwards compatibility
+  const t = translations ?? {
+    title: "Extraction Confidence",
+    description: "Average precision of AI analysis",
+    averageConfidence: "Average Confidence",
+    excellent: "Excellent",
+    acceptable: "Acceptable",
+    needsReview: "Needs review",
+    high: "High",
+    medium: "Medium",
+    low: "Low",
+    loadingChart: "Loading chart...",
+  };
+
   // Determine color based on confidence level
   const getColor = () => {
     if (avgConfidence >= 80) return "#22c55e"; // green-500
@@ -64,16 +97,16 @@ export function ConfidenceGauge({
         dataLabels: {
           name: {
             show: true,
-            fontSize: "14px",
+            fontSize: "12px",
             fontWeight: 500,
             color: "hsl(var(--muted-foreground))",
-            offsetY: 20,
+            offsetY: 0,
           },
           value: {
-            fontSize: "32px",
+            fontSize: "28px",
             fontWeight: 700,
             color: "hsl(var(--foreground))",
-            offsetY: -20,
+            offsetY: -40,
             formatter: (val: number) => `${val.toFixed(0)}%`,
           },
         },
@@ -94,7 +127,7 @@ export function ConfidenceGauge({
     stroke: {
       lineCap: "round",
     },
-    labels: ["Confianza Promedio"],
+    labels: [t.averageConfidence],
   };
 
   const highPercent = total > 0 ? ((highCount / total) * 100).toFixed(0) : "0";
@@ -106,9 +139,9 @@ export function ConfidenceGauge({
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Target className="h-5 w-5" />
-          Confianza de Extracción
+          {t.title}
         </CardTitle>
-        <CardDescription>Precisión promedio del análisis de IA</CardDescription>
+        <CardDescription>{t.description}</CardDescription>
       </CardHeader>
       <CardContent>
         {/* Radial Chart */}
@@ -122,20 +155,20 @@ export function ConfidenceGauge({
         </div>
 
         {/* Status Badge */}
-        <div className="flex justify-center -mt-4 mb-4">
+        <div className="flex justify-center mt-2 mb-4">
           {avgConfidence >= 80 ? (
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-medium dark:bg-green-900/30 dark:text-green-400">
               <TrendingUp className="h-3 w-3" />
-              Excelente
+              {t.excellent}
             </span>
           ) : avgConfidence >= 50 ? (
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-sm font-medium dark:bg-amber-900/30 dark:text-amber-400">
-              Aceptable
+              {t.acceptable}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-medium dark:bg-red-900/30 dark:text-red-400">
               <TrendingDown className="h-3 w-3" />
-              Requiere revisión
+              {t.needsReview}
             </span>
           )}
         </div>
@@ -145,7 +178,7 @@ export function ConfidenceGauge({
           <div className="text-center">
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-              <span className="text-xs text-muted-foreground">Alta</span>
+              <span className="text-xs text-muted-foreground">{t.high}</span>
             </div>
             <p className="text-xl font-semibold">{highCount}</p>
             <p className="text-xs text-muted-foreground">{highPercent}%</p>
@@ -153,7 +186,7 @@ export function ConfidenceGauge({
           <div className="text-center border-x">
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              <span className="text-xs text-muted-foreground">Media</span>
+              <span className="text-xs text-muted-foreground">{t.medium}</span>
             </div>
             <p className="text-xl font-semibold">{mediumCount}</p>
             <p className="text-xs text-muted-foreground">{mediumPercent}%</p>
@@ -161,7 +194,7 @@ export function ConfidenceGauge({
           <div className="text-center">
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-              <span className="text-xs text-muted-foreground">Baja</span>
+              <span className="text-xs text-muted-foreground">{t.low}</span>
             </div>
             <p className="text-xl font-semibold">{lowCount}</p>
             <p className="text-xs text-muted-foreground">{lowPercent}%</p>

@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Pin } from 'lucide-react';
 import { getPinnedPolicies, type PinnedPolicy } from '@/lib/data/workspace';
-import { pathForPolicy, type Locale } from '@/lib/routes/workspace';
+import { pathForPolicyAnalysisDetail, type Locale } from '@/lib/routes/workspace';
+import { getTranslations } from 'next-intl/server';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -57,7 +58,10 @@ function getPolicyColorClass(index: number): string {
  * quick visual recognition.
  */
 export async function PinnedPolicies({ userId, orgId, locale }: PinnedPoliciesProps) {
-  const pinnedPolicies = await getPinnedPolicies(userId, orgId);
+  const [pinnedPolicies, t] = await Promise.all([
+    getPinnedPolicies(userId, orgId),
+    getTranslations('dashboard.pinned')
+  ]);
 
   return (
     <Card className="bg-card rounded-card shadow-elev-sm border border-border">
@@ -65,7 +69,7 @@ export async function PinnedPolicies({ userId, orgId, locale }: PinnedPoliciesPr
         <div className="flex items-center gap-2">
           <Pin className="size-4 text-muted-foreground" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-foreground">
-            Pólizas ancladas
+            {t('policies')}
           </h2>
         </div>
       </CardHeader>
@@ -74,10 +78,10 @@ export async function PinnedPolicies({ userId, orgId, locale }: PinnedPoliciesPr
           // Empty state
           <div className="text-center py-6 space-y-2">
             <p className="text-sm text-muted-foreground">
-              Aún no tienes pólizas ancladas.
+              {t('emptyPolicies')}
             </p>
             <p className="text-xs text-muted-foreground">
-              Ancla tus pólizas favoritas desde sus páginas de detalle para acceso rápido.
+              {t('hint')}
             </p>
           </div>
         ) : (
@@ -95,9 +99,9 @@ export async function PinnedPolicies({ userId, orgId, locale }: PinnedPoliciesPr
                 `}
               >
                 <Link
-                  href={pathForPolicy(policy.policyId, locale)}
+                  href={pathForPolicyAnalysisDetail(policy.policyId, locale)}
                   className="flex items-center gap-1.5"
-                  aria-label={`Ver póliza ${policy.policyName}`}
+                  aria-label={`${policy.policyName}`}
                 >
                   <span className="font-medium truncate max-w-[120px]">
                     {policy.policyName}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useActionState, useCallback } from 'react';
 import { useFormStatus } from 'react-dom';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -13,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { updateProfile, updateProfileDirect, updateNotificationSettings, requestPasswordReset, type FormState } from './actions';
 import { toast } from 'sonner';
-import { Building2, UserPlus, Users, Crown, Shield, User, ChevronRight, Mail, Copy, Check, Link2Off, Loader2, Bell, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Building2, UserPlus, Users, Crown, Shield, User, ChevronRight, Mail, Copy, Check, Link2Off, Loader2, Bell, CheckCircle2, XCircle, Clock, Globe } from 'lucide-react';
 import { 
   getUserOrganizationsForUI, 
   switchOrganization, 
@@ -43,6 +44,7 @@ import {
   type PendingInvitation,
   type SentInvitation
 } from '@/app/actions/invitationActions';
+import { useOperationBlocker } from '@/components/ui/OperationBlocker';
 
 type Tab = 'personal' | 'security' | 'notifications' | 'team' | 'audit';
 
@@ -76,6 +78,9 @@ export function AccountSettings({
   notificationsProductUpdates,
   notificationsPolicyAlerts
 }: AccountSettingsProps) {
+  const t = useTranslations('profilePage');
+  const tCommon = useTranslations('common');
+  
   const [activeTab, setActiveTab] = useState<Tab>('personal');
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
@@ -120,6 +125,10 @@ export function AccountSettings({
     currentRole: string;
     newRole: string;
   } | null>(null);
+  
+  // ✅ Language change blocker - para animación de carga durante cambio de idioma
+  const { showBlocker, hideBlocker } = useOperationBlocker();
+  const [isChangingLocale, setIsChangingLocale] = useState(false);
   
   // Cargar organizaciones al montar
   useEffect(() => {
@@ -542,7 +551,14 @@ export function AccountSettings({
    * - No hay un estado previo real del formulario
    */
   const handleLocaleChange = async (newLocale: 'en' | 'es') => {
-    if (newLocale === currentLocale) return;
+    if (newLocale === currentLocale || isChangingLocale) return;
+    
+    // Mostrar bloqueador con animación de carga
+    setIsChangingLocale(true);
+    const blockingMessage = newLocale === 'en' 
+      ? 'Changing language...' 
+      : 'Cambiando idioma...';
+    showBlocker(blockingMessage, 'locale-change');
     
     try {
       const formData = new FormData();
@@ -554,33 +570,37 @@ export function AccountSettings({
       
       if (result.ok) {
         setCurrentLocale(newLocale);
-        toast.success('Language updated successfully');
-        // Redirect to apply the new locale
+        // Redirigir para aplicar el nuevo locale
+        // No ocultamos el bloqueador ya que la página se recargará
         window.location.href = `/${newLocale}/profile`;
       } else {
-        // ✅ CORRECCIÓN: FormState usa 'message', no 'error'
+        // Ocultar bloqueador en caso de error
+        hideBlocker('locale-change');
+        setIsChangingLocale(false);
         toast.error(result.message || 'Failed to update language');
       }
     } catch (error) {
       console.error('Error updating language:', error);
+      hideBlocker('locale-change');
+      setIsChangingLocale(false);
       toast.error('Failed to update language');
     }
   };
 
   const tabs = [
-    { id: 'personal' as Tab, label: 'Personal info', badge: 0 },
-    { id: 'security' as Tab, label: 'Security', badge: 0 },
-    { id: 'notifications' as Tab, label: 'Notifications', badge: pendingInvitationsCount },
-    { id: 'team' as Tab, label: 'Dashboard de equipo', badge: 0 },
+    { id: 'personal' as Tab, label: t('tabs.personal'), badge: 0 },
+    { id: 'security' as Tab, label: t('tabs.security'), badge: 0 },
+    { id: 'notifications' as Tab, label: t('tabs.notifications'), badge: pendingInvitationsCount },
+    { id: 'team' as Tab, label: t('tabs.team'), badge: 0 },
     // ✅ Solo mostrar pestaña de auditoría si el usuario es admin u owner
-    ...(isAdmin ? [{ id: 'audit' as Tab, label: 'Auditoría (Admins)', badge: 0 }] : []),
+    ...(isAdmin ? [{ id: 'audit' as Tab, label: t('tabs.audit'), badge: 0 }] : []),
   ];
 
   return (
     <div>
       {/* Breadcrumb */}
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">Account settings</h1>
+        <h1 className="text-2xl font-semibold text-foreground">{t('title')}</h1>
       </div>
 
       {/* Tabs */}
@@ -623,12 +643,12 @@ export function AccountSettings({
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-sm font-medium text-foreground/90 mb-1">Name</h3>
+                  <h3 className="text-sm font-medium text-foreground/90 mb-1">{t('personal.name')}</h3>
                   {!isEditingName ? (
                     <p className="text-base text-foreground">
-                      {nameValue || 'Not set'}
+                      {nameValue || t('personal.notSet')}
                       {lastSavedField === 'name' && (
-                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">Saved</span>
+                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">{tCommon('saved')}</span>
                       )}
                     </p>
                   ) : (
@@ -642,13 +662,13 @@ export function AccountSettings({
                         defaultValue={nameValue}
                         onChange={(e) => setNameValue(e.target.value)}
                         className="max-w-md"
-                        placeholder="Enter your name"
+                        placeholder={t('personal.namePlaceholder')}
                         autoFocus
                       />
                       <input type="hidden" name="field" value="name" />
                       <input type="hidden" name="locale" value={locale} />
                       <div className="flex gap-2">
-                        <SubmitButton label="Save" />
+                        <SubmitButton label={tCommon('save')} />
                         <Button
                           type="button"
                           variant="ghost"
@@ -658,7 +678,7 @@ export function AccountSettings({
                             setNameValue(initialName);
                           }}
                         >
-                          Cancel
+                          {tCommon('cancel')}
                         </Button>
                       </div>
                     </form>
@@ -674,7 +694,7 @@ export function AccountSettings({
                     }}
                     className="text-primary hover:text-primary/80 hover:bg-primary/10"
                   >
-                    Edit
+                    {tCommon('edit')}
                   </Button>
                 )}
               </div>
@@ -684,9 +704,9 @@ export function AccountSettings({
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-foreground/90 mb-1">Email</h3>
+                  <h3 className="text-sm font-medium text-foreground/90 mb-1">{t('personal.email')}</h3>
                   <p className="text-base text-foreground">{email}</p>
-                  <p className="text-xs text-muted-foreground mt-1">Your email cannot be changed</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('personal.emailHint')}</p>
                 </div>
               </div>
             </div>
@@ -695,12 +715,12 @@ export function AccountSettings({
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-sm font-medium text-foreground/90 mb-1">Phone</h3>
+                  <h3 className="text-sm font-medium text-foreground/90 mb-1">{t('personal.phone')}</h3>
                   {!isEditingPhone ? (
                     <p className="text-base text-foreground">
-                      {phoneValue || 'Not set'}
+                      {phoneValue || t('personal.notSet')}
                       {lastSavedField === 'phone' && (
-                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">Saved</span>
+                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">{tCommon('saved')}</span>
                       )}
                     </p>
                   ) : (
@@ -714,14 +734,14 @@ export function AccountSettings({
                         defaultValue={phoneValue}
                         onChange={(e) => setPhoneValue(e.target.value)}
                         className="max-w-md"
-                        placeholder="Enter your phone number"
+                        placeholder={t('personal.phonePlaceholder')}
                         autoFocus
                         maxLength={40}
                       />
                       <input type="hidden" name="field" value="phone" />
                       <input type="hidden" name="locale" value={locale} />
                       <div className="flex gap-2">
-                        <SubmitButton label="Save" />
+                        <SubmitButton label={tCommon('save')} />
                         <Button
                           type="button"
                           variant="ghost"
@@ -731,7 +751,7 @@ export function AccountSettings({
                             setPhoneValue(initialPhone);
                           }}
                         >
-                          Cancel
+                          {tCommon('cancel')}
                         </Button>
                       </div>
                     </form>
@@ -747,7 +767,7 @@ export function AccountSettings({
                     }}
                     className="text-primary hover:text-primary/80 hover:bg-primary/10"
                   >
-                    Edit
+                    {tCommon('edit')}
                   </Button>
                 )}
               </div>
@@ -757,12 +777,12 @@ export function AccountSettings({
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-sm font-medium text-foreground/90 mb-1">Address</h3>
+                  <h3 className="text-sm font-medium text-foreground/90 mb-1">{t('personal.address')}</h3>
                   {!isEditingAddress ? (
                     <p className="text-base text-foreground">
-                      {addressValue || 'Not set'}
+                      {addressValue || t('personal.notSet')}
                       {lastSavedField === 'address' && (
-                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">Saved</span>
+                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">{tCommon('saved')}</span>
                       )}
                     </p>
                   ) : (
@@ -776,14 +796,14 @@ export function AccountSettings({
                         defaultValue={addressValue}
                         onChange={(e) => setAddressValue(e.target.value)}
                         className="max-w-md"
-                        placeholder="Enter your address"
+                        placeholder={t('personal.addressPlaceholder')}
                         autoFocus
                         maxLength={200}
                       />
                       <input type="hidden" name="field" value="address" />
                       <input type="hidden" name="locale" value={locale} />
                       <div className="flex gap-2">
-                        <SubmitButton label="Save" />
+                        <SubmitButton label={tCommon('save')} />
                         <Button
                           type="button"
                           variant="ghost"
@@ -793,7 +813,7 @@ export function AccountSettings({
                             setAddressValue(initialAddress);
                           }}
                         >
-                          Cancel
+                          {tCommon('cancel')}
                         </Button>
                       </div>
                     </form>
@@ -809,41 +829,93 @@ export function AccountSettings({
                     }}
                     className="text-primary hover:text-primary/80 hover:bg-primary/10"
                   >
-                    Edit
+                    {tCommon('edit')}
                   </Button>
                 )}
               </div>
             </div>
 
-            {/* Language Card */}
+            {/* Language Card - Rediseñado con selección explícita */}
             <div className="bg-card rounded-lg border border-border p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-foreground/90 mb-1">Language</h3>
-                  <p className="text-sm text-muted-foreground mb-3">Choose your preferred language</p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleLocaleChange('en')}
-                      className={`px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
-                        locale === 'en'
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-card text-foreground/90 border-input hover:bg-muted'
-                      }`}
-                    >
-                      English ✓
-                    </button>
-                    <button
-                      onClick={() => handleLocaleChange('es')}
-                      className={`px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
-                        locale === 'es'
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-card text-foreground/90 border-input hover:bg-muted'
-                      }`}
-                    >
-                      Español
-                    </button>
-                  </div>
+              <div className="flex items-start gap-3 mb-4">
+                <Globe className="size-5 text-primary mt-0.5" aria-hidden="true" />
+                <div>
+                  <h3 className="text-sm font-medium text-foreground/90">{t('personal.language')}</h3>
+                  <p className="text-sm text-muted-foreground">{t('personal.languageDescription')}</p>
                 </div>
+              </div>
+              
+              <div className="space-y-2" role="radiogroup" aria-label={t('personal.languageSelection')}>
+                {/* English Option */}
+                <label
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                    currentLocale === 'en'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                      : 'border-input hover:border-muted-foreground/50 hover:bg-muted/50'
+                  } ${isChangingLocale ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="language"
+                    value="en"
+                    checked={currentLocale === 'en'}
+                    onChange={() => handleLocaleChange('en')}
+                    disabled={isChangingLocale}
+                    className="sr-only"
+                    aria-label="English"
+                  />
+                  <div className={`flex items-center justify-center w-5 h-5 rounded-full border-2 transition-colors ${
+                    currentLocale === 'en'
+                      ? 'border-primary'
+                      : 'border-muted-foreground/40'
+                  }`}>
+                    {currentLocale === 'en' && (
+                      <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-foreground">English</span>
+                    <span className="ml-2 text-xs text-muted-foreground">{t('personal.default')}</span>
+                  </div>
+                  {currentLocale === 'en' && (
+                    <Check className="size-4 text-primary" aria-hidden="true" />
+                  )}
+                </label>
+                
+                {/* Español Option */}
+                <label
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                    currentLocale === 'es'
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                      : 'border-input hover:border-muted-foreground/50 hover:bg-muted/50'
+                  } ${isChangingLocale ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="language"
+                    value="es"
+                    checked={currentLocale === 'es'}
+                    onChange={() => handleLocaleChange('es')}
+                    disabled={isChangingLocale}
+                    className="sr-only"
+                    aria-label="Español"
+                  />
+                  <div className={`flex items-center justify-center w-5 h-5 rounded-full border-2 transition-colors ${
+                    currentLocale === 'es'
+                      ? 'border-primary'
+                      : 'border-muted-foreground/40'
+                  }`}>
+                    {currentLocale === 'es' && (
+                      <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-foreground">Español</span>
+                  </div>
+                  {currentLocale === 'es' && (
+                    <Check className="size-4 text-primary" aria-hidden="true" />
+                  )}
+                </label>
               </div>
             </div>
           </>
@@ -851,22 +923,22 @@ export function AccountSettings({
 
         {activeTab === 'security' && (
           <div className="bg-card rounded-lg border border-border p-6">
-            <h3 className="text-base font-semibold text-foreground mb-2">Password</h3>
+            <h3 className="text-base font-semibold text-foreground mb-2">{t('security.password')}</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Reset your password by receiving a secure reset link via email. You&apos;ll be able to create a new password after clicking the link.
+              {t('security.passwordDescription')}
             </p>
             <Button 
               onClick={handlePasswordReset}
               disabled={passwordResetStatus === 'sending'}
               className="bg-primary hover:bg-primary/90"
             >
-              {passwordResetStatus === 'sending' ? 'Sending...' : 'Send password reset email'}
+              {passwordResetStatus === 'sending' ? t('security.sending') : t('security.sendResetEmail')}
             </Button>
             {passwordResetStatus === 'success' && (
-              <p className="text-sm text-green-600 dark:text-green-400 mt-2">✓ Reset email sent successfully</p>
+              <p className="text-sm text-green-600 dark:text-green-400 mt-2">✓ {t('security.resetSuccess')}</p>
             )}
             {passwordResetStatus === 'error' && (
-              <p className="text-sm text-destructive mt-2">Failed to send reset email</p>
+              <p className="text-sm text-destructive mt-2">{t('security.resetError')}</p>
             )}
           </div>
         )}
@@ -878,7 +950,7 @@ export function AccountSettings({
               <div className="bg-card rounded-lg border border-primary/30 p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Bell className="h-5 w-5 text-primary" />
-                  <h3 className="text-base font-semibold text-foreground">Invitaciones pendientes</h3>
+                  <h3 className="text-base font-semibold text-foreground">{t('notifications.pendingInvitations')}</h3>
                   <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-0.5 rounded-full">
                     {pendingInvitations.length}
                   </span>
@@ -893,23 +965,23 @@ export function AccountSettings({
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
                           <p className="font-medium text-foreground">
-                            Invitación de <span className="text-primary">{invitation.organizationName}</span>
+                            {t('notifications.invitationFrom')} <span className="text-primary">{invitation.organizationName}</span>
                           </p>
                           <p className="text-sm text-muted-foreground mt-1">
-                            {invitation.inviterName || invitation.inviterEmail || 'Un miembro'} te ha invitado a unirte como{' '}
+                            {invitation.inviterName || invitation.inviterEmail || t('notifications.aMember')} {t('notifications.invitedYouAs')}{' '}
                             <span className="font-medium">
-                              {invitation.role === 'admin' ? 'Administrador' : 'Miembro'}
+                              {invitation.role === 'admin' ? t('notifications.roleAdmin') : t('notifications.roleMember')}
                             </span>
                           </p>
                           {invitation.message && (
                             <p className="text-sm text-muted-foreground mt-2 italic">"{invitation.message}"</p>
                           )}
                           <p className="text-xs text-muted-foreground/70 mt-2">
-                            Recibida {new Date(invitation.createdAt).toLocaleDateString('es-ES', { 
+                            {t('notifications.received')} {new Date(invitation.createdAt).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { 
                               day: 'numeric', month: 'short', year: 'numeric' 
                             })}
                             {invitation.expiresAt && (
-                              <> · Expira {new Date(invitation.expiresAt).toLocaleDateString('es-ES', { 
+                              <> · {t('notifications.expires')} {new Date(invitation.expiresAt).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { 
                                 day: 'numeric', month: 'short' 
                               })}</>
                             )}
@@ -929,7 +1001,7 @@ export function AccountSettings({
                             ) : (
                               <>
                                 <XCircle className="h-4 w-4 mr-1" />
-                                Rechazar
+                                {t('notifications.decline')}
                               </>
                             )}
                           </Button>
@@ -944,7 +1016,7 @@ export function AccountSettings({
                             ) : (
                               <>
                                 <CheckCircle2 className="h-4 w-4 mr-1" />
-                                Aceptar
+                                {t('notifications.accept')}
                               </>
                             )}
                           </Button>
@@ -961,7 +1033,7 @@ export function AccountSettings({
               <div className="bg-card rounded-lg border border-border p-6">
                 <div className="text-center py-4">
                   <Bell className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">No tienes invitaciones pendientes</p>
+                  <p className="text-sm text-muted-foreground">{t('notifications.noInvitations')}</p>
                 </div>
               </div>
             )}
@@ -970,7 +1042,7 @@ export function AccountSettings({
               <div className="bg-card rounded-lg border border-border p-6">
                 <div className="flex items-center justify-center py-4 gap-2">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground/70" />
-                  <span className="text-sm text-muted-foreground">Cargando invitaciones...</span>
+                  <span className="text-sm text-muted-foreground">{t('notifications.loadingInvitations')}</span>
                 </div>
               </div>
             )}
@@ -978,8 +1050,8 @@ export function AccountSettings({
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">Product updates</h3>
-                  <p className="text-sm text-muted-foreground mt-1">Receive emails about new features and improvements</p>
+                  <h3 className="text-sm font-medium text-foreground">{t('notifications.productUpdates')}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{t('notifications.productUpdatesDescription')}</p>
                 </div>
                 <input 
                   type="checkbox" 
@@ -994,8 +1066,8 @@ export function AccountSettings({
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">Policy alerts</h3>
-                  <p className="text-sm text-muted-foreground mt-1">Get notified about important policy changes</p>
+                  <h3 className="text-sm font-medium text-foreground">{t('notifications.policyAlerts')}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{t('notifications.policyAlertsDescription')}</p>
                 </div>
                 <input 
                   type="checkbox" 
@@ -1015,20 +1087,20 @@ export function AccountSettings({
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Building2 className="h-5 w-5 text-primary" />
-                <h3 className="text-base font-semibold text-foreground">Organización activa</h3>
+                <h3 className="text-base font-semibold text-foreground">{t('team.activeOrg')}</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                Selecciona la organización con la que deseas trabajar. Todos los casos, clientes y análisis se filtrarán según esta selección.
+                {t('team.activeOrgDesc')}
               </p>
               
               {loadingOrgs ? (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Cargando organizaciones...</span>
+                  <span className="text-sm">{t('team.loadingOrgs')}</span>
                 </div>
               ) : organizations.length === 0 ? (
                 <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                  <p className="text-sm text-yellow-600 dark:text-yellow-400">No tienes organizaciones. Contacta al administrador.</p>
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400">{t('team.noOrgs')}</p>
                 </div>
               ) : (
                 <div className="flex items-center gap-4">
@@ -1038,7 +1110,7 @@ export function AccountSettings({
                     disabled={switchingOrg}
                   >
                     <SelectTrigger className="w-full max-w-md bg-card border-input focus:border-primary focus:ring-primary">
-                      <SelectValue placeholder="Selecciona una organización" />
+                      <SelectValue placeholder={t('team.selectOrg')} />
                     </SelectTrigger>
                     <SelectContent>
                       {organizations.map((org) => (
@@ -1046,7 +1118,7 @@ export function AccountSettings({
                           <div className="flex items-center gap-3">
                             <Building2 className="h-4 w-4 text-muted-foreground/70" />
                             <span className="font-medium">{org.name}</span>
-                            <span className="text-xs text-muted-foreground">({org.memberCount} miembros)</span>
+                            <span className="text-xs text-muted-foreground">({org.memberCount} {t('team.membersLabel')})</span>
                           </div>
                         </SelectItem>
                       ))}
@@ -1068,7 +1140,7 @@ export function AccountSettings({
               {selectedOrg && (
                 <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
                   <p className="text-sm text-foreground">
-                    <span className="font-medium">Trabajando en:</span> {selectedOrg.name}
+                    <span className="font-medium">{t('team.workingIn')}:</span> {selectedOrg.name}
                   </p>
                   <p className="text-xs text-primary mt-1">
                     Slug: <code className="bg-primary/10 px-1 rounded">{selectedOrg.slug}</code>
@@ -1081,10 +1153,10 @@ export function AccountSettings({
             <div className="bg-card rounded-lg border border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <UserPlus className="h-5 w-5 text-green-600 dark:text-green-400" />
-                <h3 className="text-base font-semibold text-foreground">Invitar miembros</h3>
+                <h3 className="text-base font-semibold text-foreground">{t('team.inviteMembers')}</h3>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                Invita a nuevos usuarios a unirse a tu organización por email.
+                {t('team.inviteMembersDesc')}
               </p>
               
               <div className="space-y-4">
@@ -1093,7 +1165,7 @@ export function AccountSettings({
                   <div className="flex-1">
                     <Input
                       type="email"
-                      placeholder="Email del usuario (ej: usuario@email.com)"
+                      placeholder={t('team.emailPlaceholder')}
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
                       className="w-full border-input focus:border-primary focus:ring-primary"
@@ -1113,12 +1185,12 @@ export function AccountSettings({
                     {invitePending ? (
                       <span className="flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Enviando...
+                        {t('team.sending')}
                       </span>
                     ) : (
                       <span className="flex items-center gap-2">
                         <Mail className="h-4 w-4" />
-                        Invitar
+                        {t('team.invite')}
                       </span>
                     )}
                   </Button>
@@ -1130,7 +1202,7 @@ export function AccountSettings({
                     <span className="w-full border-t border-border" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">o comparte el link</span>
+                    <span className="bg-card px-2 text-muted-foreground">{t('team.orShareLink')}</span>
                   </div>
                 </div>
 
@@ -1138,7 +1210,7 @@ export function AccountSettings({
                 <div className="flex gap-3 opacity-60">
                   <Input
                     type="text"
-                    value="Link de invitación (próximamente)"
+                    value={t('team.linkPlaceholder')}
                     readOnly
                     disabled
                     className="flex-1 bg-muted border-input text-muted-foreground/70 cursor-not-allowed"
@@ -1151,27 +1223,27 @@ export function AccountSettings({
                   >
                     <span className="flex items-center gap-2 text-muted-foreground/70">
                       <Link2Off className="h-4 w-4" />
-                      Próximamente
+                      {t('team.comingSoon')}
                     </span>
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground/70 flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  La funcionalidad de link compartido estará disponible próximamente
+                  {t('team.linkFeatureDesc')}
                 </p>
                 
                 {/* Invitaciones enviadas pendientes */}
                 {sentInvitations.length > 0 && (
                   <div className="mt-4 pt-4 border-t border-border/50">
-                    <h4 className="text-sm font-medium text-foreground/90 mb-3">Invitaciones enviadas pendientes</h4>
+                    <h4 className="text-sm font-medium text-foreground/90 mb-3">{t('team.sentInvitations')}</h4>
                     <div className="space-y-2">
                       {sentInvitations.map((inv) => (
                         <div key={inv.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                           <div>
                             <p className="text-sm font-medium text-foreground">{inv.inviteeEmail}</p>
                             <p className="text-xs text-muted-foreground">
-                              Enviada {new Date(inv.createdAt).toLocaleDateString('es-ES')}
-                              {inv.expiresAt && ` · Expira ${new Date(inv.expiresAt).toLocaleDateString('es-ES')}`}
+                              {t('team.sentOn', { date: new Date(inv.createdAt).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US') })}
+                              {inv.expiresAt && ` · ${t('team.expiresOn', { date: new Date(inv.expiresAt).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US') })}`}
                             </p>
                           </div>
                           <Button
@@ -1180,7 +1252,7 @@ export function AccountSettings({
                             onClick={() => handleCancelInvitation(inv.id)}
                             className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           >
-                            Cancelar
+                            {t('team.cancelInvite')}
                           </Button>
                         </div>
                       ))}
@@ -1195,16 +1267,16 @@ export function AccountSettings({
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                  <h3 className="text-base font-semibold text-foreground">Miembros del equipo</h3>
+                  <h3 className="text-base font-semibold text-foreground">{t('team.teamMembers')}</h3>
                 </div>
                 <span className="text-sm text-muted-foreground">
                   {loadingMembers ? (
                     <span className="flex items-center gap-1">
                       <Loader2 className="h-3 w-3 animate-spin" />
-                      Cargando...
+                      {t('team.loadingMembers')}
                     </span>
                   ) : (
-                    `${teamMembers.length} miembros`
+                    t('team.membersCount', { count: teamMembers.length })
                   )}
                 </span>
               </div>
@@ -1216,7 +1288,7 @@ export function AccountSettings({
               ) : teamMembers.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                  <p className="text-sm">No hay miembros en esta organización</p>
+                  <p className="text-sm">{t('team.noMembers')}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
@@ -1231,12 +1303,12 @@ export function AccountSettings({
                         {/* Info */}
                         <div>
                           <p className="font-medium text-foreground">
-                            {member.name || 'Usuario sin nombre'}
+                            {member.name || t('team.noName')}
                             {member.isCurrentUser && (
-                              <span className="ml-2 text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full">Tú</span>
+                              <span className="ml-2 text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full">{t('team.youLabel')}</span>
                             )}
                           </p>
-                          <p className="text-sm text-muted-foreground">{member.email || 'Email no disponible'}</p>
+                          <p className="text-sm text-muted-foreground">{member.email || t('team.noEmail')}</p>
                         </div>
                       </div>
                       
@@ -1261,13 +1333,13 @@ export function AccountSettings({
                                 <SelectItem value="member">
                                   <div className="flex items-center gap-2">
                                     <User className="h-3 w-3 text-muted-foreground" />
-                                    <span>Member</span>
+                                    <span>{t('notifications.roleMember')}</span>
                                   </div>
                                 </SelectItem>
                                 <SelectItem value="admin">
                                   <div className="flex items-center gap-2">
                                     <Shield className="h-3 w-3 text-blue-500" />
-                                    <span>Admin</span>
+                                    <span>{t('notifications.roleAdmin')}</span>
                                   </div>
                                 </SelectItem>
                               </SelectContent>
@@ -1280,7 +1352,7 @@ export function AccountSettings({
                           getRoleBadge(member.role)
                         )}
                         <span className="text-xs text-muted-foreground/70">
-                          Desde {new Date(member.joinedAt).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' })}
+                          {t('team.memberSince', { date: new Date(member.joinedAt).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { month: 'short', year: 'numeric' }) })}
                         </span>
                         <ChevronRight className="h-4 w-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
@@ -1293,10 +1365,10 @@ export function AccountSettings({
               <div className="mt-6 pt-4 border-t border-border/50">
                 <p className="text-xs text-muted-foreground flex items-center gap-2">
                   <span className="inline-block w-2 h-2 rounded-full bg-green-400"></span>
-                  Los propietarios pueden cambiar roles entre Admin y Member
+                  {t('team.removeHint')}
                 </p>
                 <p className="text-xs text-muted-foreground/70 mt-1 ml-4">
-                  La eliminación de miembros estará disponible próximamente
+                  {t('team.removeDisclaimer')}
                 </p>
               </div>
             </div>
@@ -1305,15 +1377,15 @@ export function AccountSettings({
 
         {activeTab === 'audit' && (
           <div className="bg-card rounded-lg border border-border p-6">
-            <h3 className="text-base font-semibold text-foreground mb-4">Audit Log</h3>
+            <h3 className="text-base font-semibold text-foreground mb-4">{t('audit.title')}</h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Historial de auditoría del sistema. Solo visible para administradores y propietarios.
+              {t('audit.description')}
             </p>
             
             {loadingAuditLogs ? (
-              <p className="text-sm text-muted-foreground">Cargando registros de auditoría...</p>
+              <p className="text-sm text-muted-foreground">{t('audit.loading')}</p>
             ) : auditLogs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No hay registros de auditoría disponibles.</p>
+              <p className="text-sm text-muted-foreground">{t('audit.empty')}</p>
             ) : (
               <div className="space-y-4 max-h-96 overflow-y-auto">
                 {auditLogs.map((log) => (
@@ -1322,7 +1394,7 @@ export function AccountSettings({
                       <div>
                         <p className="font-semibold text-foreground">{log.action}</p>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(log.createdAt).toLocaleString()}
+                          {new Date(log.createdAt).toLocaleString(locale === 'es' ? 'es-ES' : 'en-US')}
                         </p>
                         {log.actor && (
                           <p className="text-sm text-muted-foreground">Actor: {log.actor}</p>
@@ -1364,26 +1436,25 @@ export function AccountSettings({
         <AlertDialog open={roleChangeDialog.open} onOpenChange={(open) => !open && setRoleChangeDialog(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>¿Cambiar rol de miembro?</AlertDialogTitle>
+              <AlertDialogTitle>{t('team.changeRoleTitle')}</AlertDialogTitle>
               <AlertDialogDescription>
-                <span className="font-medium">{roleChangeDialog.memberName}</span> pasará de{' '}
-                <span className="font-semibold text-foreground/90">{roleChangeDialog.currentRole}</span> a{' '}
-                <span className="font-semibold text-foreground/90">{roleChangeDialog.newRole}</span>.
+                <span className="font-medium">{roleChangeDialog.memberName}</span>{' '}
+                {t('team.changeRoleDesc', { name: '', fromRole: roleChangeDialog.currentRole, toRole: roleChangeDialog.newRole }).replace('{name}', '').trim()}
                 {roleChangeDialog.newRole === 'admin' && (
                   <span className="block mt-2 text-primary">
-                    ✓ Tendrá permisos de administrador en la organización.
+                    ✓ {t('team.adminPermHint')}
                   </span>
                 )}
                 {roleChangeDialog.newRole === 'member' && (
                   <span className="block mt-2 text-yellow-600 dark:text-yellow-400">
-                    ⚠ Perderá los permisos de administrador.
+                    ⚠ {t('team.memberPermHint')}
                   </span>
                 )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={changingRoleForMember !== null}>
-                Cancelar
+                {tCommon('cancel')}
               </AlertDialogCancel>
               <AlertDialogAction 
                 onClick={confirmRoleChange}
@@ -1393,10 +1464,10 @@ export function AccountSettings({
                 {changingRoleForMember ? (
                   <span className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Actualizando...
+                    {t('team.updating')}
                   </span>
                 ) : (
-                  'Confirmar cambio'
+                  t('team.confirmChange')
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>

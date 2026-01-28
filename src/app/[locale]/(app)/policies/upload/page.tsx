@@ -7,6 +7,7 @@
  */
 
 import { Suspense } from 'react';
+import { getTranslations } from 'next-intl/server';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -50,50 +51,57 @@ function UploadSkeleton() {
 // INFO CARDS
 // ============================================================================
 
-function SupportedFormatsCard() {
+interface SupportedFormatsCardProps {
+  t: {
+    supportedFormats: string;
+    pdfRecommended: string;
+    formatTip: string;
+  };
+}
+
+function SupportedFormatsCard({ t }: SupportedFormatsCardProps) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <Info className="h-5 w-5 text-blue-500" />
-          Formatos Soportados
+          {t.supportedFormats}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-2 text-sm">
           <li className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-red-500" />
-            <span>PDF (Recomendado)</span>
+            <span>{t.pdfRecommended}</span>
           </li>
         </ul>
         <p className="mt-4 text-xs text-muted-foreground">
-          Para mejores resultados, sube documentos PDF con texto seleccionable 
-          (no escaneados como imagen).
+          {t.formatTip}
         </p>
       </CardContent>
     </Card>
   );
 }
 
-function TipsCard() {
-  const tips = [
-    'Asegúrate de que el PDF no esté protegido con contraseña',
-    'Los documentos con texto seleccionable dan mejores resultados',
-    'Puedes subir múltiples pólizas a la vez',
-    'El análisis puede tomar hasta 30 segundos por póliza',
-  ];
+interface TipsCardProps {
+  t: {
+    title: string;
+    tips: string[];
+  };
+}
 
+function TipsCard({ t }: TipsCardProps) {
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <CheckCircle2 className="h-5 w-5 text-green-500" />
-          Tips para Mejores Resultados
+          {t.title}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-2">
-          {tips.map((tip, index) => (
+          {t.tips.map((tip, index) => (
             <li key={index} className="flex items-start gap-2 text-sm">
               <span className="text-green-500 mt-0.5">•</span>
               <span>{tip}</span>
@@ -105,28 +113,37 @@ function TipsCard() {
   );
 }
 
-function LimitationsCard() {
+interface LimitationsCardProps {
+  t: {
+    title: string;
+    maxFileSize: string;
+    scannedPdf: string;
+    manualReview: string;
+  };
+}
+
+function LimitationsCard({ t }: LimitationsCardProps) {
   return (
     <Card className="border-amber-200 bg-amber-50/50">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <AlertCircle className="h-5 w-5 text-amber-500" />
-          Limitaciones
+          {t.title}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <ul className="space-y-2 text-sm">
           <li className="flex items-start gap-2">
             <span className="text-amber-500 mt-0.5">•</span>
-            <span>Tamaño máximo: 10MB por archivo</span>
+            <span>{t.maxFileSize}</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-amber-500 mt-0.5">•</span>
-            <span>PDFs escaneados pueden tener menor precisión</span>
+            <span>{t.scannedPdf}</span>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-amber-500 mt-0.5">•</span>
-            <span>Algunos formatos de póliza pueden requerir revisión manual</span>
+            <span>{t.manualReview}</span>
           </li>
         </ul>
       </CardContent>
@@ -138,7 +155,29 @@ function LimitationsCard() {
 // UPLOAD CONTENT
 // ============================================================================
 
-async function UploadContent({ locale }: { locale: Locale }) {
+interface TranslationProps {
+  supportedFormats: {
+    supportedFormats: string;
+    pdfRecommended: string;
+    formatTip: string;
+  };
+  tips: {
+    title: string;
+    tips: string[];
+  };
+  limitations: {
+    title: string;
+    maxFileSize: string;
+    scannedPdf: string;
+    manualReview: string;
+  };
+  card: {
+    title: string;
+    description: string;
+  };
+}
+
+async function UploadContent({ locale, translations }: { locale: Locale; translations: TranslationProps }) {
   const { currentOrg, user } = await getCurrentOrg();
 
   return (
@@ -149,11 +188,10 @@ async function UploadContent({ locale }: { locale: Locale }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
-              Subir Póliza PDF
+              {translations.card.title}
             </CardTitle>
             <CardDescription>
-              Arrastra y suelta un archivo PDF o haz clic para seleccionar. 
-              Nuestro sistema analizará automáticamente el documento.
+              {translations.card.description}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -169,9 +207,9 @@ async function UploadContent({ locale }: { locale: Locale }) {
 
       {/* Sidebar Info */}
       <div className="space-y-6">
-        <SupportedFormatsCard />
-        <TipsCard />
-        <LimitationsCard />
+        <SupportedFormatsCard t={translations.supportedFormats} />
+        <TipsCard t={translations.tips} />
+        <LimitationsCard t={translations.limitations} />
       </div>
     </div>
   );
@@ -188,6 +226,34 @@ export default async function PoliciesUploadPage({
 }) {
   const awaitedParams = await params;
   const locale = awaitedParams.locale as Locale;
+  const t = await getTranslations('policies');
+
+  const translations: TranslationProps = {
+    supportedFormats: {
+      supportedFormats: t('upload.supportedFormats'),
+      pdfRecommended: t('upload.pdfRecommended'),
+      formatTip: t('upload.formatTip'),
+    },
+    tips: {
+      title: t('upload.tips.title'),
+      tips: [
+        t('upload.tips.noPassword'),
+        t('upload.tips.selectableText'),
+        t('upload.tips.multipleFiles'),
+        t('upload.tips.analysisTime'),
+      ],
+    },
+    limitations: {
+      title: t('uploadPage.limitations.title'),
+      maxFileSize: t('uploadPage.limitations.maxFileSize'),
+      scannedPdf: t('uploadPage.limitations.scannedPdf'),
+      manualReview: t('uploadPage.limitations.manualReview'),
+    },
+    card: {
+      title: t('uploadPage.cardTitle'),
+      description: t('uploadPage.cardDescription'),
+    },
+  };
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
@@ -196,20 +262,20 @@ export default async function PoliciesUploadPage({
         <Button variant="ghost" size="sm" asChild className="mb-4">
           <Link href={pathForPolicies(locale)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver a Pólizas
+            {t('uploadPage.backToPolicies')}
           </Link>
         </Button>
         <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          Subir Nueva Póliza
+          {t('uploadPage.title')}
         </h1>
         <p className="text-muted-foreground mt-1">
-          Sube un documento PDF para analizarlo automáticamente
+          {t('uploadPage.subtitle')}
         </p>
       </div>
 
       {/* Content */}
       <Suspense fallback={<UploadSkeleton />}>
-        <UploadContent locale={locale} />
+        <UploadContent locale={locale} translations={translations} />
       </Suspense>
     </div>
   );

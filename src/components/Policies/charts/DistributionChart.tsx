@@ -12,7 +12,7 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), {
   ssr: false,
   loading: () => (
     <div className="h-[300px] flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Cargando gráfica...</div>
+      <div className="animate-pulse text-muted-foreground">Loading chart...</div>
     </div>
   ),
 });
@@ -48,6 +48,8 @@ interface DistributionChartProps {
   items: DistributionItem[];
   type?: "donut" | "pie";
   colors?: string[];
+  /** Optional loading text for i18n */
+  loadingText?: string;
 }
 
 const DEFAULT_COLORS = [
@@ -68,6 +70,7 @@ export function DistributionChart({
   items,
   type = "donut",
   colors = DEFAULT_COLORS,
+  loadingText = "Loading chart...",
 }: DistributionChartProps) {
   // Resolver el icono basado en el variant (evita pasar funciones como props)
   const Icon = ICON_MAP[variant];

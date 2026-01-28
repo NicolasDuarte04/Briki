@@ -412,7 +412,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             // ✅ FASE 6B: Navegación Manual después del análisis
             const currentPath = window.location.pathname;
             const localeMatch = currentPath.match(/\/(es|en)\//);
-            const locale = localeMatch ? localeMatch[1] : 'es';
+            const locale = localeMatch ? localeMatch[1] : 'en';
             const targetUrl = `/${locale}/agent/${createdCaseId}`;
 
             console.log(`✅ [CaseBriefForm] Navegando manualmente a: ${targetUrl}`);

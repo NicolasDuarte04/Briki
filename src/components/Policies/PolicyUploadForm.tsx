@@ -14,6 +14,7 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { 
@@ -57,6 +58,7 @@ export function PolicyUploadForm({
   redirectUrl,
 }: PolicyUploadFormProps) {
   const router = useRouter();
+  const t = useTranslations('policies');
   
   // State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -87,7 +89,7 @@ export function PolicyUploadForm({
       setUploadProgress({
         status: 'error',
         progress: 0,
-        message: 'El archivo excede el límite de 10MB',
+        message: t('form.fileSizeExceeds'),
       });
       return;
     }
@@ -95,7 +97,7 @@ export function PolicyUploadForm({
     setSelectedFile(file);
     setUploadProgress({ status: 'idle', progress: 0, message: '' });
     setResult(null);
-  }, []);
+  }, [t]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -117,7 +119,7 @@ export function PolicyUploadForm({
       setUploadProgress({
         status: 'uploading',
         progress: 20,
-        message: 'Subiendo archivo...',
+        message: t('upload.progress.uploading'),
       });
 
       const formData = new FormData();
@@ -131,7 +133,7 @@ export function PolicyUploadForm({
 
       if (!uploadResponse.ok) {
         const errorData = await uploadResponse.json();
-        throw new Error(errorData.error || 'Error al subir el archivo');
+        throw new Error(errorData.error || t('upload.progress.error'));
       }
 
       const uploadData = await uploadResponse.json();
@@ -139,7 +141,7 @@ export function PolicyUploadForm({
       setUploadProgress({
         status: 'analyzing',
         progress: 50,
-        message: 'Analizando póliza con IA...',
+        message: t('upload.progress.analyzing'),
       });
 
       // Step 2: Trigger analysis

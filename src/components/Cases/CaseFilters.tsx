@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useTranslations } from 'next-intl';
 
 interface CaseFiltersProps {
   statusFilter: string;
@@ -22,31 +23,33 @@ export function CaseFilters({
   priorityFilter,
   setPriorityFilter,
 }: CaseFiltersProps) {
+  const t = useTranslations('cases.filters');
+
   return (
     <div className="flex gap-2">
       <Select value={statusFilter} onValueChange={setStatusFilter}>
         <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Estado" />
+          <SelectValue placeholder={t('status')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todos los estados</SelectItem>
-          <SelectItem value="draft">Borrador</SelectItem>
-          <SelectItem value="active">Activo</SelectItem>
-          <SelectItem value="completed">Completado</SelectItem>
-          <SelectItem value="archived">Archivado</SelectItem>
+          <SelectItem value="all">{t('allStatuses')}</SelectItem>
+          <SelectItem value="draft">{t('draft')}</SelectItem>
+          <SelectItem value="active">{t('active')}</SelectItem>
+          <SelectItem value="completed">{t('completed')}</SelectItem>
+          <SelectItem value="archived">{t('archived')}</SelectItem>
         </SelectContent>
       </Select>
       
       <Select value={priorityFilter} onValueChange={setPriorityFilter}>
         <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Prioridad" />
+          <SelectValue placeholder={t('priority')} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">Todas las prioridades</SelectItem>
-          <SelectItem value="low">Baja</SelectItem>
-          <SelectItem value="medium">Media</SelectItem>
-          <SelectItem value="high">Alta</SelectItem>
-          <SelectItem value="urgent">Urgente</SelectItem>
+          <SelectItem value="all">{t('allPriorities')}</SelectItem>
+          <SelectItem value="low">{t('low')}</SelectItem>
+          <SelectItem value="medium">{t('medium')}</SelectItem>
+          <SelectItem value="high">{t('high')}</SelectItem>
+          <SelectItem value="urgent">{t('urgent')}</SelectItem>
         </SelectContent>
       </Select>
     </div>

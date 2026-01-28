@@ -6,9 +6,9 @@ import { getDashboardHome, type Locale } from '@/lib/routes/workspace';
 
 const intlMiddleware = createMiddleware({
   locales: ['en', 'es'],
-  defaultLocale: 'es',
+  defaultLocale: 'en',
   localePrefix: 'as-needed',
-  localeDetection: true,
+  localeDetection: false, // Desactivar auto-detección para forzar inglés por defecto
 });
 
 export async function middleware(request: NextRequest) {
@@ -29,7 +29,7 @@ export async function middleware(request: NextRequest) {
   
   // Extract locale from pathname for redirection
   const localeMatch = pathname.match(/^\/(es|en)/);
-  const locale = (localeMatch ? localeMatch[1] : 'es') as Locale;
+  const locale = (localeMatch ? localeMatch[1] : 'en') as Locale;
 
   // Check for ?landing=1 bypass parameter
   const bypassLanding = request.nextUrl.searchParams.get('landing') === '1';

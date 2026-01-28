@@ -789,7 +789,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         // Paso 4: Navegar DESPUÉS de aprobar exitosamente y persistir estado
         const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
         const localeMatch = currentPath.match(/\/(es|en)\//);
-        const locale = localeMatch ? localeMatch[1] : 'es';
+        const locale = localeMatch ? localeMatch[1] : 'en';
         const targetUrl = `/${locale}/agent/${finalCaseId}`;
         console.log(`✅ [ConversationPane] Navegando a: ${targetUrl} (después de aprobar y persistir)`);
 

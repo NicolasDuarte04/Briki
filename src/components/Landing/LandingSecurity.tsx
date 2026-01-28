@@ -1,24 +1,11 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 export function LandingSecurity() {
-  const securityFeatures = [
-    {
-      title: 'Roles & Permissions',
-      description: 'Granular access control'
-    },
-    {
-      title: 'Audit Trail',
-      description: 'Complete activity logs'
-    },
-    {
-      title: 'Secure Documents',
-      description: 'Encrypted at rest & in transit'
-    },
-    {
-      title: 'Onboarding & Support',
-      description: 'Dedicated implementation'
-    }
-  ];
+  const t = useTranslations('landing.security');
+  
+  const featureKeys = ['roles', 'audit', 'documents', 'support'] as const;
 
   return (
     <section 
@@ -32,21 +19,21 @@ export function LandingSecurity() {
           id="security-heading"
           className="text-center text-white text-4xl font-semibold mb-16"
         >
-          Enterprise-grade security
+          {t('title')}
         </h2>
         
         {/* Security cards grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {securityFeatures.map((feature, index) => (
+          {featureKeys.map((key) => (
             <div
-              key={index}
+              key={key}
               className="rounded-2xl bg-[#1a1a1a] border border-white/10 p-6"
             >
               <h3 className="text-lg font-semibold text-white mb-2">
-                {feature.title}
+                {t(`features.${key}.title`)}
               </h3>
               <p className="text-sm text-white/60">
-                {feature.description}
+                {t(`features.${key}.description`)}
               </p>
             </div>
           ))}

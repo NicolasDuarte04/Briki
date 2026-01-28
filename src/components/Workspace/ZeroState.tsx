@@ -1,8 +1,11 @@
+'use client';
+
 import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, UserPlus, FolderKanban, MessageSquare, Check, Circle } from 'lucide-react';
 import { pathForNewEntity, pathForAgent, pathForCases, pathForClients, type Locale } from '@/lib/routes/workspace';
+import { useTranslations } from 'next-intl';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -28,17 +31,17 @@ interface ZeroStateProps {
   
   /**
    * Current locale for generating locale-aware paths
-   * Defaults to 'es' if not provided
+   * Defaults to 'en' if not provided
    */
   locale?: Locale;
 }
 
 interface Step {
   id: number;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   icon: React.ReactNode;
-  actionLabel: string;
+  actionLabelKey: string;
   actionHref?: string;
   actionOnClick?: () => void;
   isCompleted: boolean;
@@ -51,16 +54,17 @@ interface Step {
 /**
  * ZeroState - First-run guidance for new workspace users
  * 
- * Server-compatible component that displays a friendly 4-step onboarding
- * flow in Spanish. Guides users to create a case with the agent, manage clients,
+ * Client component that displays a friendly 4-step onboarding
+ * flow. Guides users to create a case with the agent, manage clients,
  * manage cases, and analyze individual policies. Includes progress tracking and direct action links.
  */
 export function ZeroState({ 
   completedSteps = 0, 
   orgId,
   onUploadClick,
-  locale = 'es'
+  locale = 'en'
 }: ZeroStateProps) {
+  const t = useTranslations('dashboard.zeroState');
   
   // ============================================================================
   // STEP CONFIGURATION
@@ -69,38 +73,38 @@ export function ZeroState({
   const steps: Step[] = [
     {
       id: 1,
-      title: 'Crea tu primer caso',
-      description: 'Navega a la interfaz de agente o haz clic aquí para abrirla. Te ayudaremos a través del diligenciamiento de un formulario especializado a formar un estudio específico de las necesidades de tus clientes extrayendo la información clave de las pólizas que consideres pertinentes.',
+      titleKey: 'steps.createCase.title',
+      descriptionKey: 'steps.createCase.description',
       icon: <MessageSquare className="size-6 text-primary" aria-hidden="true" />,
-      actionLabel: 'Ir al chat con el Agente',
+      actionLabelKey: 'steps.createCase.actionLabel',
       actionHref: pathForAgent(locale),
       isCompleted: completedSteps >= 1,
     },
     {
       id: 2,
-      title: 'Complementa los detalles de tu cliente',
-      description: 'Complementa la información básica del cliente creado anteriormente o crea nuevos clientes desde 0 con casos específicos junto con sus datos detallados para empezar a organizar tus casos.',
+      titleKey: 'steps.manageClients.title',
+      descriptionKey: 'steps.manageClients.description',
       icon: <UserPlus className="size-6 text-primary" aria-hidden="true" />,
-      actionLabel: 'Ver clientes',
+      actionLabelKey: 'steps.manageClients.actionLabel',
       actionHref: pathForClients(locale),
       isCompleted: completedSteps >= 2,
     },
     {
       id: 3,
-      title: 'Gestiona los casos de tu organización',
-      description: 'Dentro de tu organización puedes crear, eliminar, cargar conversaciones históricas y visualizar resúmenes breves de los casos creados. Para cargar las conversaciones debes usar la sección de "Chats" en el panel derecho, y para visualizar y eliminar tus casos asociados puedes hacerlo desde el gestor de casos.',
+      titleKey: 'steps.manageCases.title',
+      descriptionKey: 'steps.manageCases.description',
       icon: <FolderKanban className="size-6 text-primary" aria-hidden="true" />,
-      actionLabel: 'Gestor de Casos',
+      actionLabelKey: 'steps.manageCases.actionLabel',
       actionHref: pathForCases(locale),
       isCompleted: completedSteps >= 3,
     },
     {
       id: 4,
-      title: 'Analiza tus pólizas individuales',
-      description: 'No debes tener necesariamente un caso para analizar pólizas. Si quieres tener un análisis integral de las pólizas de forma individual y crear tu banco de pólizas asociado a tu organización puedes hacerlo perfectamente desde aquí.',
+      titleKey: 'steps.analyzePolicies.title',
+      descriptionKey: 'steps.analyzePolicies.description',
       icon: <FileText className="size-6 text-primary" aria-hidden="true" />,
-      actionLabel: 'Cargar pólizas',
-      actionHref: '#', // Temporalmente desconectado hasta que se cree /polices
+      actionLabelKey: 'steps.analyzePolicies.actionLabel',
+      actionHref: '#', // Temporarily disconnected until /policies is created
       isCompleted: completedSteps >= 4,
     },
   ];
@@ -137,11 +141,10 @@ export function ZeroState({
           
           <div className="space-y-2">
             <h1 className="text-headline font-bold text-foreground">
-              ¡Bienvenido a Briki! 👋
+              {t('welcome')}
             </h1>
             <p className="text-muted-foreground text-body max-w-xl mx-auto">
-              Vamos a configurar tu espacio en cuatro pasos sencillos. 
-              En pocos minutos estarás listo para gestionar tus casos y pólizas.
+              {t('subtitle')}
             </p>
           </div>
 
@@ -155,7 +158,7 @@ export function ZeroState({
                     ? 'bg-primary' 
                     : 'bg-muted'
                 }`}
-                aria-label={`Paso ${step} ${completedSteps >= step ? 'completado' : 'pendiente'}`}
+                aria-label={t('progressLabel', { step, status: completedSteps >= step ? 'completed' : 'pending' })}
               />
             ))}
           </div>
@@ -169,6 +172,7 @@ export function ZeroState({
             key={step.id} 
             step={step} 
             stepNumber={index + 1}
+            t={t}
           />
         ))}
       </div>
@@ -177,12 +181,12 @@ export function ZeroState({
       <Card className="bg-muted/50 border-dashed rounded-card">
         <CardContent className="py-6 text-center">
           <p className="text-sm text-muted-foreground">
-            ¿Necesitas ayuda? Nuestro equipo está aquí para ti.{' '}
+            {t('needHelp')}{' '}
             <Link 
               href="/support" 
               className="text-primary hover:underline font-medium"
             >
-              Contáctanos
+              {t('contactUs')}
             </Link>
           </p>
         </CardContent>
@@ -198,7 +202,7 @@ export function ZeroState({
 /**
  * StepCard - Individual step card with icon, description, and action
  */
-function StepCard({ step, stepNumber }: { step: Step; stepNumber: number }) {
+function StepCard({ step, stepNumber, t }: { step: Step; stepNumber: number; t: ReturnType<typeof useTranslations> }) {
   return (
     <Card 
       className={`transition-all rounded-card ${
@@ -227,19 +231,19 @@ function StepCard({ step, stepNumber }: { step: Step; stepNumber: number }) {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs font-medium text-muted-foreground">
-                  Paso {stepNumber}
+                  {t('step', { number: stepNumber })}
                 </span>
                 {step.isCompleted && (
                   <span className="text-xs text-primary font-medium">
-                    ✓ Completado
+                    {t('completed')}
                   </span>
                 )}
               </div>
               <h3 className="text-lg font-semibold text-foreground mb-2">
-                {step.title}
+                {t(step.titleKey)}
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                {step.description}
+                {t(step.descriptionKey)}
               </p>
             </div>
 
@@ -249,7 +253,7 @@ function StepCard({ step, stepNumber }: { step: Step; stepNumber: number }) {
                 {step.actionHref ? (
                   <Button asChild size="default" className="w-full sm:w-auto rounded-button">
                     <Link href={step.actionHref}>
-                      {step.actionLabel}
+                      {t(step.actionLabelKey)}
                     </Link>
                   </Button>
                 ) : step.actionOnClick ? (
@@ -258,7 +262,7 @@ function StepCard({ step, stepNumber }: { step: Step; stepNumber: number }) {
                     size="default" 
                     className="w-full sm:w-auto rounded-button"
                   >
-                    {step.actionLabel}
+                    {t(step.actionLabelKey)}
                   </Button>
                 ) : null}
               </>

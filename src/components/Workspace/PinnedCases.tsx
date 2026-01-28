@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Pin } from 'lucide-react';
 import { getPinnedCases, type PinnedCase } from '@/lib/data/workspace';
 import { pathForEntity, type Locale } from '@/lib/routes/workspace';
+import { getTranslations } from 'next-intl/server';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -57,7 +58,10 @@ function getCaseColorClass(index: number): string {
  * quick visual recognition.
  */
 export async function PinnedCases({ userId, orgId, locale }: PinnedCasesProps) {
-  const pinnedCases = await getPinnedCases(userId, orgId);
+  const [pinnedCases, t] = await Promise.all([
+    getPinnedCases(userId, orgId),
+    getTranslations('dashboard.pinned')
+  ]);
 
   return (
     <Card className="bg-card rounded-card shadow-elev-sm border border-border">
@@ -65,7 +69,7 @@ export async function PinnedCases({ userId, orgId, locale }: PinnedCasesProps) {
         <div className="flex items-center gap-2">
           <Pin className="size-4 text-muted-foreground" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-foreground">
-            Casos anclados
+            {t('cases')}
           </h2>
         </div>
       </CardHeader>
@@ -74,10 +78,10 @@ export async function PinnedCases({ userId, orgId, locale }: PinnedCasesProps) {
           // Empty state
           <div className="text-center py-6 space-y-2">
             <p className="text-sm text-muted-foreground">
-              Aún no tienes casos anclados.
+              {t('emptyCases')}
             </p>
             <p className="text-xs text-muted-foreground">
-              Ancla tus casos favoritos desde sus páginas de detalle para acceso rápido.
+              {t('hint')}
             </p>
           </div>
         ) : (
@@ -97,7 +101,7 @@ export async function PinnedCases({ userId, orgId, locale }: PinnedCasesProps) {
                 <Link
                   href={pathForEntity('case', caseItem.caseId, locale)}
                   className="flex items-center gap-1.5"
-                  aria-label={`Ver caso ${caseItem.caseName}`}
+                  aria-label={`${caseItem.caseName}`}
                 >
                   <span className="font-medium truncate max-w-[120px]">
                     {caseItem.caseName}

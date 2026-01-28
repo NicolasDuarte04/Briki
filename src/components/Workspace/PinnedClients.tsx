@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Pin } from 'lucide-react';
 import { getPinnedClients, type PinnedClient } from '@/lib/data/workspace';
 import { pathForClient, type Locale } from '@/lib/routes/workspace';
+import { getTranslations } from 'next-intl/server';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -90,7 +91,10 @@ function getClientColorClass(index: number): string {
  * quick visual recognition.
  */
 export async function PinnedClients({ userId, orgId, locale }: PinnedClientsProps) {
-  const pinnedClients = await getPinnedClients(userId, orgId);
+  const [pinnedClients, t] = await Promise.all([
+    getPinnedClients(userId, orgId),
+    getTranslations('dashboard.pinned')
+  ]);
 
   return (
     <Card className="bg-card rounded-card shadow-elev-sm border border-border">
@@ -98,7 +102,7 @@ export async function PinnedClients({ userId, orgId, locale }: PinnedClientsProp
         <div className="flex items-center gap-2">
           <Pin className="size-4 text-muted-foreground" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-foreground">
-            Clientes anclados
+            {t('clients')}
           </h2>
         </div>
       </CardHeader>
@@ -107,10 +111,10 @@ export async function PinnedClients({ userId, orgId, locale }: PinnedClientsProp
           // Empty state
           <div className="text-center py-6 space-y-2">
             <p className="text-sm text-muted-foreground">
-              Aún no tienes clientes anclados.
+              {t('emptyClients')}
             </p>
             <p className="text-xs text-muted-foreground">
-              Ancla tus clientes favoritos desde sus páginas de detalle para acceso rápido.
+              {t('hint')}
             </p>
           </div>
         ) : (
@@ -130,7 +134,7 @@ export async function PinnedClients({ userId, orgId, locale }: PinnedClientsProp
                 <Link
                   href={pathForClient(client.clientId, locale)}
                   className="flex items-center gap-1.5"
-                  aria-label={`Ver cliente ${client.clientName}`}
+                  aria-label={`${client.clientName}`}
                 >
                   <span className="font-medium truncate max-w-[120px]">
                     {client.clientName}

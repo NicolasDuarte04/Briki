@@ -10,6 +10,7 @@
  */
 
 import { Suspense } from 'react';
+import { getTranslations } from 'next-intl/server';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { getOrgStandalonePolicies, countOrgStandalonePolicies } from '@/lib/helpers/getOrgPoliciesContainer';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -61,14 +62,20 @@ function safeString(value: any, fallback: string = 'No disponible'): string {
 }
 
 // ============================================================================
-// HELPER: Get month names
+// HELPER: Get month names with translations
 // ============================================================================
 
-const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-const MONTH_NAMES_FULL = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+const MONTH_KEYS_SHORT = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as const;
+const MONTH_KEYS_FULL = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'] as const;
 
-function getMonthName(monthIndex: number): string {
-  return MONTH_NAMES[monthIndex] || '';
+function getMonthNameShort(monthIndex: number, monthsShort: Record<string, string>): string {
+  const key = MONTH_KEYS_SHORT[monthIndex];
+  return key ? monthsShort[key] || '' : '';
+}
+
+function getMonthNameFull(monthIndex: number, monthsFull: Record<string, string>): string {
+  const key = MONTH_KEYS_FULL[monthIndex];
+  return key ? monthsFull[key] || '' : '';
 }
 
 // ============================================================================
@@ -158,7 +165,43 @@ function StatCard({ title, value, icon: Icon, color, bgColor, subtitle, trend }:
 // OVERVIEW CONTENT
 // ============================================================================
 
-async function OverviewContent({ locale }: { locale: Locale }) {
+interface OverviewTranslations {
+  stats: {
+    totalPolicies: string;
+    thisMonth: string;
+    vsPreviousMonth: string;
+    insuredValue: string;
+    approximateSum: string;
+    insurers: string;
+  };
+  charts: {
+    monthlyActivity: string;
+    policiesAnalyzed: string;
+    inMonth: string;
+    policiesInMonth: string;
+    extractionConfidence: string;
+    aiAnalysisPrecision: string;
+    averageConfidence: string;
+    excellent: string;
+    acceptable: string;
+    needsReview: string;
+    high: string;
+    medium: string;
+    low: string;
+    byCoverageType: string;
+    coverageDistribution: string;
+    byInsurer: string;
+    insurerDistribution: string;
+    policies: string;
+    loadingChart: string;
+  };
+  months: {
+    short: Record<string, string>;
+    full: Record<string, string>;
+  };
+}
+
+async function OverviewContent({ locale, translations }: { locale: Locale; translations: OverviewTranslations }) {
   const { currentOrg } = await getCurrentOrg();
   const orgId = currentOrg.id;
 
@@ -214,7 +257,7 @@ async function OverviewContent({ locale }: { locale: Locale }) {
     const date = new Date(currentYear, currentMonth - i, 1);
     const monthKey = `${date.getFullYear()}-${String(date.getMonth()).padStart(2, '0')}`;
     last6Months.push({
-      month: getMonthName(date.getMonth()),
+      month: getMonthNameShort(date.getMonth(), translations.months.short),
       year: date.getFullYear(),
       count: monthlyData[monthKey] || 0,
     });
@@ -265,40 +308,44 @@ async function OverviewContent({ locale }: { locale: Locale }) {
     ? (policies.reduce((sum, p) => sum + Number(p.overallConfidence), 0) / policies.length) * 100
     : 0;
 
+  // Get current and previous month names
+  const currentMonthName = getMonthNameFull(currentMonth, translations.months.full);
+  const previousMonthName = getMonthNameFull((currentMonth - 1 + 12) % 12, translations.months.full);
+
   return (
     <div className="space-y-6">
       {/* Summary Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Pólizas"
+          title={translations.stats.totalPolicies}
           value={totalPolicies}
           icon={Shield}
           color="text-blue-500"
           bgColor="bg-blue-500/10"
         />
         <StatCard
-          title="Este Mes"
+          title={translations.stats.thisMonth}
           value={currentMonthCount}
           icon={Calendar}
           color="text-green-500"
           bgColor="bg-green-500/10"
-          subtitle={MONTH_NAMES_FULL[currentMonth]}
+          subtitle={currentMonthName}
           trend={{
             value: monthTrend,
             isPositive: monthTrend >= 0,
-            label: 'vs mes anterior'
+            label: translations.stats.vsPreviousMonth
           }}
         />
         <StatCard
-          title="Valor Asegurado"
+          title={translations.stats.insuredValue}
           value={formattedInsuredValue}
           icon={DollarSign}
           color="text-emerald-500"
           bgColor="bg-emerald-500/10"
-          subtitle="Suma aproximada"
+          subtitle={translations.stats.approximateSum}
         />
         <StatCard
-          title="Aseguradoras"
+          title={translations.stats.insurers}
           value={Object.keys(insurers).length}
           icon={Users}
           color="text-purple-500"
@@ -312,8 +359,17 @@ async function OverviewContent({ locale }: { locale: Locale }) {
           data={last6Months}
           currentMonthCount={currentMonthCount}
           previousMonthCount={previousMonthCount}
-          currentMonthName={MONTH_NAMES_FULL[currentMonth] || ''}
-          previousMonthName={MONTH_NAMES_FULL[(currentMonth - 1 + 12) % 12] || ''}
+          currentMonthName={currentMonthName}
+          previousMonthName={previousMonthName}
+          translations={{
+            title: translations.charts.monthlyActivity,
+            description: translations.charts.policiesAnalyzed,
+            inMonth: translations.charts.inMonth,
+            policiesInMonth: translations.charts.policiesInMonth,
+            vsPreviousMonth: translations.stats.vsPreviousMonth,
+            policies: translations.charts.policies,
+            loadingChart: translations.charts.loadingChart,
+          }}
         />
         
         <ConfidenceGauge
@@ -322,26 +378,40 @@ async function OverviewContent({ locale }: { locale: Locale }) {
           mediumCount={confidenceBuckets.medium}
           lowCount={confidenceBuckets.low}
           total={totalPolicies}
+          translations={{
+            title: translations.charts.extractionConfidence,
+            description: translations.charts.aiAnalysisPrecision,
+            averageConfidence: translations.charts.averageConfidence,
+            excellent: translations.charts.excellent,
+            acceptable: translations.charts.acceptable,
+            needsReview: translations.charts.needsReview,
+            high: translations.charts.high,
+            medium: translations.charts.medium,
+            low: translations.charts.low,
+            loadingChart: translations.charts.loadingChart,
+          }}
         />
       </div>
 
       {/* Charts Row 2: Distributions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <DistributionChart
-          title="Por Tipo de Cobertura"
+          title={translations.charts.byCoverageType}
           variant="coverage"
-          description="Distribución de pólizas por tipo de seguro"
+          description={translations.charts.coverageDistribution}
           items={coverageDistribution}
           type="donut"
+          loadingText={translations.charts.loadingChart}
         />
         
         <DistributionChart
-          title="Por Aseguradora"
+          title={translations.charts.byInsurer}
           variant="insurer"
-          description="Distribución de pólizas por compañía"
+          description={translations.charts.insurerDistribution}
           items={insurerDistribution}
           type="donut"
           colors={["#10b981", "#f97316", "#14b8a6", "#f43f5e", "#a855f7", "#6366f1"]}
+          loadingText={translations.charts.loadingChart}
         />
       </div>
     </div>
@@ -359,6 +429,69 @@ export default async function PoliciesOverviewPage({
 }) {
   const awaitedParams = await params;
   const locale = awaitedParams.locale as Locale;
+  const t = await getTranslations('policies');
+
+  const translations: OverviewTranslations = {
+    stats: {
+      totalPolicies: t('overviewPage.stats.totalPolicies'),
+      thisMonth: t('overviewPage.stats.thisMonth'),
+      vsPreviousMonth: t('overviewPage.stats.vsPreviousMonth'),
+      insuredValue: t('overviewPage.stats.insuredValue'),
+      approximateSum: t('overviewPage.stats.approximateSum'),
+      insurers: t('overviewPage.stats.insurers'),
+    },
+    charts: {
+      monthlyActivity: t('overviewPage.charts.monthlyActivity'),
+      policiesAnalyzed: t('overviewPage.charts.policiesAnalyzed'),
+      inMonth: t('overviewPage.charts.inMonth'),
+      policiesInMonth: t('overviewPage.charts.policiesInMonth'),
+      extractionConfidence: t('overviewPage.charts.extractionConfidence'),
+      aiAnalysisPrecision: t('overviewPage.charts.aiAnalysisPrecision'),
+      averageConfidence: t('overviewPage.charts.averageConfidence'),
+      excellent: t('overviewPage.charts.excellent'),
+      acceptable: t('overviewPage.charts.acceptable'),
+      needsReview: t('overviewPage.charts.needsReview'),
+      high: t('overviewPage.charts.high'),
+      medium: t('overviewPage.charts.medium'),
+      low: t('overviewPage.charts.low'),
+      byCoverageType: t('overviewPage.charts.byCoverageType'),
+      coverageDistribution: t('overviewPage.charts.coverageDistribution'),
+      byInsurer: t('overviewPage.charts.byInsurer'),
+      insurerDistribution: t('overviewPage.charts.insurerDistribution'),
+      policies: t('overviewPage.charts.policies'),
+      loadingChart: t('overviewPage.charts.loadingChart'),
+    },
+    months: {
+      short: {
+        jan: t('overviewPage.months.short.jan'),
+        feb: t('overviewPage.months.short.feb'),
+        mar: t('overviewPage.months.short.mar'),
+        apr: t('overviewPage.months.short.apr'),
+        may: t('overviewPage.months.short.may'),
+        jun: t('overviewPage.months.short.jun'),
+        jul: t('overviewPage.months.short.jul'),
+        aug: t('overviewPage.months.short.aug'),
+        sep: t('overviewPage.months.short.sep'),
+        oct: t('overviewPage.months.short.oct'),
+        nov: t('overviewPage.months.short.nov'),
+        dec: t('overviewPage.months.short.dec'),
+      },
+      full: {
+        january: t('overviewPage.months.full.january'),
+        february: t('overviewPage.months.full.february'),
+        march: t('overviewPage.months.full.march'),
+        april: t('overviewPage.months.full.april'),
+        may: t('overviewPage.months.full.may'),
+        june: t('overviewPage.months.full.june'),
+        july: t('overviewPage.months.full.july'),
+        august: t('overviewPage.months.full.august'),
+        september: t('overviewPage.months.full.september'),
+        october: t('overviewPage.months.full.october'),
+        november: t('overviewPage.months.full.november'),
+        december: t('overviewPage.months.full.december'),
+      },
+    },
+  };
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
@@ -367,20 +500,20 @@ export default async function PoliciesOverviewPage({
         <Button variant="ghost" size="sm" asChild className="mb-4">
           <Link href={pathForPolicies(locale)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver a Pólizas
+            {t('overviewPage.backToPolicies')}
           </Link>
         </Button>
         <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          Métricas de Pólizas
+          {t('overviewPage.title')}
         </h1>
         <p className="text-muted-foreground mt-1">
-          Estadísticas y análisis de las pólizas de tu organización
+          {t('overviewPage.subtitle')}
         </p>
       </div>
 
       {/* Content */}
       <Suspense fallback={<OverviewSkeleton />}>
-        <OverviewContent locale={locale} />
+        <OverviewContent locale={locale} translations={translations} />
       </Suspense>
     </div>
   );

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
+import { resolveActiveOrg } from "@/lib/helpers/resolveActiveOrg";
 
 export async function POST(request: NextRequest) {
     try {
@@ -19,42 +20,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // ✅ CORRECCIÓN: Obtener TODAS las membresías del usuario (soporta multi-org)
-        const { data: memberships, error: membershipError } = await supabase
-            .from("org_members")
-            .select("org_id")
-            .eq("user_id", user.id);
-
-        if (membershipError || !memberships || memberships.length === 0) {
+        // ✅ MULTI-TENANCY: Resolver organización activa usando helper centralizado
+        const orgResult = await resolveActiveOrg(user.id, supabase);
+        if (!orgResult.ok) {
             return NextResponse.json(
-                { success: false, message: "User not associated with any organization" },
-                { status: 403 }
+                { success: false, message: orgResult.error },
+                { status: orgResult.errorCode }
             );
         }
-
-        // ✅ Leer preferencia de organización activa
-        let activeOrgId: string | null = null;
-        try {
-            const { data: preferences } = await supabase
-                .from("user_preferences")
-                .select("active_org_id")
-                .eq("user_id", user.id)
-                .single();
-            activeOrgId = preferences?.active_org_id || null;
-        } catch {
-            // Sin preferencias, usar fallback
-        }
-
-        // ✅ Seleccionar membresía: activa preferida o primera disponible
-        let selectedMembership = memberships[0];
-        if (activeOrgId) {
-            const activeMembership = memberships.find(m => m.org_id === activeOrgId);
-            if (activeMembership) {
-                selectedMembership = activeMembership;
-            }
-        }
-
-        const orgId = selectedMembership.org_id;
+        const { orgId } = orgResult;
 
         // Parse request body
         const body = await request.json();
@@ -96,7 +70,7 @@ export async function POST(request: NextRequest) {
 
         // ✅ FASE POLICY_LINKS: Fetch policy analyses for the case
         // Includes both direct analyses AND linked via CasePolicyLink
-        
+
         // 1. Get DIRECT analyses (caseId matches)
         const directAnalyses = await prisma.policyAnalysis.findMany({
             where: { caseId },
@@ -109,12 +83,12 @@ export async function POST(request: NextRequest) {
                 }
             }
         });
-        
+
         // 2. Get LINKED analyses via CasePolicyLink
         const linkedPolicyLinks = await prisma.casePolicyLink.findMany({
-            where: { 
+            where: {
                 caseId,
-                orgId 
+                orgId
             },
             include: {
                 policyAnalysis: {
@@ -128,15 +102,15 @@ export async function POST(request: NextRequest) {
                 }
             }
         });
-        
+
         // 3. Combine and deduplicate (direct takes priority)
         const directIds = new Set(directAnalyses.map(a => a.id));
         const linkedAnalyses = linkedPolicyLinks
             .map(link => link.policyAnalysis)
             .filter(a => !directIds.has(a.id));
-        
+
         const allPolicyAnalyses = [...directAnalyses, ...linkedAnalyses];
-        
+
         console.log(`📊 [proposals/generate] Análisis: ${directAnalyses.length} directos + ${linkedAnalyses.length} vinculados = ${allPolicyAnalyses.length} total`);
 
         // Filter by selected IDs if provided, otherwise use all (max 3)
@@ -144,7 +118,7 @@ export async function POST(request: NextRequest) {
         if (selectedAnalysisIds && Array.isArray(selectedAnalysisIds) && selectedAnalysisIds.length > 0) {
             policyAnalyses = allPolicyAnalyses.filter(a => selectedAnalysisIds.includes(a.id));
         }
-        
+
         // Limit to max 5 plans
         policyAnalyses = policyAnalyses.slice(0, 5);
 
@@ -159,7 +133,7 @@ export async function POST(request: NextRequest) {
         const selectedPlans = policyAnalyses.map((analysis, index) => {
             const extractedData = analysis.extractedData as any || {};
             const coverages = extractedData.coverages || [];
-            
+
             return {
                 planId: analysis.id,
                 rationaleKey: version === 'client'

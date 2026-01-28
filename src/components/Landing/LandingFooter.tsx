@@ -1,5 +1,7 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
+
 /**
  * LandingFooter - Minimal footer section
  * 
@@ -7,44 +9,46 @@
  * Muted typography, low contrast, cohesive with overall design.
  */
 export function LandingFooter() {
+  const t = useTranslations('landing.siteFooter');
+  
   const footerSections = [
     {
-      title: 'Product',
+      title: t('sections.product.title'),
       links: [
-        { label: 'Features', href: '#features' },
-        { label: 'Workspace', href: '#workspace' },
-        { label: 'AI Assistant', href: '#ai-assistant' },
+        { label: t('sections.product.features'), href: '#features' },
+        { label: t('sections.product.workspace'), href: '#workspace' },
+        { label: t('sections.product.aiAssistant'), href: '#ai-assistant' },
       ],
     },
     {
-      title: 'Resources',
+      title: t('sections.resources.title'),
       links: [
-        { label: 'Docs', href: '#docs' },
-        { label: 'Changelog', href: '#changelog' },
-        { label: 'Status', href: '#status' },
+        { label: t('sections.resources.docs'), href: '#docs' },
+        { label: t('sections.resources.changelog'), href: '#changelog' },
+        { label: t('sections.resources.status'), href: '#status' },
       ],
     },
     {
-      title: 'Company',
+      title: t('sections.company.title'),
       links: [
-        { label: 'About', href: '#about' },
-        { label: 'Careers', href: '#careers' },
-        { label: 'Contact', href: '#contact' },
+        { label: t('sections.company.about'), href: '#about' },
+        { label: t('sections.company.careers'), href: '#careers' },
+        { label: t('sections.company.contact'), href: '#contact' },
       ],
     },
     {
-      title: 'Legal',
+      title: t('sections.legal.title'),
       links: [
-        { label: 'Terms', href: '#terms' },
-        { label: 'Privacy', href: '#privacy' },
+        { label: t('sections.legal.terms'), href: '#terms' },
+        { label: t('sections.legal.privacy'), href: '#privacy' },
       ],
     },
     {
-      title: 'Connect',
+      title: t('sections.connect.title'),
       links: [
-        { label: 'LinkedIn', href: '#linkedin' },
-        { label: 'X', href: '#x' },
-        { label: 'YouTube', href: '#youtube' },
+        { label: t('sections.connect.linkedin'), href: '#linkedin' },
+        { label: t('sections.connect.x'), href: '#x' },
+        { label: t('sections.connect.youtube'), href: '#youtube' },
       ],
     },
   ];
@@ -109,7 +113,7 @@ export function LandingFooter() {
               fontWeight: '400',
             }}
           >
-            © 2025 Briki. All rights reserved.
+            {t('copyright')}
           </p>
           <div className="flex items-center gap-6">
             <a
@@ -120,9 +124,9 @@ export function LandingFooter() {
                 color: 'rgba(248, 250, 252, 0.4)',
                 fontWeight: '400',
               }}
-              aria-label="LinkedIn"
+              aria-label={t('sections.connect.linkedin')}
             >
-              LinkedIn
+              {t('sections.connect.linkedin')}
             </a>
             <a
               href="#x"
@@ -132,9 +136,9 @@ export function LandingFooter() {
                 color: 'rgba(248, 250, 252, 0.4)',
                 fontWeight: '400',
               }}
-              aria-label="X (Twitter)"
+              aria-label={t('sections.connect.x')}
             >
-              X
+              {t('sections.connect.x')}
             </a>
             <a
               href="#youtube"
@@ -146,7 +150,7 @@ export function LandingFooter() {
               }}
               aria-label="YouTube"
             >
-              YouTube
+              {t('sections.connect.youtube')}
             </a>
           </div>
         </div>

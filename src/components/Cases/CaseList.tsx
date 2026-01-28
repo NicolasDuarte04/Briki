@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useTranslations } from 'next-intl';
 
 interface CaseListProps {
   cases: any[];
@@ -34,6 +35,8 @@ export function CaseList({ cases, orgId, pinnedCaseIds = new Set() }: CaseListPr
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [caseToDelete, setCaseToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const t = useTranslations('cases');
+  const tCommon = useTranslations('common');
   
   // Filtrar casos
   const filteredCases = cases.filter(caseItem => {
@@ -67,7 +70,7 @@ export function CaseList({ cases, orgId, pinnedCaseIds = new Set() }: CaseListPr
       });
       
       if (!response.ok) {
-        throw new Error('Error al eliminar el caso');
+        throw new Error('Error deleting case');
       }
       
       // Refrescar la página para mostrar los cambios
@@ -89,7 +92,7 @@ export function CaseList({ cases, orgId, pinnedCaseIds = new Set() }: CaseListPr
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nombre, referencia o tipo de negocio..."
+            placeholder={t('list.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10"
@@ -105,7 +108,7 @@ export function CaseList({ cases, orgId, pinnedCaseIds = new Set() }: CaseListPr
       
       {/* Results count */}
       <div className="text-sm text-muted-foreground">
-        Mostrando {filteredCases.length} de {cases.length} casos
+        {t('list.showingCount', { count: filteredCases.length, total: cases.length })}
       </div>
       
       {/* Cases Grid */}
@@ -124,8 +127,8 @@ export function CaseList({ cases, orgId, pinnedCaseIds = new Set() }: CaseListPr
         <div className="text-center py-12">
           <p className="text-muted-foreground">
             {searchTerm || statusFilter !== 'all' || priorityFilter !== 'all'
-              ? 'No se encontraron casos con los filtros aplicados'
-              : 'No hay casos todavía. Crea tu primer caso para comenzar.'}
+              ? t('list.noResults')
+              : t('list.emptyDescription')}
           </p>
         </div>
       )}
@@ -134,22 +137,21 @@ export function CaseList({ cases, orgId, pinnedCaseIds = new Set() }: CaseListPr
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar caso?</AlertDialogTitle>
+            <AlertDialogTitle>{t('delete.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminará permanentemente el caso
-              y todos los documentos asociados.
+              {t('delete.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>
-              Cancelar
+              {t('delete.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Eliminando...' : 'Eliminar'}
+              {isDeleting ? tCommon('actions.deleting') : t('delete.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

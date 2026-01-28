@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { pathForLogin } from '@/lib/routes/workspace';
 import Link from 'next/link';
 
@@ -13,6 +13,7 @@ import Link from 'next/link';
  */
 export function LandingFinalCTA() {
   const locale = useLocale();
+  const t = useTranslations('landing.finalCta');
 
   return (
     <section
@@ -33,7 +34,7 @@ export function LandingFinalCTA() {
             letterSpacing: '-0.02em',
           }}
         >
-          Try Briki now.
+          {t('heading')}
         </h2>
 
         {/* Subtext */}
@@ -48,7 +49,7 @@ export function LandingFinalCTA() {
             margin: '0 auto 40px',
           }}
         >
-          The easiest way for brokers to analyze policies and close faster.
+          {t('subheading')}
         </p>
 
         {/* Primary CTA button */}
@@ -57,7 +58,7 @@ export function LandingFinalCTA() {
           className="rounded-full bg-white text-[#050505] hover:bg-white/90 px-8 py-3 text-base font-semibold h-auto"
         >
           <Link href={pathForLogin(locale as 'en' | 'es')}>
-            Get Started →
+            {t('cta')}
           </Link>
         </Button>
       </div>

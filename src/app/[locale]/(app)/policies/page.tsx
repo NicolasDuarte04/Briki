@@ -10,6 +10,7 @@
  */
 
 import { Suspense } from 'react';
+import { getTranslations } from 'next-intl/server';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { countOrgStandalonePolicies, getOrgStandalonePolicies } from '@/lib/helpers/getOrgPoliciesContainer';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -118,33 +119,34 @@ interface PolicyMetricsProps {
   highConfidence: number;
   pendingReview: number;
   recentUploads: number;
+  t: (key: string) => string;
 }
 
-function PolicyMetrics({ totalPolicies, highConfidence, pendingReview, recentUploads }: PolicyMetricsProps) {
+async function PolicyMetrics({ totalPolicies, highConfidence, pendingReview, recentUploads, t }: PolicyMetricsProps) {
   const metrics = [
     {
-      label: 'Total Pólizas',
+      label: t('dashboard.totalPolicies'),
       value: totalPolicies,
       icon: FileText,
       color: 'text-blue-500',
       bgColor: 'bg-blue-500/10',
     },
     {
-      label: 'Alta Confianza',
+      label: t('dashboard.highConfidence'),
       value: highConfidence,
       icon: CheckCircle2,
       color: 'text-green-500',
       bgColor: 'bg-green-500/10',
     },
     {
-      label: 'Pendientes Revisión',
+      label: t('dashboard.pendingReview'),
       value: pendingReview,
       icon: AlertTriangle,
       color: 'text-amber-500',
       bgColor: 'bg-amber-500/10',
     },
     {
-      label: 'Subidas Recientes',
+      label: t('dashboard.recentUploads'),
       value: recentUploads,
       icon: TrendingUp,
       color: 'text-purple-500',
@@ -175,24 +177,25 @@ function PolicyMetrics({ totalPolicies, highConfidence, pendingReview, recentUpl
 
 interface QuickActionsProps {
   locale: Locale;
+  t: (key: string) => string;
 }
 
-function QuickActions({ locale }: QuickActionsProps) {
+async function QuickActions({ locale, t }: QuickActionsProps) {
   const actions = [
     {
-      label: 'Subir Nueva Póliza',
+      label: t('dashboard.uploadNew'),
       href: pathForPoliciesUpload(locale),
       icon: Upload,
       variant: 'default' as const,
     },
     {
-      label: 'Ver Análisis',
+      label: t('dashboard.viewAnalysis'),
       href: pathForPoliciesAnalysis(locale),
       icon: FileSearch,
       variant: 'outline' as const,
     },
     {
-      label: 'Ver Métricas',
+      label: t('dashboard.viewMetrics'),
       href: pathForPoliciesOverview(locale),
       icon: BarChart3,
       variant: 'outline' as const,
@@ -202,8 +205,8 @@ function QuickActions({ locale }: QuickActionsProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Acciones Rápidas</CardTitle>
-        <CardDescription>Gestiona tus pólizas de forma eficiente</CardDescription>
+        <CardTitle className="text-lg">{t('dashboard.quickActions')}</CardTitle>
+        <CardDescription>{t('dashboard.quickActionsDesc')}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap gap-3">
@@ -224,28 +227,29 @@ function QuickActions({ locale }: QuickActionsProps) {
 interface RecentPoliciesListProps {
   policies: any[];
   locale: Locale;
+  t: (key: string) => string;
 }
 
-function RecentPoliciesList({ policies, locale }: RecentPoliciesListProps) {
+async function RecentPoliciesList({ policies, locale, t }: RecentPoliciesListProps) {
   if (policies.length === 0) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Pólizas Recientes</CardTitle>
+          <CardTitle className="text-lg">{t('dashboard.recentPolicies')}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <div className="p-4 rounded-full bg-muted mb-4">
               <FileText className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold mb-2">Sin pólizas aún</h3>
+            <h3 className="font-semibold mb-2">{t('dashboard.noPoliciesYet')}</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              Sube tu primera póliza para comenzar el análisis
+              {t('dashboard.uploadFirst')}
             </p>
             <Button asChild>
               <Link href={pathForPoliciesUpload(locale)}>
                 <Upload className="h-4 w-4 mr-2" />
-                Subir Póliza
+                {t('dashboard.uploadPolicy')}
               </Link>
             </Button>
           </div>
@@ -258,25 +262,25 @@ function RecentPoliciesList({ policies, locale }: RecentPoliciesListProps) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle className="text-lg">Pólizas Recientes</CardTitle>
-          <CardDescription>Últimas pólizas analizadas</CardDescription>
+          <CardTitle className="text-lg">{t('dashboard.recentPolicies')}</CardTitle>
+          <CardDescription>{t('dashboard.recentPoliciesDesc')}</CardDescription>
         </div>
         <Button variant="ghost" size="sm" asChild>
-          <Link href={pathForPoliciesAnalysis(locale)}>Ver todas</Link>
+          <Link href={pathForPoliciesAnalysis(locale)}>{t('dashboard.viewAll')}</Link>
         </Button>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
           {policies.map((policy) => {
             const extractedData = policy.extractedData as any;
-            const policyNumber = safeString(extractedData?.policy_number, 'Sin número');
-            const insurer = safeString(extractedData?.insurer, 'Aseguradora desconocida');
+            const policyNumber = safeString(extractedData?.policy_number, t('dashboard.noNumber'));
+            const insurer = safeString(extractedData?.insurer, t('dashboard.unknownInsurer'));
             const confidence = Number(policy.overallConfidence) * 100;
             
             return (
               <Link
                 key={policy.id}
-                href={`${pathForPoliciesAnalysis(locale)}?policyId=${policy.id}`}
+                href={`/${locale}/policies/analysis/${policy.id}`}
                 className="flex items-center gap-4 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
               >
                 <div className="p-2 rounded-lg bg-blue-500/10">
@@ -284,7 +288,7 @@ function RecentPoliciesList({ policies, locale }: RecentPoliciesListProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">
-                    {policy.artifact?.fileName || 'Póliza sin nombre'}
+                    {policy.artifact?.fileName || t('dashboard.policyNoName')}
                   </p>
                   <p className="text-sm text-muted-foreground truncate">
                     {policyNumber} • {insurer}
@@ -319,6 +323,7 @@ function RecentPoliciesList({ policies, locale }: RecentPoliciesListProps) {
 // ============================================================================
 
 async function PoliciesDashboardContent({ locale }: { locale: Locale }) {
+  const t = await getTranslations('policies');
   const { currentOrg } = await getCurrentOrg();
   const orgId = currentOrg.id;
 
@@ -351,13 +356,14 @@ async function PoliciesDashboardContent({ locale }: { locale: Locale }) {
         highConfidence={highConfidence}
         pendingReview={pendingReview}
         recentUploads={recentUploads}
+        t={t}
       />
 
       {/* Acciones Rápidas */}
-      <QuickActions locale={locale} />
+      <QuickActions locale={locale} t={t} />
 
       {/* Pólizas Recientes */}
-      <RecentPoliciesList policies={recentPolicies} locale={locale} />
+      <RecentPoliciesList policies={recentPolicies} locale={locale} t={t} />
     </div>
   );
 }
@@ -373,16 +379,17 @@ export default async function PoliciesPage({
 }) {
   const awaitedParams = await params;
   const locale = awaitedParams.locale as Locale;
+  const t = await getTranslations('policies');
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-[var(--foreground)]">
-          Pólizas
+          {t('title')}
         </h1>
         <p className="text-muted-foreground mt-1">
-          Gestiona y analiza las pólizas de tu organización
+          {t('subtitle')}
         </p>
       </div>
 

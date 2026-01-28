@@ -2,32 +2,13 @@
 
 import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 export function LandingFAQ() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const t = useTranslations('landing.faq');
 
-  const faqs = [
-    {
-      question: 'How does Briki integrate with my existing workflow?',
-      answer: 'Briki works alongside your current tools. Import from WhatsApp, upload PDFs, or connect to carrier portals. Everything stays in one place.'
-    },
-    {
-      question: 'What languages does Briki support?',
-      answer: 'Briki fully supports Spanish and English for policy analysis, proposals, and all communications.'
-    },
-    {
-      question: 'How secure is my client data?',
-      answer: 'All data is encrypted at rest and in transit. We maintain SOC 2 compliance and provide granular role-based access controls.'
-    },
-    {
-      question: 'Can I try Briki before committing?',
-      answer: 'Yes! Start with our free trial or book a personalized demo to see how Briki fits your workflow.'
-    },
-    {
-      question: 'What kind of support do you provide?',
-      answer: 'All plans include email support. Pro and Enterprise plans get priority support and dedicated onboarding assistance.'
-    }
-  ];
+  const faqKeys = ['integration', 'languages', 'security', 'trial', 'support'] as const;
 
   return (
     <section 
@@ -40,14 +21,14 @@ export function LandingFAQ() {
           id="faq-heading"
           className="text-center text-white text-4xl font-semibold mb-16"
         >
-          Frequently Asked Questions
+          {t('title')}
         </h2>
         
         {/* FAQ accordion */}
         <div className="space-y-4">
-          {faqs.map((faq, index) => (
+          {faqKeys.map((key, index) => (
             <div
-              key={index}
+              key={key}
               className="rounded-2xl bg-[#1a1a1a] border border-white/10 overflow-hidden"
             >
               <button
@@ -56,7 +37,7 @@ export function LandingFAQ() {
                 aria-expanded={openIndex === index}
               >
                 <span className="text-lg font-semibold text-white pr-4">
-                  {faq.question}
+                  {t(`items.${key}.question`)}
                 </span>
                 <ChevronDown 
                   className={`w-5 h-5 text-white/60 shrink-0 transition-transform ${
@@ -67,7 +48,7 @@ export function LandingFAQ() {
               
               {openIndex === index && (
                 <div className="px-6 pb-5 text-white/70">
-                  {faq.answer}
+                  {t(`items.${key}.answer`)}
                 </div>
               )}
             </div>

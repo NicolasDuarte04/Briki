@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { FileText, UserPlus, MessageSquare, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { trackDashboardActionFirst } from '@/lib/telemetry';
-import { pathForNewEntity, pathForAgent, getProfilePath, type Locale } from '@/lib/routes/workspace';
+import { pathForNewEntity, pathForAgent, getProfilePath, pathForPoliciesUpload, type Locale } from '@/lib/routes/workspace';
 import { useUI } from '@/lib/ui/state';
+import { useTranslations } from 'next-intl';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -24,12 +25,13 @@ interface QuickActionsProps {
 /**
  * QuickActions - Core workspace actions for instant workflow entry
  * 
- * Provides four primary actions: Crear Caso, Analizar Póliza,
- * Nuevo Cliente, and Gestionar Perfil. Each action includes proper
+ * Provides four primary actions: Create Case, Analyze Policy,
+ * New Client, and Manage Profile. Each action includes proper
  * accessibility features and event tracking.
  */
 export function QuickActions({ orgId, locale }: QuickActionsProps) {
   const dashboardViewTime = useUI((s) => s.dashboardViewTime);
+  const t = useTranslations('dashboard.quickActions');
 
   // ============================================================================
   // EVENT HANDLERS
@@ -65,71 +67,71 @@ export function QuickActions({ orgId, locale }: QuickActionsProps) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      {/* Botón 1: Crear Caso */}
+      {/* Button 1: Create Case */}
       <Button
         asChild
         variant="outline"
         className="h-auto flex-col gap-3 p-6 rounded-card shadow-elev-sm hover:shadow-elev-md transition-shadow bg-card border-border"
-        aria-label="Crear nuevo caso con el agente"
-        title="Crear nuevo caso con el agente"
+        aria-label={t('ariaCreateCase')}
+        title={t('ariaCreateCase')}
       >
         <Link 
           href={pathForAgent(locale)}
           onClick={handleCreateCaseClick}
         >
           <MessageSquare className="size-8 text-primary" aria-hidden="true" />
-          <span className="text-base font-semibold text-foreground">Crear Caso</span>
+          <span className="text-base font-semibold text-foreground">{t('createCase')}</span>
         </Link>
       </Button>
 
-      {/* Botón 2: Analizar Póliza */}
+      {/* Button 2: Analyze Policy */}
       <Button
         asChild
         variant="outline"
         className="h-auto flex-col gap-3 p-6 rounded-card shadow-elev-sm hover:shadow-elev-md transition-shadow bg-card border-border"
-        aria-label="Analizar póliza individual"
-        title="Analizar póliza individual"
+        aria-label={t('ariaAnalyzePolicy')}
+        title={t('ariaAnalyzePolicy')}
       >
         <Link 
-          href="#"
+          href={pathForPoliciesUpload(locale)}
           onClick={handleAnalyzePolicyClick}
         >
           <FileText className="size-8 text-primary" aria-hidden="true" />
-          <span className="text-base font-semibold text-foreground">Analizar Póliza</span>
+          <span className="text-base font-semibold text-foreground">{t('analyzePolicy')}</span>
         </Link>
       </Button>
 
-      {/* Botón 3: Nuevo Cliente */}
+      {/* Button 3: New Client */}
       <Button
         asChild
         variant="outline"
         className="h-auto flex-col gap-3 p-6 rounded-card shadow-elev-sm hover:shadow-elev-md transition-shadow bg-card border-border"
-        aria-label="Añadir nuevo cliente"
-        title="Añadir nuevo cliente"
+        aria-label={t('ariaNewClient')}
+        title={t('ariaNewClient')}
       >
         <Link 
           href={pathForNewEntity('client', locale)}
           onClick={handleClientClick}
         >
           <UserPlus className="size-8 text-primary" aria-hidden="true" />
-          <span className="text-base font-semibold text-foreground">Nuevo Cliente</span>
+          <span className="text-base font-semibold text-foreground">{t('newClient')}</span>
         </Link>
       </Button>
 
-      {/* Botón 4: Gestionar Perfil */}
+      {/* Button 4: Manage Profile */}
       <Button
         asChild
         variant="outline"
         className="h-auto flex-col gap-3 p-6 rounded-card shadow-elev-sm hover:shadow-elev-md transition-shadow bg-card border-border"
-        aria-label="Configuración de perfil"
-        title="Configuración de perfil"
+        aria-label={t('ariaManageProfile')}
+        title={t('ariaManageProfile')}
       >
         <Link 
           href={getProfilePath(locale)}
           onClick={handleProfileClick}
         >
           <Settings className="size-8 text-primary" aria-hidden="true" />
-          <span className="text-base font-semibold text-foreground">Gestionar Perfil</span>
+          <span className="text-base font-semibold text-foreground">{t('manageProfile')}</span>
         </Link>
       </Button>
     </div>

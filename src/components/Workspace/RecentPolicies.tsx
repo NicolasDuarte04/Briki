@@ -1,28 +1,36 @@
+// /src/components/Workspace/RecentPolicies.tsx
+/**
+ * RecentPolicies - Displays a list of recent organizational policies
+ * 
+ * Styled identically to RecentCases but with a single "Analysis" button
+ * that links to the policy detail page.
+ */
+
 'use client';
 
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Circle, ChevronRight } from 'lucide-react';
-import { pathForEntity, pathForAgent, type Locale } from '@/lib/routes/workspace';
+import { FileText, ChevronRight } from 'lucide-react';
+import { pathForPoliciesUpload, type Locale } from '@/lib/routes/workspace';
 import { useTranslations } from 'next-intl';
 
 // ============================================================================
 // TYPE DEFINITIONS
 // ============================================================================
 
-export interface RecentCaseItem {
+export interface RecentPolicyItem {
   id: string;
   title: string;
-  client: string;
-  status: string;
+  client: string; // Insured name
+  status: string; // Confidence status
   updated_at: string;
 }
 
-interface RecentCasesProps {
+interface RecentPoliciesProps {
   title: string;
-  items: RecentCaseItem[];
+  items: RecentPolicyItem[];
   locale: Locale;
 }
 
@@ -61,21 +69,49 @@ function formatRelativeTime(isoString: string, t: ReturnType<typeof useTranslati
   }
 }
 
+/**
+ * Maps status to display label using translations
+ */
+function getStatusBadge(status: string, t: ReturnType<typeof useTranslations>): { label: string; className: string } {
+  switch (status) {
+    case 'analyzed':
+      return { 
+        label: t('analyzed'), 
+        className: 'bg-green-500/10 text-green-600 border-green-200' 
+      };
+    case 'partial':
+      return { 
+        label: t('partial'), 
+        className: 'bg-amber-500/10 text-amber-600 border-amber-200' 
+      };
+    case 'pending':
+      return { 
+        label: t('pending'), 
+        className: 'bg-red-500/10 text-red-600 border-red-200' 
+      };
+    default:
+      return { 
+        label: status, 
+        className: 'border-border' 
+      };
+  }
+}
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
 /**
- * RecentCases - Displays a list of recent cases with action buttons
+ * RecentPolicies - Displays a list of recent policies with analysis button
  * 
- * Client component that renders a vertical list of recent cases.
- * Each case has two action buttons: "Summary" (view details) and "Continue" (continue in agent).
+ * Client component that renders a vertical list of recent policies.
+ * Each policy has one action button: "Analysis" (view policy detail).
  * 
- * @param title - Section title (e.g., "Recent: Cases")
- * @param items - Array of recent case items to display
+ * @param title - Section title (e.g., "Recent: Policies")
+ * @param items - Array of recent policy items to display
  * @param locale - Current locale for route generation
  */
-export function RecentCases({ title, items, locale }: RecentCasesProps) {
+export function RecentPolicies({ title, items, locale }: RecentPoliciesProps) {
   const t = useTranslations('dashboard.recents');
   const tTime = useTranslations('dashboard.relativeTime');
 
@@ -90,11 +126,11 @@ export function RecentCases({ title, items, locale }: RecentCasesProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            {t('noCases')}
+            {t('noPolicies')}
           </p>
           <Button asChild variant="outline" size="sm" className="rounded-button">
-            <Link href={pathForAgent(locale)}>
-              {t('createCase')}
+            <Link href={pathForPoliciesUpload(locale)}>
+              {t('uploadPolicy')}
             </Link>
           </Button>
         </CardContent>
@@ -111,7 +147,7 @@ export function RecentCases({ title, items, locale }: RecentCasesProps) {
       </CardHeader>
       <CardContent className="space-y-3">
         {items.map((item) => (
-          <RecentCaseCard key={item.id} item={item} locale={locale} t={t} tTime={tTime} />
+          <RecentPolicyCard key={item.id} item={item} locale={locale} t={t} tTime={tTime} />
         ))}
       </CardContent>
     </Card>
@@ -123,39 +159,41 @@ export function RecentCases({ title, items, locale }: RecentCasesProps) {
 // ============================================================================
 
 /**
- * RecentCaseCard - Individual case item with action buttons
+ * RecentPolicyCard - Individual policy item with analysis button
  */
-function RecentCaseCard({ 
+function RecentPolicyCard({ 
   item, 
   locale, 
   t, 
   tTime 
 }: { 
-  item: RecentCaseItem; 
-  locale: Locale; 
+  item: RecentPolicyItem; 
+  locale: Locale;
   t: ReturnType<typeof useTranslations>;
   tTime: ReturnType<typeof useTranslations>;
 }) {
   const relativeTime = formatRelativeTime(item.updated_at, tTime, locale);
-  const resumeHref = pathForEntity('case', item.id, locale);
-  const continueHref = `/${locale}/agent/${item.id}`;
+  const analysisHref = `/${locale}/policies/analysis/${item.id}`;
+  const statusBadge = getStatusBadge(item.status, t);
 
   return (
     <div className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card hover:bg-accent/5 transition-colors">
-      {/* Status indicator */}
-      <Circle 
-        className="size-2 fill-primary text-primary mt-1.5 shrink-0" 
-        aria-hidden="true"
-      />
+      {/* Policy icon */}
+      <div className="p-1.5 rounded-md bg-primary/10 shrink-0">
+        <FileText 
+          className="size-4 text-primary" 
+          aria-hidden="true"
+        />
+      </div>
       
       <div className="flex-1 min-w-0 space-y-2">
         {/* Title and metadata */}
         <div>
-          <p className="text-sm font-medium text-foreground truncate">
+          <p className="text-sm font-medium text-foreground truncate" title={item.title}>
             {item.title}
           </p>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
-            <span className="truncate">{item.client}</span>
+            <span className="truncate" title={item.client}>{item.client}</span>
             <span aria-hidden="true">•</span>
             <time dateTime={item.updated_at}>{relativeTime}</time>
             {item.status && (
@@ -163,43 +201,30 @@ function RecentCaseCard({
                 <span aria-hidden="true">•</span>
                 <Badge 
                   variant="outline" 
-                  className="text-xs h-5 px-1.5 rounded-sm border-border"
+                  className={`text-xs h-5 px-1.5 rounded-sm ${statusBadge.className}`}
                 >
-                  {item.status}
+                  {statusBadge.label}
                 </Badge>
               </>
             )}
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex gap-2">
-          <Button 
-            asChild 
-            variant="outline" 
-            size="sm" 
-            className="flex-1 rounded-button"
-          >
-            <Link href={resumeHref}>
-              {t('summary')}
-            </Link>
-          </Button>
-          <Button 
-            asChild 
-            size="sm" 
-            className="flex-1 rounded-button group"
-          >
-            <Link href={continueHref} className="flex items-center justify-center gap-1">
-              <span>{t('continue')}</span>
-              <ChevronRight 
-                className="size-3 transition-transform group-hover:translate-x-0.5" 
-                aria-hidden="true"
-              />
-            </Link>
-          </Button>
-        </div>
+        {/* Single action button */}
+        <Button 
+          asChild 
+          size="sm" 
+          className="w-full rounded-button group"
+        >
+          <Link href={analysisHref} className="flex items-center justify-center gap-1">
+            <span>{t('summary')}</span>
+            <ChevronRight 
+              className="size-3 transition-transform group-hover:translate-x-0.5" 
+              aria-hidden="true"
+            />
+          </Link>
+        </Button>
       </div>
     </div>
   );
 }
-

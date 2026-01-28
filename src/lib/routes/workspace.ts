@@ -14,7 +14,7 @@ export type EntityType = 'case' | 'policy' | 'proposal' | 'analysis' | 'client' 
  * and Briki's specific Locale type ('en' | 'es').
  * 
  * @param locale - String locale from useLocale() hook
- * @returns Typed Locale, falling back to 'es' if unsupported
+ * @returns Typed Locale, falling back to 'en' if unsupported
  * 
  * @example
  * const locale = useLocale(); // returns string
@@ -26,8 +26,8 @@ export function toLocale(locale: string): Locale {
     return locale;
   }
   // Fallback to default locale if unsupported
-  console.warn(`[toLocale] Unsupported locale "${locale}", falling back to "es"`);
-  return 'es';
+  console.warn(`[toLocale] Unsupported locale "${locale}", falling back to "en"`);
+  return 'en';
 }
 
 /**
@@ -95,6 +95,14 @@ export function pathForPoliciesAnalysis(locale: Locale): string {
  */
 export function pathForPoliciesUpload(locale: Locale): string {
   return `/${locale}/policies/upload`;
+}
+
+/**
+ * Get the policy analysis detail route (for org-level standalone policies)
+ * Note: This is different from pathForPolicy which points to /workspace/policies/[id]
+ */
+export function pathForPolicyAnalysisDetail(policyId: string, locale: Locale): string {
+  return `/${locale}/policies/analysis/${policyId}`;
 }
 
 /**

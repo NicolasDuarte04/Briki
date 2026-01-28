@@ -139,7 +139,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
     // Navegar a placeholder para nuevo chat
     const currentPath = window.location.pathname;
     const localeMatch = currentPath.match(/\/(es|en)\//);
-    const locale = localeMatch ? localeMatch[1] : 'es';
+    const locale = localeMatch ? localeMatch[1] : 'en';
     router.push(`/${locale}/agent/new-thread-placeholder`);
   };
 
@@ -210,7 +210,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
         // --- PASO 5: Navegar al Agente ---
         const currentPath = window.location.pathname;
         const localeMatch = currentPath.match(/\/(es|en)\//);
-        const locale = localeMatch ? localeMatch[1] : 'es';
+        const locale = localeMatch ? localeMatch[1] : 'en';
         const targetUrl = `/${locale}/agent/${caseId}`;
         console.log(`✅ [SidebarChatPanel] Navigating to: ${targetUrl}`);
         router.push(targetUrl); // Usar router.push para navegación SPA

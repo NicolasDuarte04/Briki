@@ -56,13 +56,13 @@ export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps
 
   return (
     <>
-      <Card className="hover:shadow-lg transition-shadow h-full relative group">
+      <Card className="hover:shadow-lg transition-shadow h-full relative group overflow-hidden">
         <Link href={`/workspace/cases/${caseData.id}`} className="block h-full">
           <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
               {/* Nombre del caso con botón de edición */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+              <div className="flex-1 min-w-0 overflow-hidden">
+                <div className="flex items-center gap-2 overflow-hidden">
                   {/* Botón de edición (lápiz) */}
                   <Button
                     variant="ghost"
@@ -76,7 +76,7 @@ export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps
                   
                   {/* Nombre con truncado */}
                   <h3 
-                    className="font-semibold text-lg truncate"
+                    className="font-semibold text-lg truncate max-w-full"
                     title={displayName}
                   >
                     {displayName}
@@ -84,14 +84,14 @@ export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps
                 </div>
                 
                 {caseData.clientRef && (
-                  <p className="text-sm text-muted-foreground pl-8">
+                  <p className="text-sm text-muted-foreground pl-8 truncate">
                     Ref: {caseData.clientRef}
                   </p>
                 )}
               </div>
               
               {/* Acciones: Status, Pin, Delete */}
-              <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1 flex-shrink-0 flex-nowrap">
                 <CaseStatusBadge status={caseData.status} />
                 <PinButton
                   entityId={caseData.id}

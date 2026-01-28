@@ -1,30 +1,11 @@
 'use client';
 
-import { useSafeTranslations } from '@/hooks/useSafeTranslations';
+import { useTranslations } from 'next-intl';
 
 export function LandingHowItWorks() {
-  const { t } = useSafeTranslations('landing.howItWorks');
+  const t = useTranslations('landing.howItWorks');
 
-  const steps = [
-    {
-      number: '1',
-      title: 'Upload',
-      description: 'PDF / WhatsApp',
-      bullets: ['Policy PDF or WhatsApp chat', 'Spanish/English']
-    },
-    {
-      number: '2',
-      title: 'Analyze',
-      description: 'coverages/exclusions',
-      bullets: ['Extract clauses & exclusions', 'Compare carriers']
-    },
-    {
-      number: '3',
-      title: 'Propose',
-      description: 'ready-to-send proposal',
-      bullets: ['Client-ready proposal', 'Share by email/WhatsApp']
-    }
-  ];
+  const stepKeys = ['upload', 'analyze', 'propose'] as const;
 
   return (
     <section 
@@ -38,37 +19,32 @@ export function LandingHowItWorks() {
           id="how-it-works-heading"
           className="text-center text-white text-4xl font-semibold mb-16"
         >
-          How it works
+          {t('heading')}
         </h2>
         
         {/* Steps grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {steps.map((step, index) => (
+          {stepKeys.map((stepKey, index) => (
             <div
-              key={index}
+              key={stepKey}
               className="rounded-2xl bg-[#1a1a1a] border border-white/10 p-8"
             >
               {/* Step number */}
               <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/10 text-white font-semibold mb-4">
-                {step.number}
+                {index + 1}
               </div>
               
               {/* Step title */}
               <h3 className="text-2xl font-semibold text-white mb-2">
-                {step.title}
+                {t(`steps.${stepKey}.title`)}
               </h3>
-              
-              {/* Step description */}
-              <p className="text-white/60 mb-4">
-                {step.description}
-              </p>
               
               {/* Bullets */}
               <ul className="space-y-2">
-                {step.bullets.map((bullet, bulletIndex) => (
+                {[0, 1].map((bulletIndex) => (
                   <li key={bulletIndex} className="text-sm text-white/50 flex items-start">
                     <span className="mr-2">•</span>
-                    <span>{bullet}</span>
+                    <span>{t(`steps.${stepKey}.bullets.${bulletIndex}`)}</span>
                   </li>
                 ))}
               </ul>
