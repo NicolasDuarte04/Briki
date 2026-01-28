@@ -77,8 +77,8 @@ export default function Comparison() {
     return (
       <EmptyState
         title={t("empty.title")}
-        description="Necesitas al menos 2 pólizas analizadas para realizar una comparación."
-        hint="Sube y analiza más pólizas en la pestaña de Análisis."
+        description={t("empty.needMorePolicies")}
+        hint={t("empty.uploadMoreHint")}
       />
     );
   }
@@ -90,7 +90,7 @@ export default function Comparison() {
           <div className="flex flex-col gap-1">
             <CardTitle>{t("title")}</CardTitle>
             <CardDescription>
-              Comparación semántica impulsada por IA. Analiza coberturas, exclusiones y beneficios.
+              {t("semantic.description")}
             </CardDescription>
           </div>
 
@@ -103,17 +103,17 @@ export default function Comparison() {
               {comparisonLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isComparisonOutdated ? 'Regenerando...' : 'Alineando...'}
+                  {isComparisonOutdated ? t("semantic.regenerating") : t("semantic.aligning")}
                 </>
               ) : isComparisonOutdated ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4" />
-                  Regenerar Comparación ({validAnalyses.length} pólizas)
+                  {t("semantic.regenerateButton", { count: validAnalyses.length })}
                 </>
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Generar Comparativa con IA
+                  {t("semantic.generateButton")}
                 </>
               )}
             </Button>
@@ -123,7 +123,7 @@ export default function Comparison() {
             <div className="flex items-center gap-3">
               {selectionCount > 0 && (
                 <span className="text-sm text-muted-foreground">
-                  {selectionCount} póliza{selectionCount !== 1 ? 's' : ''} seleccionada{selectionCount !== 1 ? 's' : ''}
+                  {selectionCount === 1 ? t("semantic.policiesSelected", { count: selectionCount }) : t("semantic.policiesSelectedPlural", { count: selectionCount })}
                 </span>
               )}
               <Button
@@ -147,7 +147,7 @@ export default function Comparison() {
                 className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md disabled:opacity-50"
               >
                 <FileText className="mr-2 h-4 w-4" />
-                {canGenerateProposal ? 'Generar Propuesta' : 'Selecciona al menos 1 póliza'}
+                {canGenerateProposal ? t("semantic.generateProposal") : t("semantic.selectAtLeastOne")}
               </Button>
             </div>
           )}
@@ -165,16 +165,16 @@ export default function Comparison() {
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center p-8 border-2 border-dashed rounded-xl bg-muted/10">
             <Sparkles className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">Listo para comparar</h3>
+            <h3 className="text-lg font-semibold text-foreground">{t("semantic.readyToCompare")}</h3>
             <p className="text-muted-foreground max-w-md mt-2">
-              Haz clic en "Generar Comparativa con IA" para que nuestro motor semántico alinee las coberturas de las {validAnalyses.length} pólizas disponibles.
+              {t("semantic.clickToGenerate", { count: validAnalyses.length })}
             </p>
             <Button
               onClick={handleAlign}
               variant="outline"
               className="mt-6"
             >
-              Iniciar Comparación
+              {t("semantic.startComparison")}
             </Button>
           </div>
         )}

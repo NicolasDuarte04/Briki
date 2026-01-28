@@ -1054,7 +1054,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         {isAnalyzing && (
           <div className="flex items-center justify-center gap-2 px-4 py-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Analizando documentos con IA, por favor espera...
+            {chatTranslations("analysis.analyzingDocs")}
           </div>
         )}
 
@@ -1065,14 +1065,14 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           <div className="px-4 py-2">
             <div className="p-4 bg-secondary border rounded-lg text-center">
               <p className="text-sm text-secondary-foreground mb-3">
-                El brief del caso está listo. ¿Deseas que proceda con el análisis?
+                {chatTranslations("approval.briefReady")}
               </p>
               <Button
                 onClick={handleApprovalOrchestration}
                 className="w-full"
                 disabled={isTyping || !areApprovalButtonsEnabled() || caseResolvingClient}
               >
-                {caseResolvingClient ? 'Validando cliente...' : approvalPhase === 'processing' ? 'Aprobando...' : 'Aprobar y Continuar Análisis'}
+                {caseResolvingClient ? chatTranslations("approval.validatingClient") : approvalPhase === 'processing' ? chatTranslations("approval.approving") : chatTranslations("approval.approveAndContinue")}
               </Button>
             </div>
           </div>

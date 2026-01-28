@@ -12,7 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { updateProfile, updateProfileDirect, updateNotificationSettings, requestPasswordReset, type FormState } from './actions';
+import { updateProfile, updateProfileDirect, updateNotificationSettings, requestPasswordReset } from './actions';
+import { type FormState } from './schema';
 import { toast } from 'sonner';
 import { Building2, UserPlus, Users, Crown, Shield, User, ChevronRight, Mail, Copy, Check, Link2Off, Loader2, Bell, CheckCircle2, XCircle, Clock, Globe } from 'lucide-react';
 import { 
@@ -648,7 +649,7 @@ export function AccountSettings({
                     <p className="text-base text-foreground">
                       {nameValue || t('personal.notSet')}
                       {lastSavedField === 'name' && (
-                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">{tCommon('saved')}</span>
+                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">{tCommon('actions.saved')}</span>
                       )}
                     </p>
                   ) : (
@@ -678,7 +679,7 @@ export function AccountSettings({
                             setNameValue(initialName);
                           }}
                         >
-                          {tCommon('cancel')}
+                          {tCommon('actions.cancel')}
                         </Button>
                       </div>
                     </form>
@@ -720,7 +721,7 @@ export function AccountSettings({
                     <p className="text-base text-foreground">
                       {phoneValue || t('personal.notSet')}
                       {lastSavedField === 'phone' && (
-                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">{tCommon('saved')}</span>
+                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">{tCommon('actions.saved')}</span>
                       )}
                     </p>
                   ) : (
@@ -741,7 +742,7 @@ export function AccountSettings({
                       <input type="hidden" name="field" value="phone" />
                       <input type="hidden" name="locale" value={locale} />
                       <div className="flex gap-2">
-                        <SubmitButton label={tCommon('save')} />
+                        <SubmitButton label={tCommon('actions.save')} />
                         <Button
                           type="button"
                           variant="ghost"
@@ -751,7 +752,7 @@ export function AccountSettings({
                             setPhoneValue(initialPhone);
                           }}
                         >
-                          {tCommon('cancel')}
+                          {tCommon('actions.cancel')}
                         </Button>
                       </div>
                     </form>
@@ -767,7 +768,7 @@ export function AccountSettings({
                     }}
                     className="text-primary hover:text-primary/80 hover:bg-primary/10"
                   >
-                    {tCommon('edit')}
+                    {tCommon('actions.edit')}
                   </Button>
                 )}
               </div>
@@ -782,7 +783,7 @@ export function AccountSettings({
                     <p className="text-base text-foreground">
                       {addressValue || t('personal.notSet')}
                       {lastSavedField === 'address' && (
-                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">{tCommon('saved')}</span>
+                        <span className="ml-2 text-sm text-green-600 dark:text-green-400">{tCommon('actions.saved')}</span>
                       )}
                     </p>
                   ) : (
@@ -803,7 +804,7 @@ export function AccountSettings({
                       <input type="hidden" name="field" value="address" />
                       <input type="hidden" name="locale" value={locale} />
                       <div className="flex gap-2">
-                        <SubmitButton label={tCommon('save')} />
+                        <SubmitButton label={tCommon('actions.save')} />
                         <Button
                           type="button"
                           variant="ghost"
@@ -813,7 +814,7 @@ export function AccountSettings({
                             setAddressValue(initialAddress);
                           }}
                         >
-                          {tCommon('cancel')}
+                          {tCommon('actions.cancel')}
                         </Button>
                       </div>
                     </form>
@@ -829,7 +830,7 @@ export function AccountSettings({
                     }}
                     className="text-primary hover:text-primary/80 hover:bg-primary/10"
                   >
-                    {tCommon('edit')}
+                    {tCommon('actions.edit')}
                   </Button>
                 )}
               </div>
@@ -1454,7 +1455,7 @@ export function AccountSettings({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={changingRoleForMember !== null}>
-                {tCommon('cancel')}
+                {tCommon('actions.cancel')}
               </AlertDialogCancel>
               <AlertDialogAction 
                 onClick={confirmRoleChange}

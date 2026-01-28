@@ -10,6 +10,7 @@ console.log('🔍 [AnalysisTab] MODULE EVALUATION START', {
 
 import React from 'react';
 import dynamic from 'next/dynamic';
+import { useTranslations } from 'next-intl';
 
 // 🔍 LOG 2: Antes de crear dynamic import
 console.log('🔍 [AnalysisTab] BEFORE dynamic import creation', {
@@ -55,7 +56,7 @@ const PdfViewer = dynamic(
       });
       return (
         <div className="flex items-center justify-center h-full">
-          <p className="text-muted-foreground">Cargando visor PDF...</p>
+          <p className="text-muted-foreground">Loading PDF viewer...</p>
         </div>
       );
     }
@@ -90,6 +91,9 @@ console.log('🔍 [AnalysisTab] ALL IMPORTS COMPLETE', {
  * Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.2.1
  */
 export function AnalysisTab() {
+  // i18n translations
+  const t = useTranslations('policies.analysis');
+  
   // Estado local para sincronizar navegación entre FindingsList y PdfViewer
   const [targetPage, setTargetPage] = React.useState<number | undefined>();
 
@@ -153,7 +157,7 @@ export function AnalysisTab() {
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-muted-foreground">
-          Selecciona una póliza para ver su análisis
+          {t('selectPolicy')}
         </p>
       </div>
     );

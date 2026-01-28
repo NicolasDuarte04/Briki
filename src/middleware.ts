@@ -4,6 +4,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { env } from '@/lib/env';
 import { getDashboardHome, type Locale } from '@/lib/routes/workspace';
 
+// Cookie name for locale persistence - must match actions.ts
+const LOCALE_COOKIE_NAME = 'BRIKI_LOCALE';
+const VALID_LOCALES = ['en', 'es'] as const;
+
 const intlMiddleware = createMiddleware({
   locales: ['en', 'es'],
   defaultLocale: 'en',
@@ -22,13 +26,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/landing', request.url));
   }
 
+  // Check if URL already has a locale prefix
+  const localeMatch = pathname.match(/^\/(es|en)/);
+  const hasLocalePrefix = !!localeMatch;
+  
+  // If no locale in URL, check cookie and redirect to locale-prefixed path if not default
+  if (!hasLocalePrefix) {
+    const cookieLocale = request.cookies.get(LOCALE_COOKIE_NAME)?.value;
+    if (cookieLocale && VALID_LOCALES.includes(cookieLocale as typeof VALID_LOCALES[number]) && cookieLocale !== 'en') {
+      // Redirect to locale-prefixed path for non-default locale
+      const newUrl = new URL(`/${cookieLocale}${pathname}`, request.url);
+      newUrl.search = request.nextUrl.search;
+      return NextResponse.redirect(newUrl);
+    }
+  }
+
   const response = intlMiddleware(request);
 
   // Strip locale prefix if present to check the actual path
   const pathWithoutLocale = pathname.replace(/^\/(es|en)/, '') || '/';
   
   // Extract locale from pathname for redirection
-  const localeMatch = pathname.match(/^\/(es|en)/);
   const locale = (localeMatch ? localeMatch[1] : 'en') as Locale;
 
   // Check for ?landing=1 bypass parameter

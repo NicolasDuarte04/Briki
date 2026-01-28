@@ -475,30 +475,42 @@ function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
         id: "actions",
         enableSorting: false,
         header: () => <div className="sr-only">{t("actions.columnLabel")}</div>,
-        cell: ({ row }) => (
-          <div className="flex w-full items-center justify-end">
-            <div className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-              {/* ✅ FASE 6: Botones de Acción Condicionales */}
-              {row.original.analysisId ? (
-                <ViewInPdfButton analysisId={row.original.analysisId} />
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  {/* ✅ FASE 6B: Botón Analizar para nuevas pólizas */}
-                  {row.original.artifactId && (
-                    <AnalyzeButton
-                      artifactId={row.original.artifactId}
-                      policyName={row.original.plan}
-                    />
-                  )}
-
-                  {!row.original.artifactId && (
-                    <span className="text-xs text-muted-foreground italic">Sin archivo</span>
-                  )}
-                </div>
-              )}
+        cell: ({ row }) => {
+          const { analysisId, artifactId, plan, linkType } = row.original;
+          const isLinked = linkType === 'linked';
+          
+          return (
+            <div className="flex w-full items-center justify-end">
+              <div className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                {/* ✅ FASE REESTRUCTURACIÓN: Lógica de botones diferenciada */}
+                {analysisId ? (
+                  /* CASO 1: Ya tiene análisis -> Ver en PDF */
+                  <ViewInPdfButton analysisId={analysisId} />
+                ) : isLinked && artifactId ? (
+                  /* CASO 2: Póliza vinculada de org sin análisis cargado */
+                  /* Esto es raro pero posible - mostrar botón para cargar análisis existente */
+                  <LoadAnalysisButton
+                    artifactId={artifactId}
+                    policyName={plan}
+                    analysisId={analysisId}
+                  />
+                ) : (
+                  /* CASO 3: Póliza directa (uploaded) sin análisis */
+                  <div className="flex items-center gap-1.5">
+                    {artifactId ? (
+                      <AnalyzeButton
+                        artifactId={artifactId}
+                        policyName={plan}
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">Sin archivo</span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ),
+          );
+        },
       },
     ],
     [t, getHeaderDnDProps, columnMenuLabels, locale]
@@ -872,27 +884,33 @@ function ViewInPdfButton({ analysisId }: { analysisId: string }) {
       onClick={handleClick}
       title="Ver análisis en PDF"
     >
-      {t("actions.viewInPdf", { default: "Ver en PDF" })}
+      {t("actions.viewInPdf")}
     </Button>
   );
 }
 
 /**
- * ✅ FASE 6B: Botón "Analizar" para pólizas pendientes
- * Dispara el análisis y luego redirige al chat para que el agente comente
+ * ✅ FASE 6B + REESTRUCTURACIÓN: Botón "Analizar" para pólizas pendientes
+ * - Dispara el análisis y luego redirige al chat para que el agente comente
+ * - Se bloquea si hay OTRO análisis en progreso
  */
 function AnalyzeButton({ artifactId, policyName }: { artifactId: string, policyName: string }) {
   const analyzePolicyArtifact = useUI((s) => s.analyzePolicyArtifact);
-  const setInitialMessage = useUI((s) => s.setInitialMessage);
   const setActiveTab = useUI((s) => s.setActiveTab);
+  const _analyzingArtifactId = useUI((s) => s._analyzingArtifactId);
   const [loading, setLoading] = React.useState(false);
   const t = useTranslations("workspace.policies");
+  
+  // ✅ FASE REESTRUCTURACIÓN: Estado de bloqueo global
+  const isAnyAnalyzing = _analyzingArtifactId !== null;
+  const isThisAnalyzing = _analyzingArtifactId === artifactId;
+  const isDisabledByOther = isAnyAnalyzing && !isThisAnalyzing;
 
   const handleAnalyze = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    if (!artifactId) return;
+    if (!artifactId || isDisabledByOther) return;
 
     try {
       setLoading(true);
@@ -914,9 +932,12 @@ function AnalyzeButton({ artifactId, policyName }: { artifactId: string, policyN
       // Enviar mensaje (esto disparará el loading en el chat)
       await sendAutoMessage(prompt);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ [AnalyzeButton] Error analyzing:', error);
-      // Aquí idealmente mostraríamos un toast de error
+      // No mostrar toast si es por bloqueo concurrente
+      if (!error.message?.includes('already in progress')) {
+        // Aquí idealmente mostraríamos un toast de error
+      }
     } finally {
       setLoading(false);
     }
@@ -928,18 +949,109 @@ function AnalyzeButton({ artifactId, policyName }: { artifactId: string, policyN
       size="sm"
       type="button"
       onClick={handleAnalyze}
-      disabled={loading}
+      disabled={loading || isDisabledByOther}
       className="gap-2"
+      title={isDisabledByOther ? t("actions.waitingTooltip") : t("actions.analyzeTooltip")}
     >
-      {loading ? (
+      {loading || isThisAnalyzing ? (
         <>
           <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          <span>Analizando...</span>
+          <span>{t("actions.analyzing")}</span>
+        </>
+      ) : isDisabledByOther ? (
+        <>
+          <span>🔒</span>
+          <span>{t("actions.waiting")}</span>
         </>
       ) : (
         <>
           <span>⚡</span>
-          <span>Analizar</span>
+          <span>{t("actions.analyze")}</span>
+        </>
+      )}
+    </Button>
+  );
+}
+
+/**
+ * ✅ FASE REESTRUCTURACIÓN: Botón "Cargar Análisis" para pólizas vinculadas de organización
+ * Estas pólizas ya tienen un análisis previo - solo se contextualiza con el caso actual
+ */
+function LoadAnalysisButton({ 
+  artifactId, 
+  policyName,
+  analysisId 
+}: { 
+  artifactId: string, 
+  policyName: string,
+  analysisId: string | undefined 
+}) {
+  const setActiveTab = useUI((s) => s.setActiveTab);
+  const navigateToAnalysis = useUI((s) => s.navigateToAnalysis);
+  const _analyzingArtifactId = useUI((s) => s._analyzingArtifactId);
+  const [loading, setLoading] = React.useState(false);
+  const t = useTranslations("workspace.policies");
+  
+  // ✅ Bloqueo global similar a AnalyzeButton
+  const isAnyAnalyzing = _analyzingArtifactId !== null;
+  const isThisLoading = _analyzingArtifactId === artifactId;
+  const isDisabledByOther = isAnyAnalyzing && !isThisLoading;
+
+  const handleLoad = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!artifactId || isDisabledByOther) return;
+
+    try {
+      setLoading(true);
+      console.log('📥 [LoadAnalysisButton] Loading analysis for linked policy:', artifactId);
+      
+      // Si ya tiene analysisId, simplemente navegar a él
+      if (analysisId) {
+        navigateToAnalysis(analysisId);
+        
+        // Enviar mensaje al agente contextualizando
+        const prompt = `He cargado el análisis de la póliza "${policyName}" que ya tenemos en la organización. Por favor, contextualiza este análisis con los requerimientos del cliente actual y compáralo con otras pólizas del caso si existen.`;
+        const sendAutoMessage = useUI.getState().sendAutoMessage;
+        await sendAutoMessage(prompt);
+      } else {
+        // Fallback: Si por alguna razón no tiene analysisId, ir al tab de pólizas
+        console.warn('⚠️ [LoadAnalysisButton] Póliza vinculada sin analysisId');
+        setActiveTab('policies');
+      }
+
+    } catch (error) {
+      console.error('❌ [LoadAnalysisButton] Error loading analysis:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      type="button"
+      onClick={handleLoad}
+      disabled={loading || isDisabledByOther}
+      className="gap-2 border-blue-300 text-blue-600 hover:bg-blue-50"
+      title={isDisabledByOther ? t("actions.waitingTooltip") : t("actions.loadAnalysisTooltip")}
+    >
+      {loading || isThisLoading ? (
+        <>
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          <span>{t("actions.loading")}</span>
+        </>
+      ) : isDisabledByOther ? (
+        <>
+          <span>🔒</span>
+          <span>{t("actions.waiting")}</span>
+        </>
+      ) : (
+        <>
+          <span>📂</span>
+          <span>{t("actions.loadAnalysis")}</span>
         </>
       )}
     </Button>

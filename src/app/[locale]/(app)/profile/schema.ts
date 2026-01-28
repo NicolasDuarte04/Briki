@@ -11,30 +11,33 @@ export const ProfileInputSchema = z
   })
   .strict()
 
+// Cookie name for locale persistence
+export const LOCALE_COOKIE_NAME = 'BRIKI_LOCALE'
+
+// Form state type for server actions
+export type FormState = { ok: true } | { ok: false; message: string }
+
 // ⚠️ CÓDIGO LEGACY - NO USAR
 // Los siguientes tipos ya no se utilizan en la implementación actual.
 // Se mantienen temporalmente para evitar breaking changes.
 // 
-// NOTA: La implementación actual usa FormState de './actions.ts' que es:
-// export type FormState = { ok: true } | { ok: false; message: string }
-//
 // TODO (Futuro): Evaluar si se puede eliminar completamente este código legacy
 // después de verificar que no se usa en branches o PRs en progreso.
 
 /**
- * @deprecated No se usa. Ver FormState en ./actions.ts
+ * @deprecated No se usa. Ver FormState arriba
  */
 export type ValidationKey = 'required' | 'invalidUnion'
 
 /**
- * @deprecated No se usa. Ver FormState en ./actions.ts
+ * @deprecated No se usa. Ver FormState arriba
  */
 export type FormErrors = Partial<Record<'name' | 'locale', ValidationKey>>
 
 /**
- * @deprecated No se usa. Ver FormState en ./actions.ts
+ * @deprecated No se usa. Ver FormState arriba
  */
-export type FormState = {
+export type LegacyFormState = {
   status?: 'success' | 'error'
   errors?: FormErrors
   values?: { name: string; locale: LocaleValue }

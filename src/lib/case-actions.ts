@@ -270,85 +270,13 @@ export async function createCaseIfNeeded(
             (window as any).lastCaseCreation = Date.now();
         }
 
-        // ✅ FASE 19.1 + FASE POLICY_LINKS: Análisis Pre-Navegación Inteligente
-        // Diferencia entre pólizas vinculadas (ya analizadas) y locales (pendientes)
-        if (!options?.skipNavigation) {
-            console.log('📄 [case-actions] Verificando PDFs para análisis pre-navegación...');
-            
-            // Contar pólizas vinculadas de organización (ya tienen análisis previo)
-            const linkedCount = linkedPolicyIds.length;
-            console.log(`🔗 [case-actions] Pólizas de organización vinculadas: ${linkedCount}`);
-            
-            try {
-                // Obtener artifacts del caso recién creado (solo pólizas locales)
-                const artifactsResponse = await fetch(`/api/cases/${caseId}/artifacts`);
-
-                if (artifactsResponse.ok) {
-                    const { artifacts } = await artifactsResponse.json();
-                    console.log(`📎 [case-actions] ${artifacts.length} artifacts encontrados`);
-
-                    // Filtrar PDFs locales (subidos desde el computador)
-                    const localPdfArtifacts = artifacts.filter((a: any) =>
-                        a.contentType === 'application/pdf' ||
-                        a.fileName?.toLowerCase().endsWith('.pdf')
-                    );
-
-                    // ✅ LÓGICA INTELIGENTE según escenario:
-                    // CASO A: Solo pólizas de org → NO analizar (ya están analizadas)
-                    // CASO B: Mezcla (org + locales) → Analizar solo las locales
-                    // CASO C: Solo locales → Comportamiento original (analizar primera)
-
-                    if (linkedCount > 0 && localPdfArtifacts.length === 0) {
-                        // CASO A: Solo pólizas de organización vinculadas
-                        console.log('✅ [case-actions] CASO A: Solo pólizas de org vinculadas (ya analizadas)');
-                        console.log(`   → ${linkedCount} póliza(s) lista(s) para comparación directa`);
-                        // NO se necesita análisis - las pólizas ya tienen análisis previo
-                        // El store las cargará automáticamente via fetchPolicyAnalyses
-                        
-                    } else if (linkedCount > 0 && localPdfArtifacts.length > 0) {
-                        // CASO B: Mezcla de pólizas de org + locales
-                        console.log(`🤖 [case-actions] CASO B: ${linkedCount} de org + ${localPdfArtifacts.length} locales`);
-                        console.log('   → Analizando pólizas locales (las de org ya están analizadas)');
-                        
-                        // Analizar solo el primer PDF LOCAL
-                        const firstLocalPdf = localPdfArtifacts[0];
-                        const { analyzePolicyArtifact } = useUI.getState();
-
-                        try {
-                            const analysis = await analyzePolicyArtifact(firstLocalPdf.id);
-                            console.log('✅ [case-actions] Análisis de póliza local completado:', analysis.id);
-                            console.log(`   → ${analysis.pageReferences?.length || 0} referencias creadas`);
-                        } catch (analysisError: any) {
-                            console.error('❌ [case-actions] Error analizando póliza local:', analysisError.message);
-                            // Continuar - las de org siguen disponibles
-                        }
-                        
-                    } else if (localPdfArtifacts.length > 0) {
-                        // CASO C: Solo pólizas locales (comportamiento original)
-                        console.log(`🤖 [case-actions] CASO C: ${localPdfArtifacts.length} póliza(s) local(es)`);
-
-                        const firstPdf = localPdfArtifacts[0];
-                        const { analyzePolicyArtifact } = useUI.getState();
-
-                        try {
-                            const analysis = await analyzePolicyArtifact(firstPdf.id);
-                            console.log('✅ [case-actions] Análisis completado ANTES de navegar:', analysis.id);
-                            console.log(`   → ${analysis.pageReferences?.length || 0} referencias creadas`);
-                        } catch (analysisError: any) {
-                            console.error('❌ [case-actions] Error en análisis pre-navegación:', analysisError.message);
-                            console.warn('⚠️ [case-actions] Continuando sin análisis');
-                        }
-                    } else {
-                        console.log('ℹ️ [case-actions] No hay PDFs para analizar');
-                    }
-                } else {
-                    console.warn('⚠️ [case-actions] No se pudieron obtener artifacts');
-                }
-            } catch (error: any) {
-                console.error('❌ [case-actions] Error obteniendo artifacts para análisis:', error.message);
-                // No fallar todo el flujo
-            }
-        }
+        // ✅ FASE REESTRUCTURACIÓN: Análisis automático ELIMINADO
+        // El usuario ahora inicia manualmente el análisis desde el tab "Pólizas"
+        // Esto permite:
+        // 1. Creación de casos más rápida (sin esperar análisis de IA)
+        // 2. Control del usuario sobre qué póliza analizar primero
+        // 3. Preparación para sistema de workers/colas
+        console.log('📄 [case-actions] Análisis automático deshabilitado - usuario iniciará desde tab Pólizas');
 
         // 8. Navegar al caso creado (SPA navigation) - Solo si no se omite la navegación
         if (!options?.skipNavigation) {

@@ -9,6 +9,7 @@ import { PolicyAnalysis } from '@/lib/types';
 import { PdfMinimap } from './PdfMinimap';
 import { PageNavigation } from './PageNavigation';
 import { PdfHighlightsLayer } from './PdfHighlightsLayer';
+import { useTranslations } from 'next-intl';
 
 // Configurar worker de PDF.js
 if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
@@ -37,6 +38,7 @@ interface PdfViewerProps {
  * Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.2.1
  */
 export function PdfViewer({ analysis, initialPage, onPageChange, selectedFieldName }: PdfViewerProps) {
+  const t = useTranslations('policies.analysis');
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [scale, setScale] = useState<number>(1.0);
@@ -246,7 +248,7 @@ export function PdfViewer({ analysis, initialPage, onPageChange, selectedFieldNa
             onLoadError={onDocumentLoadError}
             loading={
               <div className="text-center py-8">
-                <p className="text-muted-foreground">Cargando documento...</p>
+                <p className="text-muted-foreground">{t('loadingDocument')}</p>
               </div>
             }
           >

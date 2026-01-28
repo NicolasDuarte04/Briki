@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { MessageSquare, Plus, X, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +32,7 @@ interface Annotation {
  * Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.2.1
  */
 export function AnnotationsPanel({ analysisId }: AnnotationsPanelProps) {
+  const t = useTranslations('policies.analysis');
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [isAddingNew, setIsAddingNew] = useState(false);
   const [newAnnotationText, setNewAnnotationText] = useState('');
@@ -64,7 +66,7 @@ export function AnnotationsPanel({ analysisId }: AnnotationsPanelProps) {
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <MessageSquare className="h-4 w-4" />
-          Anotaciones
+          {t('annotations')}
           {annotations.length > 0 && (
             <Badge variant="secondary" className="text-xs">
               {annotations.length}
@@ -86,7 +88,7 @@ export function AnnotationsPanel({ analysisId }: AnnotationsPanelProps) {
       {isAddingNew && (
         <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
           <Textarea
-            placeholder="Escribe una anotación..."
+            placeholder="..."
             value={newAnnotationText}
             onChange={(e) => setNewAnnotationText(e.target.value)}
             className="min-h-[80px] text-sm resize-none"
@@ -99,7 +101,7 @@ export function AnnotationsPanel({ analysisId }: AnnotationsPanelProps) {
               onClick={handleCancel}
             >
               <X className="h-3 w-3 mr-1" />
-              Cancelar
+              {t('cancel')}
             </Button>
             <Button
               size="sm"
@@ -107,7 +109,7 @@ export function AnnotationsPanel({ analysisId }: AnnotationsPanelProps) {
               disabled={!newAnnotationText.trim()}
             >
               <Send className="h-3 w-3 mr-1" />
-              Guardar
+              {t('save')}
             </Button>
           </div>
         </div>
@@ -118,8 +120,8 @@ export function AnnotationsPanel({ analysisId }: AnnotationsPanelProps) {
         {annotations.length === 0 && !isAddingNew && (
           <div className="text-xs text-muted-foreground text-center py-8">
             <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No hay anotaciones aún</p>
-            <p className="mt-1">Haz clic en el botón + para agregar una</p>
+            <p>{t('noAnnotationsYet')}</p>
+            <p className="mt-1">{t('clickToAddAnnotation')}</p>
           </div>
         )}
 

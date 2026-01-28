@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useUI } from '@/lib/ui/state';
 import { FileText, CheckCircle, XCircle, AlertCircle, DollarSign, Calendar, Building2 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface FindingsListProps {
   analysis: PolicyAnalysis;
@@ -24,6 +25,7 @@ interface FindingsListProps {
  * Source: PLAN_ANALISIS_POLIZAS_PDF.md Section 6.2.1
  */
 export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) {
+  const t = useTranslations('policies.analysis');
   const setSelectedField = useUI(s => s.setSelectedField);
 
   const { extractedData, overallConfidence, pageReferences } = analysis;
@@ -43,11 +45,11 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
 
   function getConfidenceBadge(confidence: number) {
     if (confidence >= 0.9) {
-      return <Badge className="text-xs bg-green-500/10 text-green-700 border-green-500/20">Alto</Badge>;
+      return <Badge className="text-xs bg-green-500/10 text-green-700 border-green-500/20">{t('highConfidence')}</Badge>;
     } else if (confidence >= 0.7) {
-      return <Badge className="text-xs bg-yellow-500/10 text-yellow-700 border-yellow-500/20">Medio</Badge>;
+      return <Badge className="text-xs bg-yellow-500/10 text-yellow-700 border-yellow-500/20">{t('mediumConfidence')}</Badge>;
     } else {
-      return <Badge className="text-xs bg-red-500/10 text-red-700 border-red-500/20">Bajo</Badge>;
+      return <Badge className="text-xs bg-red-500/10 text-red-700 border-red-500/20">{t('lowConfidence')}</Badge>;
     }
   }
 

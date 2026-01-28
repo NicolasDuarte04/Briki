@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -71,21 +72,17 @@ interface BriefFormProps {
   orgId?: string;
 }
 
-const INSURANCE_CATEGORIES = [
-  { value: 'salud', label: 'Salud' },
-  { value: 'vida', label: 'Vida' },
-  { value: 'auto', label: 'Auto' },
-  { value: 'hogar', label: 'Hogar' },
-  { value: 'empresarial', label: 'Empresarial' },
-  { value: 'otro', label: 'Otro' },
-];
+// Insurance category values - labels come from translations
+const INSURANCE_CATEGORY_VALUES = ['salud', 'vida', 'auto', 'hogar', 'empresarial', 'otro'] as const;
+type InsuranceCategoryValue = typeof INSURANCE_CATEGORY_VALUES[number];
 
 // ✅ CORRECCIÓN CRÍTICA: Memoizar categorías para evitar re-renders
-const MemoizedSelectItems = React.memo(() => (
+// Now accepts a translation function as prop
+const MemoizedSelectItems = React.memo(({ t }: { t: (key: string) => string }) => (
   <>
-    {INSURANCE_CATEGORIES.map((category) => (
-      <SelectItem key={category.value} value={category.value}>
-        {category.label}
+    {INSURANCE_CATEGORY_VALUES.map((value) => (
+      <SelectItem key={value} value={value}>
+        {t(`categories.${value}`)}
       </SelectItem>
     ))}
   </>
@@ -104,6 +101,9 @@ const briefFormAreEqual = (prevProps: BriefFormProps, nextProps: BriefFormProps)
 
 const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) => {
   const router = useRouter();
+  
+  // i18n translations
+  const tCaseBrief = useTranslations('workspace.caseBrief');
 
   // ✅ CORRECCIÓN: Usar selectores individuales para evitar loops infinitos (sin useShallow)
   const brief = useUI((state) => state.brief);
@@ -876,19 +876,19 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           <div className="flex flex-col items-center gap-3 p-6">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
             <p className="font-medium text-foreground">
-              {caseResolvingClient ? 'Validando cliente...' : 'Procesando...'}
+              {caseResolvingClient ? tCaseBrief('form.validatingClient') : tCaseBrief('form.processing')}
             </p>
-            <p className="text-sm text-muted-foreground">Por favor espera un momento.</p>
+            <p className="text-sm text-muted-foreground">{tCaseBrief('form.pleaseWait')}</p>
           </div>
         </div>
       )}
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          Detalles del Caso
+          {tCaseBrief('form.title')}
         </CardTitle>
         <CardDescription>
-          Proporciona información detallada para obtener las mejores recomendaciones de seguros
+          {tCaseBrief('form.description')}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -897,10 +897,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           <div className="space-y-2">
             <Label htmlFor="insurance_category" className="flex items-center gap-2">
               <Shield className="h-4 w-4" />
-              Categoría de Seguro *
+              {tCaseBrief('form.categoryLabel')} *
               {/* ✅ CORRECCIÓN: Indicar que no es editable en modo edición */}
               {mode === 'edit' && (
-                <span className="text-xs text-muted-foreground font-normal">(No editable)</span>
+                <span className="text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
               )}
             </Label>
             <Select
@@ -909,10 +909,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               disabled={mode === 'edit'} // ✅ CORRECCIÓN: Bloquear en modo edición
             >
               <SelectTrigger>
-                <SelectValue placeholder="Selecciona el tipo de seguro" />
+                <SelectValue placeholder={tCaseBrief('form.categoryPlaceholder')} />
               </SelectTrigger>
               <SelectContent>
-                <MemoizedSelectItems />
+                <MemoizedSelectItems t={tCaseBrief} />
               </SelectContent>
             </Select>
           </div>
@@ -921,7 +921,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           <div className="space-y-2">
             <Label htmlFor="max_budget" className="flex items-center gap-2">
               <DollarSign className="h-4 w-4" />
-              Presupuesto Máximo Mensual
+              {tCaseBrief('form.maxBudget')}
             </Label>
             <div className="flex gap-2">
               <Input
@@ -974,11 +974,11 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
           {/* Coberturas Imprescindibles */}
           <div className="space-y-2">
-            <Label htmlFor="required_coverages">Coberturas Imprescindibles</Label>
+            <Label htmlFor="required_coverages">{tCaseBrief('form.requiredCoverages')}</Label>
             <div className="flex gap-2">
               <Input
                 id="required_coverages"
-                placeholder="Ej: Cobertura dental, Maternidad, etc."
+                placeholder={tCaseBrief('form.requiredCoveragesPlaceholder')}
                 value={currentCoverage}
                 onChange={(e) => setCurrentCoverage(e.target.value)}
                 onKeyPress={handleKeyPress}
@@ -1018,11 +1018,11 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           <div className="space-y-2">
             <Label htmlFor="client_profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
-              Perfil del Cliente
+              {tCaseBrief('form.clientProfile')}
             </Label>
             <Textarea
               id="client_profile"
-              placeholder="Describe el perfil del cliente: edad, profesión, estado civil, hijos, etc."
+              placeholder={tCaseBrief('form.clientProfilePlaceholder')}
               value={formData.client_profile}
               onChange={(e) => updateField('client_profile', e.target.value)}
               rows={3}
@@ -1033,16 +1033,16 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="clientName">
-                Nombre del Cliente
+                {tCaseBrief('form.clientName')}
                 {/* ✅ CORRECCIÓN: Indicar que no es editable en modo edición */}
                 {mode === 'edit' && (
-                  <span className="ml-2 text-xs text-muted-foreground font-normal">(No editable)</span>
+                  <span className="ml-2 text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
                 )}
               </Label>
               <div className="relative client-combobox-container">
                 <Input
                   id="clientName"
-                  placeholder="Escribir nombre del cliente..."
+                  placeholder={tCaseBrief('form.clientNamePlaceholder')}
                   value={clientSearchTerm}
                   onChange={(e) => handleClientSearchChange(e.target.value)}
                   onFocus={() => mode !== 'edit' && setIsClientComboboxOpen(true)} // ✅ CORRECCIÓN: No abrir dropdown en modo edición
@@ -1053,11 +1053,11 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 {isClientComboboxOpen && mode !== 'edit' && (
                   <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
                     {isClientListLoading ? (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">Cargando clientes...</div>
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingClients')}</div>
                     ) : clientList.filter(client =>
                       client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
                     ).length === 0 ? (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">No se encontraron clientes.</div>
+                      <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.noClientsFound')}</div>
                     ) : (
                       clientList
                         .filter(client =>
@@ -1084,10 +1084,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="businessType">Tipo de Negocio</Label>
+              <Label htmlFor="businessType">{tCaseBrief('form.businessType')}</Label>
               <Input
                 id="businessType"
-                placeholder="Ej: Consultoría, Retail, etc."
+                placeholder={tCaseBrief('form.businessTypePlaceholder')}
                 value={formData.businessType}
                 onChange={(e) => updateField('businessType', e.target.value)}
               />
@@ -1096,7 +1096,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="employees">Número de Empleados</Label>
+              <Label htmlFor="employees">{tCaseBrief('form.employeesCount')}</Label>
               <Input
                 id="employees"
                 type="number"
@@ -1106,10 +1106,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="coverage">Cobertura Necesaria</Label>
+              <Label htmlFor="coverage">{tCaseBrief('form.requiredCoverage')}</Label>
               <Input
                 id="coverage"
-                placeholder="Ej: Básica, Premium, etc."
+                placeholder={tCaseBrief('form.requiredCoveragePlaceholder')}
                 value={formData.coverage}
                 onChange={(e) => updateField('coverage', e.target.value)}
               />
@@ -1118,10 +1118,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
           {/* Notas Adicionales */}
           <div className="space-y-2">
-            <Label htmlFor="notes">Notas Adicionales</Label>
+            <Label htmlFor="notes">{tCaseBrief('form.additionalNotes')}</Label>
             <Textarea
               id="notes"
-              placeholder="Cualquier información adicional que consideres relevante..."
+              placeholder={tCaseBrief('form.additionalNotesPlaceholder')}
               value={formData.notes}
               onChange={(e) => updateField('notes', e.target.value)}
               rows={4}
@@ -1134,10 +1134,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               <div className="space-y-2">
                 <Label className="text-base font-semibold flex items-center gap-2">
                   <FileText className="h-4 w-4" />
-                  Documentos Adjuntos
+                  {tCaseBrief('form.attachedDocs')}
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Sube documentos PDF que contengan información relevante para el caso
+                  {tCaseBrief('form.attachedDocsDescription')}
                 </p>
               </div>
 
@@ -1160,7 +1160,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               {/* El único renderizado permitido es la lista simple de tempUploads */}
               {tempUploads.length > 0 && (
                 <div className="space-y-2 mt-4">
-                  <Label className="text-sm font-medium">Documentos asociados:</Label>
+                  <Label className="text-sm font-medium">{tCaseBrief('form.associatedDocs')}</Label>
                   <div className="space-y-2">
                     {tempUploads.map((upload) => (
                       <div key={upload.storagePath} className="flex items-center justify-between p-3 bg-muted rounded-lg">
@@ -1169,11 +1169,11 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                           <div className="flex-1">
                             <p className="text-sm font-medium">{upload.fileName}</p>
                             <p className="text-xs text-muted-foreground">
-                              {upload.pageCount ? `${upload.pageCount} páginas` : ''}
+                              {upload.pageCount ? `${upload.pageCount} ${tCaseBrief('form.pages')}` : ''}
                               {upload.pageCount && upload.fileSize ? ' • ' : ''}
                               {upload.fileSize ? `${Math.round(upload.fileSize / 1024)} KB` : ''}
                               {/* ✅ CORRECCIÓN: Indicar si es póliza existente (no eliminable) */}
-                              {upload.isExistingArtifact && ' • Póliza guardada'}
+                              {upload.isExistingArtifact && ` • ${tCaseBrief('form.savedPolicy')}`}
                             </p>
                           </div>
                         </div>
@@ -1203,10 +1203,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               <div className="space-y-2 mt-6 pt-4 border-t border-dashed">
                 <Label className="text-base font-semibold flex items-center gap-2">
                   <LinkIcon className="h-4 w-4" />
-                  Pólizas de la Organización
+                  {tCaseBrief('form.orgPolicies')}
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Vincula pólizas previamente cargadas a la organización para usarlas como referencia en este caso
+                  {tCaseBrief('form.orgPoliciesDescription')}
                 </p>
                 <OrgPolicySelector
                   orgId={orgId}
@@ -1229,7 +1229,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                   disabled={isSubmitting || caseResolvingClient}
                 className="min-w-[140px]"
               >
-                  {isSubmitting ? 'Procesando...' : 'Actualizar Caso'}
+                  {isSubmitting ? tCaseBrief('form.processing') : tCaseBrief('form.updateCase')}
               </Button>
             </div>
             )
@@ -1242,7 +1242,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                   disabled={isSubmitting || caseResolvingClient || !areApprovalButtonsEnabled()}
                   className="min-w-[140px]"
                 >
-                  {caseResolvingClient ? 'Validando cliente...' : (isSubmitting || approvalPhase === 'processing') ? 'Procesando...' : 'Buscar Planes'}
+                  {caseResolvingClient ? tCaseBrief('form.validatingClient') : (isSubmitting || approvalPhase === 'processing') ? tCaseBrief('form.processing') : tCaseBrief('form.searchPlans')}
                 </Button>
               </div>
             )

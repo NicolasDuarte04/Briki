@@ -183,37 +183,10 @@ export function WorkspaceTabs({ orgId }: WorkspaceTabsProps = {}) {
     }
   }, [currentCaseId, loadProposalByCase]);
 
-  // ✅ FASE 6B: Auto-análisis de la primera póliza (Trigger Estructurado)
-  // Si el caso está aprobado, tiene artifacts, pero NO tiene análisis estructurados,
-  // disparamos el análisis automáticamente para que aparezca "Ver en PDF".
-  const analyzePolicyArtifact = useUI(s => s.analyzePolicyArtifact);
-  const policyAnalyses = useUI(s => s.policyAnalyses);
-
-  useEffect(() => {
-    if (
-      caseApproved &&
-      activeCaseData?.artifacts?.length &&
-      activeCaseData.artifacts.length > 0 &&
-      policyAnalyses.length === 0
-    ) {
-      const firstArtifact = activeCaseData.artifacts[0];
-      // Solo si es PDF
-      if (firstArtifact.contentType === 'application/pdf' || firstArtifact.fileName.toLowerCase().endsWith('.pdf')) {
-
-        // ✅ FASE 22: Verificar si ya está en progreso
-        const pending = useUI.getState()._pendingPolicyAnalysis || new Set();
-
-        if (!pending.has(firstArtifact.id)) {
-          console.log('🤖 [WorkspaceTabs] Auto-triggering structured analysis for first policy:', firstArtifact.id);
-          analyzePolicyArtifact(firstArtifact.id).catch(err => {
-            console.error('❌ [WorkspaceTabs] Auto-analysis failed:', err);
-          });
-        } else {
-          console.log('⏭️ [WorkspaceTabs] Analysis already in progress, skipping auto-trigger:', firstArtifact.id);
-        }
-      }
-    }
-  }, [caseApproved, activeCaseData, policyAnalyses.length, analyzePolicyArtifact]);
+  // ✅ REESTRUCTURACIÓN: Auto-análisis ELIMINADO
+  // El análisis de pólizas ahora es manual desde el tab "Pólizas"
+  // usando el botón "Analizar PDF" o "Cargar Análisis"
+  // Esto da al usuario control total sobre cuándo y qué póliza analizar
 
   // ✅ FASE B.2: Cargar datos del caso cuando currentCaseId cambia
   useEffect(() => {

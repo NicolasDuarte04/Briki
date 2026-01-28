@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { FileText, User, Building, DollarSign, Shield, MessageSquare } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface CaseSummaryProps {
   brief: Partial<CaseBrief>; // Borrador de Zustand (fallback)
@@ -14,6 +15,7 @@ interface CaseSummaryProps {
 }
 
 export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps) {
+    const t = useTranslations('workspace.caseBrief.summary');
     // ✅ FASE 2: CORRECCIÓN DE FUENTE DE VERDAD
     // Prioriza los datos frescos de la BD (activeCaseData).
     // Usa el 'brief' de Zustand solo como fallback.
@@ -32,9 +34,9 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
     return (
         <div className="p-4 space-y-6">
             <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-lg">Resumen del Caso</h3>
+                <h3 className="font-semibold text-lg">{t('title')}</h3>
                 <Badge variant="secondary" className="bg-green-100 text-green-800">
-                    ✓ Aprobado
+                    ✓ {t('approved')}
                 </Badge>
             </div>
 
@@ -44,16 +46,16 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <User className="w-4 h-4" />
-                            Información del Cliente
+                            {t('clientInfo')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
                         <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">Nombre:</span>
+                            <span className="text-sm text-muted-foreground">{t('name')}</span>
                             <span className="text-sm font-medium">{displayData.clientName || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">Perfil:</span>
+                            <span className="text-sm text-muted-foreground">{t('profile')}</span>
                             <span className="text-sm font-medium whitespace-pre-wrap">{displayData.client_profile || 'N/A'}</span>
                         </div>
                     </CardContent>
@@ -64,17 +66,17 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <Building className="w-4 h-4" />
-                            Información del Negocio
+                            {t('businessInfo')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
                         <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">Tipo de Negocio:</span>
+                            <span className="text-sm text-muted-foreground">{t('businessType')}</span>
                             <span className="text-sm font-medium">{displayData.businessType || 'N/A'}</span>
                         </div>
                         {displayData.employees !== null && displayData.employees !== undefined && displayData.employees !== 'N/A' && (
                             <div className="flex justify-between">
-                                <span className="text-sm text-muted-foreground">Empleados:</span>
+                                <span className="text-sm text-muted-foreground">{t('employees')}</span>
                                 <span className="text-sm font-medium">{displayData.employees}</span>
                             </div>
                         )}
@@ -86,21 +88,21 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
                             <Shield className="w-4 h-4" />
-                            Información del Seguro
+                            {t('insuranceInfo')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
                         <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">Categoría:</span>
+                            <span className="text-sm text-muted-foreground">{t('category')}</span>
                             <span className="text-sm font-medium">{displayData.insurance_category || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">Cobertura:</span>
+                            <span className="text-sm text-muted-foreground">{t('coverage')}</span>
                             <span className="text-sm font-medium">{displayData.coverage || 'N/A'}</span>
                         </div>
                         {displayData.max_budget !== null && displayData.max_budget !== undefined && displayData.max_budget !== 'N/A' && (
                             <div className="flex justify-between">
-                                <span className="text-sm text-muted-foreground">Presupuesto:</span>
+                                <span className="text-sm text-muted-foreground">{t('budget')}</span>
                                 <span className="text-sm font-medium">
                                     {typeof displayData.max_budget === 'number' 
                                         ? `${displayData.max_budget} ${displayData.budget_currency || 'COP'}` 
@@ -110,7 +112,7 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
                         )}
                         {displayData.required_coverages && Array.isArray(displayData.required_coverages) && displayData.required_coverages.length > 0 && (
                             <div className="mt-2">
-                                <span className="text-sm text-muted-foreground block mb-2">Coberturas Imprescindibles:</span>
+                                <span className="text-sm text-muted-foreground block mb-2">{t('requiredCoverages')}</span>
                                 <div className="flex flex-wrap gap-2">
                                     {displayData.required_coverages.map((coverage: string, idx: number) => (
                                         <Badge key={idx} variant="secondary" className="text-xs">
@@ -129,7 +131,7 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
                         <CardHeader className="pb-3">
                             <CardTitle className="text-sm font-medium flex items-center gap-2">
                                 <MessageSquare className="w-4 h-4" />
-                                Notas Adicionales
+                                {t('additionalNotes')}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -141,7 +143,7 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
 
             <Button variant="outline" onClick={onEdit} className="w-full mt-6">
                 <FileText className="w-4 h-4 mr-2" />
-                Editar Brief
+                {t('editBrief')}
             </Button>
         </div>
     );

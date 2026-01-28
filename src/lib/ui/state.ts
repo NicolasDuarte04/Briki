@@ -912,6 +912,9 @@ export interface UIState {
 
   // ✅ FASE 22: Prevención de Análisis Duplicado
   _pendingPolicyAnalysis?: Set<string>;
+  
+  // ✅ FASE REESTRUCTURACIÓN: ID del artifact actualmente en análisis (para bloqueo de UI)
+  _analyzingArtifactId: string | null;
 
   policies: Policy[];
   policiesLoading: boolean;
@@ -1125,6 +1128,9 @@ export interface UIState {
   selectPolicyAnalysesView: () => PolicyAnalysisView[];
   setActiveTab: (tab: WorkspaceTab) => void;
   navigateToAnalysis: (analysisId: string) => void;
+  
+  // ✅ FASE REESTRUCTURACIÓN: Setter para bloqueo de análisis concurrente
+  setAnalyzingArtifactId: (artifactId: string | null) => void;
 
   // ✅ FASE 30: Acciones de Comparación
   compareAnalyses: (analysisIds: string[]) => Promise<PolicyComparison>;
@@ -1357,6 +1363,7 @@ export const useUI = create<UIState>()(
       pdfNavigationTarget: undefined,
       selectedField: undefined,
       _pendingPolicyAnalysis: new Set(),
+      _analyzingArtifactId: null, // ✅ FASE REESTRUCTURACIÓN: Artifact actualmente en análisis
 
       // ✅ FASE 30: Inicialización de Comparación
       activeComparison: null,
@@ -1493,18 +1500,70 @@ export const useUI = create<UIState>()(
             return newState;
           });
 
-          // Añadir el mensaje automático del usuario a la UI inmediatamente
-          const autoMessageContent = brief.freeText || "Por favor, analiza este caso y proporciona recomendaciones de seguros.";
-          const userAutoMessage: ChatMessage = {
-            id: `auto-${Date.now()}`,
-            role: "user",
-            content: autoMessageContent,
+          // ✅ FASE REESTRUCTURACIÓN: Generar mensaje de BIENVENIDA del agente
+          // Este mensaje NO dispara OpenAI - es un mensaje estático que guía al usuario
+          // al tab "Pólizas" para iniciar el análisis manualmente
+          
+          // Obtener conteo de artifacts y pólizas vinculadas
+          let artifactCount = 0;
+          let linkedPolicyCount = 0;
+          
+          try {
+            const artifactsResponse = await fetch(`/api/cases/${currentCaseId}/artifacts`);
+            if (artifactsResponse.ok) {
+              const { artifacts } = await artifactsResponse.json();
+              // Contar solo PDFs
+              artifactCount = artifacts.filter((a: any) => 
+                a.contentType === 'application/pdf' || 
+                a.fileName?.toLowerCase().endsWith('.pdf')
+              ).length;
+            }
+            
+            // Contar pólizas vinculadas desde el brief
+            linkedPolicyCount = updatedBrief.linkedPolicyIds?.length || 0;
+            
+            console.log('📊 [approveCurrentCase] Conteo de pólizas:', { artifactCount, linkedPolicyCount });
+          } catch (countError) {
+            console.warn('⚠️ [approveCurrentCase] Error obteniendo conteo de artifacts:', countError);
+          }
+          
+          // Importar y usar la nueva función de mensaje de bienvenida
+          const { generateWelcomeMessageFromBrief } = await import('@/lib/helpers/message-helpers');
+          const welcomeMessage = generateWelcomeMessageFromBrief(updatedBrief, artifactCount, linkedPolicyCount);
+          
+          console.log('📝 [approveCurrentCase] Mensaje de bienvenida generado:', welcomeMessage.substring(0, 100) + '...');
+          
+          // Agregar mensaje de bienvenida del agente a la UI
+          const agentWelcomeMessage: ChatMessage = {
+            id: `welcome-${Date.now()}`,
+            role: "assistant",
+            content: welcomeMessage,
             createdAt: Date.now(),
+            agent: { label: "Briki Assistant" }
           };
-          get().addMessage(userAutoMessage);
-
-          // Enviar mensaje automático al agente
-          await get().sendAutoMessage(autoMessageContent);
+          get().addMessage(agentWelcomeMessage);
+          
+          // ✅ FASE REESTRUCTURACIÓN: Guardar mensaje de bienvenida en BD (sin procesar por OpenAI)
+          try {
+            await fetch(`/api/cases/${currentCaseId}/messages`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                role: 'assistant',
+                content: welcomeMessage,
+                metadata: { 
+                  timestamp: new Date().toISOString(),
+                  agent: 'Briki Assistant',
+                  type: 'welcome_message',
+                  generated: true
+                }
+              })
+            });
+            console.log('✅ [approveCurrentCase] Mensaje de bienvenida guardado en BD');
+          } catch (saveError) {
+            console.warn('⚠️ [approveCurrentCase] Error guardando mensaje de bienvenida:', saveError);
+            // No fallar el flujo si solo falla el guardado
+          }
 
           return true;
 
@@ -3203,6 +3262,12 @@ export const useUI = create<UIState>()(
           activeTab: 'analysis'
         });
       },
+      
+      // ✅ FASE REESTRUCTURACIÓN: Setter para bloqueo de análisis concurrente
+      setAnalyzingArtifactId: (artifactId: string | null) => {
+        console.log('🔒 [setAnalyzingArtifactId]', artifactId);
+        set({ _analyzingArtifactId: artifactId });
+      },
 
       analyzePolicyArtifact: async (artifactId: string) => {
         console.log('🤖 [analyzePolicyArtifact] Analyzing artifact:', artifactId);
@@ -3211,15 +3276,23 @@ export const useUI = create<UIState>()(
         const pending = get()._pendingPolicyAnalysis || new Set();
         if (pending.has(artifactId)) {
           console.log('⏭️ [analyzePolicyArtifact] Ya en progreso, skipping:', artifactId);
-          // Retornar una promesa que nunca se resuelve o lanzar error controlado?
-          // Mejor lanzar error para que el caller sepa que no se inició
           throw new Error('Analysis already in progress');
         }
+        
+        // ✅ FASE REESTRUCTURACIÓN: Verificar si hay CUALQUIER análisis en progreso
+        const currentAnalyzing = get()._analyzingArtifactId;
+        if (currentAnalyzing !== null) {
+          console.log('⏭️ [analyzePolicyArtifact] Otro análisis en progreso:', currentAnalyzing);
+          throw new Error('Another analysis is already in progress');
+        }
 
-        // Marcar como en progreso
+        // Marcar como en progreso (ambos flags para compatibilidad)
         const newPending = new Set(pending);
         newPending.add(artifactId);
-        set({ _pendingPolicyAnalysis: newPending });
+        set({ 
+          _pendingPolicyAnalysis: newPending,
+          _analyzingArtifactId: artifactId  // ✅ NUEVO: Estado visible para UI
+        });
 
         try {
           const response = await fetch('/api/policies/analyze', {
@@ -3259,11 +3332,18 @@ export const useUI = create<UIState>()(
           console.error('❌ [analyzePolicyArtifact] Error:', error.message);
           throw error;
         } finally {
-          // ✅ FASE 22: Limpiar flag
+          // ✅ FASE 22: Limpiar flags
           const currentPending = get()._pendingPolicyAnalysis || new Set();
           const updatedPending = new Set(currentPending);
           updatedPending.delete(artifactId);
-          set({ _pendingPolicyAnalysis: updatedPending });
+          
+          // ✅ FASE REESTRUCTURACIÓN: Pequeño delay antes de limpiar para permitir re-render
+          setTimeout(() => {
+            set({ 
+              _pendingPolicyAnalysis: updatedPending,
+              _analyzingArtifactId: null  // ✅ Liberar bloqueo de UI
+            });
+          }, 100);
         }
       },
 

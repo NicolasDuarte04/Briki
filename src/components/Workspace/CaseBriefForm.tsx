@@ -343,8 +343,8 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             }
 
             // ✅ Modo creación: Usar función extendida desde lib/case-actions.ts
-            // ✅ FASE 6B: Usar skipNavigation para interceptar y realizar análisis automático
-            // createCaseIfNeeded ahora retorna { caseId, clientId }
+            // ✅ REESTRUCTURACIÓN: Navegación simple, sin análisis automático
+            // El mensaje de bienvenida se genera en approveCurrentCase() en state.ts
             const result = await createCaseIfNeeded(
                 briefUpdate,
                 router,
@@ -353,72 +353,11 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                     setCurrentCaseId: useUI.getState().setCurrentCaseId,
                     currentCaseId,
                     saveUserMessage: false, // Por ahora, se guardará después en ConversationPane
-                    skipNavigation: true // ✅ FASE 6B: Evitar navegación automática para inyectar análisis
+                    skipNavigation: false // ✅ REESTRUCTURACIÓN: Navegación directa, sin interceptación
                 }
             );
-            const createdCaseId = result.caseId;
 
-            // ✅ FASE 6B: Lógica de Análisis Automático de Primera Póliza
-            // Si se subieron archivos, intentar analizar el primero
-            if (data.tempUploads && data.tempUploads.length > 0) {
-                console.log('🔍 [CaseBriefForm] FASE 6B: Buscando artifacts para análisis automático...');
-                try {
-                    // 1. Obtener artifacts del caso recién creado
-                    const caseResponse = await fetch(`/api/cases/${createdCaseId}`);
-                    if (caseResponse.ok) {
-                        const { case: caseData } = await caseResponse.json();
-                        const artifacts = caseData.artifacts || [];
-
-                        // 2. Buscar el primer PDF
-                        const firstPdfArtifact = artifacts.find((a: any) =>
-                            a.contentType === 'application/pdf' || a.fileName.toLowerCase().endsWith('.pdf')
-                        );
-
-                        if (firstPdfArtifact) {
-                            console.log('🚀 [CaseBriefForm] FASE 6B: Iniciando análisis automático para:', firstPdfArtifact.fileName);
-
-                            // 3. Disparar análisis (sin await para no bloquear navegación, pero el store se actualiza)
-                            // Importante: analyzePolicyArtifact es del store useUI
-                            const { analyzePolicyArtifact } = useUI.getState();
-                            analyzePolicyArtifact(firstPdfArtifact.id);
-
-                            // 4. Construir mensaje inicial enriquecido
-                            const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
-                            const baseMessage = generateInitialMessageFromBrief(briefUpdate);
-
-                            // Mensaje combinado: Contexto del caso + Notificación de análisis
-                            const enrichedMessage = `${baseMessage}\n\nAdemás, he analizado automáticamente la póliza "${firstPdfArtifact.fileName}". Por favor, revisa los detalles del análisis, compáralos con los requerimientos del cliente y sugiere si debo analizar otros documentos adjuntos.`;
-
-                            setInitialMessage(enrichedMessage);
-                            console.log('📝 [CaseBriefForm] FASE 6B: Mensaje inicial enriquecido con análisis establecido');
-                        } else {
-                            // Fallback: Mensaje normal si no hay PDFs válidos
-                            const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
-                            setInitialMessage(generateInitialMessageFromBrief(briefUpdate));
-                        }
-                    }
-                } catch (analysisError) {
-                    console.warn('⚠️ [CaseBriefForm] FASE 6B: Error en flujo de análisis automático (continuando navegación):', analysisError);
-                    // Fallback: Mensaje normal
-                    const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
-                    setInitialMessage(generateInitialMessageFromBrief(briefUpdate));
-                }
-            } else {
-                // Sin uploads: Mensaje normal
-                const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
-                setInitialMessage(generateInitialMessageFromBrief(briefUpdate));
-            }
-
-            // ✅ FASE 6B: Navegación Manual después del análisis
-            const currentPath = window.location.pathname;
-            const localeMatch = currentPath.match(/\/(es|en)\//);
-            const locale = localeMatch ? localeMatch[1] : 'en';
-            const targetUrl = `/${locale}/agent/${createdCaseId}`;
-
-            console.log(`✅ [CaseBriefForm] Navegando manualmente a: ${targetUrl}`);
-            router.push(targetUrl);
-
-            // Resetear caseApproving después de navegar
+            // Resetear caseApproving después de la navegación
             setTimeout(() => {
                 useUI.setState({ caseApproving: false });
             }, 100);

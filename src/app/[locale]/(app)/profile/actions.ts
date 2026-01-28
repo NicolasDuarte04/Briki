@@ -1,13 +1,15 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { prisma } from '@/lib/prisma'
 import { encryptProfilePhone, encryptProfileAddress, encryptProfileName } from '@/lib/helpers/profileEncryption'
 
-import { type LocaleValue } from './schema'
+import { type LocaleValue, type FormState, LOCALE_COOKIE_NAME } from './schema'
 
-export type FormState = { ok: true } | { ok: false; message: string }
+// Note: In 'use server' files, only async functions can be exported
+// Types and constants are imported from schema.ts
 
 export async function getCurrentUserId(): Promise<string | null> {
   const supabase = await createServerSupabase()
@@ -142,6 +144,19 @@ export async function updateProfile(
 
     const localeForPath =
       updates.locale ?? existingProfile?.locale ?? 'en'
+    
+    // Set locale cookie for persistence across server restarts
+    if (updates.locale) {
+      const cookieStore = await cookies()
+      cookieStore.set(LOCALE_COOKIE_NAME, updates.locale, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 365, // 1 year
+      })
+    }
+    
     revalidatePath(`/${localeForPath}/profile`)
 
     return { ok: true }

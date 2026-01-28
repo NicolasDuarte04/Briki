@@ -111,4 +111,102 @@ export function generateInitialMessageFromBrief(brief: Partial<CaseBrief>): stri
     return `${introMessage}\n\n${parts.join('\n')}`;
 }
 
-
+/**
+ * Genera un mensaje de BIENVENIDA del agente después de crear un caso.
+ * 
+ * Este mensaje NO dispara análisis de OpenAI - es un mensaje estático del agente
+ * que resume la información del formulario y guía al usuario a analizar pólizas manualmente.
+ * 
+ * @param brief - Datos parciales del brief del caso
+ * @param artifactCount - Número de pólizas/documentos adjuntos al caso
+ * @param linkedPolicyCount - Número de pólizas vinculadas de la organización
+ * @returns Mensaje de bienvenida formateado
+ * 
+ * @example
+ * ```typescript
+ * const message = generateWelcomeMessageFromBrief(brief, 3, 1);
+ * // Retorna: "¡Excelente! He creado un nuevo caso para **Juan Pérez**..."
+ * ```
+ */
+export function generateWelcomeMessageFromBrief(
+    brief: Partial<CaseBrief>, 
+    artifactCount: number = 0,
+    linkedPolicyCount: number = 0
+): string {
+    const clientName = brief.clientName || 'tu cliente';
+    
+    let message = `¡Excelente! He creado un nuevo caso para **${clientName}**.\n\n`;
+    
+    // Construir resumen de detalles
+    const details: string[] = [];
+    
+    if (brief.insurance_category) {
+        details.push(`📋 **Categoría:** ${brief.insurance_category}`);
+    }
+    
+    if (brief.businessType) {
+        details.push(`🏢 **Tipo de negocio:** ${brief.businessType}`);
+    }
+    
+    if (brief.employees) {
+        details.push(`👥 **Empleados:** ${brief.employees}`);
+    }
+    
+    if (brief.max_budget) {
+        const currency = brief.budget_currency || 'COP';
+        details.push(`💰 **Presupuesto:** ${brief.max_budget.toLocaleString()} ${currency}`);
+    }
+    
+    if (brief.required_coverages && brief.required_coverages.length > 0) {
+        details.push(`🛡️ **Coberturas requeridas:** ${brief.required_coverages.join(', ')}`);
+    }
+    
+    if (brief.client_profile) {
+        details.push(`👤 **Perfil:** ${brief.client_profile}`);
+    }
+    
+    if (brief.freeText) {
+        // Limitar notas a 100 caracteres para el resumen
+        const truncatedNotes = brief.freeText.length > 100 
+            ? brief.freeText.substring(0, 100) + '...' 
+            : brief.freeText;
+        details.push(`📝 **Notas:** ${truncatedNotes}`);
+    }
+    
+    if (details.length > 0) {
+        message += `**Resumen del caso:**\n${details.join('\n')}\n\n`;
+    }
+    
+    // Sección de pólizas con lógica diferenciada
+    const totalPolicies = artifactCount + linkedPolicyCount;
+    
+    if (totalPolicies > 0) {
+        message += `---\n\n`;
+        message += `📄 **Pólizas disponibles para análisis:**\n`;
+        
+        if (artifactCount > 0) {
+            message += `- ${artifactCount} documento(s) subido(s) desde tu computador\n`;
+        }
+        
+        if (linkedPolicyCount > 0) {
+            message += `- ${linkedPolicyCount} póliza(s) vinculada(s) de la organización (con análisis previo)\n`;
+        }
+        
+        message += `\n👉 **Siguiente paso:** Ve al tab **"Pólizas"** en el panel derecho y haz clic en `;
+        
+        if (linkedPolicyCount > 0 && artifactCount === 0) {
+            // Solo pólizas de org
+            message += `**"Cargar Análisis"** para contextualizar las pólizas existentes con los datos del cliente.`;
+        } else if (artifactCount > 0) {
+            // Hay pólizas locales
+            message += `**"Analizar PDF"** en la póliza que desees revisar primero.`;
+        }
+    } else {
+        message += `📄 No has subido ninguna póliza todavía. `;
+        message += `Puedes agregar documentos en cualquier momento desde el formulario del caso.`;
+    }
+    
+    message += `\n\n¿En qué más puedo ayudarte?`;
+    
+    return message;
+}
