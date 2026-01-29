@@ -544,6 +544,8 @@ export async function getPinnedCases(
  * Gets pinned clients for a user with full client data (decrypted names)
  * 
  * Uses Prisma transaction with decrypt_pii() to properly decrypt client names.
+ * ✅ FASE ESTABILIZACIÓN: Retry logic con backoff exponencial para evitar
+ * errores de "Unable to start transaction" por pool saturado.
  * 
  * @param userId - User ID
  * @param orgId - Organization ID
@@ -565,44 +567,65 @@ export async function getPinnedClients(
     return [];
   }
   
-  try {
-    // Use Prisma transaction to decrypt client names
-    const clients = await prisma.$transaction(async (tx) => {
-      // Set encryption key for this transaction
-      await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
+  // ✅ FASE ESTABILIZACIÓN: Retry logic con backoff
+  const MAX_RETRIES = 3;
+  const INITIAL_DELAY_MS = 500;
+  
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      // Use Prisma transaction to decrypt client names
+      const clients = await prisma.$transaction(async (tx) => {
+        // Set encryption key for this transaction
+        await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
+        
+        // Query and decrypt pinned clients
+        // Using ANY() for array comparison in PostgreSQL
+        return tx.$queryRaw<Array<{
+          id: string;
+          name: string | null;
+          created_at: Date;
+        }>>`
+          SELECT 
+            id::text,
+            public.decrypt_pii(name_enc) as name,
+            created_at
+          FROM public.clients
+          WHERE id = ANY(${pins.clients}::uuid[])
+            AND org_id = ${orgId}::uuid
+          ORDER BY created_at DESC
+          LIMIT ${MAX_PINS_PER_TYPE}
+        `;
+      }, {
+        timeout: 10000, // ✅ Reducido a 10 segundos (más agresivo)
+        isolationLevel: 'ReadCommitted', // ✅ Nivel de aislamiento menos restrictivo
+      });
       
-      // Query and decrypt pinned clients
-      // Using ANY() for array comparison in PostgreSQL
-      return tx.$queryRaw<Array<{
-        id: string;
-        name: string | null;
-        created_at: Date;
-      }>>`
-        SELECT 
-          id::text,
-          public.decrypt_pii(name_enc) as name,
-          created_at
-        FROM public.clients
-        WHERE id = ANY(${pins.clients}::uuid[])
-          AND org_id = ${orgId}::uuid
-        ORDER BY created_at DESC
-        LIMIT ${MAX_PINS_PER_TYPE}
-      `;
-    }, {
-      timeout: 30000, // 30 seconds timeout for decryption
-    });
-    
-    return clients.map((client) => ({
-      id: client.id,
-      clientId: client.id,
-      clientName: client.name ?? 'Sin nombre',
-      createdAt: client.created_at.toISOString(),
-    }));
-    
-  } catch (error) {
-    console.error('[getPinnedClients] Error decrypting clients:', error);
-    return [];
+      return clients.map((client) => ({
+        id: client.id,
+        clientId: client.id,
+        clientName: client.name ?? 'Sin nombre',
+        createdAt: client.created_at.toISOString(),
+      }));
+      
+    } catch (error: any) {
+      const isRetryable = 
+        error.message?.includes('Unable to start a transaction') ||
+        error.message?.includes('Connection pool timeout') ||
+        error.code === 'P2024'; // Prisma timeout code
+      
+      if (isRetryable && attempt < MAX_RETRIES) {
+        const delay = INITIAL_DELAY_MS * Math.pow(2, attempt - 1); // 500ms, 1000ms, 2000ms
+        console.warn(`[getPinnedClients] Retry ${attempt}/${MAX_RETRIES} after ${delay}ms:`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      
+      console.error('[getPinnedClients] Error decrypting clients (final):', error);
+      return []; // ✅ Graceful degradation: devolver vacío en lugar de crashear
+    }
   }
+  
+  return []; // Fallback si todos los reintentos fallan
 }
 
 /**

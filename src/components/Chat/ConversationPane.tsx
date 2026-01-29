@@ -570,41 +570,28 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
     }
   }, []); // Solo ejecutar una vez al montar
 
-  // ✅ SIMPLIFICACIÓN: Procesar mensaje inicial SOLO si viene del formulario
-  // Desde LandingPage ya NO se procesa initialMessage - el agente siempre saluda primero
-  // IMPORTANTE: Este useEffect debe estar después de la declaración de sendMessage
-  // ✅ CORRECCIÓN CRÍTICA: Esperar a que currentCaseId esté disponible antes de procesar
-  // Nota: currentCaseId ya está obtenido del store en la línea 38
-
+  // ✅ FASE REESTRUCTURACIÓN v2: Limpiar initialMessage sin procesar
+  // El mensaje de bienvenida ahora se genera en approveCurrentCase() y se guarda en BD
+  // ConversationPane NO debe disparar OpenAI automáticamente - solo limpiar el estado
   useEffect(() => {
-    if (initialMessage && initialMessage.trim() !== '' && sendMessage) {
-      const isFromForm = initialMessage.includes('He completado el formulario');
-
-      // ✅ SOLO procesar si viene del formulario (no desde LandingPage)
-      if (isFromForm) {
-        // ✅ ESPERAR a que currentCaseId esté disponible (después de recarga)
-        if (!currentCaseId) {
-          console.log('⏳ [ConversationPane] Esperando currentCaseId antes de procesar mensaje del formulario...');
-          // Re-intentar en el siguiente render cuando currentCaseId esté disponible
-          return;
-        }
-
-        console.log('🤖 [ConversationPane] Procesando mensaje del formulario con OpenAI (currentCaseId:', currentCaseId, ')...');
-
-        // Usar sendMessage para generar respuesta real del agente
-        // sendMessage ya maneja todo: guardar mensaje, llamar a process-message, mostrar respuesta
-        sendMessage(initialMessage);
-
+    if (initialMessage && initialMessage.trim() !== '') {
+      // ✅ Si ya hay mensajes en la UI, significa que approveCurrentCase ya procesó
+      // Solo limpiar initialMessage para evitar reprocesamiento
+      if (messages.length > 0) {
+        console.log('⏭️ [ConversationPane] Ya hay mensajes en UI, limpiando initialMessage sin procesar');
         clearInitialMessage();
         return;
       }
-
-      // ✅ SIMPLIFICACIÓN: Si NO viene del formulario, limpiar initialMessage sin procesar
-      // Desde LandingPage, el agente siempre saludará primero (igual que desde panel izquierdo)
-      console.log('⏭️ [ConversationPane] Ignorando initialMessage desde LandingPage - el agente saludará primero');
+      
+      // ✅ CASO ESPECIAL: Si NO hay mensajes pero SÍ hay initialMessage
+      // Esto solo debería ocurrir en recargas de página donde los mensajes
+      // aún no se han cargado desde BD. NO procesar aquí - esperar carga de BD.
+      console.log('⏳ [ConversationPane] initialMessage presente pero sin mensajes - esperando carga de BD');
+      
+      // Limpiar de todas formas para evitar loops
       clearInitialMessage();
     }
-  }, [initialMessage, currentCaseId, clearInitialMessage, sendMessage]);
+  }, [initialMessage, messages.length, clearInitialMessage]);
 
   // ✅ FASE 3: Mensaje de bienvenida para placeholder
   useEffect(() => {

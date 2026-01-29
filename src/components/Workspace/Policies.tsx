@@ -482,20 +482,24 @@ function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
           return (
             <div className="flex w-full items-center justify-end">
               <div className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                {/* ✅ FASE REESTRUCTURACIÓN: Lógica de botones diferenciada */}
-                {analysisId ? (
-                  /* CASO 1: Ya tiene análisis -> Ver en PDF */
+                {/* ✅ FASE REESTRUCTURACIÓN v2: Lógica de botones diferenciada por linkType */}
+                {isLinked ? (
+                  /* CASO 1: Póliza VINCULADA de organización - siempre mostrar "Cargar Análisis" */
+                  /* Aunque tenga analysisId, necesita contextualizarse con el caso actual */
+                  artifactId ? (
+                    <LoadAnalysisButton
+                      artifactId={artifactId}
+                      policyName={plan}
+                      analysisId={analysisId}
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">Sin archivo vinculado</span>
+                  )
+                ) : analysisId ? (
+                  /* CASO 2: Póliza DIRECTA con análisis completado -> Ver en PDF */
                   <ViewInPdfButton analysisId={analysisId} />
-                ) : isLinked && artifactId ? (
-                  /* CASO 2: Póliza vinculada de org sin análisis cargado */
-                  /* Esto es raro pero posible - mostrar botón para cargar análisis existente */
-                  <LoadAnalysisButton
-                    artifactId={artifactId}
-                    policyName={plan}
-                    analysisId={analysisId}
-                  />
                 ) : (
-                  /* CASO 3: Póliza directa (uploaded) sin análisis */
+                  /* CASO 3: Póliza DIRECTA sin análisis -> Analizar PDF */
                   <div className="flex items-center gap-1.5">
                     {artifactId ? (
                       <AnalyzeButton

@@ -225,47 +225,12 @@ export async function createCaseIfNeeded(
             console.log('💾 currentCaseId establecido en:', caseId);
         }
 
-        // 5. Generar initialMessage (solo si NO se omite la navegación, porque si se omite, approveCurrentCase enviará el mensaje)
-        const initialMessage = generateInitialMessageFromBrief(briefData);
-        // ✅ CORRECCIÓN: Solo establecer initialMessage si NO se omite la navegación
-        // Si skipNavigation=true, approveCurrentCase enviará el mensaje automáticamente
-        if (options?.setInitialMessage && !options?.skipNavigation) {
-            options.setInitialMessage(initialMessage);
-            console.log('📝 [case-actions] InitialMessage establecido:', initialMessage);
-        } else if (options?.skipNavigation) {
-            console.log('⏭️ [case-actions] InitialMessage omitido (skipNavigation=true, approveCurrentCase enviará el mensaje)');
-        }
+        // ✅ FASE REESTRUCTURACIÓN v2: NO generar initialMessage aquí
+        // El mensaje de bienvenida ahora se genera en approveCurrentCase() en state.ts
+        // ConversationPane ya no procesa initialMessage automáticamente
+        console.log('⏭️ [case-actions] Omitiendo initialMessage - approveCurrentCase lo maneja');
 
-        // 6. Guardar mensaje del usuario (opcional)
-        // ✅ CORRECCIÓN: Solo guardar si NO se omite la navegación, porque approveCurrentCase ya enviará el mensaje
-        if (options?.saveUserMessage && initialMessage && !options?.skipNavigation) {
-            try {
-                const messageResponse = await fetch(`/api/cases/${caseId}/messages`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        role: 'user',
-                        content: initialMessage,
-                        metadata: {
-                            timestamp: new Date().toISOString(),
-                            source: 'form',
-                            generated: true
-                        }
-                    })
-                });
-
-                if (!messageResponse.ok) {
-                    console.warn('⚠️ No se pudo guardar mensaje del usuario en BD');
-                } else {
-                    console.log('✅ Mensaje del usuario guardado en messages como primer mensaje del caso');
-                }
-            } catch (error) {
-                console.error('❌ Error guardando mensaje del usuario:', error);
-                // No fallar el flujo completo si solo falla el guardado del mensaje
-            }
-        }
-
-        // 7. Marcar timestamp para HomeClient (si aplica)
+        // 6. Marcar timestamp para HomeClient (si aplica)
         if (typeof window !== 'undefined') {
             (window as any).lastCaseCreation = Date.now();
         }
@@ -278,7 +243,7 @@ export async function createCaseIfNeeded(
         // 3. Preparación para sistema de workers/colas
         console.log('📄 [case-actions] Análisis automático deshabilitado - usuario iniciará desde tab Pólizas');
 
-        // 8. Navegar al caso creado (SPA navigation) - Solo si no se omite la navegación
+        // 7. Navegar al caso creado (SPA navigation) - Solo si no se omite la navegación
         if (!options?.skipNavigation) {
             const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
             const localeMatch = currentPath.match(/\/(es|en)\//);
