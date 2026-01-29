@@ -357,10 +357,10 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 }
             );
 
-            // Resetear caseApproving después de la navegación
-            setTimeout(() => {
-                useUI.setState({ caseApproving: false });
-            }, 100);
+            // ✅ TRANSICIÓN ATÓMICA: NO resetear estados aquí
+            // HomeClient los reseteará después de completar la transición
+            // Esto mantiene el overlay visible durante la navegación
+            console.log('🔄 [CaseBriefForm] Caso creado, estados permanecen para transición atómica');
 
         } catch (error: any) {
             console.error('❌ [CaseBriefForm] Error updating case brief:', error);
@@ -378,12 +378,12 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             }
 
             alert(errorMessage);
-        } finally {
-            // ✅ CORRECCIÓN: Resetear estados de carga cuando hay error
-            // Si createCaseIfNeeded navegó exitosamente, este código no se ejecutará
+            
+            // ✅ TRANSICIÓN ATÓMICA: Solo resetear estados en caso de ERROR
             setIsSubmitting(false);
             useUI.setState({ caseApproving: false });
         }
+        // ✅ TRANSICIÓN ATÓMICA: Removido finally - los estados se mantienen intencionalmente
     }, [setBrief, router, setInitialMessage, isEditing, currentCaseId, orgId, activeCaseData, onEditComplete]);
 
     // ✅ FASE 6: Simplificado para usar createCaseIfNeeded extendido (elimina código duplicado)
@@ -431,8 +431,9 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                     console.log('✅ [CaseBriefForm] Caso aprobado exitosamente');
                 }
             } else {
-                // ✅ FASE 6: Si el caso fue recién creado, createCaseIfNeeded ya navegó
-                console.log('✅ [CaseBriefForm] FASE 6: Caso creado exitosamente, navegando a:', result.caseId);
+                // ✅ TRANSICIÓN ATÓMICA: Si el caso fue recién creado, createCaseIfNeeded ya navegó
+                // Los estados permanecen activos hasta que HomeClient complete la transición
+                console.log('✅ [CaseBriefForm] Caso creado, navegando - estados permanecen para transición atómica');
             }
         } catch (error: any) {
             console.error('❌ [CaseBriefForm] FASE 6: Error en aprobación con validación:', error);
@@ -463,15 +464,11 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
 
             alert(errorMessage);
 
-            // Resetear estados en caso de error
-            setIsSubmitting(false);
-            useUI.setState({ caseApproving: false });
-        } finally {
-            // ✅ FASE 6: Resetear estados de carga solo si no navegó
-            // Si createCaseIfNeeded navegó exitosamente, este código puede no ejecutarse
+            // ✅ TRANSICIÓN ATÓMICA: Solo resetear estados en caso de ERROR
             setIsSubmitting(false);
             useUI.setState({ caseApproving: false });
         }
+        // ✅ TRANSICIÓN ATÓMICA: Removido finally - los estados se mantienen intencionalmente
     }, [currentCaseId, setBrief, validateAndResolveClient, router, setInitialMessage, approveCurrentCase]); // ✅ FASE 6: Dependencias actualizadas
 
     // ✅ CORRECCIÓN UX: Estado combinado para mostrar overlay de procesamiento

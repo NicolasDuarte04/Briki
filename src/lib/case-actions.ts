@@ -252,14 +252,26 @@ export async function createCaseIfNeeded(
             const targetUrl = `/${locale}/agent/${caseId}`;
             console.log(`✅ [case-actions] Navigating to: ${targetUrl} (SPA navigation)`);
 
+            // ✅ TRANSICIÓN ATÓMICA: Guardar flag para que HomeClient complete la aprobación
+            // Esto evita el "parpadeo" del formulario y el "refresco" del mensaje
+            // El overlay permanece activo hasta que HomeClient procese el caso
+            if (typeof window !== 'undefined') {
+                try {
+                    sessionStorage.setItem('pendingCaseApproval', caseId);
+                    console.log('🔒 [case-actions] pendingCaseApproval guardado para transición atómica');
+                } catch (e) {
+                    console.warn('⚠️ [case-actions] sessionStorage no disponible, usando fallback');
+                }
+            }
+
+            // ✅ TRANSICIÓN ATÓMICA: NO resetear approvalPhase aquí
+            // HomeClient lo hará DESPUÉS de montar y procesar el mensaje de bienvenida
+            // Esto mantiene el overlay visible durante toda la transición
             router.push(targetUrl);
 
-            // ✅ CORRECCIÓN CRÍTICA: Marcar aprobación como completada
-            // Esto hace que los botones DESAPAREZCAN permanentemente
-            setTimeout(() => {
-                useUI.getState().setApprovalPhase('completed');
-                console.log('✅ [case-actions] Aprobación completada - botones desaparecerán permanentemente');
-            }, 100);
+            // ✅ CRÍTICO: NO hacer setTimeout para setApprovalPhase
+            // El estado se mantendrá en 'processing' hasta que HomeClient lo cambie
+            console.log('🔄 [case-actions] Navegando - approvalPhase permanece en processing');
         } else {
             console.log('⏭️ [case-actions] Navegación omitida (skipNavigation=true)');
         }
@@ -271,6 +283,11 @@ export async function createCaseIfNeeded(
     } catch (error: any) {
         // ✅ CORRECCIÓN: Resetear approvalPhase si hay error
         useUI.getState().setApprovalPhase('pending');
+        useUI.setState({ caseApproving: false });
+        // Limpiar sessionStorage en caso de error
+        if (typeof window !== 'undefined') {
+            try { sessionStorage.removeItem('pendingCaseApproval'); } catch (e) { /* ignore */ }
+        }
         console.error('❌ [case-actions] Error creando caso:', error);
         throw error;
     }

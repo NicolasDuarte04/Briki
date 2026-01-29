@@ -166,6 +166,21 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
       // Esto es necesario después de recarga de página (window.location.href)
       const currentState = useUI.getState();
       
+      // ✅ TRANSICIÓN ATÓMICA: Detectar si venimos de crear un caso nuevo
+      let isPendingApproval = false;
+      let pendingCaseId: string | null = null;
+      if (typeof window !== 'undefined') {
+        try {
+          pendingCaseId = sessionStorage.getItem('pendingCaseApproval');
+          isPendingApproval = pendingCaseId === threadId;
+          if (isPendingApproval) {
+            console.log('🔒 [HomeClient] Detectado pendingCaseApproval - completando transición atómica');
+          }
+        } catch (e) {
+          console.warn('⚠️ [HomeClient] sessionStorage no disponible');
+        }
+      }
+      
       // ✅ CORRECCIÓN: Detectar si necesitamos cargar mensajes
       // Incluso si currentCaseId ya coincide (desde localStorage), los mensajes NO se persisten
       // y necesitan ser cargados desde BD
@@ -178,25 +193,60 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
         setStep('conversation');
       }
       
-      // ✅ SIEMPRE establecer approvalPhase='completed' para casos existentes
-      if (needsCaseIdSet || currentState.approvalPhase !== 'completed') {
-        useUI.setState({ 
-          caseApproving: false,
-          approvalPhase: 'completed' // ✅ CRÍTICO: Ocultar botones inmediatamente para casos existentes
-        });
-        console.log('✅ [HomeClient] approvalPhase=completed INMEDIATO para caso existente (botones ocultos)');
+      // ✅ TRANSICIÓN ATÓMICA: Si es pendingApproval, NO establecer approvalPhase='completed' aún
+      // Primero debemos llamar approveCurrentCase y generar el mensaje de bienvenida
+      if (!isPendingApproval) {
+        // ✅ SIEMPRE establecer approvalPhase='completed' para casos existentes (NO recién creados)
+        if (needsCaseIdSet || currentState.approvalPhase !== 'completed') {
+          useUI.setState({ 
+            caseApproving: false,
+            approvalPhase: 'completed' // ✅ CRÍTICO: Ocultar botones inmediatamente para casos existentes
+          });
+          console.log('✅ [HomeClient] approvalPhase=completed INMEDIATO para caso existente (botones ocultos)');
+        }
       }
 
       // ✅ CORRECCIÓN CRÍTICA: Cargar mensajes si están vacíos (incluso si currentCaseId ya coincide)
       // Esto soluciona el bug donde al refrescar, currentCaseId viene de localStorage pero messages=[]
-      if (needsCaseIdSet || needsMessageLoad) {
-        console.log(`🔄 [HomeClient] Sincronizando datos: needsCaseIdSet=${needsCaseIdSet}, needsMessageLoad=${needsMessageLoad}`);
+      if (needsCaseIdSet || needsMessageLoad || isPendingApproval) {
+        console.log(`🔄 [HomeClient] Sincronizando datos: needsCaseIdSet=${needsCaseIdSet}, needsMessageLoad=${needsMessageLoad}, isPendingApproval=${isPendingApproval}`);
         
         // ✅ CORRECCIÓN CRÍTICA: Sincronizar caso completo desde BD (status, brief Y mensajes)
         // Este patrón replica SidebarChatPanel.tsx para consistencia
         const syncCaseData = async () => {
           try {
             console.log(`🔄 [HomeClient] Cargando datos completos del caso: ${threadId}`);
+            
+            // ✅ TRANSICIÓN ATÓMICA: Si es caso recién creado, aprobar y generar mensaje PRIMERO
+            if (isPendingApproval) {
+              console.log('🎯 [HomeClient] Ejecutando aprobación de caso recién creado...');
+              
+              // Limpiar flag ANTES de aprobar para evitar loops
+              try {
+                sessionStorage.removeItem('pendingCaseApproval');
+                console.log('🧹 [HomeClient] pendingCaseApproval limpiado');
+              } catch (e) { /* ignore */ }
+              
+              // Llamar approveCurrentCase - esto genera y muestra el mensaje de bienvenida
+              const approveResult = await useUI.getState().approveCurrentCase();
+              
+              if (approveResult) {
+                console.log('✅ [HomeClient] Caso aprobado exitosamente - mensaje de bienvenida generado');
+              } else {
+                console.warn('⚠️ [HomeClient] approveCurrentCase retornó false');
+              }
+              
+              // ✅ TRANSICIÓN ATÓMICA: AHORA resetear estados de UI
+              // El overlay desaparecerá y se mostrará el resumen + mensaje
+              useUI.setState({ 
+                caseApproving: false,
+                approvalPhase: 'completed'
+              });
+              console.log('✅ [HomeClient] Transición atómica completada - overlay removido');
+              
+              // No necesitamos cargar mensajes de BD porque approveCurrentCase ya los añadió
+              return;
+            }
             
             // 1. Fetch caso Y mensajes en PARALELO (igual que SidebarChatPanel)
             const [caseResponse, messagesResponse] = await Promise.all([
@@ -243,6 +293,11 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
 
           } catch (error) {
             console.warn('⚠️ [HomeClient] Error sincronizando datos del caso:', error);
+            // ✅ En caso de error durante transición atómica, limpiar estados
+            if (isPendingApproval) {
+              useUI.setState({ caseApproving: false, approvalPhase: 'completed' });
+              try { sessionStorage.removeItem('pendingCaseApproval'); } catch (e) { /* ignore */ }
+            }
           }
         };
         syncCaseData();
