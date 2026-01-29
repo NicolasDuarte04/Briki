@@ -57,6 +57,7 @@ export function ComplianceModal() {
 
   const uiTranslations = useTranslations("workspace.compliance");
   const jurisdictionTranslations = useTranslations("workspace.compliance.jurisdictions");
+  const modalTranslations = useTranslations("workspace.compliance.modal");
 
   const firstCheckboxRef = useRef<HTMLButtonElement | null>(null);
   
@@ -245,24 +246,24 @@ export function ComplianceModal() {
                 if (complianceStartDate && complianceEndDate) {
                   validateComplianceDates(complianceStartDate, complianceEndDate, checkVigencyDate);
                 } else {
-                  toast.error("Seleccione ambas fechas");
+                  toast.error(modalTranslations("selectBothDates"));
                 }
               }}
               disabled={complianceLoading}
             >
-              Validar Vigencia
+              {modalTranslations("validateValidity")}
             </Button>
 
             {/* ✅ Verificación de vigencia en fecha específica */}
             <div className="mt-3 pt-3 border-t space-y-2">
-              <Label className="text-xs text-muted-foreground">Verificar si la póliza está activa en fecha:</Label>
+              <Label className="text-xs text-muted-foreground">{modalTranslations("verifyPolicyActiveOn")}</Label>
               <div className="flex gap-2">
                 <Input
                   type="date"
                   value={checkVigencyDate || ''}
                   onChange={(e) => setCheckVigencyDate(e.target.value || undefined)}
                   className="h-8 text-xs flex-1"
-                  placeholder="Fecha a verificar"
+                  placeholder={modalTranslations("dateToVerify")}
                 />
                 <Button
                   size="sm"

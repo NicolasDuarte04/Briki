@@ -11,6 +11,7 @@
  */
 
 import { Suspense } from 'react';
+import { getTranslations } from 'next-intl/server';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { getOrgStandalonePolicies, countOrgStandalonePolicies } from '@/lib/helpers/getOrgPoliciesContainer';
 import { getUserPins } from '@/lib/data/workspace';
@@ -72,7 +73,16 @@ function AnalysisSkeleton() {
 // EMPTY STATE
 // ============================================================================
 
-function EmptyState({ locale }: { locale: Locale }) {
+interface EmptyStateProps {
+  locale: Locale;
+  translations: {
+    noPoliciesAnalyzed: string;
+    noPoliciesDescription: string;
+    uploadFirst: string;
+  };
+}
+
+function EmptyState({ locale, translations }: EmptyStateProps) {
   return (
     <Card>
       <CardContent className="py-16">
@@ -80,14 +90,13 @@ function EmptyState({ locale }: { locale: Locale }) {
           <div className="p-4 rounded-full bg-muted mb-4">
             <FileText className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="text-xl font-semibold mb-2">No hay pólizas analizadas</h3>
+          <h3 className="text-xl font-semibold mb-2">{translations.noPoliciesAnalyzed}</h3>
           <p className="text-muted-foreground mb-6 max-w-md">
-            Sube tu primera póliza PDF para que nuestro sistema la analice 
-            y extraiga automáticamente la información relevante.
+            {translations.noPoliciesDescription}
           </p>
           <Button asChild>
             <Link href={pathForPoliciesUpload(locale)}>
-              Subir Primera Póliza
+              {translations.uploadFirst}
             </Link>
           </Button>
         </div>
@@ -100,7 +109,22 @@ function EmptyState({ locale }: { locale: Locale }) {
 // ANALYSIS CONTENT (Server Component)
 // ============================================================================
 
-async function AnalysisContent({ locale }: { locale: Locale }) {
+interface AnalysisContentProps {
+  locale: Locale;
+  translations: {
+    noPoliciesAnalyzed: string;
+    noPoliciesDescription: string;
+    uploadFirst: string;
+    stats: {
+      totalPolicies: string;
+      highConfidence: string;
+      mediumConfidence: string;
+      pinned: string;
+    };
+  };
+}
+
+async function AnalysisContent({ locale, translations }: AnalysisContentProps) {
   const { user, currentOrg } = await getCurrentOrg();
   const orgId = currentOrg.id;
 
@@ -112,7 +136,7 @@ async function AnalysisContent({ locale }: { locale: Locale }) {
   ]);
 
   if (policies.length === 0) {
-    return <EmptyState locale={locale} />;
+    return <EmptyState locale={locale} translations={translations} />;
   }
 
   // Convert pinned policy IDs to Set for efficient lookup
@@ -137,7 +161,7 @@ async function AnalysisContent({ locale }: { locale: Locale }) {
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{totalPolicies}</div>
-            <div className="text-sm text-muted-foreground">Total de Pólizas</div>
+            <div className="text-sm text-muted-foreground">{translations.stats.totalPolicies}</div>
           </CardContent>
         </Card>
         <Card>
@@ -145,7 +169,7 @@ async function AnalysisContent({ locale }: { locale: Locale }) {
             <div className="text-2xl font-bold">
               {policies.filter(p => Number(p.overallConfidence) >= 0.8).length}
             </div>
-            <div className="text-sm text-muted-foreground">Alta Confianza</div>
+            <div className="text-sm text-muted-foreground">{translations.stats.highConfidence}</div>
           </CardContent>
         </Card>
         <Card>
@@ -156,13 +180,13 @@ async function AnalysisContent({ locale }: { locale: Locale }) {
                 return conf >= 0.5 && conf < 0.8;
               }).length}
             </div>
-            <div className="text-sm text-muted-foreground">Media Confianza</div>
+            <div className="text-sm text-muted-foreground">{translations.stats.mediumConfidence}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{pinnedPolicyIds.size}</div>
-            <div className="text-sm text-muted-foreground">Ancladas</div>
+            <div className="text-sm text-muted-foreground">{translations.stats.pinned}</div>
           </CardContent>
         </Card>
       </div>
@@ -189,6 +213,19 @@ export default async function PoliciesAnalysisPage({
 }) {
   const awaitedParams = await params;
   const locale = awaitedParams.locale as Locale;
+  const t = await getTranslations('policies.analysisPage');
+
+  const translations = {
+    noPoliciesAnalyzed: t('noPoliciesAnalyzed'),
+    noPoliciesDescription: t('noPoliciesDescription'),
+    uploadFirst: t('uploadFirst'),
+    stats: {
+      totalPolicies: t('stats.totalPolicies'),
+      highConfidence: t('stats.highConfidence'),
+      mediumConfidence: t('stats.mediumConfidence'),
+      pinned: t('stats.pinned'),
+    },
+  };
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-6">
@@ -197,21 +234,21 @@ export default async function PoliciesAnalysisPage({
         <Button variant="ghost" size="sm" asChild className="mb-4">
           <Link href={pathForPolicies(locale)}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver a Pólizas
+            {t('backToPolicies')}
           </Link>
         </Button>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-[var(--foreground)]">
-              Análisis de Pólizas
+              {t('title')}
             </h1>
             <p className="text-muted-foreground mt-1">
-              Gestiona y explora todas las pólizas de tu organización
+              {t('subtitle')}
             </p>
           </div>
           <Button asChild>
             <Link href={pathForPoliciesUpload(locale)}>
-              Subir Nueva Póliza
+              {t('uploadNew')}
             </Link>
           </Button>
         </div>
@@ -219,7 +256,7 @@ export default async function PoliciesAnalysisPage({
 
       {/* Content */}
       <Suspense fallback={<AnalysisSkeleton />}>
-        <AnalysisContent locale={locale} />
+        <AnalysisContent locale={locale} translations={translations} />
       </Suspense>
     </div>
   );

@@ -1154,6 +1154,8 @@ const es = {
         blockedTitle: "Cumplimiento pendiente",
         blockedBody: "Completa el checklist antes de compartir.",
         readyHint: "Checklist completo. Puedes enviar ahora.",
+        checkingCompliance: "Verificando estado de cumplimiento...",
+        downloadError: "Error descargando reporte",
       },
       jurisdictions: {
         co: {
@@ -1197,6 +1199,13 @@ const es = {
           },
         },
       },
+    },
+    modal: {
+      selectBothDates: "Seleccione ambas fechas",
+      validateValidity: "Validar Vigencia",
+      verifyPolicyActiveOn: "Verificar si la póliza está activa en fecha:",
+      dateToVerify: "Fecha a verificar",
+      today: "Hoy",
     },
     send: {
       whatsapp: "Enviar por WhatsApp",
@@ -1490,6 +1499,7 @@ const es = {
       employees: "empleados",
       documents: "documentos",
       editName: "Editar nombre del caso",
+      updatedOn: "Actualizado {date}",
     },
     detail: {
       noName: "Caso sin nombre",
@@ -1526,6 +1536,8 @@ const es = {
       created: "¡Caso creado exitosamente!",
       deleted: "Caso eliminado exitosamente",
       error: "Ocurrió un error. Por favor intenta de nuevo.",
+      renamedSuccess: "Caso renombrado exitosamente",
+      renameError: "Error al renombrar el caso",
     },
   },
   // ============================================================================
@@ -1707,6 +1719,11 @@ const es = {
       highConfidence: "Alto",
       mediumConfidence: "Medio",
       lowConfidence: "Bajo",
+      policyNumber: "Número de Póliza",
+      insured: "Asegurado",
+      insurer: "Aseguradora",
+      page: "Pág.",
+      moreItems: "+{count} más",
       confidence: {
         high: "Alto ({percent}%)",
         medium: "Medio ({percent}%)",
@@ -1719,6 +1736,105 @@ const es = {
       cancel: "Cancelar",
       confirm: "Eliminar",
       deleting: "Eliminando...",
+      error: "Error al eliminar la póliza",
+    },
+    // Analysis List Page
+    analysisPage: {
+      title: "Análisis de Pólizas",
+      subtitle: "Gestiona y explora todas las pólizas de tu organización",
+      backToPolicies: "Volver a Pólizas",
+      uploadNew: "Subir Nueva Póliza",
+      uploadFirst: "Subir Primera Póliza",
+      noPoliciesAnalyzed: "No hay pólizas analizadas",
+      noPoliciesDescription: "Sube tu primera póliza PDF para que nuestro sistema la analice y extraiga automáticamente la información relevante.",
+      stats: {
+        totalPolicies: "Total de Pólizas",
+        highConfidence: "Alta Confianza",
+        mediumConfidence: "Media Confianza",
+        pinned: "Ancladas",
+      },
+    },
+    // Policy Detail Page
+    detailPage: {
+      policyWithoutName: "Póliza sin nombre",
+      policyNumber: "Póliza #{number}",
+      analyzedOn: "Analizada el {date}",
+      deletePolicy: "Eliminar póliza",
+      notAvailable: "No disponible",
+      tabs: {
+        info: "Información",
+        coverages: "Coberturas",
+        links: "Vínculos",
+        document: "Documento",
+      },
+      stats: {
+        confidence: "Confianza",
+        insurer: "Aseguradora",
+        type: "Tipo",
+        linkedCases: "Casos Vinculados",
+      },
+      confidenceProgress: {
+        title: "Confianza del análisis",
+        method: "Método de extracción: {method}",
+      },
+      badges: {
+        high: "Alta ({percent}%)",
+        medium: "Media ({percent}%)",
+        low: "Baja ({percent}%)",
+      },
+      policyInfo: {
+        title: "Información de la Póliza",
+        policyNumber: "Número de Póliza",
+        insurer: "Aseguradora",
+        insuranceType: "Tipo de Seguro",
+        sumInsured: "Suma Asegurada",
+        premium: "Prima",
+        deductible: "Deducible",
+      },
+      validity: {
+        title: "Vigencia",
+        startDate: "Fecha de Inicio",
+        endDate: "Fecha de Vencimiento",
+      },
+      insuredData: {
+        title: "Datos del Asegurado",
+        name: "Nombre/Razón Social",
+        id: "Identificación",
+        address: "Dirección",
+      },
+      coveragesSection: {
+        title: "Coberturas",
+        count: "Coberturas ({count})",
+        noCoverages: "No se extrajeron coberturas de este documento",
+      },
+      exclusionsSection: {
+        title: "Exclusiones",
+        count: "Exclusiones ({count})",
+      },
+      linksSection: {
+        title: "Casos Vinculados",
+        description: "Esta póliza está vinculada a los siguientes casos",
+        linkedOn: "Vinculado el {date}",
+        noLinks: "Esta póliza no está vinculada a ningún caso",
+        linkHint: "Puedes vincularla al crear un nuevo caso",
+        caseWithoutName: "Caso sin nombre",
+      },
+      documentSection: {
+        title: "Documento Original",
+        viewPdf: "Ver PDF",
+        download: "Descargar",
+        pageReferences: "Referencias de Página ({count})",
+        pageRef: "{field}: Pág. {page}",
+        preview: "Vista Previa",
+        noDocument: "No hay documento asociado",
+      },
+      deleteDialog: {
+        title: "¿Eliminar póliza?",
+        description: "Esta acción no se puede deshacer. Se eliminará permanentemente el análisis de la póliza y sus vínculos con {count} caso(s).",
+        cancel: "Cancelar",
+        confirm: "Eliminar",
+        deleting: "Eliminando...",
+      },
     },
     // Upload page
     uploadPage: {
@@ -1808,6 +1924,9 @@ const es = {
       lowConfidence: "Baja (<50%)",
       insuranceType: "Tipo de seguro",
       allTypes: "Todos los tipos",
+      showingCount: "Mostrando {count} de {total} pólizas",
+      noResultsFiltered: "No se encontraron pólizas con los filtros aplicados",
+      noPoliciesYet: "No hay pólizas todavía. Sube tu primera póliza para comenzar.",
     },
     selector: {
       title: "Pólizas de la Organización",
@@ -1908,6 +2027,9 @@ const es = {
       policyAlerts: "Alertas de pólizas",
       policyAlertsDescription: "Recibe notificaciones sobre renovaciones y fechas importantes",
       policyAlertsDesc: "Recibe notificaciones sobre renovaciones y fechas importantes",
+      joinedOrg: "¡Te has unido a la organización!",
+      invitationRejected: "Invitación rechazada",
+      invitationError: "Error al procesar la invitación",
     },
     team: {
       activeOrg: "Organización activa",
@@ -1979,6 +2101,7 @@ const es = {
   // COMMON TRANSLATIONS
   // ============================================================================
   common: {
+    edit: "Editar",
     actions: {
       edit: "Editar",
       delete: "Eliminar",

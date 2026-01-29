@@ -11,6 +11,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -70,7 +71,7 @@ export interface PolicyCardProps {
 /**
  * Safely extract string from potentially nested object
  */
-function safeString(value: unknown, fallback: string = 'No disponible'): string {
+function safeStringWithFallback(value: unknown, fallback: string): string {
   if (value === null || value === undefined) return fallback;
   if (typeof value === 'string') return value || fallback;
   if (typeof value === 'number') return String(value);
@@ -84,10 +85,10 @@ function safeString(value: unknown, fallback: string = 'No disponible'): string 
   return fallback;
 }
 
-function formatDate(dateStr: string | Date | undefined): string {
-  if (!dateStr) return 'No disponible';
+function formatDateWithLocale(dateStr: string | Date | undefined, fallback: string, locale: string): string {
+  if (!dateStr) return fallback;
   try {
-    return new Date(dateStr).toLocaleDateString('es-ES', {
+    return new Date(dateStr).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -97,8 +98,8 @@ function formatDate(dateStr: string | Date | undefined): string {
   }
 }
 
-function formatCurrency(value: string | number | undefined): string {
-  if (!value) return 'No disponible';
+function formatCurrency(value: string | number | undefined, fallback: string): string {
+  if (!value) return fallback;
   const numValue = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]/g, '')) : value;
   if (isNaN(numValue)) return String(value);
   return new Intl.NumberFormat('es-CO', {
@@ -150,20 +151,24 @@ export function PolicyCard({
   isPinned = false,
   basePath = '/policies/analysis',
 }: PolicyCardProps) {
+  const t = useTranslations('policies.card');
+  const locale = useLocale();
+  
   const extractedData = policy.extractedData || {};
   const confidence = Number(policy.overallConfidence) || 0;
   
-  // Extract display values safely
-  const policyNumber = safeString(extractedData.policy_number, 'Sin número');
-  const insurer = safeString(extractedData.insurer, 'Sin aseguradora');
-  const policyType = safeString(
+  // Extract display values safely with translated fallbacks
+  const policyNumber = safeStringWithFallback(extractedData.policy_number, t('noNumber'));
+  const insurer = safeStringWithFallback(extractedData.insurer, t('noInsurer'));
+  const policyType = safeStringWithFallback(
     extractedData.policy_type || extractedData.insurance_type, 
-    'Sin tipo'
+    t('noType')
   );
   const sumInsured = extractedData.sum_insured;
   const startDate = extractedData.start_date || extractedData.effective_date;
   const endDate = extractedData.end_date || extractedData.expiry_date;
-  const fileName = policy.artifact?.fileName || 'Documento sin nombre';
+  const fileName = policy.artifact?.fileName || t('untitledDocument');
+  const notAvailable = t('notAvailable');
   
   const handleDelete = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -207,7 +212,7 @@ export function PolicyCard({
                   size="sm"
                   onClick={handleDelete}
                   className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                  title="Eliminar póliza"
+                  title={t('deletePolicy')}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -238,7 +243,7 @@ export function PolicyCard({
             <div className="flex items-center gap-2 text-sm">
               <DollarSign className="h-4 w-4 text-muted-foreground shrink-0" />
               <span className="text-muted-foreground truncate">
-                {formatCurrency(sumInsured)}
+                {formatCurrency(sumInsured, notAvailable)}
               </span>
             </div>
           )}
@@ -248,14 +253,14 @@ export function PolicyCard({
             <div className="flex items-center gap-2 text-sm">
               <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
               <span className="text-muted-foreground truncate">
-                {formatDate(startDate)} - {formatDate(endDate)}
+                {formatDateWithLocale(startDate, notAvailable, locale)} - {formatDateWithLocale(endDate, notAvailable, locale)}
               </span>
             </div>
           )}
         </CardContent>
         
         <CardFooter className="pt-3 border-t text-xs text-muted-foreground">
-          Analizada el {formatDate(policy.extractedAt)}
+          {t('analyzedOn', { date: formatDateWithLocale(policy.extractedAt, notAvailable, locale) })}
         </CardFooter>
       </Link>
     </Card>

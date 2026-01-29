@@ -12,6 +12,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { PolicyCard, type PolicyCardData } from './PolicyCard';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -77,6 +78,8 @@ export function PolicyList({
   showFilters = true,
 }: PolicyListProps) {
   const router = useRouter();
+  const t = useTranslations('policies.filters');
+  const tDelete = useTranslations('policies.delete');
   const [searchTerm, setSearchTerm] = useState('');
   const [confidenceFilter, setConfidenceFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -152,7 +155,7 @@ export function PolicyList({
       
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Error al eliminar la póliza');
+        throw new Error(error.error || tDelete('error'));
       }
       
       // Refresh the page to show changes
@@ -162,7 +165,7 @@ export function PolicyList({
     } catch (error) {
       console.error('Error deleting policy:', error);
       // Could show a toast here
-      alert(error instanceof Error ? error.message : 'Error al eliminar la póliza');
+      alert(error instanceof Error ? error.message : tDelete('error'));
     } finally {
       setIsDeleting(false);
     }
@@ -176,7 +179,7 @@ export function PolicyList({
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar por número, aseguradora, tipo..."
+              placeholder={t('searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -187,13 +190,13 @@ export function PolicyList({
             {/* Confidence Filter */}
             <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
               <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Confianza" />
+                <SelectValue placeholder={t('confidence')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                <SelectItem value="high">Alta (&ge;80%)</SelectItem>
-                <SelectItem value="medium">Media (50-79%)</SelectItem>
-                <SelectItem value="low">Baja (&lt;50%)</SelectItem>
+                <SelectItem value="all">{t('all')}</SelectItem>
+                <SelectItem value="high">{t('highConfidence')}</SelectItem>
+                <SelectItem value="medium">{t('mediumConfidence')}</SelectItem>
+                <SelectItem value="low">{t('lowConfidence')}</SelectItem>
               </SelectContent>
             </Select>
             
@@ -201,10 +204,10 @@ export function PolicyList({
             {uniqueTypes.length > 0 && (
               <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Tipo de seguro" />
+                  <SelectValue placeholder={t('insuranceType')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos los tipos</SelectItem>
+                  <SelectItem value="all">{t('allTypes')}</SelectItem>
                   {uniqueTypes.map((type) => (
                     <SelectItem key={type} value={type}>
                       {type}
@@ -219,7 +222,7 @@ export function PolicyList({
       
       {/* Results count */}
       <div className="text-sm text-muted-foreground">
-        Mostrando {filteredPolicies.length} de {policies.length} pólizas
+        {t('showingCount', { count: filteredPolicies.length, total: policies.length })}
       </div>
       
       {/* Policies Grid */}
@@ -242,8 +245,8 @@ export function PolicyList({
           </div>
           <p className="text-muted-foreground">
             {searchTerm || confidenceFilter !== 'all' || typeFilter !== 'all'
-              ? 'No se encontraron pólizas con los filtros aplicados'
-              : 'No hay pólizas todavía. Sube tu primera póliza para comenzar.'}
+              ? t('noResultsFiltered')
+              : t('noPoliciesYet')}
           </p>
         </div>
       )}
@@ -252,22 +255,21 @@ export function PolicyList({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar póliza?</AlertDialogTitle>
+            <AlertDialogTitle>{tDelete('title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminará permanentemente el análisis
-              de la póliza y sus vínculos con casos existentes.
+              {tDelete('description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>
-              Cancelar
+              {tDelete('cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Eliminando...' : 'Eliminar'}
+              {isDeleting ? tDelete('deleting') : tDelete('confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

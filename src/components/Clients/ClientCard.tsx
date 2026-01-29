@@ -1,5 +1,8 @@
 // /src/components/Clients/ClientCard.tsx
+'use client';
+
 import Link from 'next/link';
+import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Mail, Phone, MapPin, User, Shield } from 'lucide-react';
@@ -13,8 +16,11 @@ interface ClientCardProps {
 }
 
 export function ClientCard({ client, isPinned = false }: ClientCardProps) {
+  const t = useTranslations('clients.card');
+  const locale = useLocale();
+  
   const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString('es-ES', {
+    return new Date(date).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -36,7 +42,7 @@ export function ClientCard({ client, isPinned = false }: ClientCardProps) {
                 </h3>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Shield className="h-3 w-3 shrink-0" />
-                  <span>Datos cifrados</span>
+                  <span>{t('encryptedData')}</span>
                 </div>
               </div>
             </div>
@@ -60,7 +66,7 @@ export function ClientCard({ client, isPinned = false }: ClientCardProps) {
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted-foreground/50">
               <Mail className="h-4 w-4 flex-shrink-0" />
-              <span className="italic">Sin email</span>
+              <span className="italic">{t('noEmail')}</span>
             </div>
           )}
           
@@ -72,7 +78,7 @@ export function ClientCard({ client, isPinned = false }: ClientCardProps) {
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted-foreground/50">
               <Phone className="h-4 w-4 flex-shrink-0" />
-              <span className="italic">Sin teléfono</span>
+              <span className="italic">{t('noPhone')}</span>
             </div>
           )}
           
@@ -84,7 +90,7 @@ export function ClientCard({ client, isPinned = false }: ClientCardProps) {
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted-foreground/50">
               <MapPin className="h-4 w-4 flex-shrink-0" />
-              <span className="italic">Sin dirección</span>
+              <span className="italic">{t('noAddress')}</span>
             </div>
           )}
           
@@ -92,18 +98,18 @@ export function ClientCard({ client, isPinned = false }: ClientCardProps) {
           <div className="pt-2">
             {[client.email, client.phone, client.address].filter(Boolean).length === 3 ? (
               <Badge variant="default" className="text-xs">
-                Perfil Completo
+                {t('profileComplete')}
               </Badge>
             ) : (
               <Badge variant="secondary" className="text-xs">
-                Perfil Incompleto
+                {t('profileIncomplete')}
               </Badge>
             )}
           </div>
         </CardContent>
         
         <CardFooter className="pt-3 border-t text-xs text-muted-foreground">
-          Creado {formatDate(client.createdAt)}
+          {t('created')} {formatDate(client.createdAt)}
         </CardFooter>
       </Link>
     </Card>

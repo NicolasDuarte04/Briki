@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,14 +21,16 @@ interface CaseCardProps {
 }
 
 export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps) {
+  const t = useTranslations('cases.card');
+  const locale = useLocale();
   const router = useRouter();
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState(
-    caseData.caseName || caseData.clientName || 'Sin nombre'
+    caseData.caseName || caseData.clientName || t('noName')
   );
 
   const formatDate = (date: Date | string) => {
-    return new Date(date).toLocaleDateString('es-ES', {
+    return new Date(date).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -69,7 +72,7 @@ export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps
                     size="sm"
                     onClick={handleEditClick}
                     className="h-6 w-6 p-0 flex-shrink-0 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Editar nombre del caso"
+                    title={t('editName')}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
@@ -85,7 +88,7 @@ export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps
                 
                 {caseData.clientRef && (
                   <p className="text-sm text-muted-foreground pl-8 truncate">
-                    Ref: {caseData.clientRef}
+                    {t('ref')} {caseData.clientRef}
                   </p>
                 )}
               </div>
@@ -123,7 +126,7 @@ export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps
             {caseData.employees && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">
-                  {caseData.employees} empleados
+                  {caseData.employees} {t('employees')}
                 </span>
               </div>
             )}
@@ -131,7 +134,7 @@ export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps
             <div className="flex items-center gap-2 text-sm">
               <FileText className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">
-                {caseData.artifacts?.length || 0} documentos
+                {caseData.artifacts?.length || 0} {t('documents')}
               </span>
             </div>
             
@@ -155,7 +158,7 @@ export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps
           <CardFooter className="pt-3 border-t">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="h-3 w-3" />
-              <span>Actualizado {formatDate(caseData.updatedAt)}</span>
+              <span>{t('updatedOn', { date: formatDate(caseData.updatedAt) })}</span>
             </div>
           </CardFooter>
         </Link>

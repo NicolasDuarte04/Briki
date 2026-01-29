@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Pencil, Lightbulb } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 
 interface CaseNameEditorProps {
   /** ID del caso a renombrar */
@@ -45,6 +46,7 @@ export function CaseNameEditor({
   onOpenChange,
   onUpdate,
 }: CaseNameEditorProps) {
+  const t = useTranslations('cases');
   const [name, setName] = useState(currentName);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,14 +105,14 @@ export function CaseNameEditor({
         throw new Error(data.error || 'Error al renombrar el caso');
       }
 
-      toast.success('Caso renombrado exitosamente');
+      toast.success(t('messages.renamedSuccess'));
       onUpdate?.(trimmedName);
       onOpenChange(false);
 
     } catch (err: any) {
       console.error('Error renaming case:', err);
-      setError(err.message || 'Error al renombrar el caso');
-      toast.error(err.message || 'Error al renombrar el caso');
+      setError(err.message || t('messages.renameError'));
+      toast.error(err.message || t('messages.renameError'));
     } finally {
       setIsSubmitting(false);
     }

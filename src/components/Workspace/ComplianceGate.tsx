@@ -152,7 +152,7 @@ export function ComplianceGate() {
     return (
       <Card className="h-fit animate-pulse border-muted">
         <CardContent className="flex flex-col items-center justify-center gap-2 py-8 text-muted-foreground">
-          <span className="text-sm">Verificando estado de cumplimiento...</span>
+          <span className="text-sm">{gateTranslations("checkingCompliance")}</span>
         </CardContent>
       </Card>
     );
@@ -202,7 +202,7 @@ export function ComplianceGate() {
                   if (!caseId) return;
                   window.open(`/api/compliance/report/${caseId}`, '_blank');
                 } catch (err) {
-                  toast.error("Error descargando reporte");
+                  toast.error(gateTranslations("downloadError"));
                 }
               }}
             >

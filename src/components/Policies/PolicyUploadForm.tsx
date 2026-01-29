@@ -227,17 +227,17 @@ export function PolicyUploadForm({
         <input {...getInputProps()} />
         <Upload className="mx-auto h-14 w-14 text-muted-foreground mb-4" />
         {isDragActive ? (
-          <p className="text-xl font-medium text-primary">Suelta el archivo aquí</p>
+          <p className="text-xl font-medium text-primary">{t('form.dropHere')}</p>
         ) : (
           <>
             <p className="text-xl font-medium mb-2">
-              Arrastra una póliza PDF aquí
+              {t('form.dragPdfHere')}
             </p>
             <p className="text-sm text-muted-foreground mb-4">
-              o haz clic para seleccionar un archivo
+              {t('form.orClickToSelect')}
             </p>
             <Button type="button" variant="outline">
-              Seleccionar archivo
+              {t('form.selectFile')}
             </Button>
           </>
         )}

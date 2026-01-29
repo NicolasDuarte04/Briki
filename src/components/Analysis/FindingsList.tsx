@@ -128,7 +128,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Hallazgos</h3>
+        <h3 className="text-sm font-semibold">{t('findings')}</h3>
         {getConfidenceBadge(overallConfidence)}
       </div>
 
@@ -137,7 +137,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
         <div className="space-y-2">
           <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
             <FileText className="h-3 w-3" />
-            Información General
+            {t('generalInfo')}
           </h4>
           <Button
             variant="ghost"
@@ -146,11 +146,11 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
             onClick={() => handleFindingClick('policy_number', getPageForField('policy_number') || undefined)}
           >
             <div className="flex flex-col items-start w-full">
-              <span className="text-muted-foreground">Número de Póliza</span>
+              <span className="text-muted-foreground">{t('policyNumber')}</span>
               <span className="font-medium text-left break-all">{safeRender(extractedData.policy_number)}</span>
               {getPageForField('policy_number') && (
                 <span className="text-[10px] text-primary">
-                  📄 Pág. {getPageForField('policy_number')}
+                  📄 {t('page')} {getPageForField('policy_number')}
                 </span>
               )}
             </div>
@@ -164,11 +164,11 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
               onClick={() => handleFindingClick('insured_name', getPageForField('insured_name') || undefined)}
             >
               <div className="flex flex-col items-start w-full">
-                <span className="text-muted-foreground">Asegurado</span>
+                <span className="text-muted-foreground">{t('insured')}</span>
                 <span className="font-medium text-left break-words w-full">{safeRender(extractedData.insured_name)}</span>
                 {getPageForField('insured_name') && (
                   <span className="text-[10px] text-primary">
-                    📄 Pág. {getPageForField('insured_name')}
+                    📄 {t('page')} {getPageForField('insured_name')}
                   </span>
                 )}
               </div>
@@ -185,12 +185,12 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
               <div className="flex flex-col items-start w-full">
                 <span className="text-muted-foreground flex items-center gap-1">
                   <Building2 className="h-3 w-3" />
-                  Aseguradora
+                  {t('insurer')}
                 </span>
                 <span className="font-medium text-left break-words w-full">{safeRender(extractedData.insurer.name)}</span>
                 {getPageForField('insurer_name') && (
                   <span className="text-[10px] text-primary">
-                    📄 Pág. {getPageForField('insurer_name')}
+                    📄 {t('page')} {getPageForField('insurer_name')}
                   </span>
                 )}
               </div>
@@ -204,7 +204,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
         <div className="space-y-2">
           <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
             <DollarSign className="h-3 w-3" />
-            Financieros
+            {t('financials')}
           </h4>
 
           {extractedData.financials.premium_total && (
@@ -215,7 +215,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
               onClick={() => handleFindingClick('premium_total', getPageForField('premium_total') || undefined)}
             >
               <div className="flex flex-col items-start w-full">
-                <span className="text-muted-foreground">Prima Total</span>
+                <span className="text-muted-foreground">{t('premiumTotal')}</span>
                 <span className="font-medium text-lg">
                   {typeof extractedData.financials.premium_total === 'number'
                     ? formatLimit(
@@ -228,7 +228,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
                 </span>
                 {getPageForField('premium_total') && (
                   <span className="text-[10px] text-primary">
-                    📄 Pág. {getPageForField('premium_total')}
+                    📄 {t('page')} {getPageForField('premium_total')}
                   </span>
                 )}
               </div>
@@ -238,7 +238,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
           {extractedData.financials.premium_net && (
             <div className="pl-4 space-y-1 text-xs">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Prima Neta:</span>
+                <span className="text-muted-foreground">{t('premiumNet')}:</span>
                 <span>
                   {typeof extractedData.financials.premium_net === 'number'
                     ? formatLimit(
@@ -252,7 +252,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
               </div>
               {extractedData.financials.taxes && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Impuestos:</span>
+                  <span className="text-muted-foreground">{t('taxes')}:</span>
                   <span>
                     {typeof extractedData.financials.taxes === 'number'
                       ? formatLimit(
@@ -275,18 +275,18 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
         <div className="space-y-2">
           <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
             <Calendar className="h-3 w-3" />
-            Vigencia
+            {t('validity')}
           </h4>
           <div className="text-xs space-y-1">
             {extractedData.effective_from && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Inicio:</span>
+                <span className="text-muted-foreground">{t('startDate')}</span>
                 <span>{safeRender(extractedData.effective_from)}</span>
               </div>
             )}
             {extractedData.effective_to && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Fin:</span>
+                <span className="text-muted-foreground">{t('endDate')}</span>
                 <span>{safeRender(extractedData.effective_to)}</span>
               </div>
             )}
@@ -299,7 +299,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
         <div className="space-y-2">
           <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
             <CheckCircle className="h-3 w-3" />
-            Coberturas ({extractedData.coverages.length})
+            {t('coverages')} ({extractedData.coverages.length})
           </h4>
           <div className="space-y-1">
             {extractedData.coverages.slice(0, 3).map((coverage: any, index: number) => (
@@ -307,7 +307,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
                 <div className="font-medium">{safeRender(coverage.name)}</div>
                 {coverage.limit_amount && (
                   <div className="text-muted-foreground">
-                    Límite: {typeof coverage.limit_amount === 'number'
+                    {t('limit')}: {typeof coverage.limit_amount === 'number'
                       ? formatLimit(
                         coverage.limit_amount,
                         coverage.limit_unit as string, // Usamos limit_unit como currency o descripción
@@ -322,7 +322,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
             ))}
             {extractedData.coverages.length > 3 && (
               <div className="text-xs text-muted-foreground text-center py-1">
-                +{extractedData.coverages.length - 3} más
+                {t('moreItems', { count: extractedData.coverages.length - 3 })}
               </div>
             )}
           </div>
@@ -334,7 +334,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
         <div className="space-y-2">
           <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-1">
             <XCircle className="h-3 w-3" />
-            Exclusiones ({extractedData.exclusions.length})
+            {t('exclusions')} ({extractedData.exclusions.length})
           </h4>
           <div className="space-y-1">
             {extractedData.exclusions.slice(0, 2).map((exclusion: any, index: number) => (
@@ -344,7 +344,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
             ))}
             {extractedData.exclusions.length > 2 && (
               <div className="text-xs text-muted-foreground text-center py-1">
-                +{extractedData.exclusions.length - 2} más
+                {t('moreItems', { count: extractedData.exclusions.length - 2 })}
               </div>
             )}
           </div>
@@ -355,7 +355,7 @@ export function FindingsList({ analysis, onNavigateToPage }: FindingsListProps) 
       <div className="pt-4 border-t">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <AlertCircle className="h-3 w-3" />
-          <span>Confianza general: {Math.round(overallConfidence * 100)}%</span>
+          <span>{t('overallConfidence', { percent: Math.round(overallConfidence * 100) })}</span>
         </div>
       </div>
     </div>

@@ -1154,6 +1154,8 @@ const en = {
         blockedTitle: "Pending compliance",
         blockedBody: "Complete the checklist before sharing.",
         readyHint: "All checklist items are complete. You can send now.",
+        checkingCompliance: "Checking compliance status...",
+        downloadError: "Error downloading report",
       },
       jurisdictions: {
         co: {
@@ -1197,6 +1199,13 @@ const en = {
           },
         },
       },
+    },
+    modal: {
+      selectBothDates: "Please select both dates",
+      validateValidity: "Validate Validity",
+      verifyPolicyActiveOn: "Check if the policy is active on date:",
+      dateToVerify: "Date to verify",
+      today: "Today",
     },
     send: {
       whatsapp: "Send via WhatsApp",
@@ -1490,6 +1499,7 @@ const en = {
       employees: "employees",
       documents: "documents",
       editName: "Edit case name",
+      updatedOn: "Updated {date}",
     },
     detail: {
       noName: "Unnamed Case",
@@ -1526,6 +1536,8 @@ const en = {
       created: "Case created successfully!",
       deleted: "Case deleted successfully",
       error: "An error occurred. Please try again.",
+      renamedSuccess: "Case renamed successfully",
+      renameError: "Error renaming case",
     },
   },
   // ============================================================================
@@ -1707,6 +1719,11 @@ const en = {
       highConfidence: "High",
       mediumConfidence: "Medium",
       lowConfidence: "Low",
+      policyNumber: "Policy Number",
+      insured: "Insured",
+      insurer: "Insurer",
+      page: "Page",
+      moreItems: "+{count} more",
       confidence: {
         high: "High ({percent}%)",
         medium: "Medium ({percent}%)",
@@ -1719,6 +1736,105 @@ const en = {
       cancel: "Cancel",
       confirm: "Delete",
       deleting: "Deleting...",
+      error: "Error deleting policy",
+    },
+    // Analysis List Page
+    analysisPage: {
+      title: "Policy Analysis",
+      subtitle: "Manage and explore all your organization's policies",
+      backToPolicies: "Back to Policies",
+      uploadNew: "Upload New Policy",
+      uploadFirst: "Upload First Policy",
+      noPoliciesAnalyzed: "No policies analyzed",
+      noPoliciesDescription: "Upload your first PDF policy so our system can analyze it and automatically extract relevant information.",
+      stats: {
+        totalPolicies: "Total Policies",
+        highConfidence: "High Confidence",
+        mediumConfidence: "Medium Confidence",
+        pinned: "Pinned",
+      },
+    },
+    // Policy Detail Page
+    detailPage: {
+      policyWithoutName: "Unnamed Policy",
+      policyNumber: "Policy #{number}",
+      analyzedOn: "Analyzed on {date}",
+      deletePolicy: "Delete policy",
+      notAvailable: "Not available",
+      tabs: {
+        info: "Information",
+        coverages: "Coverages",
+        links: "Links",
+        document: "Document",
+      },
+      stats: {
+        confidence: "Confidence",
+        insurer: "Insurer",
+        type: "Type",
+        linkedCases: "Linked Cases",
+      },
+      confidenceProgress: {
+        title: "Analysis Confidence",
+        method: "Extraction method: {method}",
+      },
+      badges: {
+        high: "High ({percent}%)",
+        medium: "Medium ({percent}%)",
+        low: "Low ({percent}%)",
+      },
+      policyInfo: {
+        title: "Policy Information",
+        policyNumber: "Policy Number",
+        insurer: "Insurer",
+        insuranceType: "Insurance Type",
+        sumInsured: "Sum Insured",
+        premium: "Premium",
+        deductible: "Deductible",
+      },
+      validity: {
+        title: "Validity",
+        startDate: "Start Date",
+        endDate: "Expiration Date",
+      },
+      insuredData: {
+        title: "Insured Data",
+        name: "Name/Company",
+        id: "Identification",
+        address: "Address",
+      },
+      coveragesSection: {
+        title: "Coverages",
+        count: "Coverages ({count})",
+        noCoverages: "No coverages were extracted from this document",
+      },
+      exclusionsSection: {
+        title: "Exclusions",
+        count: "Exclusions ({count})",
+      },
+      linksSection: {
+        title: "Linked Cases",
+        description: "This policy is linked to the following cases",
+        linkedOn: "Linked on {date}",
+        noLinks: "This policy is not linked to any case",
+        linkHint: "You can link it when creating a new case",
+        caseWithoutName: "Unnamed case",
+      },
+      documentSection: {
+        title: "Original Document",
+        viewPdf: "View PDF",
+        download: "Download",
+        pageReferences: "Page References ({count})",
+        pageRef: "{field}: Page {page}",
+        preview: "Preview",
+        noDocument: "No associated document",
+      },
+      deleteDialog: {
+        title: "Delete policy?",
+        description: "This action cannot be undone. The policy analysis and its links to {count} case(s) will be permanently deleted.",
+        cancel: "Cancel",
+        confirm: "Delete",
+        deleting: "Deleting...",
+      },
     },
     // Upload page
     uploadPage: {
@@ -1808,6 +1924,9 @@ const en = {
       lowConfidence: "Low (<50%)",
       insuranceType: "Insurance type",
       allTypes: "All types",
+      showingCount: "Showing {count} of {total} policies",
+      noResultsFiltered: "No policies found with the applied filters",
+      noPoliciesYet: "No policies yet. Upload your first policy to get started.",
     },
     selector: {
       title: "Organization Policies",
@@ -1908,6 +2027,9 @@ const en = {
       policyAlerts: "Policy alerts",
       policyAlertsDescription: "Get notified about policy renewals and important dates",
       policyAlertsDesc: "Get notified about policy renewals and important dates",
+      joinedOrg: "You have joined the organization!",
+      invitationRejected: "Invitation rejected",
+      invitationError: "Error processing the invitation",
     },
     team: {
       activeOrg: "Active organization",
@@ -1979,6 +2101,7 @@ const en = {
   // COMMON TRANSLATIONS
   // ============================================================================
   common: {
+    edit: "Edit",
     actions: {
       edit: "Edit",
       delete: "Delete",

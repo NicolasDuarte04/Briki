@@ -16,6 +16,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -100,7 +101,7 @@ interface PolicyDetailContentProps {
 // HELPERS
 // ============================================================================
 
-function safeString(value: unknown, fallback: string = 'No disponible'): string {
+function safeStringWithFallback(value: unknown, fallback: string): string {
   if (value === null || value === undefined) return fallback;
   if (typeof value === 'string') return value || fallback;
   if (typeof value === 'number') return String(value);
@@ -114,10 +115,10 @@ function safeString(value: unknown, fallback: string = 'No disponible'): string 
   return fallback;
 }
 
-function formatDate(dateStr: string | undefined): string {
-  if (!dateStr) return 'No disponible';
+function formatDateWithLocale(dateStr: string | undefined, fallback: string, locale: string): string {
+  if (!dateStr) return fallback;
   try {
-    return new Date(dateStr).toLocaleDateString('es-CO', {
+    return new Date(dateStr).toLocaleDateString(locale === 'es' ? 'es-CO' : 'en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric'
@@ -131,14 +132,14 @@ function formatDate(dateStr: string | undefined): string {
 // SUB-COMPONENTS
 // ============================================================================
 
-function ConfidenceBadge({ confidence }: { confidence: number }) {
+function ConfidenceBadge({ confidence, translations }: { confidence: number; translations: { high: string; medium: string; low: string } }) {
   const percentage = confidence * 100;
   
   if (percentage >= 80) {
     return (
       <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200">
         <CheckCircle2 className="h-3 w-3 mr-1" />
-        Alta ({percentage.toFixed(0)}%)
+        {translations.high.replace('{percent}', percentage.toFixed(0))}
       </Badge>
     );
   }
@@ -146,14 +147,14 @@ function ConfidenceBadge({ confidence }: { confidence: number }) {
     return (
       <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-200">
         <AlertCircle className="h-3 w-3 mr-1" />
-        Media ({percentage.toFixed(0)}%)
+        {translations.medium.replace('{percent}', percentage.toFixed(0))}
       </Badge>
     );
   }
   return (
     <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-200">
       <Info className="h-3 w-3 mr-1" />
-      Baja ({percentage.toFixed(0)}%)
+      {translations.low.replace('{percent}', percentage.toFixed(0))}
     </Badge>
   );
 }
@@ -162,10 +163,11 @@ interface DataFieldProps {
   icon: React.ElementType;
   label: string;
   value: string;
+  notAvailableText: string;
 }
 
-function DataField({ icon: Icon, label, value }: DataFieldProps) {
-  const isEmpty = !value || value === 'No disponible';
+function DataField({ icon: Icon, label, value, notAvailableText }: DataFieldProps) {
+  const isEmpty = !value || value === notAvailableText;
   
   return (
     <div className={`flex items-start gap-3 p-3 rounded-lg ${isEmpty ? 'bg-muted/30' : 'bg-muted/50'}`}>
@@ -188,8 +190,13 @@ function DataField({ icon: Icon, label, value }: DataFieldProps) {
 
 export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailContentProps) {
   const router = useRouter();
+  const t = useTranslations('policies.detailPage');
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  
+  const notAvailable = t('notAvailable');
+  const safeString = (value: unknown) => safeStringWithFallback(value, notAvailable);
+  const formatDate = (dateStr: string | undefined) => formatDateWithLocale(dateStr, notAvailable, locale);
   
   const extractedData = (policy.extractedData || {}) as Record<string, unknown>;
   const confidence = policy.overallConfidence;
@@ -216,6 +223,13 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
       ? extractedData.coverage_details
       : [];
   const exclusions = Array.isArray(extractedData.exclusions) ? extractedData.exclusions : [];
+  
+  // Badge translations
+  const badgeTranslations = {
+    high: t('badges.high'),
+    medium: t('badges.medium'),
+    low: t('badges.low'),
+  };
   
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -252,10 +266,10 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
         </Link>
         <div className="flex-1">
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            {policy.artifact?.fileName || 'Póliza sin nombre'}
+            {policy.artifact?.fileName || t('policyWithoutName')}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Póliza #{policyNumber} • Analizada el {formatDate(policy.extractedAt)}
+            {t('policyNumber', { number: policyNumber })} • {t('analyzedOn', { date: formatDate(policy.extractedAt) })}
           </p>
         </div>
         
@@ -271,7 +285,7 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
             size="icon"
             onClick={() => setShowDeleteConfirm(true)}
             disabled={isDeleting}
-            title="Eliminar póliza"
+            title={t('deletePolicy')}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -282,27 +296,27 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="pt-4">
-            <div className="text-sm text-muted-foreground">Confianza</div>
+            <div className="text-sm text-muted-foreground">{t('stats.confidence')}</div>
             <div className="mt-1">
-              <ConfidenceBadge confidence={confidence} />
+              <ConfidenceBadge confidence={confidence} translations={badgeTranslations} />
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <div className="text-sm text-muted-foreground">Aseguradora</div>
+            <div className="text-sm text-muted-foreground">{t('stats.insurer')}</div>
             <div className="font-medium mt-1 truncate" title={insurer}>{insurer}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <div className="text-sm text-muted-foreground">Tipo</div>
+            <div className="text-sm text-muted-foreground">{t('stats.type')}</div>
             <div className="font-medium mt-1 truncate" title={policyType}>{policyType}</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <div className="text-sm text-muted-foreground">Casos Vinculados</div>
+            <div className="text-sm text-muted-foreground">{t('stats.linkedCases')}</div>
             <div className="font-medium mt-1">{policy.caseLinks.length}</div>
           </CardContent>
         </Card>
@@ -312,12 +326,12 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
       <Card className="mb-6">
         <CardContent className="pt-4">
           <div className="flex items-center justify-between text-sm mb-2">
-            <span className="text-muted-foreground">Confianza del análisis</span>
+            <span className="text-muted-foreground">{t('confidenceProgress.title')}</span>
             <span className="font-medium">{(confidence * 100).toFixed(1)}%</span>
           </div>
           <Progress value={confidence * 100} className="h-2" />
           <p className="text-xs text-muted-foreground mt-2">
-            Método de extracción: {policy.extractionMethod}
+            {t('confidenceProgress.method', { method: policy.extractionMethod })}
           </p>
         </CardContent>
       </Card>
@@ -325,14 +339,14 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
       {/* Tabs */}
       <Tabs defaultValue="info" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="info">Información</TabsTrigger>
+          <TabsTrigger value="info">{t('tabs.info')}</TabsTrigger>
           <TabsTrigger value="coverages">
-            Coberturas ({coverages.length})
+            {t('tabs.coverages')} ({coverages.length})
           </TabsTrigger>
           <TabsTrigger value="links">
-            Vínculos ({policy.caseLinks.length})
+            {t('tabs.links')} ({policy.caseLinks.length})
           </TabsTrigger>
-          <TabsTrigger value="document">Documento</TabsTrigger>
+          <TabsTrigger value="document">{t('tabs.document')}</TabsTrigger>
         </TabsList>
         
         {/* Info Tab */}
@@ -342,17 +356,17 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Información de la Póliza
+                {t('policyInfo.title')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                <DataField icon={Hash} label="Número de Póliza" value={policyNumber} />
-                <DataField icon={Building2} label="Aseguradora" value={insurer} />
-                <DataField icon={Shield} label="Tipo de Seguro" value={policyType} />
-                <DataField icon={DollarSign} label="Suma Asegurada" value={sumInsured} />
-                <DataField icon={DollarSign} label="Prima" value={premium} />
-                <DataField icon={DollarSign} label="Deducible" value={deductible} />
+                <DataField icon={Hash} label={t('policyInfo.policyNumber')} value={policyNumber} notAvailableText={notAvailable} />
+                <DataField icon={Building2} label={t('policyInfo.insurer')} value={insurer} notAvailableText={notAvailable} />
+                <DataField icon={Shield} label={t('policyInfo.insuranceType')} value={policyType} notAvailableText={notAvailable} />
+                <DataField icon={DollarSign} label={t('policyInfo.sumInsured')} value={sumInsured} notAvailableText={notAvailable} />
+                <DataField icon={DollarSign} label={t('policyInfo.premium')} value={premium} notAvailableText={notAvailable} />
+                <DataField icon={DollarSign} label={t('policyInfo.deductible')} value={deductible} notAvailableText={notAvailable} />
               </div>
             </CardContent>
           </Card>
@@ -362,13 +376,13 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Calendar className="h-5 w-5" />
-                Vigencia
+                {t('validity.title')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <DataField icon={Calendar} label="Fecha de Inicio" value={formatDate(startDate !== 'No disponible' ? startDate : undefined)} />
-                <DataField icon={Calendar} label="Fecha de Vencimiento" value={formatDate(endDate !== 'No disponible' ? endDate : undefined)} />
+                <DataField icon={Calendar} label={t('validity.startDate')} value={formatDate(startDate !== notAvailable ? startDate : undefined)} notAvailableText={notAvailable} />
+                <DataField icon={Calendar} label={t('validity.endDate')} value={formatDate(endDate !== notAvailable ? endDate : undefined)} notAvailableText={notAvailable} />
               </div>
             </CardContent>
           </Card>
@@ -378,14 +392,14 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <User className="h-5 w-5" />
-                Datos del Asegurado
+                {t('insuredData.title')}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                <DataField icon={User} label="Nombre/Razón Social" value={insuredName} />
-                <DataField icon={Hash} label="Identificación" value={insuredId} />
-                <DataField icon={MapPin} label="Dirección" value={insuredAddress} />
+                <DataField icon={User} label={t('insuredData.name')} value={insuredName} notAvailableText={notAvailable} />
+                <DataField icon={Hash} label={t('insuredData.id')} value={insuredId} notAvailableText={notAvailable} />
+                <DataField icon={MapPin} label={t('insuredData.address')} value={insuredAddress} notAvailableText={notAvailable} />
               </div>
             </CardContent>
           </Card>
@@ -398,7 +412,7 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5" />
-                  Coberturas ({coverages.length})
+                  {t('coveragesSection.count', { count: coverages.length })}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -418,7 +432,7 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
             <Card>
               <CardContent className="py-8 text-center">
                 <Shield className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                <p className="text-muted-foreground">No se extrajeron coberturas de este documento</p>
+                <p className="text-muted-foreground">{t('coveragesSection.noCoverages')}</p>
               </CardContent>
             </Card>
           )}
@@ -428,7 +442,7 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <AlertCircle className="h-5 w-5" />
-                  Exclusiones ({exclusions.length})
+                  {t('exclusionsSection.count', { count: exclusions.length })}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -453,10 +467,10 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <LinkIcon className="h-5 w-5" />
-                Casos Vinculados
+                {t('linksSection.title')}
               </CardTitle>
               <CardDescription>
-                Esta póliza está vinculada a los siguientes casos
+                {t('linksSection.description')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -470,10 +484,10 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
                     >
                       <div>
                         <div className="font-medium">
-                          {link.case?.caseName || link.case?.clientName || 'Caso sin nombre'}
+                          {link.case?.caseName || link.case?.clientName || t('linksSection.caseWithoutName')}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Vinculado el {formatDate(link.linkedAt)} • {link.linkType}
+                          {t('linksSection.linkedOn', { date: formatDate(link.linkedAt) })} • {link.linkType}
                         </div>
                       </div>
                       <ExternalLink className="h-4 w-4 text-muted-foreground" />
@@ -483,9 +497,9 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
               ) : (
                 <div className="py-8 text-center">
                   <LinkIcon className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">Esta póliza no está vinculada a ningún caso</p>
+                  <p className="text-muted-foreground">{t('linksSection.noLinks')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Puedes vincularla al crear un nuevo caso
+                    {t('linksSection.linkHint')}
                   </p>
                 </div>
               )}
@@ -499,7 +513,7 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Documento Original
+                {t('documentSection.title')}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -513,7 +527,7 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
                         rel="noopener noreferrer"
                       >
                         <Eye className="h-4 w-4 mr-2" />
-                        Ver PDF
+                        {t('documentSection.viewPdf')}
                       </a>
                     </Button>
                     <Button variant="ghost" asChild>
@@ -522,7 +536,7 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
                         download={policy.artifact.fileName || 'poliza.pdf'}
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        Descargar
+                        {t('documentSection.download')}
                       </a>
                     </Button>
                   </div>
@@ -533,12 +547,12 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
                       <Separator />
                       <div>
                         <h4 className="text-sm font-medium mb-2">
-                          Referencias de Página ({policy.pageReferences.length})
+                          {t('documentSection.pageReferences', { count: policy.pageReferences.length })}
                         </h4>
                         <div className="flex flex-wrap gap-2">
                           {policy.pageReferences.map((ref) => (
                             <Badge key={ref.id} variant="secondary" className="text-xs">
-                              {ref.fieldName}: Pág. {ref.pageNumber}
+                              {t('documentSection.pageRef', { field: ref.fieldName, page: ref.pageNumber })}
                             </Badge>
                           ))}
                         </div>
@@ -549,20 +563,20 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
                   {/* PDF Preview */}
                   <Separator />
                   <div>
-                    <h4 className="text-sm font-medium mb-2">Vista Previa</h4>
+                    <h4 className="text-sm font-medium mb-2">{t('documentSection.preview')}</h4>
                     <iframe
                       src={`/api/storage/${policy.artifact.fileId}`}
                       width="100%"
                       height="600px"
                       className="border rounded-lg"
-                      title={`Vista previa de ${policy.artifact.fileName}`}
+                      title={policy.artifact.fileName || 'PDF Preview'}
                     />
                   </div>
                 </>
               ) : (
                 <div className="py-8 text-center">
                   <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">No hay documento asociado</p>
+                  <p className="text-muted-foreground">{t('documentSection.noDocument')}</p>
                 </div>
               )}
             </CardContent>
@@ -574,22 +588,21 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
       <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar póliza?</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminará permanentemente el análisis
-              de la póliza y sus vínculos con {policy.caseLinks.length} caso(s).
+              {t('deleteDialog.description', { count: policy.caseLinks.length })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>
-              Cancelar
+              {t('deleteDialog.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? 'Eliminando...' : 'Eliminar'}
+              {isDeleting ? t('deleteDialog.deleting') : t('deleteDialog.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

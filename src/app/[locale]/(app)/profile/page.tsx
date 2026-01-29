@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "./actions";
-import { ProfileNav } from "./ProfileNav";
 import { AccountSettings } from "./AccountSettings";
 import { DevAccountActions } from "./DevAccountActions";
 import { decryptProfileFieldsBatch } from "@/lib/helpers/profileEncryption";
@@ -53,7 +52,6 @@ export default async function ProfilePage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <ProfileNav />
       <div className="mx-auto w-full max-w-4xl px-6 py-8">
         <Suspense>
           <AccountSettings 

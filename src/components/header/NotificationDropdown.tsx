@@ -19,6 +19,7 @@ import {
 } from "@/app/actions/invitationActions";
 import { toast } from "sonner";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 /**
  * NotificationDropdown - Muestra las invitaciones de organización pendientes.
@@ -31,6 +32,7 @@ import Link from "next/link";
  */
 export function NotificationDropdown() {
   const { status } = useAuth();
+  const t = useTranslations('profile.notifications');
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
   const [loading, setLoading] = useState(false);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
@@ -76,16 +78,16 @@ export function NotificationDropdown() {
         setInvitations((prev) => prev.filter((inv) => inv.id !== invitationId));
         
         if (accept) {
-          toast.success("¡Te has unido a la organización!");
+          toast.success(t('joinedOrg'));
         } else {
-          toast.info("Invitación rechazada");
+          toast.info(t('invitationRejected'));
         }
       } else {
-        toast.error(result.error || "Error al procesar la invitación");
+        toast.error(result.error || t('invitationError'));
       }
     } catch (error) {
       console.error("Error responding to invitation:", error);
-      toast.error("Error al procesar la invitación");
+      toast.error(t('invitationError'));
     } finally {
       setRespondingTo(null);
     }

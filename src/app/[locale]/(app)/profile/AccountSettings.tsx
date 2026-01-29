@@ -81,6 +81,7 @@ export function AccountSettings({
 }: AccountSettingsProps) {
   const t = useTranslations('profilePage');
   const tCommon = useTranslations('common');
+  const tNotifications = useTranslations('profilePage.notifications');
   
   const [activeTab, setActiveTab] = useState<Tab>('personal');
   const [isEditingName, setIsEditingName] = useState(false);
@@ -389,7 +390,11 @@ export function AccountSettings({
       admin: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
       member: 'bg-muted text-foreground border-border',
     };
-    const labels = { owner: 'Propietario', admin: 'Administrador', member: 'Miembro' };
+    const labels = { 
+      owner: tNotifications('roleOwner'), 
+      admin: tNotifications('roleAdmin'), 
+      member: tNotifications('roleMember') 
+    };
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border ${styles[role]}`}>
         {getRoleIcon(role)}
