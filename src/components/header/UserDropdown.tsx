@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/components/AuthProvider";
 import { signOut } from "@/app/[locale]/(auth)/actions";
+import { useLocale } from "next-intl";
 
 /**
  * UserDropdown component for authenticated user actions.
@@ -30,6 +31,7 @@ import { signOut } from "@/app/[locale]/(auth)/actions";
 export function UserDropdown() {
   const { user, status } = useAuth();
   const router = useRouter();
+  const locale = useLocale();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   // Don't render if not authenticated
@@ -85,13 +87,13 @@ export function UserDropdown() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer">
-          <Link href="/profile" className="flex items-center gap-2">
+          <Link href={`/${locale}/profile`} className="flex items-center gap-2">
             <User className="h-4 w-4" />
             <span>Perfil</span>
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild className="cursor-pointer">
-          <Link href="/profile" className="flex items-center gap-2">
+          <Link href={`/${locale}/profile`} className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
             <span>Configuración</span>
           </Link>

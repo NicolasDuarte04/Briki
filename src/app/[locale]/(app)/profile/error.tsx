@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw, Home } from 'lucide-react';
 import Link from 'next/link';
+import { useLocale } from 'next-intl';
 
 interface ProfileErrorProps {
   error: Error & { digest?: string };
@@ -21,6 +22,8 @@ interface ProfileErrorProps {
  * Permite al usuario reintentar o navegar a una ruta segura.
  */
 export default function ProfileError({ error, reset }: ProfileErrorProps) {
+  const locale = useLocale();
+
   useEffect(() => {
     // Log del error para debugging (solo en desarrollo)
     if (process.env.NODE_ENV !== 'production') {
@@ -72,7 +75,7 @@ export default function ProfileError({ error, reset }: ProfileErrorProps) {
             Reintentar
           </Button>
           <Button asChild variant="outline" className="gap-2">
-            <Link href="/dashboard">
+            <Link href={`/${locale}/dashboard`}>
               <Home className="w-4 h-4" />
               Ir al Dashboard
             </Link>

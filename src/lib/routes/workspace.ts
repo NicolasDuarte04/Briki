@@ -31,6 +31,13 @@ export function toLocale(locale: string): Locale {
 }
 
 /**
+ * Get the landing page route
+ */
+export function pathForLanding(locale: Locale): string {
+  return `/${locale}/landing`;
+}
+
+/**
  * Get the dashboard home route
  */
 export function getDashboardHome(locale: Locale): string {

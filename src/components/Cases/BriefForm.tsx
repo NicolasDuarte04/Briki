@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -101,6 +101,7 @@ const briefFormAreEqual = (prevProps: BriefFormProps, nextProps: BriefFormProps)
 
 const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmitting, initialData, mode = 'create', orgId }: BriefFormProps) => {
   const router = useRouter();
+  const locale = useLocale();
   
   // i18n translations
   const tCaseBrief = useTranslations('workspace.caseBrief');
@@ -820,6 +821,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 setCurrentCaseId,
                 currentCaseId,
                 saveUserMessage: true, // ✅ FASE 5: Guardar mensaje del usuario como primer mensaje
+                locale: locale as 'en' | 'es', // ✅ CORRECCIÓN i18n: Pasar locale para navegación consistente
               }
             );
             console.log('✅ [BriefForm] Caso creado exitosamente con createCaseIfNeeded:', result.caseId);

@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
 import { DecryptedClient } from '@/lib/clientsDb';
+import { useLocale } from 'next-intl';
 
 interface ClientDetailContentProps {
   client: DecryptedClient;
@@ -16,6 +17,7 @@ interface ClientDetailContentProps {
 }
 
 export function ClientDetailContent({ client, clientId, orgId }: ClientDetailContentProps) {
+  const locale = useLocale();
   const {
     deleteDialogOpen,
     setDeleteDialogOpen,
@@ -44,7 +46,7 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
       <div className="container mx-auto py-8 px-4 max-w-4xl">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Link href="/workspace/clients">
+          <Link href={`/${locale}/workspace/clients`}>
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -59,7 +61,7 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
             </p>
           </div>
           <div className="flex gap-2">
-            <Link href={`/workspace/clients/${clientId}/edit`}>
+            <Link href={`/${locale}/workspace/clients/${clientId}/edit`}>
               <Button variant="outline" size="sm" className="gap-2">
                 <Edit className="h-4 w-4" />
                 Editar

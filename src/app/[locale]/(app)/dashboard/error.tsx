@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw, LogOut } from 'lucide-react';
 import Link from 'next/link';
+import { useLocale } from 'next-intl';
 
 interface DashboardErrorProps {
   error: Error & { digest?: string };
@@ -22,6 +23,8 @@ interface DashboardErrorProps {
  * Permite al usuario reintentar o cerrar sesión si hay problemas de auth.
  */
 export default function DashboardError({ error, reset }: DashboardErrorProps) {
+  const locale = useLocale();
+
   useEffect(() => {
     // Log del error para debugging (solo en desarrollo)
     if (process.env.NODE_ENV !== 'production') {
@@ -76,7 +79,7 @@ export default function DashboardError({ error, reset }: DashboardErrorProps) {
           </Button>
           {isAuthError && (
             <Button asChild variant="outline" className="gap-2">
-              <Link href="/login">
+              <Link href={`/${locale}/login`}>
                 <LogOut className="w-4 h-4" />
                 Iniciar Sesión
               </Link>

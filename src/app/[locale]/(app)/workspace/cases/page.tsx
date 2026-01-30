@@ -6,7 +6,7 @@ import { CaseList } from '@/components/Cases/CaseList';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle } from 'lucide-react';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +14,7 @@ export default async function CasesPage() {
   // Obtener usuario y organización actual
   const { user, currentOrg } = await getCurrentOrg();
   const t = await getTranslations('cases');
+  const locale = await getLocale();
   
   // Obtener casos de la organización y pins del usuario
   const [cases, userPins] = await Promise.all([
@@ -34,7 +35,7 @@ export default async function CasesPage() {
             {t('subtitle')}
           </p>
         </div>
-        <Link href="/agent/new-thread-placeholder">
+        <Link href={`/${locale}/agent/new-thread-placeholder`}>
           <Button className="gap-2">
             <PlusCircle className="h-4 w-4" />
             {t('newCase')}

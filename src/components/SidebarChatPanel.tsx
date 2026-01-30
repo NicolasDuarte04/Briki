@@ -5,6 +5,7 @@ import { useUI } from "@/lib/ui/state";
 import { ArrowLeft, Search, Plus, MoreVertical, Pencil, Trash2, Archive, ArchiveRestore } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { useLocale } from "next-intl";
 import type { Case } from "@/lib/types";
 
 interface SidebarChatPanelProps {
@@ -14,6 +15,7 @@ interface SidebarChatPanelProps {
 export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
   const { closeChatPanel } = useUI();
   const router = useRouter();
+  const locale = useLocale();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Search state
@@ -137,9 +139,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
     closeChatPanel();
 
     // Navegar a placeholder para nuevo chat
-    const currentPath = window.location.pathname;
-    const localeMatch = currentPath.match(/\/(es|en)\//);
-    const locale = localeMatch ? localeMatch[1] : 'en';
+    // ✅ CORRECCIÓN: Usar useLocale() en lugar de regex para consistencia i18n
     router.push(`/${locale}/agent/new-thread-placeholder`);
   };
 
@@ -208,9 +208,7 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
         console.log(`✅ [SidebarChatPanel] Zustand updated for case ${caseId} (tempUploads limpiados)`);
 
         // --- PASO 5: Navegar al Agente ---
-        const currentPath = window.location.pathname;
-        const localeMatch = currentPath.match(/\/(es|en)\//);
-        const locale = localeMatch ? localeMatch[1] : 'en';
+        // ✅ CORRECCIÓN: Usar useLocale() en lugar de regex para consistencia i18n
         const targetUrl = `/${locale}/agent/${caseId}`;
         console.log(`✅ [SidebarChatPanel] Navigating to: ${targetUrl}`);
         router.push(targetUrl); // Usar router.push para navegación SPA

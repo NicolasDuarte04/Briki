@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import { useState } from 'react';
 
 interface CaseDetailContentProps {
@@ -18,6 +19,7 @@ interface CaseDetailContentProps {
 
 export function CaseDetailContent({ caseData, caseId, orgId }: CaseDetailContentProps) {
   const router = useRouter();
+  const locale = useLocale();
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -30,7 +32,7 @@ export function CaseDetailContent({ caseData, caseId, orgId }: CaseDetailContent
 
       if (response.ok) {
         // Redirigir a la lista de casos
-        router.push('/workspace/cases');
+        router.push(`/${locale}/workspace/cases`);
       } else {
         throw new Error('Error al eliminar el caso');
       }
@@ -47,7 +49,7 @@ export function CaseDetailContent({ caseData, caseId, orgId }: CaseDetailContent
     <div className="container mx-auto py-8 px-4">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <Link href="/workspace/cases">
+        <Link href={`/${locale}/workspace/cases`}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -63,7 +65,7 @@ export function CaseDetailContent({ caseData, caseId, orgId }: CaseDetailContent
         
         {/* Botones de Acción */}
         <div className="flex gap-2">
-          <Link href={`/workspace/cases/${caseId}/edit`}>
+          <Link href={`/${locale}/workspace/cases/${caseId}/edit`}>
             <Button variant="outline" size="icon">
               <Edit className="h-4 w-4" />
             </Button>

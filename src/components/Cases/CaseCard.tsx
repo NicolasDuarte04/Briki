@@ -60,7 +60,7 @@ export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps
   return (
     <>
       <Card className="hover:shadow-lg transition-shadow h-full relative group overflow-hidden">
-        <Link href={`/workspace/cases/${caseData.id}`} className="block h-full">
+        <Link href={`/${locale}/workspace/cases/${caseData.id}`} className="block h-full">
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
               {/* Nombre del caso con botón de edición */}

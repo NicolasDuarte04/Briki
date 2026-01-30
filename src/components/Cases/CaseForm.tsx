@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +25,7 @@ interface CaseFormProps {
 
 export function CaseForm({ orgId, userId }: CaseFormProps) {
   const router = useRouter();
+  const locale = useLocale();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -120,7 +122,7 @@ export function CaseForm({ orgId, userId }: CaseFormProps) {
       
       // Redirigir después de 3 segundos para que el usuario vea el mensaje
       setTimeout(() => {
-        router.push(`/workspace/cases/${data.id}`);
+        router.push(`/${locale}/workspace/cases/${data.id}`);
         router.refresh();
       }, 3000);
     } catch (err) {

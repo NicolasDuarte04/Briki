@@ -111,11 +111,11 @@
 
 /* Dark theme palette */
 .dark {
-  --background: 222 47% 11%;
+  --background: 207 18% 10%;
   --foreground: 210 40% 98%;
-  --card: 222 47% 11%;
+  --card: 207 18% 10%;
   --card-foreground: 210 40% 98%;
-  --popover: 222 47% 11%;
+  --popover: 207 18% 10%;
   --popover-foreground: 210 40% 98%;
   --primary: 199 89% 48%;
   --primary-foreground: 222 47% 11%;
@@ -136,7 +136,7 @@
   --ring: 199 89% 48%;
 
   /* Sidebar/Charts dark */
-  --sidebar: 222 47% 11%;
+  --sidebar: 207 18% 10%;
   --sidebar-foreground: 210 40% 98%;
   --sidebar-primary: 199 89% 48%;
   --sidebar-primary-foreground: 222 47% 11%;

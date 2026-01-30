@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { SendHorizonal, ArrowDown, Loader2, Info } from "lucide-react";
 import Message, { type MessageRole, type MessageAgentMeta } from "@/components/Chat/Message";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useClientValidation } from "@/hooks/useClientValidation";
 import { createCaseIfNeeded } from "@/lib/case-actions";
 import { ClientValidationModal } from "@/components/Workspace/ClientValidationModal";
@@ -76,6 +76,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
   // ✅ FASE 7: Hook para validación con modal (unificado con BriefForm y CaseBriefForm)
   const { validateAndResolveClient, modalState, setModalState } = useClientValidation(true);
   const router = useRouter();
+  const locale = useLocale();
 
   // Cache para evitar validaciones repetidas del mismo cliente
   const [validatedClientCache, setValidatedClientCache] = useState<Map<string, string>>(new Map());
@@ -722,6 +723,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
           currentCaseId,
           saveUserMessage: false, // ✅ CORRECCIÓN: NO guardar mensaje aquí, approveCurrentCase lo enviará y guardará
           skipNavigation: true, // ✅ CORRECCIÓN: Omitir navegación para aprobar antes
+          locale: locale as 'en' | 'es', // ✅ CORRECCIÓN i18n: Pasar locale para navegación consistente
         }
       );
 
@@ -774,9 +776,7 @@ const ConversationPane: React.FC<{ className?: string }> = ({ className }) => {
         await new Promise(resolve => setTimeout(resolve, 50));
 
         // Paso 4: Navegar DESPUÉS de aprobar exitosamente y persistir estado
-        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-        const localeMatch = currentPath.match(/\/(es|en)\//);
-        const locale = localeMatch ? localeMatch[1] : 'en';
+        // ✅ CORRECCIÓN: Usar useLocale() en lugar de regex para consistencia i18n
         const targetUrl = `/${locale}/agent/${finalCaseId}`;
         console.log(`✅ [ConversationPane] Navegando a: ${targetUrl} (después de aprobar y persistir)`);
 

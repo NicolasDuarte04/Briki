@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Search, Users } from 'lucide-react';
 import type { DecryptedClient } from '@/lib/clientsDb';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 
 interface ClientListProps {
   clients: DecryptedClient[];
@@ -20,6 +20,7 @@ interface ClientListProps {
 export function ClientList({ clients, orgId, pinnedClientIds = new Set() }: ClientListProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const t = useTranslations('clients.list');
+  const locale = useLocale();
   
   // Filtrar clientes por término de búsqueda
   const filteredClients = clients.filter(client => {
@@ -72,7 +73,7 @@ export function ClientList({ clients, orgId, pinnedClientIds = new Set() }: Clie
           </p>
           {!searchTerm && (
             <Button asChild className="mt-4">
-              <Link href="/workspace/clients/new">
+              <Link href={`/${locale}/workspace/clients/new`}>
                 {t('createFirst')}
               </Link>
             </Button>

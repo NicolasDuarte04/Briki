@@ -9,6 +9,7 @@ import {
 import { IconLogout } from "@tabler/icons-react";
 import Link from "next/link";
 import { workspaceLinks } from "@/config/navigation";
+import { useLocale } from "next-intl";
 
 export default function BrikiSidebarLayout({
   children,
@@ -16,6 +17,7 @@ export default function BrikiSidebarLayout({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(false);
+  const locale = useLocale();
 
   const navLinks = workspaceLinks;
 
@@ -24,7 +26,7 @@ export default function BrikiSidebarLayout({
       <Sidebar open={open} setOpen={setOpen} animate>
         <SidebarBody>
           <div className="flex h-full flex-col gap-2">
-            <Link href="/landing" className="block py-2 select-none">
+            <Link href={`/${locale}/landing`} className="block py-2 select-none">
               <span className="text-xl font-semibold text-briki-gradient leading-none">
                 Briki
               </span>

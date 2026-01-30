@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw, Home, Users } from 'lucide-react';
 import Link from 'next/link';
+import { useLocale } from 'next-intl';
 
 interface ClientsErrorProps {
   error: Error & { digest?: string };
@@ -22,6 +23,8 @@ interface ClientsErrorProps {
  * Permite al usuario reintentar o navegar a una ruta segura.
  */
 export default function ClientsError({ error, reset }: ClientsErrorProps) {
+  const locale = useLocale();
+
   useEffect(() => {
     // Log del error para debugging (solo en desarrollo)
     if (process.env.NODE_ENV !== 'production') {
@@ -74,13 +77,13 @@ export default function ClientsError({ error, reset }: ClientsErrorProps) {
             Reintentar
           </Button>
           <Button asChild variant="outline" className="gap-2">
-            <Link href="/workspace/cases">
+            <Link href={`/${locale}/workspace/cases`}>
               <Users className="w-4 h-4" />
               Ver Casos
             </Link>
           </Button>
           <Button asChild variant="ghost" className="gap-2">
-            <Link href="/dashboard">
+            <Link href={`/${locale}/dashboard`}>
               <Home className="w-4 h-4" />
               Dashboard
             </Link>

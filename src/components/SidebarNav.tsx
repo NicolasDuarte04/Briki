@@ -93,7 +93,7 @@ export default function SidebarNav() {
       <div>
         {/* Logo */}
         <Link
-          href="/landing"
+          href={`/${locale}/landing`}
           aria-label="Home"
           className="group flex items-center rounded-md py-2 pr-2 pl-0 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
         >

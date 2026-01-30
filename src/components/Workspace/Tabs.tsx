@@ -101,6 +101,9 @@ interface WorkspaceTabsProps {
 export function WorkspaceTabs({ orgId }: WorkspaceTabsProps = {}) {
   const t = useTranslations("workspace.tabs");
   const { caseApproved, brief, setCaseApproved, currentCaseId } = useUI();
+  // ✅ TRANSICIÓN ATÓMICA: Obtener approvalPhase para overlay persistente
+  const approvalPhase = useUI(s => s.approvalPhase);
+  const caseApproving = useUI(s => s.caseApproving);
   const fetchPolicyAnalyses = useUI(s => s.fetchPolicyAnalyses); // ✅ FASE 5
   // ✅ FASE 32: Compliance
   const loadComplianceRecord = useUI(s => s.loadComplianceRecord);
@@ -274,6 +277,10 @@ export function WorkspaceTabs({ orgId }: WorkspaceTabsProps = {}) {
     }
   }, [currentCaseId, activeCaseData?.id]); // ✅ CORRECCIÓN: Agregar activeCaseData?.id para evitar llamadas innecesarias
 
+  // ✅ TRANSICIÓN ATÓMICA: Detectar si estamos en medio de una transición
+  // Durante 'processing', mostramos overlay a nivel de Tabs (no depende de componentes hijos)
+  const isTransitioning = approvalPhase === 'processing' || caseApproving;
+
   // ✅ FASE 2: Determinar si mostrar resumen o formulario
   // Lógica: 
   // - new-thread-placeholder (currentCaseId === null) → mostrar formulario (shouldShowSummary = false)
@@ -441,7 +448,19 @@ export function WorkspaceTabs({ orgId }: WorkspaceTabsProps = {}) {
   }, [logRenewalsEvent]);
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col relative">
+      {/* ✅ TRANSICIÓN ATÓMICA: Overlay a nivel de Tabs que persiste durante navegación */}
+      {isTransitioning && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-4 p-8 bg-card rounded-xl shadow-lg border">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <div className="text-center">
+              <p className="font-semibold text-foreground text-lg">Creando caso...</p>
+              <p className="text-sm text-muted-foreground mt-1">Por favor espera un momento</p>
+            </div>
+          </div>
+        </div>
+      )}
       <Tabs
         value={activeTab}
         onValueChange={handleTabChange}

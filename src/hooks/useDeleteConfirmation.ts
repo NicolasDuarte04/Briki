@@ -1,6 +1,7 @@
 // /src/hooks/useDeleteConfirmation.ts
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLocale } from 'next-intl';
 
 interface UseDeleteConfirmationProps {
   deleteApiEndpoint: string;
@@ -14,6 +15,7 @@ export function useDeleteConfirmation({
   itemName
 }: UseDeleteConfirmationProps) {
   const router = useRouter();
+  const locale = useLocale();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -58,7 +60,7 @@ export function useDeleteConfirmation({
       setItemToDelete(null);
       
       // Redirigir a la lista
-      router.push(redirectPath);
+      router.push(`/${locale}${redirectPath}`);
     } catch (error) {
       console.error(`Error deleting ${itemName}:`, error);
       // Aquí podrías mostrar un toast de error

@@ -19,7 +19,7 @@ import {
 } from "@/app/actions/invitationActions";
 import { toast } from "sonner";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 
 /**
  * NotificationDropdown - Muestra las invitaciones de organización pendientes.
@@ -33,6 +33,7 @@ import { useTranslations } from "next-intl";
 export function NotificationDropdown() {
   const { status } = useAuth();
   const t = useTranslations('profile.notifications');
+  const locale = useLocale();
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
   const [loading, setLoading] = useState(false);
   const [respondingTo, setRespondingTo] = useState<string | null>(null);
@@ -228,7 +229,7 @@ export function NotificationDropdown() {
             <DropdownMenuSeparator />
             <div className="p-2">
               <Link
-                href="/profile"
+                href={`/${locale}/profile`}
                 className="block w-full text-center text-xs text-primary hover:underline"
                 onClick={() => setIsOpen(false)}
               >

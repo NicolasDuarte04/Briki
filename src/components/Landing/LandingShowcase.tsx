@@ -41,7 +41,7 @@ export function LandingShowcase() {
       </div>
 
       {/* Content container */}
-      <div className="relative w-full max-w-[1200px] mx-auto px-6 sm:px-8 py-32" style={{ zIndex: 10, backgroundColor: 'rgba(21, 26, 30, 1)' }}>
+      <div className="relative w-full max-w-[1200px] mx-auto px-6 sm:px-8 py-32 bg-[#151A1E]" style={{ zIndex: 10 }}>
         {/* Floating demo window */}
         <div
           className="relative rounded-[20px] border shadow-2xl overflow-hidden"

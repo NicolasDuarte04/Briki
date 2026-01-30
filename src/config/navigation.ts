@@ -95,14 +95,8 @@ export function getWorkspaceSections(locale: Locale): NavSection[] {
           href: getDashboardHome(locale),
           matchPath: '/dashboard',
           icon: LayoutDashboard,
-          // Subítems desplegables al hover
+          // Subítems desplegables al hover (Casos y Clientes)
           subItems: [
-            {
-              label: locale === 'es' ? 'Agente' : 'Agent',
-              href: pathForAgent(locale),
-              matchPath: '/agent',
-              icon: Bot,
-            },
             {
               label: locale === 'es' ? 'Casos' : 'Cases',
               href: pathForCases(locale),
@@ -143,6 +137,13 @@ export function getWorkspaceSections(locale: Locale): NavSection[] {
               icon: Upload,
             },
           ],
+        },
+        // ✅ AGENTE: Ahora debajo de Dashboard y Policies
+        {
+          label: locale === 'es' ? 'Agente' : 'Agent',
+          href: pathForAgent(locale),
+          matchPath: '/agent',
+          icon: Bot,
         },
       ],
     },
@@ -204,6 +205,7 @@ export function getWorkspaceLinks(locale: Locale) {
       matchPath: '/dashboard',
       icon: LayoutDashboard
     },
+    // ✅ AGENTE: Después de Dashboard
     { 
       label: locale === 'es' ? 'Agente' : 'Agent',
       href: pathForAgent(locale),

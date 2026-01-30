@@ -4,17 +4,19 @@ import { ClientFormClient } from '@/components/Clients/ClientFormClient';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { getLocale } from 'next-intl/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NewClientPage() {
   const { currentOrg } = await getCurrentOrg();
+  const locale = await getLocale();
   
   return (
     <div className="container mx-auto py-8 px-4 max-w-3xl">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <Link href="/workspace/clients">
+        <Link href={`/${locale}/workspace/clients`}>
           <Button variant="ghost" size="icon">
             <ArrowLeft className="h-4 w-4" />
           </Button>

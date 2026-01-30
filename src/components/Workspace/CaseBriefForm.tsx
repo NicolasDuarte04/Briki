@@ -7,7 +7,7 @@ import { useUI } from '@/lib/ui/state';
 import { BriefForm, CaseBriefData } from '@/components/Cases/BriefForm';
 import { CaseBrief } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useClientValidation } from '@/hooks/useClientValidation';
 import { createCaseIfNeeded } from '@/lib/case-actions';
 import { ClientValidationModal } from '@/components/Workspace/ClientValidationModal';
@@ -38,6 +38,7 @@ interface CaseBriefFormProps {
 
 export default function CaseBriefForm({ initialData, activeCaseData, onEditComplete, isEditingMode = false, orgId: propOrgId }: CaseBriefFormProps = {}) {
     const router = useRouter();
+    const locale = useLocale();
     const { brief, setBrief, currentCaseId, approveCurrentCase, caseApproving, caseApproved, setCaseApproved, setInitialMessage } = useUI();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [fetchedOrgId, setFetchedOrgId] = useState<string | null>(null); // ✅ Estado para orgId (fallback)
@@ -353,7 +354,8 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                     setCurrentCaseId: useUI.getState().setCurrentCaseId,
                     currentCaseId,
                     saveUserMessage: false, // Por ahora, se guardará después en ConversationPane
-                    skipNavigation: false // ✅ REESTRUCTURACIÓN: Navegación directa, sin interceptación
+                    skipNavigation: false, // ✅ REESTRUCTURACIÓN: Navegación directa, sin interceptación
+                    locale: locale as 'en' | 'es', // ✅ CORRECCIÓN i18n: Pasar locale para navegación consistente
                 }
             );
 
@@ -409,6 +411,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                     setCurrentCaseId: useUI.getState().setCurrentCaseId,
                     currentCaseId,
                     saveUserMessage: true, // ✅ FASE 6: Guardar mensaje del usuario como primer mensaje
+                    locale: locale as 'en' | 'es', // ✅ CORRECCIÓN i18n: Pasar locale para navegación consistente
                 }
             );
 

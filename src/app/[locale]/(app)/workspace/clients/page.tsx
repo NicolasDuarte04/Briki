@@ -7,13 +7,14 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { PlusCircle, Users, Mail, Phone, MapPin } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ClientsPage() {
   const { user, currentOrg } = await getCurrentOrg();
   const t = await getTranslations('clients');
+  const locale = await getLocale();
   
   // Obtener clientes y pins del usuario en paralelo
   // NOTA: Stats se calculan en memoria para evitar transacciones duplicadas
@@ -43,7 +44,7 @@ export default async function ClientsPage() {
             {t('subtitle')}
           </p>
         </div>
-        <Link href="/workspace/clients/new">
+        <Link href={`/${locale}/workspace/clients/new`}>
           <Button className="gap-2">
             <PlusCircle className="h-4 w-4" />
             {t('newClient')}

@@ -18,6 +18,7 @@ interface ClientFormProps {
 
 export function ClientForm({ orgId, client }: ClientFormProps) {
   const router = useRouter();
+  const locale = useLocale();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -75,7 +76,7 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
       
       // Redirigir después de 2 segundos para que el usuario vea el mensaje
       setTimeout(() => {
-        router.push(`/workspace/clients/${clientId}`);
+        router.push(`/${locale}/workspace/clients/${clientId}`);
         router.refresh();
       }, 2000);
     } catch (err) {

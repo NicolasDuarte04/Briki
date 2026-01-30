@@ -29,6 +29,8 @@ export interface CreateCaseOptions {
     saveUserMessage?: boolean;
     /** Si se debe omitir la navegación automática (para aprobar antes de navegar) */
     skipNavigation?: boolean;
+    /** Locale actual para navegación correcta ('en' | 'es') - REQUERIDO para consistencia i18n */
+    locale?: 'en' | 'es';
 }
 
 /**
@@ -245,9 +247,8 @@ export async function createCaseIfNeeded(
 
         // 7. Navegar al caso creado (SPA navigation) - Solo si no se omite la navegación
         if (!options?.skipNavigation) {
-            const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-            const localeMatch = currentPath.match(/\/(es|en)\//);
-            const locale = localeMatch ? localeMatch[1] : 'es';
+            // ✅ CORRECCIÓN: Usar locale del options en lugar de regex para consistencia i18n
+            const locale = options?.locale || 'en';
 
             const targetUrl = `/${locale}/agent/${caseId}`;
             console.log(`✅ [case-actions] Navigating to: ${targetUrl} (SPA navigation)`);

@@ -18,14 +18,6 @@ const intlMiddleware = createMiddleware({
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Block invalid /landing/* subroutes - redirect to /landing
-  // This prevents [locale] from capturing "landing" as a locale
-  // EXCEPTION: Allow static assets (images, etc.) to pass through
-  const isStaticAsset = /\.(png|jpg|jpeg|gif|svg|webp|ico|css|js|woff|woff2|ttf|eot|mp4|webm|pdf)$/i.test(pathname);
-  if (pathname.startsWith('/landing/') && !isStaticAsset) {
-    return NextResponse.redirect(new URL('/landing', request.url));
-  }
-
   // Check if URL already has a locale prefix
   const localeMatch = pathname.match(/^\/(es|en)/);
   const hasLocalePrefix = !!localeMatch;
@@ -156,9 +148,10 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   // Matcher optimizado para excluir rutas internas y de activos de Next.js
-  // IMPORTANTE: Excluir completamente /landing/* para que las imágenes se sirvan directamente
+  // /landing ahora está dentro de [locale], pero los assets en /public/landing/* se excluyen con extensión
   matcher: [
-    // Excluir: API, _next, assets estáticos, landing (completo), etc.
-    '/((?!api|_next/static|_next/image|assets|favicon.ico|brand|landing|robots.txt|sitemap.xml|apple-touch-icon|site.webmanifest|android-chrome|favicon-).*)',
+    // Excluir: API, _next, assets estáticos, etc.
+    // NOTA: /landing ya NO se excluye - ahora es parte del sistema i18n
+    '/((?!api|_next/static|_next/image|assets|favicon.ico|brand|robots.txt|sitemap.xml|apple-touch-icon|site.webmanifest|android-chrome|favicon-|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$|.*\\.webp$).*)',
   ],
 };

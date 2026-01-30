@@ -28,7 +28,7 @@ import { LandingFooter } from './Landing/LandingFooter';
  */
 export default function Landing() {
   return (
-    <div className="min-h-screen landing-scroll" style={{ overflowY: 'auto', height: '100vh', backgroundColor: 'rgba(21, 26, 30, 1)' }}>
+    <div className="min-h-screen landing-scroll bg-[#151A1E]" style={{ overflowY: 'auto', height: '100vh' }}>
       {/* Navigation - outside main for proper landmark structure */}
       <LandingNavigation />
       
