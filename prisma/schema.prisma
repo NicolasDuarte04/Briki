@@ -1075,3 +1075,60 @@ model ComplianceAuditEvent {
   @@map("compliance_audit_events")
   @@schema("public")
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE WORKER: Tracking de trabajos en background (análisis, comparaciones, etc.)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Tipos de trabajo en background
+enum JobType {
+  ANALYZE_POLICY     // Análisis de póliza con IA
+  COMPARE_POLICIES   // Comparación entre pólizas
+  GENERATE_PROPOSAL  // Generación de propuesta
+  BULK_ANALYSIS      // Análisis masivo
+  
+  @@schema("public")
+}
+
+/// Estados de un trabajo
+enum JobStatus {
+  PENDING     // En cola, esperando procesamiento
+  PROCESSING  // En ejecución
+  COMPLETED   // Finalizado exitosamente
+  FAILED      // Falló (ver errorMessage)
+  CANCELLED   // Cancelado por usuario
+  
+  @@schema("public")
+}
+
+/// Registro de trabajos en background para tracking multi-usuario
+model CaseActivity {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId        String    @map("case_id") @db.Uuid
+  artifactId    String?   @map("artifact_id") @db.Uuid   // Póliza siendo analizada (opcional)
+  userId        String    @map("user_id") @db.Uuid       // Usuario que inició el trabajo
+  jobType       JobType   @map("job_type")
+  status        JobStatus @default(PENDING)
+  
+  // Metadatos del trabajo
+  inputData     Json?     @map("input_data")             // Datos de entrada (ej: artifactId, options)
+  resultData    Json?     @map("result_data")            // Resultado del trabajo (ej: analysisId)
+  errorMessage  String?   @map("error_message")          // Mensaje de error si falló
+  
+  // Tracking temporal
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  startedAt     DateTime? @map("started_at") @db.Timestamptz(6)  // Cuando empezó a procesar
+  completedAt   DateTime? @map("completed_at") @db.Timestamptz(6) // Cuando terminó
+  
+  // Progress tracking (opcional, para jobs largos)
+  progressPct   Int?      @map("progress_pct") @db.SmallInt  // 0-100
+  progressMsg   String?   @map("progress_msg")                // "Extrayendo texto...", "Analizando coberturas..."
+
+  @@index([caseId])
+  @@index([userId])
+  @@index([status])
+  @@index([jobType])
+  @@index([createdAt(sort: Desc)])
+  @@map("case_activities")
+  @@schema("public")
+}

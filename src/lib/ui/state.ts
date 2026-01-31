@@ -915,6 +915,11 @@ export interface UIState {
   
   // ✅ FASE REESTRUCTURACIÓN: ID del artifact actualmente en análisis (para bloqueo de UI)
   _analyzingArtifactId: string | null;
+  
+  // ✅ FASE WORKER: Job async para análisis en background
+  _activeAnalysisJobId: string | null;       // Job activo en QStash
+  _analysisJobProgress: number | null;       // Progreso 0-100
+  _analysisJobMessage: string | null;        // Mensaje de progreso
 
   policies: Policy[];
   policiesLoading: boolean;
@@ -1364,6 +1369,11 @@ export const useUI = create<UIState>()(
       selectedField: undefined,
       _pendingPolicyAnalysis: new Set(),
       _analyzingArtifactId: null, // ✅ FASE REESTRUCTURACIÓN: Artifact actualmente en análisis
+      
+      // ✅ FASE WORKER: Job async inicialización
+      _activeAnalysisJobId: null,
+      _analysisJobProgress: null,
+      _analysisJobMessage: null,
 
       // ✅ FASE 30: Inicialización de Comparación
       activeComparison: null,
@@ -3269,6 +3279,15 @@ export const useUI = create<UIState>()(
         set({ _analyzingArtifactId: artifactId });
       },
 
+      /**
+       * ✅ FASE WORKER: Analiza una póliza usando el sistema de jobs async
+       * 
+       * Flujo:
+       * 1. Llama a /api/jobs/analyze para crear job en QStash
+       * 2. Si async=true, hace polling a /api/jobs/[jobId]/status
+       * 3. Cuando completa, obtiene el análisis y lo añade al estado
+       * 4. Si QStash no está disponible, usa fallback síncrono
+       */
       analyzePolicyArtifact: async (artifactId: string) => {
         console.log('🤖 [analyzePolicyArtifact] Analyzing artifact:', artifactId);
 
@@ -3286,62 +3305,157 @@ export const useUI = create<UIState>()(
           throw new Error('Another analysis is already in progress');
         }
 
-        // Marcar como en progreso (ambos flags para compatibilidad)
+        // Marcar como en progreso
         const newPending = new Set(pending);
         newPending.add(artifactId);
+        const currentCaseId = get().currentCaseId;
+        
+        // ✅ FASE WORKER: Validar que hay un caso válido antes de iniciar análisis
+        if (!currentCaseId || currentCaseId === 'new-thread-placeholder') {
+          throw new Error('Debe crear el caso antes de analizar pólizas');
+        }
+        
         set({ 
           _pendingPolicyAnalysis: newPending,
-          _analyzingArtifactId: artifactId  // ✅ NUEVO: Estado visible para UI
+          _analyzingArtifactId: artifactId,
+          _analysisJobProgress: 0,
+          _analysisJobMessage: 'Iniciando análisis...'
         });
 
         try {
-          const response = await fetch('/api/policies/analyze', {
+          // 1. Intentar crear job async
+          const jobResponse = await fetch('/api/jobs/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              artifactId,
-              extractionMethod: 'hybrid'
+              caseId: currentCaseId,
+              artifactId
             })
           });
 
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `HTTP ${response.status}`);
+          if (!jobResponse.ok) {
+            const errorData = await jobResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || `HTTP ${jobResponse.status}`);
           }
 
-          const data = await response.json();
+          const jobData = await jobResponse.json();
+          console.log('📋 [analyzePolicyArtifact] Job response:', jobData);
 
-          if (!data.success) {
-            throw new Error(data.error || 'Analysis failed');
+          // 2. Si es async, hacer polling
+          if (jobData.async && jobData.jobId) {
+            set({ _activeAnalysisJobId: jobData.jobId });
+            
+            // Polling cada 2 segundos
+            const POLL_INTERVAL = 2000;
+            const MAX_POLLS = 150; // 5 minutos máximo
+            let polls = 0;
+            
+            while (polls < MAX_POLLS) {
+              await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+              polls++;
+              
+              const statusResponse = await fetch(`/api/jobs/${jobData.jobId}/status`);
+              if (!statusResponse.ok) {
+                console.warn('⚠️ [analyzePolicyArtifact] Error polling status');
+                continue;
+              }
+              
+              const status = await statusResponse.json();
+              console.log(`📊 [analyzePolicyArtifact] Poll ${polls}: ${status.status} (${status.progressPct}%)`);
+              
+              // Actualizar progreso en UI
+              set({
+                _analysisJobProgress: status.progressPct,
+                _analysisJobMessage: status.progressMsg || 'Procesando...'
+              });
+              
+              if (status.isComplete) {
+                if (status.status === 'COMPLETED' && status.result?.analysisId) {
+                  // Obtener el análisis completo
+                  const analysisResponse = await fetch(`/api/policies/analyses/${status.result.analysisId}`);
+                  if (analysisResponse.ok) {
+                    const analysisData = await analysisResponse.json();
+                    
+                    // Añadir al estado
+                    const { policyAnalyses } = get();
+                    set({
+                      policyAnalyses: [...policyAnalyses, analysisData.analysis],
+                      _cachedPolicyAnalysesView: undefined,
+                      _cachedRenewalsView: undefined,
+                      _cachedFilteredRenewalsView: undefined
+                    });
+                    
+                    console.log('✅ [analyzePolicyArtifact] Async analysis completed:', status.result.analysisId);
+                    return analysisData.analysis;
+                  }
+                } else if (status.status === 'FAILED') {
+                  throw new Error(status.error || 'Analysis failed');
+                }
+                break;
+              }
+            }
+            
+            if (polls >= MAX_POLLS) {
+              throw new Error('Analysis timed out after 5 minutes');
+            }
           }
+          
+          // 3. Fallback: Si no es async o el fallbackUrl está presente, usar API síncrona
+          if (!jobData.async || jobData.fallbackUrl) {
+            console.log('🔄 [analyzePolicyArtifact] Using sync fallback');
+            set({ _analysisJobMessage: 'Analizando (modo síncrono)...' });
+            
+            const response = await fetch('/api/policies/analyze', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                artifactId,
+                extractionMethod: 'hybrid'
+              })
+            });
 
-          console.log('✅ [analyzePolicyArtifact] Analysis completed:', data.analysis.id);
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
 
-          // Add to the list
-          const { policyAnalyses } = get();
-          set({
-            policyAnalyses: [...policyAnalyses, data.analysis],
-            _cachedPolicyAnalysesView: undefined, // Clear cache
-            // Clear renewals caches to trigger derived recalculation
-            _cachedRenewalsView: undefined,
-            _cachedFilteredRenewalsView: undefined
-          });
+            const data = await response.json();
 
-          return data.analysis;
+            if (!data.success) {
+              throw new Error(data.error || 'Analysis failed');
+            }
+
+            console.log('✅ [analyzePolicyArtifact] Sync analysis completed:', data.analysis.id);
+
+            const { policyAnalyses } = get();
+            set({
+              policyAnalyses: [...policyAnalyses, data.analysis],
+              _cachedPolicyAnalysesView: undefined,
+              _cachedRenewalsView: undefined,
+              _cachedFilteredRenewalsView: undefined
+            });
+
+            return data.analysis;
+          }
+          
+          throw new Error('No analysis result received');
+          
         } catch (error: any) {
           console.error('❌ [analyzePolicyArtifact] Error:', error.message);
           throw error;
         } finally {
-          // ✅ FASE 22: Limpiar flags
+          // ✅ Limpiar todos los flags
           const currentPending = get()._pendingPolicyAnalysis || new Set();
           const updatedPending = new Set(currentPending);
           updatedPending.delete(artifactId);
           
-          // ✅ FASE REESTRUCTURACIÓN: Pequeño delay antes de limpiar para permitir re-render
           setTimeout(() => {
             set({ 
               _pendingPolicyAnalysis: updatedPending,
-              _analyzingArtifactId: null  // ✅ Liberar bloqueo de UI
+              _analyzingArtifactId: null,
+              _activeAnalysisJobId: null,
+              _analysisJobProgress: null,
+              _analysisJobMessage: null
             });
           }, 100);
         }

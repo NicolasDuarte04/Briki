@@ -902,6 +902,8 @@ function AnalyzeButton({ artifactId, policyName }: { artifactId: string, policyN
   const analyzePolicyArtifact = useUI((s) => s.analyzePolicyArtifact);
   const setActiveTab = useUI((s) => s.setActiveTab);
   const _analyzingArtifactId = useUI((s) => s._analyzingArtifactId);
+  const _analysisJobProgress = useUI((s) => s._analysisJobProgress);
+  const _analysisJobMessage = useUI((s) => s._analysisJobMessage);
   const [loading, setLoading] = React.useState(false);
   const t = useTranslations("workspace.policies");
   
@@ -909,6 +911,11 @@ function AnalyzeButton({ artifactId, policyName }: { artifactId: string, policyN
   const isAnyAnalyzing = _analyzingArtifactId !== null;
   const isThisAnalyzing = _analyzingArtifactId === artifactId;
   const isDisabledByOther = isAnyAnalyzing && !isThisAnalyzing;
+  
+  // ✅ FASE WORKER: Mensaje de progreso
+  const progressText = isThisAnalyzing && _analysisJobMessage 
+    ? _analysisJobMessage 
+    : t("actions.analyzing");
 
   const handleAnalyze = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -920,7 +927,7 @@ function AnalyzeButton({ artifactId, policyName }: { artifactId: string, policyN
       setLoading(true);
       console.log('🤖 [AnalyzeButton] Triggering analysis for:', artifactId);
 
-      // 1. Ejecutar análisis
+      // 1. Ejecutar análisis (ahora usa jobs async si QStash está disponible)
       const analysis = await analyzePolicyArtifact(artifactId);
 
       // 2. Preparar mensaje para el agente con instrucción de comparación
@@ -954,13 +961,16 @@ function AnalyzeButton({ artifactId, policyName }: { artifactId: string, policyN
       type="button"
       onClick={handleAnalyze}
       disabled={loading || isDisabledByOther}
-      className="gap-2"
+      className="gap-2 min-w-[140px]"
       title={isDisabledByOther ? t("actions.waitingTooltip") : t("actions.analyzeTooltip")}
     >
       {loading || isThisAnalyzing ? (
         <>
           <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          <span>{t("actions.analyzing")}</span>
+          <span className="truncate max-w-[120px]">{progressText}</span>
+          {_analysisJobProgress !== null && _analysisJobProgress > 0 && (
+            <span className="text-xs opacity-70">({_analysisJobProgress}%)</span>
+          )}
         </>
       ) : isDisabledByOther ? (
         <>

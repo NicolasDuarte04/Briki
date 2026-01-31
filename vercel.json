@@ -3,6 +3,9 @@
   "buildCommand": "pnpm run build",
   "framework": "nextjs",
   "functions": {
+    "src/app/api/webhooks/**/*.ts": {
+      "maxDuration": 300
+    },
     "src/app/**/*.ts": {
       "maxDuration": 30
     },
