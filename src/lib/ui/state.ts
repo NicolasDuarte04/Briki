@@ -1674,8 +1674,19 @@ export const useUI = create<UIState>()(
           });
 
           if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'API request failed');
+            // ✅ FIX P1: Validar Content-Type antes de parsear JSON
+            const contentType = response.headers.get('content-type') || '';
+            let errorMessage = 'Error en el servidor';
+            
+            if (contentType.includes('application/json')) {
+              const errorData = await response.json().catch(() => ({}));
+              errorMessage = errorData.error || 'API request failed';
+            } else {
+              console.error('[sendAutoMessage] Non-JSON error response');
+              errorMessage = `Error del servidor (${response.status})`;
+            }
+            
+            throw new Error(errorMessage);
           }
 
           const result = await response.json();
@@ -3334,8 +3345,21 @@ export const useUI = create<UIState>()(
           });
 
           if (!jobResponse.ok) {
-            const errorData = await jobResponse.json().catch(() => ({}));
-            throw new Error(errorData.error || `HTTP ${jobResponse.status}`);
+            // ✅ FIX P1: Validar Content-Type antes de parsear JSON
+            const contentType = jobResponse.headers.get('content-type') || '';
+            let errorMessage = `HTTP ${jobResponse.status}`;
+            
+            if (contentType.includes('application/json')) {
+              const errorData = await jobResponse.json().catch(() => ({}));
+              errorMessage = errorData.error || errorMessage;
+            } else {
+              // El servidor devolvió HTML u otro formato (ej: error de Vercel/Gateway)
+              const text = await jobResponse.text().catch(() => '');
+              console.error('[analyzePolicyArtifact] Non-JSON error response:', text.substring(0, 200));
+              errorMessage = `Error del servidor (${jobResponse.status}). Intenta de nuevo.`;
+            }
+            
+            throw new Error(errorMessage);
           }
 
           const jobData = await jobResponse.json();
@@ -3415,8 +3439,19 @@ export const useUI = create<UIState>()(
             });
 
             if (!response.ok) {
-              const errorData = await response.json().catch(() => ({}));
-              throw new Error(errorData.error || `HTTP ${response.status}`);
+              // ✅ FIX P1: Validar Content-Type antes de parsear JSON (fallback síncrono)
+              const contentType = response.headers.get('content-type') || '';
+              let errorMessage = `HTTP ${response.status}`;
+              
+              if (contentType.includes('application/json')) {
+                const errorData = await response.json().catch(() => ({}));
+                errorMessage = errorData.error || errorMessage;
+              } else {
+                console.error('[analyzePolicyArtifact] Sync fallback: Non-JSON error');
+                errorMessage = `Error del servidor (${response.status}). Intenta de nuevo.`;
+              }
+              
+              throw new Error(errorMessage);
             }
 
             const data = await response.json();
