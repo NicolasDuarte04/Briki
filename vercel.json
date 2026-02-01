@@ -3,14 +3,20 @@
   "buildCommand": "pnpm run build",
   "framework": "nextjs",
   "functions": {
-    "src/app/api/webhooks/**/*.ts": {
-      "maxDuration": 300
-    },
     "src/app/**/*.ts": {
       "maxDuration": 30
     },
     "src/app/**/*.tsx": {
       "maxDuration": 30
+    },
+    "src/app/api/policies/analyze/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/jobs/analyze/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/webhooks/**/*.ts": {
+      "maxDuration": 300
     }
   },
   "headers": [
