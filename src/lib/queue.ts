@@ -23,9 +23,24 @@ const QSTASH_CURRENT_SIGNING_KEY = process.env.QSTASH_CURRENT_SIGNING_KEY;
 const QSTASH_NEXT_SIGNING_KEY = process.env.QSTASH_NEXT_SIGNING_KEY;
 
 // URL base de la aplicación (para webhooks)
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL 
-  ? `https://${process.env.VERCEL_URL}` 
-  : 'http://localhost:3000';
+// ✅ FIX: Corregir precedencia de operadores - priorizar NEXT_PUBLIC_APP_URL
+function getAppUrl(): string {
+  // 1. Prioridad: Variable explícita de la app
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  // 2. Fallback: URL de Vercel (para previews)
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  // 3. Default: Localhost para desarrollo
+  return 'http://localhost:3000';
+}
+
+const APP_URL = getAppUrl();
+
+// Log para debug (solo en servidor, no expone secrets)
+console.log('[QStash] APP_URL configurada:', APP_URL);
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CLIENTE QSTASH
