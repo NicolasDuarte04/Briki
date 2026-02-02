@@ -3365,8 +3365,12 @@ export const useUI = create<UIState>()(
           const jobData = await jobResponse.json();
           console.log('📋 [analyzePolicyArtifact] Job response:', jobData);
 
-          // 2. Si es async, hacer polling
-          if (jobData.async && jobData.jobId) {
+          // 🚨 HOTFIX: Forzar modo síncrono directo (bypass jobs system)
+          // TODO: Revertir cuando QStash esté funcionando
+          const FORCE_SYNC_MODE = true;
+          
+          // 2. Si es async Y no estamos forzando sync, hacer polling
+          if (jobData.async && jobData.jobId && !FORCE_SYNC_MODE) {
             set({ _activeAnalysisJobId: jobData.jobId });
             
             // Polling cada 2 segundos
