@@ -687,6 +687,22 @@ const en = {
       profile: "Profile",
       signOut: "Sign out",
     },
+    verify: {
+      title: "Check your email",
+      subtitle: "We've sent a confirmation link to:",
+      emailPlaceholder: "your email address",
+      instructions: "Click the link in your email to verify your account and get started with Briki.",
+      backToLogin: "Back to login",
+      noEmail: "Didn't receive an email? Check your spam folder or",
+      tryAgain: "try signing up again",
+    },
+    error: {
+      title: "Authentication Error",
+      subtitle: "There was a problem confirming your email",
+      description: "The confirmation link may have expired or been used already. Please try signing up or logging in again.",
+      signUpAgain: "Sign up again",
+      goToLogin: "Go to login",
+    },
   },
   profile: {
     title: "Profile",

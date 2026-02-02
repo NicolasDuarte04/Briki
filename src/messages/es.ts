@@ -687,6 +687,22 @@ const es = {
       profile: "Perfil",
       signOut: "Cerrar sesión",
     },
+    verify: {
+      title: "Revisa tu correo electrónico",
+      subtitle: "Hemos enviado un enlace de confirmación a:",
+      emailPlaceholder: "tu dirección de correo",
+      instructions: "Haz clic en el enlace de tu correo para verificar tu cuenta y comenzar a usar Briki.",
+      backToLogin: "Volver al inicio de sesión",
+      noEmail: "¿No recibiste el correo? Revisa tu carpeta de spam o",
+      tryAgain: "intenta registrarte de nuevo",
+    },
+    error: {
+      title: "Error de Autenticación",
+      subtitle: "Hubo un problema al confirmar tu correo",
+      description: "El enlace de confirmación pudo haber expirado o ya fue utilizado. Por favor intenta registrarte o iniciar sesión de nuevo.",
+      signUpAgain: "Registrarse de nuevo",
+      goToLogin: "Ir al inicio de sesión",
+    },
   },
   profile: {
     title: "Perfil",

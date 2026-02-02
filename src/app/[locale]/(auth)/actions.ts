@@ -59,7 +59,7 @@ export async function signup(formData: FormData): Promise<ActionResult> {
     // If no session, email confirmation is enabled - redirect to verify page
     if (!authData.session) {
       console.log('ℹ️ [SIGNUP] No hay sesión, redirigiendo a verificación')
-      redirect('/auth/verify')
+      redirect(`/verify?email=${encodeURIComponent(email)}`)
     }
 
     // Capturar user en variable local para preservar type narrowing en callbacks

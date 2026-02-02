@@ -50,10 +50,12 @@ export async function middleware(request: NextRequest) {
     '/landing', // <-- AÑADIR RUTA DEDICADA
     '/login',
     '/register',
-    '/auth/verify',
+    '/verify',
+    '/auth-error',
     '/auth/callback',
-    '/auth/error',
-    '/auth/update-password',
+    '/auth/error', // Legacy - mantener para compatibilidad
+    '/auth/verify', // Legacy - mantener para compatibilidad
+    '/update-password',
   ];
 
   // Check if the path is explicitly public
@@ -149,9 +151,9 @@ export async function middleware(request: NextRequest) {
 export const config = {
   // Matcher optimizado para excluir rutas internas y de activos de Next.js
   // /landing ahora está dentro de [locale], pero los assets en /public/landing/* se excluyen con extensión
+  // /auth/* se excluye porque son Route Handlers y redirects legacy (sin i18n)
   matcher: [
-    // Excluir: API, _next, assets estáticos, etc.
-    // NOTA: /landing ya NO se excluye - ahora es parte del sistema i18n
-    '/((?!api|_next/static|_next/image|assets|favicon.ico|brand|robots.txt|sitemap.xml|apple-touch-icon|site.webmanifest|android-chrome|favicon-|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$|.*\\.webp$).*)',
+    // Excluir: API, _next, /auth/*, assets estáticos, etc.
+    '/((?!api|_next/static|_next/image|auth|assets|favicon.ico|brand|robots.txt|sitemap.xml|apple-touch-icon|site.webmanifest|android-chrome|favicon-|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$|.*\\.webp$).*)',
   ],
 };
