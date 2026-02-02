@@ -147,6 +147,7 @@ export async function GET(request: NextRequest) {
     
     // Transform linked analyses with linkType = 'linked'
     // Only include if not already in direct (avoid duplicates)
+    // ✅ FASE CONTEXTUALIZACIÓN: Incluir contextualizedAt para determinar estado del botón
     const linkedWithMeta = linkedPolicyLinks
       .filter(link => !directAnalysisIds.has(link.policyAnalysis.id))
       .map(link => ({
@@ -154,7 +155,8 @@ export async function GET(request: NextRequest) {
         linkType: 'linked' as const,
         linkId: link.id,
         linkedAt: link.linkedAt,
-        linkedBy: link.linkedBy
+        linkedBy: link.linkedBy,
+        contextualizedAt: link.contextualizedAt ?? null // ✅ Nuevo campo
       }));
     
     // Combine: direct first, then linked

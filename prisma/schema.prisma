@@ -730,6 +730,11 @@ model CasePolicyLink {
   linkedBy         String   @map("linked_by") @db.Uuid
   notes            String?
   
+  // ✅ FASE CONTEXTUALIZACIÓN: Timestamp de cuando la póliza fue contextualizada con el caso
+  // NULL = pendiente de contextualización (mostrar "Cargar Análisis")
+  // Poblado = ya contextualizada (mostrar "Ver en PDF")
+  contextualizedAt DateTime? @map("contextualized_at") @db.Timestamptz(6)
+  
   // Relaciones
   case             Case           @relation(fields: [caseId], references: [id], onDelete: Cascade)
   policyAnalysis   PolicyAnalysis @relation(fields: [policyAnalysisId], references: [id], onDelete: Cascade)

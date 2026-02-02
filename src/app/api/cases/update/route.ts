@@ -8,7 +8,7 @@ import { findDuplicateArtifact } from '@/lib/storage/findDuplicateArtifact';
 export async function PUT(request: NextRequest) {
     try {
         const { user, currentOrg } = await getCurrentOrg();
-        const { caseId, tempUploads, ...updateData } = await request.json();
+        const { caseId, tempUploads, linkedPolicyIds, ...updateData } = await request.json();
 
         if (!caseId) {
             return NextResponse.json({ error: 'Case ID is required' }, { status: 400 });
@@ -232,6 +232,73 @@ export async function PUT(request: NextRequest) {
             where: { id: caseId },
             include: { artifacts: true },
         });
+
+        // =========================================================================
+        // ✅ FASE POLICY_LINKS: Vincular pólizas de organización al caso (EDIT MODE)
+        // Solo crea enlaces para pólizas que no estén ya vinculadas
+        // =========================================================================
+        if (linkedPolicyIds && Array.isArray(linkedPolicyIds) && linkedPolicyIds.length > 0) {
+            console.log(`🔗 [API/cases/update] Procesando ${linkedPolicyIds.length} pólizas de organización...`);
+            
+            // 1. Obtener enlaces existentes para este caso
+            const existingLinks = await prisma.casePolicyLink.findMany({
+                where: {
+                    caseId: caseId,
+                    orgId: currentOrg.id,
+                },
+                select: { policyAnalysisId: true },
+            });
+            const existingPolicyIds = new Set(existingLinks.map(l => l.policyAnalysisId));
+            
+            // 2. Filtrar solo los nuevos (que no estén ya vinculados)
+            const newPolicyIds = linkedPolicyIds.filter((id: string) => !existingPolicyIds.has(id));
+            
+            if (newPolicyIds.length === 0) {
+                console.log(`ℹ️ [API/cases/update] Todas las pólizas ya estaban vinculadas, nada que hacer`);
+            } else {
+                console.log(`🔗 [API/cases/update] Vinculando ${newPolicyIds.length} pólizas nuevas...`);
+                
+                // 3. Verificar que las pólizas existen y pertenecen a la organización
+                const validPolicies = await prisma.policyAnalysis.findMany({
+                    where: {
+                        id: { in: newPolicyIds },
+                        orgId: currentOrg.id,
+                    },
+                    select: { id: true },
+                });
+                
+                const validIds = validPolicies.map(p => p.id);
+                const invalidIds = newPolicyIds.filter((id: string) => !validIds.includes(id));
+                
+                if (invalidIds.length > 0) {
+                    console.warn(`⚠️ [API/cases/update] ${invalidIds.length} pólizas no encontradas o no pertenecen a la org:`, invalidIds);
+                }
+                
+                // 4. Crear enlaces para las pólizas válidas
+                let linkedCount = 0;
+                for (const policyAnalysisId of validIds) {
+                    try {
+                        await prisma.casePolicyLink.create({
+                            data: {
+                                caseId: caseId,
+                                policyAnalysisId,
+                                orgId: currentOrg.id,
+                                linkedBy: user.id,
+                                // contextualizedAt: null - por defecto, se actualiza cuando se contextualiza
+                            },
+                        });
+                        linkedCount++;
+                    } catch (linkError: any) {
+                        // Ignorar errores de duplicados (constraint unique)
+                        if (linkError.code !== 'P2002') {
+                            console.error(`❌ [API/cases/update] Error vinculando póliza ${policyAnalysisId}:`, linkError);
+                        }
+                    }
+                }
+                
+                console.log(`✅ [API/cases/update] Vinculadas ${linkedCount} pólizas de organización al caso`);
+            }
+        }
 
         return NextResponse.json({ success: true, case: finalCase });
     } catch (error: any) {

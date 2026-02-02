@@ -270,6 +270,7 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
       pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
       linkType: 'linked' as const,
       linkId: analysis.linkId, // ID del CasePolicyLink para posible desvinculación
+      contextualizedAt: analysis.contextualizedAt, // ✅ PROBLEMA 1 FIX: Para determinar si ya se cargó el análisis
     }));
 
     // 5. Incluir análisis directos "huérfanos" (que no coinciden con artifacts actuales)
@@ -476,21 +477,26 @@ function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
         enableSorting: false,
         header: () => <div className="sr-only">{t("actions.columnLabel")}</div>,
         cell: ({ row }) => {
-          const { analysisId, artifactId, plan, linkType } = row.original;
+          const { analysisId, artifactId, plan, linkType, contextualizedAt, linkId } = row.original;
           const isLinked = linkType === 'linked';
+          // ✅ PROBLEMA 1 FIX: Una póliza vinculada ya contextualizada debe mostrar "Ver en PDF"
+          const isContextualized = isLinked && contextualizedAt != null;
           
           return (
             <div className="flex w-full items-center justify-end">
               <div className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                {/* ✅ FASE REESTRUCTURACIÓN v2: Lógica de botones diferenciada por linkType */}
+                {/* ✅ FASE REESTRUCTURACIÓN v2: Lógica de botones diferenciada por linkType y contextualizedAt */}
                 {isLinked ? (
-                  /* CASO 1: Póliza VINCULADA de organización - siempre mostrar "Cargar Análisis" */
-                  /* Aunque tenga analysisId, necesita contextualizarse con el caso actual */
-                  artifactId ? (
+                  isContextualized && analysisId ? (
+                    /* CASO 1a: Póliza VINCULADA ya contextualizada -> Ver en PDF (análisis ya cargado) */
+                    <ViewInPdfButton analysisId={analysisId as string} />
+                  ) : artifactId ? (
+                    /* CASO 1b: Póliza VINCULADA sin contextualizar -> "Cargar Análisis" */
                     <LoadAnalysisButton
                       artifactId={artifactId}
                       policyName={plan}
                       analysisId={analysisId}
+                      linkId={linkId}
                     />
                   ) : (
                     <span className="text-xs text-muted-foreground italic">Sin archivo vinculado</span>
@@ -990,19 +996,24 @@ function AnalyzeButton({ artifactId, policyName }: { artifactId: string, policyN
 /**
  * ✅ FASE REESTRUCTURACIÓN: Botón "Cargar Análisis" para pólizas vinculadas de organización
  * Estas pólizas ya tienen un análisis previo - solo se contextualiza con el caso actual
+ * ✅ PROBLEMA 1 FIX: Después de cargar, marca contextualizedAt para no volver a mostrar este botón
  */
 function LoadAnalysisButton({ 
   artifactId, 
   policyName,
-  analysisId 
+  analysisId,
+  linkId 
 }: { 
   artifactId: string, 
   policyName: string,
-  analysisId: string | undefined 
+  analysisId: string | undefined,
+  linkId?: string | undefined 
 }) {
   const setActiveTab = useUI((s) => s.setActiveTab);
   const navigateToAnalysis = useUI((s) => s.navigateToAnalysis);
   const _analyzingArtifactId = useUI((s) => s._analyzingArtifactId);
+  const currentCaseId = useUI((s) => s.currentCaseId);
+  const fetchPolicyAnalyses = useUI((s) => s.fetchPolicyAnalyses);
   const [loading, setLoading] = React.useState(false);
   const t = useTranslations("workspace.policies");
   
@@ -1024,6 +1035,32 @@ function LoadAnalysisButton({
       // Si ya tiene analysisId, simplemente navegar a él
       if (analysisId) {
         navigateToAnalysis(analysisId);
+        
+        // ✅ PROBLEMA 1 FIX: Marcar como contextualizado en la BD
+        if (currentCaseId && (linkId || analysisId)) {
+          try {
+            console.log('🔄 [LoadAnalysisButton] Marcando póliza como contextualizada...');
+            const response = await fetch(`/api/cases/${currentCaseId}/link-policies`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                linkId: linkId,
+                policyAnalysisId: analysisId // Fallback si no hay linkId
+              }),
+            });
+            
+            if (response.ok) {
+              console.log('✅ [LoadAnalysisButton] Póliza marcada como contextualizada');
+              // Refrescar los datos para actualizar el UI
+              await fetchPolicyAnalyses(currentCaseId);
+            } else {
+              console.warn('⚠️ [LoadAnalysisButton] No se pudo marcar como contextualizada:', await response.text());
+            }
+          } catch (patchError) {
+            console.warn('⚠️ [LoadAnalysisButton] Error al marcar como contextualizada:', patchError);
+            // No bloquear la navegación si falla el PATCH
+          }
+        }
         
         // Enviar mensaje al agente contextualizando
         const prompt = `He cargado el análisis de la póliza "${policyName}" que ya tenemos en la organización. Por favor, contextualiza este análisis con los requerimientos del cliente actual y compáralo con otras pólizas del caso si existen.`;

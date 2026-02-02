@@ -551,6 +551,8 @@ export type PolicyView = Pick<Policy, "id" | "plan" | "riders"> & {
   // ✅ FASE POLICY_LINKS: Fields for linked organization policies
   linkType?: 'direct' | 'linked';
   linkId?: string; // ID del CasePolicyLink para desvinculación
+  // ✅ FASE CONTEXTUALIZACIÓN: Timestamp de contextualización (null = pendiente)
+  contextualizedAt?: Date | string | null;
 };
 
 /**
@@ -680,6 +682,8 @@ export interface PolicyAnalysis {
   linkedAt?: Date | string | null;
   /** User who linked the policy */
   linkedBy?: string | null;
+  /** When the policy analysis was contextualized with the case (null = pending) */
+  contextualizedAt?: Date | string | null;
   /** Related artifact info (when included) */
   artifact?: {
     id: string;

@@ -5,6 +5,7 @@
  * POST: Vincular una o más pólizas a un caso
  * GET: Obtener las pólizas vinculadas a un caso
  * DELETE: Desvincular una póliza de un caso (por linkId en query param)
+ * PATCH: Actualizar contextualizedAt cuando se carga el análisis de una póliza
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -317,6 +318,109 @@ export async function DELETE(
 
   } catch (error: any) {
     console.error('❌ Error en DELETE /api/cases/[id]/link-policies:', error);
+    return NextResponse.json(
+      { error: 'Internal server error: ' + error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// ============================================================================
+// PATCH: Actualizar contextualizedAt cuando se carga el análisis
+// ============================================================================
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: caseId } = await params;
+    console.log(`🔄 [link-policies] PATCH: Actualizando contextualizedAt para caso ${caseId}...`);
+
+    const { user, currentOrg } = await getCurrentOrg();
+    const orgId = currentOrg.id;
+
+    // Parsear body
+    const body = await request.json();
+    const { linkId, policyAnalysisId } = body as {
+      linkId?: string;
+      policyAnalysisId?: string;
+    };
+
+    if (!linkId && !policyAnalysisId) {
+      return NextResponse.json(
+        { error: 'Se requiere linkId o policyAnalysisId' },
+        { status: 400 }
+      );
+    }
+
+    // Buscar el enlace por linkId o por policyAnalysisId
+    const whereClause: any = {
+      caseId,
+      orgId,
+    };
+    
+    if (linkId) {
+      whereClause.id = linkId;
+    } else if (policyAnalysisId) {
+      whereClause.policyAnalysisId = policyAnalysisId;
+    }
+
+    const link = await prisma.casePolicyLink.findFirst({
+      where: whereClause,
+      select: { id: true, contextualizedAt: true, policyAnalysisId: true },
+    });
+
+    if (!link) {
+      return NextResponse.json(
+        { error: 'Enlace no encontrado' },
+        { status: 404 }
+      );
+    }
+
+    // Solo actualizar si no estaba ya contextualizado
+    if (link.contextualizedAt) {
+      console.log(`ℹ️ [link-policies] Enlace ${link.id} ya estaba contextualizado en ${link.contextualizedAt}`);
+      return NextResponse.json({
+        success: true,
+        alreadyContextualized: true,
+        linkId: link.id,
+        contextualizedAt: link.contextualizedAt,
+      });
+    }
+
+    // Actualizar contextualizedAt
+    const now = new Date();
+    const updatedLink = await prisma.casePolicyLink.update({
+      where: { id: link.id },
+      data: { contextualizedAt: now },
+    });
+
+    // Auditoría
+    await recordAuditLog({
+      caseId,
+      actor: user.id,
+      action: 'policy_contextualized',
+      tool: 'link_policies_api',
+      payload: {
+        orgId,
+        linkId: link.id,
+        policyAnalysisId: link.policyAnalysisId,
+        contextualizedAt: now.toISOString(),
+      },
+    });
+
+    console.log(`✅ [link-policies] Enlace ${link.id} marcado como contextualizado`);
+
+    return NextResponse.json({
+      success: true,
+      alreadyContextualized: false,
+      linkId: updatedLink.id,
+      contextualizedAt: updatedLink.contextualizedAt,
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error en PATCH /api/cases/[id]/link-policies:', error);
     return NextResponse.json(
       { error: 'Internal server error: ' + error.message },
       { status: 500 }

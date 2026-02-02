@@ -280,6 +280,7 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 });
 
                 // 1. Actualizar el caso en BD
+                // ✅ PROBLEMA 2 FIX: Incluir linkedPolicyIds para vincular pólizas de organización
                 const updateResponse = await fetch('/api/cases/update', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -287,7 +288,8 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                         caseId: currentCaseId,
                         orgId: orgId,
                         ...briefUpdate,
-                        tempUploads: data.tempUploads || []
+                        tempUploads: data.tempUploads || [],
+                        linkedPolicyIds: data.linkedPolicyIds || [] // ✅ FIX: Vincular pólizas de organización
                     })
                 });
 
@@ -317,11 +319,19 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
                 let autoMessageContent = generateInitialMessageFromBrief(briefUpdate) || "He actualizado la información del caso. Por favor, analiza los cambios y proporciona recomendaciones actualizadas.";
                 
-                // ✅ FASE DETECCIÓN: Si hay nuevas pólizas, añadir mensaje especial
+                // ✅ FASE DETECCIÓN: Si hay nuevas pólizas DIRECTAS (subidas), añadir mensaje especial
                 if (newArtifacts.length > 0) {
                     const newPolicyNames = newArtifacts.map((a: any) => a.fileName).join(', ');
                     autoMessageContent += `\n\n📄 **Nuevas pólizas añadidas:** He cargado ${newArtifacts.length} nueva(s) póliza(s) al caso: ${newPolicyNames}.\n\nPuedes analizarlas en el tab **'Pólizas'** para que las compare con el panorama actual del cliente.`;
-                    console.log('📄 [CaseBriefForm] Nuevas pólizas detectadas, mensaje enriquecido');
+                    console.log('📄 [CaseBriefForm] Nuevas pólizas directas detectadas, mensaje enriquecido');
+                }
+                
+                // ✅ PROBLEMA 3 FIX: Si hay pólizas VINCULADAS de organización, solo mencionar disponibilidad
+                // NO resumir el contenido de las pólizas, solo indicar que están disponibles para cargar
+                const linkedPoliciesCount = data.linkedPolicyIds?.length || 0;
+                if (linkedPoliciesCount > 0) {
+                    autoMessageContent += `\n\n🔗 **Pólizas de la organización vinculadas:** ${linkedPoliciesCount} póliza(s) ya analizadas han sido vinculadas a este caso.\n\nPuedes verlas en el tab **'Pólizas'** y usar el botón **'Cargar Análisis'** para contextualizar cada una con los requerimientos actuales del cliente.`;
+                    console.log('🔗 [CaseBriefForm] Pólizas vinculadas detectadas, mensaje informativo añadido');
                 }
                 
                 console.log('📝 [CaseBriefForm] Mensaje generado para agente:', autoMessageContent.substring(0, 150) + '...');
