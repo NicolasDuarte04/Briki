@@ -639,11 +639,49 @@ export async function removeMemberFromOrg(memberId: string): Promise<{ ok: boole
       return { ok: false, error: 'Error al eliminar miembro. Verifica tus permisos.' };
     }
     
-    // 7. Log de auditoría
+    // 7. Limpiar active_org_id del usuario eliminado si apuntaba a esta org
+    // Esto evita que quede con una referencia inválida y fuerza fallback a su org propia
+    try {
+      const { data: userPrefs } = await supabase
+        .from('user_preferences')
+        .select('active_org_id')
+        .eq('user_id', targetMember.user_id)
+        .single();
+      
+      if (userPrefs?.active_org_id === targetMember.org_id) {
+        // Obtener la primera organización restante del usuario (su propia org)
+        const { data: remainingOrgs } = await supabase
+          .from('org_members')
+          .select('org_id')
+          .eq('user_id', targetMember.user_id)
+          .order('created_at', { ascending: true })
+          .limit(1);
+        
+        const newActiveOrgId = remainingOrgs?.[0]?.org_id || null;
+        
+        // Actualizar preferencias para apuntar a la org propia
+        await supabase
+          .from('user_preferences')
+          .update({ 
+            active_org_id: newActiveOrgId,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', targetMember.user_id);
+        
+        console.log(`[AUDIT] Reasignó active_org_id de usuario ${targetMember.user_id} a ${newActiveOrgId || 'null'}`);
+      }
+    } catch (prefError) {
+      // No bloquear la operación principal si falla la limpieza de preferencias
+      console.warn('No se pudo limpiar active_org_id del usuario eliminado:', prefError);
+    }
+    
+    // 8. Log de auditoría
     console.log(`[AUDIT] User ${user.id} removed member ${memberId} (user: ${targetMember.user_id}, role: ${targetMember.role}) from org ${targetMember.org_id}`);
     
-    // 8. Revalidar cache
+    // 9. Revalidar cache
     revalidatePath('/profile');
+    revalidatePath('/dashboard');
+    revalidatePath('/workspace');
     
     return { ok: true };
     
