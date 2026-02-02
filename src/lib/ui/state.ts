@@ -3428,8 +3428,9 @@ export const useUI = create<UIState>()(
             }
           }
           
-          // 3. Fallback: Si no es async o el fallbackUrl está presente, usar API síncrona
-          if (!jobData.async || jobData.fallbackUrl) {
+          // 3. Fallback: Si no es async, fallbackUrl está presente, O estamos forzando sync
+          // 🚨 HOTFIX: FORCE_SYNC_MODE fuerza este path
+          if (!jobData.async || jobData.fallbackUrl || FORCE_SYNC_MODE) {
             console.log('🔄 [analyzePolicyArtifact] Using sync fallback');
             set({ _analysisJobMessage: 'Analizando (modo síncrono)...' });
             
