@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { createServerSupabase } from '@/lib/supabase/server';
 import { getUserOrganizations } from '@/app/actions/organizationActions';
 import { checkDatabaseHealth } from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 /**
  * Helper para obtener la organización actual del usuario autenticado.
@@ -130,7 +131,42 @@ export async function getCurrentOrg() {
         }
 
         if (!organizations || organizations.length === 0) {
-            redirect('/onboarding/organization');
+            // ✅ AUTO-CREACIÓN: Usuario sin organización - crear automáticamente
+            console.log('⚠️ [getCurrentOrg] Usuario sin organización, auto-creando...');
+            
+            try {
+                const orgSlug = `personal-${user.id.substring(0, 8)}`;
+                const userEmail = user.email || 'Usuario';
+                const orgName = `${userEmail}'s Workspace`;
+
+                const newOrg = await prisma.$transaction(async (tx) => {
+                    const org = await tx.organizations.create({
+                        data: {
+                            name: orgName,
+                            slug: orgSlug,
+                        },
+                    });
+
+                    await tx.org_members.create({
+                        data: {
+                            org_id: org.id,
+                            user_id: user.id,
+                            role: 'owner',
+                        },
+                    });
+
+                    return org;
+                });
+
+                console.log('✅ [getCurrentOrg] Organización auto-creada:', { orgId: newOrg.id, slug: orgSlug });
+                
+                // Retornar la org recién creada
+                return { user, currentOrg: newOrg };
+            } catch (autoCreateError) {
+                console.error('❌ [getCurrentOrg] Error auto-creando organización:', autoCreateError);
+                // Si falla la auto-creación, redirigir al onboarding manual como último recurso
+                redirect('/onboarding/organization');
+            }
         }
 
         // ✅ CORRECCIÓN CRÍTICA: Leer preferencia de organización activa del usuario
@@ -168,10 +204,40 @@ export async function getCurrentOrg() {
         }
 
         if (!currentOrg) {
-            if (process.env.NODE_ENV !== 'production') {
-                console.error("Organization data is missing in the membership object.");
+            // ✅ CASO RARO: Tiene membership pero la org no existe (datos corruptos)
+            // Intentar auto-crear una nueva organización
+            console.warn('⚠️ [getCurrentOrg] Membership existe pero org no encontrada, auto-creando...');
+            
+            try {
+                const orgSlug = `personal-${user.id.substring(0, 8)}-${Date.now()}`;
+                const userEmail = user.email || 'Usuario';
+                const orgName = `${userEmail}'s Workspace`;
+
+                const newOrg = await prisma.$transaction(async (tx) => {
+                    const org = await tx.organizations.create({
+                        data: {
+                            name: orgName,
+                            slug: orgSlug,
+                        },
+                    });
+
+                    await tx.org_members.create({
+                        data: {
+                            org_id: org.id,
+                            user_id: user.id,
+                            role: 'owner',
+                        },
+                    });
+
+                    return org;
+                });
+
+                console.log('✅ [getCurrentOrg] Organización de recuperación creada:', { orgId: newOrg.id });
+                return { user, currentOrg: newOrg };
+            } catch (recoveryError) {
+                console.error('❌ [getCurrentOrg] Error en recuperación:', recoveryError);
+                redirect('/onboarding/organization');
             }
-            redirect('/onboarding/organization');
         }
 
         return { user, currentOrg };

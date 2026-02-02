@@ -212,9 +212,10 @@ export async function GET(req: NextRequest) {
   } catch (dbError) {
     console.error('❌ [OAuth Callback] Error en base de datos:', dbError)
     
-    // En caso de error de DB, intentamos un fallback más simple
-    // para no bloquear completamente al usuario
+    // En caso de error de DB, intentamos un fallback que SIEMPRE crea org
+    // para garantizar que el usuario nunca quede sin organización
     try {
+      // 1. Crear/asegurar profile
       const fallbackProfile = await prisma.profile.upsert({
         where: { id: user.id },
         update: {},
@@ -225,9 +226,36 @@ export async function GET(req: NextRequest) {
         }
       })
 
+      // 2. CRÍTICO: Verificar si tiene membership, si no, crear org + membership
+      const existingMembership = await prisma.org_members.findFirst({
+        where: { user_id: user.id }
+      })
+
+      if (!existingMembership) {
+        console.log('⚠️ [OAuth Callback] Usuario sin membership en fallback, creando org...')
+        const orgSlug = `personal-${user.id.substring(0, 8)}`
+        const orgName = `${user.email}'s Workspace`
+
+        const newOrg = await prisma.organizations.create({
+          data: {
+            name: orgName,
+            slug: orgSlug,
+          },
+        })
+
+        await prisma.org_members.create({
+          data: {
+            org_id: newOrg.id,
+            user_id: user.id,
+            role: 'owner',
+          },
+        })
+        console.log('✅ [OAuth Callback] Org creada en fallback:', { orgId: newOrg.id })
+      }
+
       if (!fallbackProfile.onboardingCompleted) {
-    redirect('/onboarding')
-  } else {
+        redirect('/onboarding')
+      } else {
         redirect('/dashboard')
       }
     } catch (fallbackError) {
