@@ -15,13 +15,14 @@ import {
 import { updateProfile, updateProfileDirect, updateNotificationSettings, requestPasswordReset } from './actions';
 import { type FormState } from './schema';
 import { toast } from 'sonner';
-import { Building2, UserPlus, Users, Crown, Shield, User, ChevronRight, Mail, Copy, Check, Link2Off, Loader2, Bell, CheckCircle2, XCircle, Clock, Globe } from 'lucide-react';
+import { Building2, UserPlus, Users, Crown, Shield, User, ChevronRight, Mail, Copy, Check, Link2Off, Loader2, Bell, CheckCircle2, XCircle, Clock, Globe, Trash2 } from 'lucide-react';
 import { 
   getUserOrganizationsForUI, 
   switchOrganization, 
   getOrgMembers,
   getActiveOrganization,
   updateMemberRole,
+  removeMemberFromOrg,
   type UserOrganization,
   type OrgMember 
 } from '@/app/actions/organizationActions';
@@ -126,6 +127,14 @@ export function AccountSettings({
     memberName: string;
     currentRole: string;
     newRole: string;
+  } | null>(null);
+  
+  // ✅ Member removal state
+  const [removingMember, setRemovingMember] = useState<string | null>(null);
+  const [removeMemberDialog, setRemoveMemberDialog] = useState<{
+    open: boolean;
+    memberId: string;
+    memberName: string;
   } | null>(null);
   
   // ✅ Language change blocker - para animación de carga durante cambio de idioma
@@ -374,6 +383,58 @@ export function AccountSettings({
       setChangingRoleForMember(null);
       setRoleChangeDialog(null);
     }
+  };
+
+  // ✅ Handler para eliminar miembro
+  const handleRemoveMember = (memberId: string, memberName: string) => {
+    setRemoveMemberDialog({
+      open: true,
+      memberId,
+      memberName
+    });
+  };
+
+  const confirmRemoveMember = async () => {
+    if (!removeMemberDialog) return;
+    
+    setRemovingMember(removeMemberDialog.memberId);
+    
+    try {
+      const result = await removeMemberFromOrg(removeMemberDialog.memberId);
+      
+      if (result.ok) {
+        toast.success(t('team.memberRemoved'));
+        // Recargar miembros para reflejar el cambio
+        if (selectedOrgId) {
+          const membersResult = await getOrgMembers(selectedOrgId);
+          if (membersResult.ok && membersResult.members) {
+            setTeamMembers(membersResult.members);
+          }
+        }
+      } else {
+        toast.error(result.error || 'Error al eliminar miembro');
+      }
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast.error('Error inesperado al eliminar miembro');
+    } finally {
+      setRemovingMember(null);
+      setRemoveMemberDialog(null);
+    }
+  };
+
+  // ✅ Helper para determinar si el usuario actual puede eliminar a un miembro
+  const canRemoveMember = (memberRole: string, memberIsCurrentUser: boolean): boolean => {
+    if (memberIsCurrentUser) return false; // No se puede eliminar a sí mismo
+    if (memberRole === 'owner') return false; // Nunca se puede eliminar al owner
+    
+    const currentUserRole = selectedOrg?.role;
+    if (!currentUserRole) return false;
+    
+    if (currentUserRole === 'owner') return true; // Owner puede eliminar a cualquiera excepto owner
+    if (currentUserRole === 'admin' && memberRole === 'member') return true; // Admin solo puede eliminar members
+    
+    return false;
   };
 
   const getRoleIcon = (role: 'owner' | 'admin' | 'member') => {
@@ -1360,6 +1421,25 @@ export function AccountSettings({
                         <span className="text-xs text-muted-foreground/70">
                           {t('team.memberSince', { date: new Date(member.joinedAt).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', { month: 'short', year: 'numeric' }) })}
                         </span>
+                        
+                        {/* ✅ Botón de eliminar miembro - visible según jerarquía */}
+                        {canRemoveMember(member.role, member.isCurrentUser) && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveMember(member.id, member.name || member.email || 'Usuario')}
+                            disabled={removingMember === member.id}
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title={t('team.removeMember')}
+                          >
+                            {removingMember === member.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+                        
                         <ChevronRight className="h-4 w-4 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     </div>
@@ -1474,6 +1554,39 @@ export function AccountSettings({
                   </span>
                 ) : (
                   t('team.confirmChange')
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+      
+      {/* ✅ Dialog de confirmación para eliminar miembro */}
+      {removeMemberDialog && (
+        <AlertDialog open={removeMemberDialog.open} onOpenChange={(open) => !open && setRemoveMemberDialog(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('team.removeMemberTitle')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('team.removeMemberDesc', { name: removeMemberDialog.memberName })}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={removingMember !== null}>
+                {tCommon('actions.cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={confirmRemoveMember}
+                disabled={removingMember !== null}
+                className="bg-destructive hover:bg-destructive/90 focus:ring-destructive"
+              >
+                {removingMember ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('team.removing')}
+                  </span>
+                ) : (
+                  t('team.removeMemberConfirm')
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>

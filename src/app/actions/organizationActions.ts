@@ -543,3 +543,97 @@ export async function updateMemberRole(
     return { ok: false, error: 'Error inesperado al actualizar rol' };
   }
 }
+
+/**
+ * Elimina un miembro de la organización con validación jerárquica:
+ * - Owner puede eliminar admin o member
+ * - Admin puede eliminar solo member
+ * - Member no puede eliminar a nadie
+ * - Owner NUNCA puede ser eliminado
+ * @param memberId - El ID del registro en org_members
+ */
+export async function removeMemberFromOrg(memberId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = await createServerSupabase();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { ok: false, error: 'No autenticado' };
+    }
+    
+    // 1. Obtener el miembro a eliminar
+    const targetMember = await prisma.org_members.findUnique({
+      where: { id: memberId },
+      select: { id: true, org_id: true, user_id: true, role: true }
+    });
+    
+    if (!targetMember) {
+      return { ok: false, error: 'Miembro no encontrado' };
+    }
+    
+    // 2. Verificar que no es un owner (NUNCA se puede eliminar al owner)
+    if (targetMember.role === 'owner') {
+      return { ok: false, error: 'El propietario de la organización no puede ser eliminado' };
+    }
+    
+    // 3. Verificar que no se está intentando eliminar a sí mismo
+    if (targetMember.user_id === user.id) {
+      return { ok: false, error: 'No puedes eliminarte a ti mismo de la organización' };
+    }
+    
+    // 4. Obtener el rol del usuario actual en la misma organización
+    const requesterMembership = await prisma.org_members.findFirst({
+      where: {
+        org_id: targetMember.org_id,
+        user_id: user.id
+      },
+      select: { role: true }
+    });
+    
+    if (!requesterMembership) {
+      return { ok: false, error: 'No eres miembro de esta organización' };
+    }
+    
+    // 5. Validar permisos jerárquicos
+    const requesterRole = requesterMembership.role;
+    const targetRole = targetMember.role;
+    
+    // Owner puede eliminar admin o member
+    if (requesterRole === 'owner') {
+      // OK - owner puede eliminar cualquiera excepto otro owner (ya validado arriba)
+    }
+    // Admin solo puede eliminar member
+    else if (requesterRole === 'admin') {
+      if (targetRole !== 'member') {
+        return { ok: false, error: 'Un administrador solo puede eliminar miembros regulares' };
+      }
+    }
+    // Member no puede eliminar a nadie
+    else {
+      return { ok: false, error: 'No tienes permisos para eliminar miembros' };
+    }
+    
+    // 6. Ejecutar la eliminación (RLS también validará en la BD)
+    const { error } = await supabase
+      .from('org_members')
+      .delete()
+      .eq('id', memberId);
+    
+    if (error) {
+      console.error('Error deleting org member:', error);
+      return { ok: false, error: 'Error al eliminar miembro. Verifica tus permisos.' };
+    }
+    
+    // 7. Log de auditoría
+    console.log(`[AUDIT] User ${user.id} removed member ${memberId} (user: ${targetMember.user_id}, role: ${targetMember.role}) from org ${targetMember.org_id}`);
+    
+    // 8. Revalidar cache
+    revalidatePath('/profile');
+    
+    return { ok: true };
+    
+  } catch (error) {
+    console.error('Unexpected error in removeMemberFromOrg:', error);
+    return { ok: false, error: 'Error inesperado al eliminar miembro' };
+  }
+}
