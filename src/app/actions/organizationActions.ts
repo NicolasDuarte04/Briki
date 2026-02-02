@@ -457,12 +457,14 @@ export interface UpdateMemberRoleResult {
 
 /**
  * Actualiza el rol de un miembro de la organización.
- * Solo los OWNERS pueden ejecutar esta acción.
+ * OWNERS y ADMINS pueden ejecutar esta acción con restricciones jerárquicas.
  * 
  * Restricciones:
- * - Solo owners pueden cambiar roles
+ * - Owner puede cambiar roles de admin/member
+ * - Admin puede cambiar roles SOLO de members
+ * - Nadie puede modificar al Owner (PROTECCIÓN ABSOLUTA)
  * - No se puede cambiar el propio rol
- * - Solo se puede cambiar a 'admin' o 'member' (no a 'owner')
+ * - Solo se puede asignar 'admin' o 'member' (nunca 'owner')
  * 
  * @param memberId - ID del registro en org_members
  * @param newRole - Nuevo rol ('admin' o 'member')
@@ -492,7 +494,12 @@ export async function updateMemberRole(
       return { ok: false, error: 'Miembro no encontrado' };
     }
     
-    // 2. Verificar que el usuario actual es OWNER de esa organización
+    // 2. PROTECCIÓN ABSOLUTA: No se puede modificar al owner
+    if (targetMember.role === 'owner') {
+      return { ok: false, error: 'El propietario de la organización no puede ser modificado' };
+    }
+    
+    // 3. Verificar membresía del usuario actual
     const { data: requestorMembership, error: requestorError } = await supabase
       .from('org_members')
       .select('role')
@@ -505,21 +512,29 @@ export async function updateMemberRole(
       return { ok: false, error: 'No eres miembro de esta organización' };
     }
     
-    if (requestorMembership.role !== 'owner') {
-      return { ok: false, error: 'Solo los propietarios pueden cambiar roles' };
+    const requesterRole = requestorMembership.role;
+    
+    // 4. Validar permisos jerárquicos
+    if (requesterRole === 'member') {
+      return { ok: false, error: 'No tienes permisos para cambiar roles' };
     }
     
-    // 3. Validación: No permitir cambiar el propio rol
+    // Admin solo puede modificar members, no otros admins
+    if (requesterRole === 'admin' && targetMember.role !== 'member') {
+      return { ok: false, error: 'Un administrador solo puede cambiar el rol de miembros regulares' };
+    }
+    
+    // 5. Validación: No permitir cambiar el propio rol
     if (targetMember.user_id === user.id) {
       return { ok: false, error: 'No puedes cambiar tu propio rol' };
     }
     
-    // 4. Validación: newRole debe ser 'admin' o 'member'
+    // 6. Validación: newRole debe ser 'admin' o 'member' (nunca 'owner')
     if (!['admin', 'member'].includes(newRole)) {
       return { ok: false, error: 'Rol inválido. Solo puedes asignar "admin" o "member"' };
     }
     
-    // 5. Ejecutar UPDATE (RLS validará permisos adicionales)
+    // 7. Ejecutar UPDATE (RLS validará permisos como segunda capa)
     const { error: updateError } = await supabase
       .from('org_members')
       .update({ role: newRole })
@@ -530,10 +545,10 @@ export async function updateMemberRole(
       return { ok: false, error: 'Error al actualizar el rol. Verifica tus permisos.' };
     }
     
-    // 6. Log de auditoría
-    console.log(`[AUDIT] User ${user.id} changed role of member ${memberId} (user: ${targetMember.user_id}) from ${targetMember.role} to ${newRole} in org ${targetMember.org_id}`);
+    // 8. Log de auditoría
+    console.log(`[AUDIT] User ${user.id} (${requesterRole}) changed role of member ${memberId} (user: ${targetMember.user_id}) from ${targetMember.role} to ${newRole} in org ${targetMember.org_id}`);
     
-    // 7. Revalidar cache
+    // 9. Revalidar cache
     revalidatePath('/profile');
     
     return { ok: true };

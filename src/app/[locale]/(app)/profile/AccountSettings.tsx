@@ -1380,8 +1380,9 @@ export function AccountSettings({
                       </div>
                       
                       <div className="flex items-center gap-4">
-                        {/* ✅ Dropdown de rol SOLO para owners, SOLO para miembros que no sean ellos mismos, y que no sean owners */}
-                        {selectedOrg?.role === 'owner' && !member.isCurrentUser && member.role !== 'owner' ? (
+                        {/* ✅ Dropdown de rol para owners y admins, con restricciones jerárquicas */}
+                        {/* Owner: puede cambiar rol de admin/member | Admin: solo puede cambiar rol de member */}
+                        {(selectedOrg?.role === 'owner' || (selectedOrg?.role === 'admin' && member.role === 'member')) && !member.isCurrentUser && member.role !== 'owner' ? (
                           <div className="flex items-center gap-2">
                             <Select 
                               value={member.role} 
