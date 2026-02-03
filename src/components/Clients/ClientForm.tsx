@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, Shield } from 'lucide-react';
 import type { DecryptedClient } from '@/lib/clientsDb';
+import { useLocale } from 'next-intl';
 
 interface ClientFormProps {
   orgId: string;

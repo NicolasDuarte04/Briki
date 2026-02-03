@@ -1215,13 +1215,13 @@ const en = {
           },
         },
       },
-    },
-    modal: {
-      selectBothDates: "Please select both dates",
-      validateValidity: "Validate Validity",
-      verifyPolicyActiveOn: "Check if the policy is active on date:",
-      dateToVerify: "Date to verify",
-      today: "Today",
+      modal: {
+        selectBothDates: "Please select both dates",
+        validateValidity: "Validate Validity",
+        verifyPolicyActiveOn: "Check if the policy is active on date:",
+        dateToVerify: "Date to verify",
+        today: "Today",
+      },
     },
     send: {
       whatsapp: "Send via WhatsApp",

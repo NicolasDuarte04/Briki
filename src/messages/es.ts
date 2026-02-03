@@ -1215,13 +1215,13 @@ const es = {
           },
         },
       },
-    },
-    modal: {
-      selectBothDates: "Seleccione ambas fechas",
-      validateValidity: "Validar Vigencia",
-      verifyPolicyActiveOn: "Verificar si la póliza está activa en fecha:",
-      dateToVerify: "Fecha a verificar",
-      today: "Hoy",
+      modal: {
+        selectBothDates: "Seleccione ambas fechas",
+        validateValidity: "Validar Vigencia",
+        verifyPolicyActiveOn: "Verificar si la póliza está activa en fecha:",
+        dateToVerify: "Fecha a verificar",
+        today: "Hoy",
+      },
     },
     send: {
       whatsapp: "Enviar por WhatsApp",
