@@ -152,8 +152,9 @@ export async function POST(request: NextRequest) {
     // 8. Analyze with AI (with timeout)
     console.log('🤖 Analizando con IA...');
 
-    // Timeout de 50 segundos (Vercel Pro function limit es 60s usualmente)
-    const TIMEOUT_MS = 50000;
+    // Timeout de 110 segundos (vercel.json configura 120s para esta ruta)
+    // Dejamos 10s de margen para operaciones de BD y respuesta
+    const TIMEOUT_MS = 110000;
 
     const analysisPromise = analyzeWithAI({
       text: extractionResult.text,
