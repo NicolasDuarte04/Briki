@@ -9,6 +9,9 @@
     "src/app/**/*.tsx": {
       "maxDuration": 30
     },
+    "src/app/api/chat/process-message/route.ts": {
+      "maxDuration": 120
+    },
     "src/app/api/policies/analyze/route.ts": {
       "maxDuration": 120
     },
