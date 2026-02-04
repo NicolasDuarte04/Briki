@@ -17,6 +17,8 @@ import { tryRecordAuditLog } from '@/lib/audit';
 
 // Force Node.js runtime (required for Buffer and file operations)
 export const runtime = 'nodejs';
+// ✅ FIX: maxDuration debe estar en el archivo, NO en vercel.json para Next.js >= 13.5
+export const maxDuration = 120; // 2 minutos para análisis de PDFs grandes
 
 /**
  * Request body interface

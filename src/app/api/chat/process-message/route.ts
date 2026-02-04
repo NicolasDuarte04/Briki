@@ -7,6 +7,11 @@ import { CaseBrief } from '@/lib/types';
 import { encryptMessageContent, decryptMessages } from '@/lib/helpers/messageEncryption';
 import { validateChatResponse } from '@/lib/validation/chatReferences'; // ✅ Importar validación
 
+// ✅ FIX: Configuración de runtime y timeout para Next.js 16+
+// vercel.json NO funciona para maxDuration en Next.js >= 13.5
+export const runtime = 'nodejs';
+export const maxDuration = 120; // 2 minutos para prompts largos (~134K chars)
+
 export async function POST(request: NextRequest) {
   try {
     const { user, currentOrg } = await getCurrentOrg(); // Asegura autenticación y org
