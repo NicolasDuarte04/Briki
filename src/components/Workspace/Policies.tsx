@@ -183,12 +183,17 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
   const t = useTranslations("workspace.policies");
   const locale = useLocale();
 
-  // ✅ FASE 6: Fetch policy analyses when case changes
+  // ✅ FASE 6 + CORRECCIÓN: Fetch policy analyses when case changes OR when loaded is false
+  // CRÍTICO: También reaccionar a policyAnalysesLoaded=false para cubrir el caso donde:
+  // 1. currentCaseId se establece en case-actions.ts (limpia policyAnalysesLoaded)
+  // 2. El componente se monta después de la navegación
+  // 3. currentCaseId ya tiene el valor correcto, pero los datos aún no se han cargado
   React.useEffect(() => {
-    if (currentCaseId) {
+    if (currentCaseId && !policyAnalysesLoaded && !policyAnalysesLoading) {
+      console.log('🔄 [Policies] Fetching analyses - caseId:', currentCaseId, 'loaded:', policyAnalysesLoaded);
       void fetchPolicyAnalyses(currentCaseId);
     }
-  }, [currentCaseId, fetchPolicyAnalyses]);
+  }, [currentCaseId, policyAnalysesLoaded, policyAnalysesLoading, fetchPolicyAnalyses]);
 
   // ✅ FASE 6 + FASE POLICY_LINKS: Transform PolicyAnalysis[] AND Artifacts to PolicyView[]
   // Fusionar artefactos (PDFs subidos) con análisis existentes

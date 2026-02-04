@@ -105,6 +105,8 @@ export function WorkspaceTabs({ orgId }: WorkspaceTabsProps = {}) {
   const approvalPhase = useUI(s => s.approvalPhase);
   const caseApproving = useUI(s => s.caseApproving);
   const fetchPolicyAnalyses = useUI(s => s.fetchPolicyAnalyses); // ✅ FASE 5
+  const policyAnalysesLoaded = useUI(s => s.policyAnalysesLoaded); // ✅ CORRECCIÓN: Para detectar cuando recargar
+  const policyAnalysesLoading = useUI(s => s.policyAnalysesLoading); // ✅ CORRECCIÓN: Para evitar llamadas duplicadas
   // ✅ FASE 32: Compliance
   const loadComplianceRecord = useUI(s => s.loadComplianceRecord);
   const hydrateComplianceDatesFromPolicies = useUI(s => s.hydrateComplianceDatesFromPolicies); // ✅ Auto-hidratar fechas
@@ -158,15 +160,19 @@ export function WorkspaceTabs({ orgId }: WorkspaceTabsProps = {}) {
     }
   }, [currentCaseId, fetchRenewals]);
 
-  // ✅ FASE 5: Cargar análisis de pólizas cuando cambia el caso
+  // ✅ FASE 5 + CORRECCIÓN: Cargar análisis de pólizas cuando cambia el caso O cuando loaded=false
+  // CRÍTICO: También reaccionar a policyAnalysesLoaded=false para cubrir el caso donde:
+  // 1. currentCaseId se establece antes de que el componente se monte
+  // 2. El componente se monta después de la navegación pero los datos no están cargados
   useEffect(() => {
-    if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
+    if (currentCaseId && currentCaseId !== 'new-thread-placeholder' && !policyAnalysesLoaded && !policyAnalysesLoading) {
+      console.log('🔄 [WorkspaceTabs] Fetching policy analyses - caseId:', currentCaseId, 'loaded:', policyAnalysesLoaded);
       fetchPolicyAnalyses(currentCaseId).catch(error => {
         console.error('❌ [WorkspaceTabs] Error fetching policy analyses:', error);
         // No romper la UI, solo loguear el error
       });
     }
-  }, [currentCaseId, fetchPolicyAnalyses]);
+  }, [currentCaseId, policyAnalysesLoaded, policyAnalysesLoading, fetchPolicyAnalyses]);
 
   // ✅ FASE 38: Cargar comparación histórica cuando cambia el caso
   useEffect(() => {
