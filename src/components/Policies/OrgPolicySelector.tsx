@@ -313,12 +313,15 @@ function PolicyCard({ policy, isSelected, onToggle }: PolicyCardProps) {
         }
       `}
     >
-      {/* Checkbox */}
-      <Checkbox
-        checked={isSelected}
-        onCheckedChange={onToggle}
-        className="mt-1"
-      />
+      {/* Checkbox - CORRECCIÓN: Wrapper que detiene event bubbling para evitar doble toggle */}
+      {/* Sin esto, click en checkbox dispara onCheckedChange Y onClick del div padre */}
+      <div onClick={(e) => e.stopPropagation()}>
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={onToggle}
+          className="mt-1"
+        />
+      </div>
 
       {/* Contenido */}
       <div className="flex-1 min-w-0">
