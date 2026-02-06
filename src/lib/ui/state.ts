@@ -3365,9 +3365,10 @@ export const useUI = create<UIState>()(
           const jobData = await jobResponse.json();
           console.log('📋 [analyzePolicyArtifact] Job response:', jobData);
 
-          // 🚨 HOTFIX: Forzar modo síncrono directo (bypass jobs system)
-          // TODO: Revertir cuando QStash esté funcionando
-          const FORCE_SYNC_MODE = true;
+          // ✅ QStash async mode: controlado por variable de entorno
+          // - En Vercel: NEXT_PUBLIC_QSTASH_ASYNC_ENABLED=true activa modo asíncrono
+          // - Sin la variable o en dev local: usa modo síncrono (fallback seguro)
+          const FORCE_SYNC_MODE = process.env.NEXT_PUBLIC_QSTASH_ASYNC_ENABLED !== 'true';
           
           // 2. Si es async Y no estamos forzando sync, hacer polling
           if (jobData.async && jobData.jobId && !FORCE_SYNC_MODE) {

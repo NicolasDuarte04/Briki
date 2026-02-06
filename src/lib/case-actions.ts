@@ -146,6 +146,9 @@ export async function createCaseIfNeeded(
         const tempUploads = (briefData as any).tempUploads || [];
         const linkedPolicyIds = briefData.linkedPolicyIds || [];
         console.log('📎 [case-actions] Creando caso con tempUploads:', tempUploads.length, 'linkedPolicyIds:', linkedPolicyIds.length);
+        // 🔍 DEBUG: Log detallado de linkedPolicyIds que se envían al backend
+        console.log('🔍 [case-actions] linkedPolicyIds EXACTOS que se enviarán:', JSON.stringify(linkedPolicyIds));
+        console.log('🔍 [case-actions] briefData.linkedPolicyIds raw:', JSON.stringify(briefData.linkedPolicyIds));
 
         // ✅ CORRECCIÓN CRÍTICA: Asegurar que freeText esté presente en briefData
         // Si no está en briefData, intentar obtenerlo del estado global como último recurso

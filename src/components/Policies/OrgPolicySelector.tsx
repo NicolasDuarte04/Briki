@@ -142,6 +142,8 @@ export function OrgPolicySelector({
 
   // Confirmar selección
   const handleConfirm = () => {
+    console.log('🔍 [OrgPolicySelector] handleConfirm - localSelectedIds:', JSON.stringify(localSelectedIds));
+    console.log('🔍 [OrgPolicySelector] handleConfirm - Cantidad de IDs seleccionados:', localSelectedIds.length);
     onSelectionChange(localSelectedIds);
     setIsOpen(false);
   };
