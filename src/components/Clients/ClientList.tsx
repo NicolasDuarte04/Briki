@@ -22,7 +22,7 @@ export function ClientList({ clients, orgId, pinnedClientIds = new Set() }: Clie
   const t = useTranslations('clients.list');
   const locale = useLocale();
   
-  // Filtrar clientes por término de búsqueda
+  // Filtrar clientes por término de búsqueda (ahora incluye número de identificación)
   const filteredClients = clients.filter(client => {
     if (!searchTerm) return true;
     
@@ -30,7 +30,8 @@ export function ClientList({ clients, orgId, pinnedClientIds = new Set() }: Clie
     return (
       client.name.toLowerCase().includes(searchLower) ||
       client.email?.toLowerCase().includes(searchLower) ||
-      client.phone?.toLowerCase().includes(searchLower)
+      client.phone?.toLowerCase().includes(searchLower) ||
+      client.idNumber?.toLowerCase().includes(searchLower) // ✅ NUEVO: Buscar por número de ID
     );
   });
   
