@@ -5,9 +5,19 @@ import Link from 'next/link';
 import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Phone, MapPin, User, Shield } from 'lucide-react';
+import { Mail, Phone, MapPin, User, Shield, CreditCard } from 'lucide-react';
 import { PinButton } from '@/components/Workspace/PinButton';
 import type { DecryptedClient } from '@/lib/clientsDb';
+
+// ✅ Helper para obtener bandera por código de país
+const getCountryFlag = (code: string | null): string => {
+  const flags: Record<string, string> = {
+    CO: '🇨🇴', MX: '🇲🇽', AR: '🇦🇷', CL: '🇨🇱', PE: '🇵🇪',
+    EC: '🇪🇨', US: '🇺🇸', ES: '🇪🇸', BR: '🇧🇷', VE: '🇻🇪',
+    PA: '🇵🇦', CR: '🇨🇷',
+  };
+  return code ? flags[code] || '🌍' : '🌍';
+};
 
 interface ClientCardProps {
   client: DecryptedClient;
@@ -58,6 +68,21 @@ export function ClientCard({ client, isPinned = false }: ClientCardProps) {
         </CardHeader>
         
         <CardContent className="space-y-3">
+          {/* ✅ NUEVO: Mostrar identificación si existe */}
+          {client.idNumber ? (
+            <div className="flex items-center gap-2 text-sm">
+              <CreditCard className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <span className="text-muted-foreground">
+                {client.idType || 'ID'}: {client.idNumber} {getCountryFlag(client.idCountry)}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground/50">
+              <CreditCard className="h-4 w-4 flex-shrink-0" />
+              <span className="italic">{t('noIdentification')}</span>
+            </div>
+          )}
+          
           {client.email ? (
             <div className="flex items-center gap-2 text-sm">
               <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -94,9 +119,9 @@ export function ClientCard({ client, isPinned = false }: ClientCardProps) {
             </div>
           )}
           
-          {/* Completeness badge */}
+          {/* Completeness badge - ahora incluye identificación */}
           <div className="pt-2">
-            {[client.email, client.phone, client.address].filter(Boolean).length === 3 ? (
+            {[client.idNumber, client.email, client.phone, client.address].filter(Boolean).length >= 3 ? (
               <Badge variant="default" className="text-xs">
                 {t('profileComplete')}
               </Badge>

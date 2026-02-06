@@ -19,7 +19,7 @@ export async function POST(
     }
     
     const body = await request.json();
-    const { orgId, name, email, phone, address } = body;
+    const { orgId, name, email, phone, address, idType, idNumber, idCountry } = body;
     
     if (!orgId) {
       return NextResponse.json(
@@ -62,6 +62,10 @@ export async function POST(
       email: email?.trim() || undefined,
       phone: phone?.trim() || undefined,
       address: address?.trim() || undefined,
+      // ✅ NUEVO: Campos de identificación
+      idType: idType?.trim() || undefined,
+      idNumber: idNumber?.trim() || undefined,
+      idCountry: idCountry?.trim() || undefined,
     });
     
     return NextResponse.json({ success: true });

@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const { currentOrg } = await getCurrentOrg();
     
     const body = await request.json();
-    const { name, email, phone, address } = body;
+    const { name, email, phone, address, idType, idNumber, idCountry } = body;
     
     // Validaciones básicas
     if (!name || name.trim().length === 0) {
@@ -25,6 +25,10 @@ export async function POST(request: NextRequest) {
       email: email?.trim() || undefined,
       phone: phone?.trim() || undefined,
       address: address?.trim() || undefined,
+      // ✅ NUEVO: Campos de identificación
+      idType: idType?.trim() || undefined,
+      idNumber: idNumber?.trim() || undefined,
+      idCountry: idCountry?.trim() || undefined,
     });
     
     return NextResponse.json({ id: clientId }, { status: 201 });

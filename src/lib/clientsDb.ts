@@ -19,6 +19,10 @@ export interface DecryptedClient {
   email: string | null;
   phone: string | null;
   address: string | null;
+  // ✅ NUEVO: Campos de identificación
+  idType: string | null;     // Tipo de documento (CC, NIT, PASSPORT, etc.)
+  idNumber: string | null;   // Número de identificación (descifrado)
+  idCountry: string | null;  // Código ISO del país emisor
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +34,10 @@ export interface CreateClientInput {
   email?: string;
   phone?: string;
   address?: string;
+  // ✅ NUEVO: Campos de identificación
+  idType?: string;     // Tipo de documento
+  idNumber?: string;   // Número de identificación
+  idCountry?: string;  // Código ISO del país
 }
 
 // Tipo para actualizar un cliente
@@ -38,6 +46,10 @@ export interface UpdateClientInput {
   email?: string;
   phone?: string;
   address?: string;
+  // ✅ NUEVO: Campos de identificación
+  idType?: string;
+  idNumber?: string;
+  idCountry?: string;
 }
 
 // La función 'setEncryptionKey' ya no es necesaria y debe ser eliminada.
@@ -61,6 +73,10 @@ export async function createClient(orgId: string, clientData: {
   email?: string;
   phone?: string;
   address?: string;
+  // ✅ NUEVO: Campos de identificación
+  idType?: string;
+  idNumber?: string;
+  idCountry?: string;
 }): Promise<string> {
   const encryptionKey = process.env.APP_ENCRYPTION_KEY;
 
@@ -80,13 +96,16 @@ export async function createClient(orgId: string, clientData: {
     
     // Paso 2: Ejecutar la inserción usando la función de cifrado de la BD.
     return tx.$queryRaw<Array<{ id: string }>>`
-      INSERT INTO public.clients (org_id, name_enc, email_enc, phone_enc, address_enc)
+      INSERT INTO public.clients (org_id, name_enc, email_enc, phone_enc, address_enc, id_type, id_number_enc, id_country)
       VALUES (
         ${orgId}::uuid,
         public.encrypt_pii(${clientData.name}),
         ${clientData.email ? Prisma.sql`public.encrypt_pii(${clientData.email})` : Prisma.sql`NULL`},
         ${clientData.phone ? Prisma.sql`public.encrypt_pii(${clientData.phone})` : Prisma.sql`NULL`},
-        ${clientData.address ? Prisma.sql`public.encrypt_pii(${clientData.address})` : Prisma.sql`NULL`}
+        ${clientData.address ? Prisma.sql`public.encrypt_pii(${clientData.address})` : Prisma.sql`NULL`},
+        ${clientData.idType || null},
+        ${clientData.idNumber ? Prisma.sql`public.encrypt_pii(${clientData.idNumber})` : Prisma.sql`NULL`},
+        ${clientData.idCountry || null}
       )
       RETURNING id
     `;
@@ -135,6 +154,9 @@ export async function getClientsByOrg(orgId: string): Promise<DecryptedClient[]>
         public.decrypt_pii(email_enc) as email,
         public.decrypt_pii(phone_enc) as phone,
         public.decrypt_pii(address_enc) as address,
+        id_type as "idType",
+        public.decrypt_pii(id_number_enc) as "idNumber",
+        id_country as "idCountry",
         created_at as "createdAt",
         updated_at as "updatedAt"
       FROM public.clients
@@ -234,6 +256,9 @@ export async function getClientById(
         public.decrypt_pii(email_enc) as email,
         public.decrypt_pii(phone_enc) as phone,
         public.decrypt_pii(address_enc) as address,
+        id_type as "idType",
+        public.decrypt_pii(id_number_enc) as "idNumber",
+        id_country as "idCountry",
         created_at as "createdAt",
         updated_at as "updatedAt"
       FROM public.clients
@@ -306,8 +331,28 @@ export async function updateClient(
         } else {
           updateParts.push('address_enc = NULL');
         }
+      }      // ✅ NUEVO: Campos de identificación
+      if (updateData.idType !== undefined) {
+        if (updateData.idType) {
+          updateParts.push(`id_type = '${updateData.idType.replace(/'/g, "''")}'`);
+        } else {
+          updateParts.push('id_type = NULL');
+        }
       }
-      
+      if (updateData.idNumber !== undefined) {
+        if (updateData.idNumber) {
+          updateParts.push(`id_number_enc = public.encrypt_pii('${updateData.idNumber.replace(/'/g, "''")}')`)
+        } else {
+          updateParts.push('id_number_enc = NULL');
+        }
+      }
+      if (updateData.idCountry !== undefined) {
+        if (updateData.idCountry) {
+          updateParts.push(`id_country = '${updateData.idCountry.replace(/'/g, "''")}'`);
+        } else {
+          updateParts.push('id_country = NULL');
+        }
+      }      
       updateQuery += updateParts.join(', ') + ', updated_at = NOW()';
       updateQuery += ` WHERE id = '${clientId}'::uuid AND org_id = '${orgId}'::uuid`;
       
@@ -373,7 +418,8 @@ export async function searchClientsByName(
   return allClients.filter(client => 
     client.name.toLowerCase().includes(lowerSearchTerm) ||
     client.email?.toLowerCase().includes(lowerSearchTerm) ||
-    client.phone?.toLowerCase().includes(lowerSearchTerm)
+    client.phone?.toLowerCase().includes(lowerSearchTerm) ||
+    client.idNumber?.toLowerCase().includes(lowerSearchTerm) // ✅ NUEVO: Buscar por número de ID
   );
 }
 

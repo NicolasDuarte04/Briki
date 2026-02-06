@@ -3,12 +3,48 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Edit, Trash2, Shield, Mail, Phone, MapPin, Calendar } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Shield, Mail, Phone, MapPin, Calendar, CreditCard, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
 import { DecryptedClient } from '@/lib/clientsDb';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+
+// ✅ Helper para obtener nombre de país y bandera
+const getCountryInfo = (code: string | null): { name: string; flag: string } => {
+  const countries: Record<string, { name: string; flag: string }> = {
+    CO: { name: 'Colombia', flag: '🇨🇴' },
+    MX: { name: 'México', flag: '🇲🇽' },
+    AR: { name: 'Argentina', flag: '🇦🇷' },
+    CL: { name: 'Chile', flag: '🇨🇱' },
+    PE: { name: 'Perú', flag: '🇵🇪' },
+    EC: { name: 'Ecuador', flag: '🇪🇨' },
+    US: { name: 'Estados Unidos', flag: '🇺🇸' },
+    ES: { name: 'España', flag: '🇪🇸' },
+    BR: { name: 'Brasil', flag: '🇧🇷' },
+    VE: { name: 'Venezuela', flag: '🇻🇪' },
+    PA: { name: 'Panamá', flag: '🇵🇦' },
+    CR: { name: 'Costa Rica', flag: '🇨🇷' },
+  };
+  return code ? countries[code] || { name: code, flag: '🌍' } : { name: 'No especificado', flag: '🌍' };
+};
+
+// ✅ Helper para obtener nombre legible del tipo de documento
+const getIdTypeName = (type: string | null, t: (key: string) => string): string => {
+  if (!type) return 'No especificado';
+  const types: Record<string, string> = {
+    CC: 'Cédula de Ciudadanía',
+    CE: 'Cédula de Extranjería',
+    NIT: 'NIT',
+    PASSPORT: 'Pasaporte',
+    TI: 'Tarjeta de Identidad',
+    RUT: 'RUT',
+    DNI: 'DNI',
+    RFC: 'RFC',
+    OTHER: 'Otro',
+  };
+  return types[type] || type;
+};
 
 interface ClientDetailContentProps {
   client: DecryptedClient;
@@ -18,6 +54,7 @@ interface ClientDetailContentProps {
 
 export function ClientDetailContent({ client, clientId, orgId }: ClientDetailContentProps) {
   const locale = useLocale();
+  const t = useTranslations('clients.detail');
   const {
     deleteDialogOpen,
     setDeleteDialogOpen,
@@ -81,9 +118,69 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
         
         {/* Client Information Card */}
         <div className="space-y-6">
+          {/* ✅ NUEVO: Tarjeta de Identificación */}
           <Card>
             <CardHeader>
-              <CardTitle>Información de Contacto</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                {t('identificationInfo')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {client.idNumber ? (
+                <>
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                      <CreditCard className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">{t('idType')}</div>
+                      <div className="font-medium">{getIdTypeName(client.idType, t)}</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                      <Shield className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">{t('idNumber')} 🔒</div>
+                      <div className="font-medium font-mono">{client.idNumber}</div>
+                    </div>
+                  </div>
+                  
+                  {client.idCountry && (
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                        <Globe className="h-5 w-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">{t('idCountry')}</div>
+                        <div className="font-medium">
+                          {getCountryInfo(client.idCountry).flag} {getCountryInfo(client.idCountry).name}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+                    <CreditCard className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">{t('idNumber')}</div>
+                    <div className="text-muted-foreground italic">{t('notRegistered')}</div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Información de Contacto */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('contactInfo')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {client.email ? (

@@ -760,6 +760,9 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         tempUploadsCount: briefUpdate.tempUploads?.length || 0,
         linkedPolicyIdsCount: selectedOrgPolicyIds?.length || 0
       });
+      // 🔍 DEBUG: Log detallado de linkedPolicyIds
+      console.log('🔍 [BriefForm] selectedOrgPolicyIds EXACTOS:', JSON.stringify(selectedOrgPolicyIds));
+      console.log('🔍 [BriefForm] briefUpdate.linkedPolicyIds EXACTOS:', JSON.stringify(briefUpdate.linkedPolicyIds));
       setBrief(briefUpdate);
 
       // En modo edición: llamar onSubmit con todos los datos

@@ -417,6 +417,10 @@ export async function POST(request: NextRequest) {
     // =========================================================================
     // ✅ FASE POLICY_LINKS: Vincular pólizas de organización al caso
     // =========================================================================
+    // 🔍 DEBUG: Log detallado de linkedPolicyIds recibidos
+    console.log('🔍 [API/cases/create] linkedPolicyIds RECIBIDOS del frontend:', JSON.stringify(linkedPolicyIds));
+    console.log('🔍 [API/cases/create] Tipo de linkedPolicyIds:', typeof linkedPolicyIds, 'Es array:', Array.isArray(linkedPolicyIds));
+    
     if (linkedPolicyIds && Array.isArray(linkedPolicyIds) && linkedPolicyIds.length > 0) {
       console.log(`🔗 [API/cases/create] Vinculando ${linkedPolicyIds.length} pólizas de organización...`);
       const { prisma } = await import('@/lib/prisma');

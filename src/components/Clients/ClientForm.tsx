@@ -8,9 +8,35 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, Shield } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Loader2, Shield, CreditCard } from 'lucide-react';
 import type { DecryptedClient } from '@/lib/clientsDb';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+
+// ✅ Tipos de identificación soportados
+const ID_TYPES = ['CC', 'CE', 'NIT', 'PASSPORT', 'TI', 'RUT', 'DNI', 'RFC', 'OTHER'] as const;
+
+// ✅ Países más comunes (se puede expandir)
+const COUNTRIES = [
+  { code: 'CO', name: 'Colombia', flag: '🇨🇴' },
+  { code: 'MX', name: 'México', flag: '🇲🇽' },
+  { code: 'AR', name: 'Argentina', flag: '🇦🇷' },
+  { code: 'CL', name: 'Chile', flag: '🇨🇱' },
+  { code: 'PE', name: 'Perú', flag: '🇵🇪' },
+  { code: 'EC', name: 'Ecuador', flag: '🇪🇨' },
+  { code: 'US', name: 'Estados Unidos', flag: '🇺🇸' },
+  { code: 'ES', name: 'España', flag: '🇪🇸' },
+  { code: 'BR', name: 'Brasil', flag: '🇧🇷' },
+  { code: 'VE', name: 'Venezuela', flag: '🇻🇪' },
+  { code: 'PA', name: 'Panamá', flag: '🇵🇦' },
+  { code: 'CR', name: 'Costa Rica', flag: '🇨🇷' },
+] as const;
 
 interface ClientFormProps {
   orgId: string;
@@ -20,9 +46,14 @@ interface ClientFormProps {
 export function ClientForm({ orgId, client }: ClientFormProps) {
   const router = useRouter();
   const locale = useLocale();
+  const t = useTranslations('clients.form');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  
+  // ✅ NUEVO: Estado para campos de identificación (Select no usa name nativo)
+  const [idType, setIdType] = useState<string>(client?.idType || '');
+  const [idCountry, setIdCountry] = useState<string>(client?.idCountry || '');
   
   const isEditMode = !!client;
   
@@ -31,6 +62,8 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
     if (form) {
       form.reset();
     }
+    setIdType('');
+    setIdCountry('');
     setError(null);
     setSuccess(null);
   };
@@ -59,6 +92,10 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
           email: formData.get('email') || undefined,
           phone: formData.get('phone') || undefined,
           address: formData.get('address') || undefined,
+          // ✅ NUEVO: Campos de identificación
+          idType: idType || undefined,
+          idNumber: formData.get('idNumber') || undefined,
+          idCountry: idCountry || undefined,
         }),
       });
       
@@ -116,18 +153,18 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
       
       <Card>
         <CardHeader>
-          <CardTitle>Información del Cliente</CardTitle>
+          <CardTitle>{t('clientInfo')}</CardTitle>
           <CardDescription>
             Los campos marcados con * son obligatorios
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Nombre Completo *</Label>
+            <Label htmlFor="name">{t('fullName')} *</Label>
             <Input
               id="name"
               name="name"
-              placeholder="Ej: Juan Pérez García"
+              placeholder={t('fullNamePlaceholder')}
               defaultValue={client?.name}
               required
               autoFocus={!isEditMode}
@@ -136,14 +173,86 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
               Nombre completo del cliente o empresa
             </p>
           </div>
+        </CardContent>
+      </Card>
+      
+      {/* ✅ NUEVO: Sección de Identificación */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>{t('identificationSection')}</CardTitle>
+          </div>
+          <CardDescription>
+            Información del documento de identidad del cliente
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="idType">{t('idTypeLabel')}</Label>
+              <Select value={idType} onValueChange={setIdType}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('idTypePlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {ID_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {t(`idTypes.${type}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="idCountry">{t('idCountryLabel')}</Label>
+              <Select value={idCountry} onValueChange={setIdCountry}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('idCountryPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map((country) => (
+                    <SelectItem key={country.code} value={country.code}>
+                      {country.flag} {country.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           
           <div className="space-y-2">
-            <Label htmlFor="email">Correo Electrónico</Label>
+            <Label htmlFor="idNumber">{t('idNumberLabel')} 🔒</Label>
+            <Input
+              id="idNumber"
+              name="idNumber"
+              placeholder={t('idNumberPlaceholder')}
+              defaultValue={client?.idNumber || ''}
+            />
+            <p className="text-xs text-muted-foreground">
+              Este campo se cifra automáticamente
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {/* Información de Contacto */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Información de Contacto</CardTitle>
+          <CardDescription>
+            Datos de contacto del cliente
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">{t('emailLabel')}</Label>
             <Input
               id="email"
               name="email"
               type="email"
-              placeholder="ejemplo@correo.com"
+              placeholder={t('emailPlaceholder')}
               defaultValue={client?.email || ''}
             />
             <p className="text-xs text-muted-foreground">
@@ -152,12 +261,12 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="phone">Teléfono</Label>
+            <Label htmlFor="phone">{t('phoneLabel')}</Label>
             <Input
               id="phone"
               name="phone"
               type="tel"
-              placeholder="+52 (555) 123-4567"
+              placeholder={t('phonePlaceholder')}
               defaultValue={client?.phone || ''}
             />
             <p className="text-xs text-muted-foreground">
@@ -166,11 +275,11 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="address">Dirección</Label>
+            <Label htmlFor="address">{t('addressLabel')}</Label>
             <Textarea
               id="address"
               name="address"
-              placeholder="Calle Principal #123, Col. Centro, Ciudad, CP 12345"
+              placeholder={t('addressPlaceholder')}
               rows={3}
               defaultValue={client?.address || ''}
             />
@@ -188,16 +297,16 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
           onClick={() => router.back()}
           disabled={isLoading}
         >
-          Cancelar
+          {t('cancel')}
         </Button>
         <Button type="submit" disabled={isLoading}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {isEditMode ? 'Guardando...' : 'Creando...'}
+              {isEditMode ? 'Guardando...' : t('creating')}
             </>
           ) : (
-            isEditMode ? 'Guardar Cambios' : 'Crear Cliente'
+            isEditMode ? 'Guardar Cambios' : t('create')
           )}
         </Button>
       </div>
