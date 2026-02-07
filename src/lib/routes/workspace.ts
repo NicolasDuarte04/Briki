@@ -5,7 +5,7 @@
  */
 
 export type Locale = 'en' | 'es';
-export type EntityType = 'case' | 'policy' | 'proposal' | 'analysis' | 'client' | 'comparison' | 'renewal';
+export type EntityType = 'case' | 'policy' | 'proposal' | 'analysis' | 'client' | 'company' | 'comparison' | 'renewal';
 
 /**
  * Safely converts a string locale from next-intl to typed Locale
@@ -63,6 +63,13 @@ export function pathForCases(locale: Locale): string {
  */
 export function pathForClients(locale: Locale): string {
   return `/${locale}/workspace/clients`;
+}
+
+/**
+ * Get the companies route
+ */
+export function pathForCompanies(locale: Locale): string {
+  return `/${locale}/workspace/companies`;
 }
 
 /**

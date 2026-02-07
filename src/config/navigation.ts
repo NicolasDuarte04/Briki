@@ -13,6 +13,7 @@ import {
   getDashboardHome,
   pathForCases,
   pathForClients,
+  pathForCompanies,
   getProfilePath,
   pathForAgent,
   pathForPolicies,
@@ -34,6 +35,7 @@ import {
   BarChart3,
   FileSearch,
   Upload,
+  Building2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -95,7 +97,7 @@ export function getWorkspaceSections(locale: Locale): NavSection[] {
           href: getDashboardHome(locale),
           matchPath: '/dashboard',
           icon: LayoutDashboard,
-          // Subítems desplegables al hover (Casos y Clientes)
+          // Subítems desplegables al hover (Casos, Clientes, Empresas)
           subItems: [
             {
               label: locale === 'es' ? 'Casos' : 'Cases',
@@ -108,6 +110,12 @@ export function getWorkspaceSections(locale: Locale): NavSection[] {
               href: pathForClients(locale),
               matchPath: '/workspace/clients',
               icon: Users,
+            },
+            {
+              label: locale === 'es' ? 'Empresas' : 'Companies',
+              href: pathForCompanies(locale),
+              matchPath: '/workspace/companies',
+              icon: Building2,
             },
           ],
         },

@@ -9,9 +9,10 @@ interface ComparisonRowProps {
     row: IComparisonRow;
     analysisIds: string[];
     isEven: boolean;
+    baselineAnalysisId?: string; // ✅ FASE BASELINE vs CHALLENGERS
 }
 
-export function ComparisonRow({ row, analysisIds, isEven }: ComparisonRowProps) {
+export function ComparisonRow({ row, analysisIds, isEven, baselineAnalysisId }: ComparisonRowProps) {
     return (
         <div className={cn(
             "grid grid-cols-[200px_repeat(auto-fit,minmax(200px,1fr))] border-b border-border/50 transition-colors",
@@ -40,6 +41,7 @@ export function ComparisonRow({ row, analysisIds, isEven }: ComparisonRowProps) 
             {/* Cells */}
             {analysisIds.map((id) => {
                 const cell = row.values[id];
+                const isBaseline = id === baselineAnalysisId; // ✅ FASE BASELINE vs CHALLENGERS
 
                 // Handle missing cells gracefully
                 // Note: userNote is omitted intentionally to comply with exactOptionalPropertyTypes
@@ -50,7 +52,13 @@ export function ComparisonRow({ row, analysisIds, isEven }: ComparisonRowProps) 
                 };
 
                 return (
-                    <div key={id} className="border-r border-border/50 last:border-r-0">
+                    <div 
+                        key={id} 
+                        className={cn(
+                            "border-r border-border/50 last:border-r-0",
+                            isBaseline && "bg-blue-50/50 dark:bg-blue-950/20" // ✅ FASE BASELINE vs CHALLENGERS: Highlight baseline column
+                        )}
+                    >
                         <ComparisonCell cell={safeCell} />
                     </div>
                 );

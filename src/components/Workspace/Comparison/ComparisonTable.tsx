@@ -4,14 +4,18 @@ import { ComparisonRow } from "./ComparisonRow";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Shield } from "lucide-react";
 import { useUI } from "@/lib/ui/state";
+import { useTranslations } from "next-intl";
 
 interface ComparisonTableProps {
     comparison: PolicyComparison;
     analyses: PolicyAnalysis[];
+    baselineAnalysisId?: string; // ✅ FASE BASELINE vs CHALLENGERS: ID del análisis baseline
 }
 
-export function ComparisonTable({ comparison, analyses }: ComparisonTableProps) {
+export function ComparisonTable({ comparison, analyses, baselineAnalysisId }: ComparisonTableProps) {
+    const t = useTranslations("workspace.comparisons.semantic");
     // Selection state from global store
     const selectedAnalysisIds = useUI((state) => state.selectedAnalysisIds);
     const toggleAnalysisSelection = useUI((state) => state.toggleAnalysisSelection);
@@ -46,9 +50,17 @@ export function ComparisonTable({ comparison, analyses }: ComparisonTableProps) 
                     const insurerName = (analysis?.extractedData as any)?.insurer?.name || 'Unknown Insurer';
                     const policyNumber = (analysis?.extractedData as any)?.policyNumber || 'N/A';
                     const isSelected = selectedAnalysisIds.has(id);
+                    const isBaseline = id === baselineAnalysisId; // ✅ FASE BASELINE vs CHALLENGERS
 
                     return (
-                        <div key={id} className="p-4 border-l border-border/50 flex flex-col gap-1">
+                        <div 
+                            key={id} 
+                            className={`p-4 border-l border-border/50 flex flex-col gap-1 ${
+                                isBaseline 
+                                    ? 'bg-blue-50/80 dark:bg-blue-950/30 border-l-2 border-l-blue-400' 
+                                    : ''
+                            }`}
+                        >
                             <div className="flex items-center gap-2 mb-1">
                                 <Checkbox
                                     id={`select-${id}`}
@@ -63,7 +75,15 @@ export function ComparisonTable({ comparison, analyses }: ComparisonTableProps) 
                                     Incluir
                                 </label>
                             </div>
-                            <span className="font-bold text-sm text-foreground">{insurerName}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold text-sm text-foreground">{insurerName}</span>
+                                {isBaseline && (
+                                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 text-[10px] flex items-center gap-1">
+                                        <Shield className="h-3 w-3" />
+                                        {t("baseline")}
+                                    </Badge>
+                                )}
+                            </div>
                             <span className="text-xs text-muted-foreground">{policyNumber}</span>
                             {analysis?.overallConfidence && (
                                 <Badge variant="secondary" className="w-fit text-[10px] mt-1">
@@ -96,6 +116,7 @@ export function ComparisonTable({ comparison, analyses }: ComparisonTableProps) 
                                     row={row}
                                     analysisIds={comparison.analysisIds}
                                     isEven={index % 2 === 0}
+                                    {...(baselineAnalysisId && { baselineAnalysisId })}
                                 />
                             ))}
                         </div>

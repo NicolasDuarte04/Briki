@@ -527,6 +527,7 @@ model organizations {
   updated_at      DateTime?         @default(now()) @db.Timestamptz(6)
   api_keys        api_keys[]
   clients         clients[]
+  companies       Company[]         // ✅ FASE COMPANIES: Empresas de la organización
   org_members     org_members[]
   org_invitations org_invitations[]
   userPreferences UserPreferences[] // ✅ SINCRONIZADO: Usuarios con esta org como activa
@@ -1140,5 +1141,101 @@ model CaseActivity {
   @@index([jobType])
   @@index([createdAt(sort: Desc)])
   @@map("case_activities")
+  @@schema("public")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE COMPANIES: Entidad Empresas como ciudadano de primera clase
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Tipos de empresa según legislación colombiana
+enum CompanyType {
+  sas           // Sociedad por Acciones Simplificada
+  sa            // Sociedad Anónima
+  ltda          // Sociedad Limitada
+  eu            // Empresa Unipersonal
+  cooperativa   // Cooperativa
+  fundacion     // Fundación
+  ong           // ONG
+  otro          // Otro tipo
+
+  @@map("company_type_enum")
+  @@schema("public")
+}
+
+/// Clasificación de riesgo SARLAFT
+enum RiskClassification {
+  bajo
+  medio
+  alto
+  muy_alto
+
+  @@map("risk_classification_enum")
+  @@schema("public")
+}
+
+/// Empresas con cifrado PII usando pgcrypto - Cumple requisitos SARLAFT
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Company {
+  id                      String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId                   String              @map("org_id") @db.Uuid
+  
+  // SECCIÓN A: Identidad Corporativa
+  companyType             CompanyType         @default(sas) @map("company_type")
+  isPinned                Boolean             @default(false) @map("is_pinned")
+  legalNameEnc            Bytes               @map("legal_name_enc")         // Razón Social cifrada
+  tradeNameEnc            Bytes?              @map("trade_name_enc")         // Nombre Comercial cifrado
+  nitEnc                  Bytes               @map("nit_enc")                // NIT cifrado
+  constitutionDate        DateTime?           @map("constitution_date") @db.Date
+  registrationCity        String?             @map("registration_city") @db.VarChar(100)
+  
+  // SECCIÓN B: Representación Legal
+  legalRepNameEnc         Bytes?              @map("legal_rep_name_enc")
+  legalRepIdType          String?             @map("legal_rep_id_type") @db.VarChar(20)
+  legalRepIdNumberEnc     Bytes?              @map("legal_rep_id_number_enc")
+  legalRepEmailEnc        Bytes?              @map("legal_rep_email_enc")
+  legalRepPhoneEnc        Bytes?              @map("legal_rep_phone_enc")
+  legalRepStartDate       DateTime?           @map("legal_rep_start_date") @db.Date
+  
+  // SECCIÓN C: Información Financiera (SARLAFT)
+  annualRevenueEnc        Bytes?              @map("annual_revenue_enc")
+  totalAssetsEnc          Bytes?              @map("total_assets_enc")
+  totalLiabilitiesEnc     Bytes?              @map("total_liabilities_enc")
+  totalEquityEnc          Bytes?              @map("total_equity_enc")
+  financialYear           Int?                @map("financial_year")
+  currency                String              @default("COP") @db.VarChar(3)
+  riskClassification      RiskClassification  @default(bajo) @map("risk_classification")
+  
+  // SECCIÓN D: Composición Accionaria
+  shareholdersEnc         Bytes?              @map("shareholders_enc")       // JSON array cifrado
+  beneficialOwnersEnc     Bytes?              @map("beneficial_owners_enc")  // Beneficiarios finales cifrado
+  
+  // SECCIÓN E: Datos de Riesgo y Compliance
+  ciiuCode                String?             @map("ciiu_code") @db.VarChar(10)
+  isPep                   Boolean             @default(false) @map("is_pep")
+  isObligatedSubject      Boolean             @default(false) @map("is_obligated_subject")
+  lastSarlaftUpdate       DateTime?           @map("last_sarlaft_update") @db.Date
+  complianceNotesEnc      Bytes?              @map("compliance_notes_enc")
+  
+  // Auditoría
+  createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy               String?             @map("created_by") @db.Uuid
+  lastEditedBy            String?             @map("last_edited_by") @db.Uuid
+  
+  // Soft Delete
+  deletedAt               DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  deletedBy               String?             @map("deleted_by") @db.Uuid
+  
+  // Relaciones
+  organization            organizations       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId], map: "idx_companies_org_id")
+  @@index([createdAt(sort: Desc)], map: "idx_companies_created_at")
+  @@index([orgId, isPinned], map: "idx_companies_is_pinned")
+  @@index([orgId, riskClassification], map: "idx_companies_risk_classification")
+  @@index([orgId, companyType], map: "idx_companies_company_type")
+  @@index([deletedAt], map: "idx_companies_deleted_at")
+  @@map("companies")
   @@schema("public")
 }

@@ -75,17 +75,31 @@ export function generateInitialMessageFromBrief(brief: Partial<CaseBrief>): stri
         parts.push(`Notas adicionales: ${brief.freeText}`);
     }
     
-    // PDFs adjuntos (locales - subidos desde el computador)
+    // ✅ FASE BASELINE vs CHALLENGERS: Clasificar PDFs adjuntos por rol
     const tempUploads = (brief as any).tempUploads || [];
-    if (tempUploads.length > 0) {
-        const pdfNames = tempUploads.map((upload: any) => upload.fileName || 'Documento').join(', ');
-        parts.push(`Documentos PDF adjuntos: ${pdfNames}`);
+    const baselineUploads = tempUploads.filter((u: any) => u.documentRole === 'baseline');
+    const challengerUploads = tempUploads.filter((u: any) => u.documentRole !== 'baseline');
+    
+    // Notificar BASELINE (Condiciones Actuales)
+    if (baselineUploads.length > 0) {
+        const baselineName = baselineUploads[0].fileName || 'Documento';
+        parts.push(`📋 **Póliza actual (baseline):** ${baselineName}`);
+        parts.push('(Esta es la póliza que el cliente tiene actualmente)');
+    } else {
+        parts.push(`⚠️ **Sin póliza baseline:** El cliente no tiene una póliza actual o no fue adjuntada`);
+    }
+    
+    // Notificar CHALLENGERS (Cotizaciones/Alternativas)
+    if (challengerUploads.length > 0) {
+        const challengerNames = challengerUploads.map((u: any) => u.fileName || 'Documento').join(', ');
+        parts.push(`📄 **Cotizaciones (challengers):** ${challengerNames}`);
+        parts.push(`(${challengerUploads.length} alternativa(s) para comparar)`);
     }
     
     // ✅ FASE POLICY_LINKS: Pólizas vinculadas de la organización (ya analizadas)
     const linkedPolicyIds = brief.linkedPolicyIds || [];
     if (linkedPolicyIds.length > 0) {
-        parts.push(`Pólizas de la organización vinculadas: ${linkedPolicyIds.length}`);
+        parts.push(`🔗 **Pólizas de organización vinculadas:** ${linkedPolicyIds.length}`);
         parts.push('(Estas pólizas ya tienen análisis previo - listas para comparación)');
     }
     
@@ -94,18 +108,25 @@ export function generateInitialMessageFromBrief(brief: Partial<CaseBrief>): stri
         return 'He completado el formulario con la información del caso.';
     }
     
-    // ✅ FASE POLICY_LINKS: Mensaje diferenciado según escenario
+    // ✅ FASE BASELINE vs CHALLENGERS: Mensaje diferenciado según escenario
     const hasLinkedPolicies = linkedPolicyIds.length > 0;
-    const hasLocalPdfs = tempUploads.length > 0;
+    const hasBaseline = baselineUploads.length > 0;
+    const hasChallengers = challengerUploads.length > 0 || hasLinkedPolicies;
     
     let introMessage = 'He completado el formulario con la siguiente información:';
     
-    if (hasLinkedPolicies && !hasLocalPdfs) {
-        // CASO A: Solo pólizas de org - sugerir comparación directa
-        introMessage = 'He completado el formulario y vinculado pólizas de la organización. Por favor, compáralas y recomienda la mejor opción:';
-    } else if (hasLinkedPolicies && hasLocalPdfs) {
-        // CASO B: Mezcla - indicar que hay pólizas listas y otras pendientes
-        introMessage = 'He completado el formulario con pólizas vinculadas y documentos nuevos para analizar:';
+    if (hasBaseline && hasChallengers) {
+        // CASO A: Tiene baseline Y alternativas - escenario ideal para comparación
+        introMessage = 'He completado el formulario con la póliza actual del cliente y alternativas para comparar:';
+    } else if (!hasBaseline && hasChallengers) {
+        // CASO B: Sin baseline pero con alternativas - cliente sin póliza actual
+        introMessage = 'He completado el formulario. El cliente no tiene póliza actual, así que evaluaremos las cotizaciones disponibles:';
+    } else if (hasBaseline && !hasChallengers) {
+        // CASO C: Solo baseline - necesita cotizaciones
+        introMessage = 'He completado el formulario con la póliza actual del cliente. Sube cotizaciones para poder comparar:';
+    } else if (hasLinkedPolicies) {
+        // CASO D: Solo pólizas de org
+        introMessage = 'He completado el formulario y vinculado pólizas de la organización:';
     }
     
     return `${introMessage}\n\n${parts.join('\n')}`;
@@ -131,9 +152,15 @@ export function generateInitialMessageFromBrief(brief: Partial<CaseBrief>): stri
 export function generateWelcomeMessageFromBrief(
     brief: Partial<CaseBrief>, 
     artifactCount: number = 0,
-    linkedPolicyCount: number = 0
+    linkedPolicyCount: number = 0,
+    policyInfo?: { baselineCount: number; challengerCount: number; baselineFileName: string }
 ): string {
     const clientName = brief.clientName || 'tu cliente';
+    
+    // ✅ FASE BASELINE vs CHALLENGERS: Usar info de parámetros en lugar de tempUploads
+    const baselineCount = policyInfo?.baselineCount ?? 0;
+    const challengerCount = policyInfo?.challengerCount ?? 0;
+    const baselineFileName = policyInfo?.baselineFileName ?? '';
     
     let message = `¡Excelente! He creado un nuevo caso para **${clientName}**.\n\n`;
     
@@ -177,32 +204,47 @@ export function generateWelcomeMessageFromBrief(
         message += `**Resumen del caso:**\n${details.join('\n')}\n\n`;
     }
     
-    // Sección de pólizas con lógica diferenciada
+    // ✅ FASE BASELINE vs CHALLENGERS: Sección de pólizas diferenciada
+    // Ahora usa los parámetros pasados desde state.ts (datos reales de artifacts)
+    const totalLocalPolicies = baselineCount + challengerCount;
+    const totalChallengers = challengerCount + linkedPolicyCount;
     const totalPolicies = artifactCount + linkedPolicyCount;
     
-    if (totalPolicies > 0) {
-        message += `---\n\n`;
-        message += `📄 **Pólizas disponibles para análisis:**\n`;
-        
-        if (artifactCount > 0) {
-            message += `- ${artifactCount} documento(s) subido(s) desde tu computador\n`;
+    message += `---\n\n`;
+    
+    // Indicar estado de baseline
+    if (baselineCount > 0) {
+        message += `🔵 **Póliza actual (baseline):** ${baselineFileName}\n`;
+    } else {
+        message += `⚠️ **Sin póliza actual:** El cliente no tiene una póliza baseline adjuntada\n`;
+    }
+    
+    // Indicar challengers (locales + vinculadas)
+    if (totalChallengers > 0) {
+        message += `🟢 **Alternativas a comparar:**\n`;
+        if (challengerCount > 0) {
+            message += `  - ${challengerCount} cotización(es) local(es)\n`;
         }
-        
         if (linkedPolicyCount > 0) {
-            message += `- ${linkedPolicyCount} póliza(s) vinculada(s) de la organización (con análisis previo)\n`;
+            message += `  - ${linkedPolicyCount} póliza(s) de la organización\n`;
+        }
+    }
+    
+    // ✅ CRÍTICO: SIEMPRE indicar ir al tab de Pólizas si hay documentos
+    if (totalPolicies > 0) {
+        message += `\n👉 **Siguiente paso:** Ve a la pestaña **"Pólizas"** en el panel derecho.\n`;
+        
+        if (baselineCount > 0) {
+            message += `Te recomiendo analizar primero la **póliza baseline** para establecer el punto de referencia.\n`;
         }
         
-        message += `\n👉 **Siguiente paso:** Ve al tab **"Pólizas"** en el panel derecho y haz clic en `;
-        
-        if (linkedPolicyCount > 0 && artifactCount === 0) {
-            // Solo pólizas de org
-            message += `**"Cargar Análisis"** para contextualizar las pólizas existentes con los datos del cliente.`;
-        } else if (artifactCount > 0) {
-            // Hay pólizas locales
-            message += `**"Analizar PDF"** en la póliza que desees revisar primero.`;
+        if (linkedPolicyCount > 0 && challengerCount === 0) {
+            message += `Haz clic en **"Cargar Análisis"** para contextualizar las pólizas de la organización.`;
+        } else if (totalLocalPolicies > 0) {
+            message += `Haz clic en **"Analizar PDF"** para iniciar el análisis de cada documento.`;
         }
     } else {
-        message += `📄 No has subido ninguna póliza todavía. `;
+        message += `\n📄 No has subido ninguna póliza todavía.\n`;
         message += `Puedes agregar documentos en cualquier momento desde el formulario del caso.`;
     }
     

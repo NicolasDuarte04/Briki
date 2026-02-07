@@ -526,7 +526,7 @@ export function WorkspaceTabs({ orgId }: WorkspaceTabsProps = {}) {
             })()}
           </TabsContent>
           <TabsContent value="comparisons" className="py-6">
-            <Comparison />
+            <Comparison caseData={activeCaseData} />
           </TabsContent>
           <TabsContent value="proposal" className="py-6">
             <Proposal />

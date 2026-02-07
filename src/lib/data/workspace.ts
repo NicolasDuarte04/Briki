@@ -103,12 +103,13 @@ export interface UserPins {
   cases: string[];
   clients: string[];
   policies: string[];
+  companies: string[];
 }
 
 /**
  * Entity types that can be pinned
  */
-export type PinnableEntityType = 'case' | 'client' | 'policy';
+export type PinnableEntityType = 'case' | 'client' | 'policy' | 'company';
 
 // ============================================================================
 // CONSTANTS
@@ -367,7 +368,7 @@ export async function getUserPins(userId: string): Promise<UserPins> {
   
   if (error) {
     console.error('[getUserPins] Error:', error);
-    return { cases: [], clients: [], policies: [] };
+    return { cases: [], clients: [], policies: [], companies: [] };
   }
   
   // Parse pins from ui_preferences JSONB
@@ -378,6 +379,7 @@ export async function getUserPins(userId: string): Promise<UserPins> {
     cases: Array.isArray(pins?.cases) ? pins.cases : [],
     clients: Array.isArray(pins?.clients) ? pins.clients : [],
     policies: Array.isArray(pins?.policies) ? pins.policies : [],
+    companies: Array.isArray(pins?.companies) ? pins.companies : [],
   };
 }
 
@@ -411,11 +413,12 @@ export async function togglePin(
     
     // 2. Parse current pins
     const uiPrefs = (existing?.ui_preferences as Record<string, unknown>) || {};
-    const currentPins = (uiPrefs.pins as UserPins) || { cases: [], clients: [], policies: [] };
+    const currentPins = (uiPrefs.pins as UserPins) || { cases: [], clients: [], policies: [], companies: [] };
     
     // 3. Determine array key based on entity type
     const arrayKey = entityType === 'case' ? 'cases' : 
-                     entityType === 'client' ? 'clients' : 'policies';
+                     entityType === 'client' ? 'clients' : 
+                     entityType === 'company' ? 'companies' : 'policies';
     
     // 4. Get current array (ensure it's an array)
     const currentArray = Array.isArray(currentPins[arrayKey]) ? currentPins[arrayKey] : [];
@@ -446,6 +449,7 @@ export async function togglePin(
       cases: arrayKey === 'cases' ? newArray : (currentPins.cases || []),
       clients: arrayKey === 'clients' ? newArray : (currentPins.clients || []),
       policies: arrayKey === 'policies' ? newArray : (currentPins.policies || []),
+      companies: arrayKey === 'companies' ? newArray : (currentPins.companies || []),
     };
     
     // 7. Build updated ui_preferences
@@ -493,7 +497,8 @@ export async function isEntityPinned(
 ): Promise<boolean> {
   const pins = await getUserPins(userId);
   const arrayKey = entityType === 'case' ? 'cases' : 
-                   entityType === 'client' ? 'clients' : 'policies';
+                   entityType === 'client' ? 'clients' : 
+                   entityType === 'company' ? 'companies' : 'policies';
   return pins[arrayKey].includes(entityId);
 }
 

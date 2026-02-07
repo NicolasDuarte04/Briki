@@ -23,6 +23,7 @@ import { RecentPolicies } from '@/components/Workspace/RecentPolicies';
 import { PinnedCases } from '@/components/Workspace/PinnedCases';
 import { PinnedClients } from '@/components/Workspace/PinnedClients';
 import { PinnedPolicies } from '@/components/Workspace/PinnedPolicies';
+import { PinnedCompanies } from '@/components/Workspace/PinnedCompanies';
 import { ZeroState } from '@/components/Workspace/ZeroState';
 import type { Locale } from '@/lib/routes/workspace';
 import DashboardViewTracker from './DashboardViewTracker';
@@ -84,8 +85,8 @@ function DashboardContentSkeleton() {
         </div>
       </div>
       
-      {/* Row 3-5: Pinned sections */}
-      {[1, 2, 3].map((i) => (
+      {/* Row 3-6: Pinned sections (cases, clients, policies, companies) */}
+      {[1, 2, 3, 4].map((i) => (
         <div key={i} className="md:col-span-12">
           <div className="rounded-lg border bg-card p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
@@ -224,6 +225,13 @@ async function DashboardContent({ locale }: { locale: Locale }) {
       <div className="md:col-span-12">
         <Suspense fallback={<PinnedSkeleton />}>
           <PinnedPolicies userId={userId} orgId={orgId} locale={locale} />
+        </Suspense>
+      </div>
+      
+      {/* Row 6: Empresas ancladas (full width) - SARLAFT Compliance */}
+      <div className="md:col-span-12">
+        <Suspense fallback={<PinnedSkeleton />}>
+          <PinnedCompanies orgId={orgId} locale={locale} />
         </Suspense>
       </div>
     </div>

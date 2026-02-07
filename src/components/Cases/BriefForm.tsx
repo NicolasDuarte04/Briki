@@ -33,6 +33,8 @@ export type TempUpload = {
   fileHash?: string;
   extractedText?: string;
   isExistingArtifact?: boolean; // ✅ CORRECCIÓN: Flag para identificar pólizas ya persistidas (no eliminables)
+  /** Document role for comparison: baseline (current policy) or challenger (new proposals) */
+  documentRole?: 'baseline' | 'challenger';
 };
 
 // Define el tipo para opciones de cliente
@@ -619,10 +621,16 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // ✅ CORRECCIÓN CRÍTICA: Ref para almacenar onUploadComplete de PdfUploader
   // Esto permite llamar a onUploadComplete desde handleFileUpload para que PdfUploader limpie selectedFile
   const onUploadCompleteRef = useRef<((upload: TempUpload) => void) | null>(null);
+  // ✅ FASE BASELINE vs CHALLENGERS: Ref para el documentRole del upload actual
+  const currentUploadRoleRef = useRef<'baseline' | 'challenger'>('challenger');
 
   // Handlers para uploads
-  const handleFileUpload = async (file: File) => {
-    console.log('📄 [BriefForm] Iniciando subida de PDF temporal:', file.name);
+  // ✅ FASE BASELINE vs CHALLENGERS: Modificado para aceptar documentRole
+  const handleFileUpload = async (file: File, documentRole: 'baseline' | 'challenger' = 'challenger') => {
+    console.log('📄 [BriefForm] Iniciando subida de PDF temporal:', file.name, 'rol:', documentRole);
+    
+    // Guardar el rol actual para cuando se complete el upload
+    currentUploadRoleRef.current = documentRole;
 
     try {
       // ✅ REUTILIZACIÓN MÁXIMA: Usar el mismo endpoint que el Landing
@@ -641,14 +649,20 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       if (result.success && result.mode === 'temp' && result.tempUpload) {
         console.log('✅ [BriefForm] PDF subido como temp con storagePath real:', result.tempUpload);
 
+        // ✅ FASE BASELINE vs CHALLENGERS: Agregar documentRole al upload
+        const uploadWithRole = {
+          ...result.tempUpload,
+          documentRole: currentUploadRoleRef.current,
+        };
+
         // ✅ CORRECCIÓN CRÍTICA: Llamar a onUploadComplete (que pasa por wrappedOnUploadComplete en PdfUploader)
         // Esto permite que PdfUploader limpie selectedFile ANTES de agregar a tempUploads
         // onUploadCompleteRef.current es handleUploadComplete que se pasa a PdfUploader
         if (onUploadCompleteRef.current) {
-          onUploadCompleteRef.current(result.tempUpload);
+          onUploadCompleteRef.current(uploadWithRole);
         } else {
           // Fallback: si no hay ref, llamar directamente a handleUploadComplete
-          handleUploadComplete(result.tempUpload);
+          handleUploadComplete(uploadWithRole);
         }
       } else {
         console.error('❌ [BriefForm] Error al subir PDF:', result.error);
@@ -1133,9 +1147,9 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             />
           </div>
 
-          {/* Sección de Carga de PDFs */}
+          {/* ✅ FASE BASELINE vs CHALLENGERS: Sección de Carga de PDFs con dos zonas */}
           {orgId && (
-            <div className="space-y-4 pt-4 border-t">
+            <div className="space-y-6 pt-4 border-t">
               <div className="space-y-2">
                 <Label className="text-base font-semibold flex items-center gap-2">
                   <FileText className="h-4 w-4" />
@@ -1146,60 +1160,149 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 </p>
               </div>
 
-              <PdfUploader
-                // ✅ CORRECCIÓN: Omitir caseId para usar tempUploads (no pasar undefined explícitamente)
-                // Esto permite que PdfUploader funcione en modo temporal, incluso en modo edición
-                orgId={orgId}
-                onFileSelected={handleFileUpload}
-                onUploadComplete={(upload) => {
-                  // ✅ CORRECCIÓN CRÍTICA: Almacenar la función en ref para poder llamarla desde handleFileUpload
-                  onUploadCompleteRef.current = handleUploadComplete;
-                  // Llamar a handleUploadComplete (que agrega a tempUploads)
-                  // PdfUploader intercepta esta llamada con wrappedOnUploadComplete que limpia selectedFile
-                  handleUploadComplete(upload);
-                }}
-              />
-
-              {/* ✅ CORRECCIÓN CRÍTICA FASE 2.3: SOLO renderizar tempUploads, NUNCA artifacts directamente */}
-              {/* IMPORTANTE: NO renderizar initialData?.artifacts bajo ninguna circunstancia */}
-              {/* El único renderizado permitido es la lista simple de tempUploads */}
-              {tempUploads.length > 0 && (
-                <div className="space-y-2 mt-4">
-                  <Label className="text-sm font-medium">{tCaseBrief('form.associatedDocs')}</Label>
-                  <div className="space-y-2">
-                    {tempUploads.map((upload) => (
-                      <div key={upload.storagePath} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              {/* ✅ ZONA A: Condiciones Actuales (Baseline) */}
+              <div className="space-y-3 p-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      {tCaseBrief('form.documentUpload.baselineSection.title')}
+                    </h4>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
+                      {tCaseBrief('form.documentUpload.baselineSection.subtitle')}
+                    </p>
+                  </div>
+                  <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+                    {tCaseBrief('form.documentUpload.baselineSection.limit')}
+                  </span>
+                </div>
+                
+                {/* Mostrar uploader solo si no hay baseline */}
+                {tempUploads.filter(u => u.documentRole === 'baseline').length === 0 ? (
+                  <PdfUploader
+                    orgId={orgId}
+                    documentRole="baseline"
+                    hideCard
+                    dropzoneClassName="border-blue-300 dark:border-blue-700 hover:border-blue-400"
+                    customDropHint={tCaseBrief('form.documentUpload.baselineSection.dropHint')}
+                    customSubtitle={tCaseBrief('form.documentUpload.baselineSection.limit')}
+                    onFileSelected={(file) => handleFileUpload(file, 'baseline')}
+                    onUploadComplete={(upload) => {
+                      onUploadCompleteRef.current = handleUploadComplete;
+                      handleUploadComplete({ ...upload, documentRole: 'baseline' });
+                    }}
+                  />
+                ) : (
+                  <p className="text-xs text-blue-600 dark:text-blue-400 italic">
+                    {tCaseBrief('form.documentUpload.baselineSection.alreadyHasBaseline')}
+                  </p>
+                )}
+                
+                {/* Lista de archivos baseline */}
+                {tempUploads.filter(u => u.documentRole === 'baseline').map((upload) => (
+                  <div key={upload.storagePath} className="flex items-center justify-between p-3 bg-white dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <p className="text-sm font-medium">{upload.fileName}</p>
+                          <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800 px-1.5 py-0.5 rounded">
+                            {tCaseBrief('form.documentUpload.baselineSection.badge')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {upload.pageCount ? `${upload.pageCount} ${tCaseBrief('form.pages')}` : ''}
+                          {upload.pageCount && upload.fileSize ? ' • ' : ''}
+                          {upload.fileSize ? `${Math.round(upload.fileSize / 1024)} KB` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    {!upload.isExistingArtifact && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveUpload(upload.storagePath)}
+                        className="flex-shrink-0 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+                        aria-label="Eliminar archivo"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* ✅ ZONA B: Pólizas a Proponer (Challengers) */}
+              <div className="space-y-3 p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-emerald-900 dark:text-emerald-100 flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      {tCaseBrief('form.documentUpload.challengerSection.title')}
+                    </h4>
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                      {tCaseBrief('form.documentUpload.challengerSection.subtitle')}
+                    </p>
+                  </div>
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900 px-2 py-1 rounded">
+                    {tCaseBrief('form.documentUpload.challengerSection.multiple')}
+                  </span>
+                </div>
+                
+                <PdfUploader
+                  orgId={orgId}
+                  documentRole="challenger"
+                  hideCard
+                  dropzoneClassName="border-emerald-300 dark:border-emerald-700 hover:border-emerald-400"
+                  customDropHint={tCaseBrief('form.documentUpload.challengerSection.dropHint')}
+                  customSubtitle={tCaseBrief('form.documentUpload.challengerSection.multiple')}
+                  onFileSelected={(file) => handleFileUpload(file, 'challenger')}
+                  onUploadComplete={(upload) => {
+                    onUploadCompleteRef.current = handleUploadComplete;
+                    handleUploadComplete({ ...upload, documentRole: 'challenger' });
+                  }}
+                />
+                
+                {/* Lista de archivos challengers */}
+                {tempUploads.filter(u => u.documentRole === 'challenger' || !u.documentRole).length > 0 && (
+                  <div className="space-y-2">
+                    {tempUploads.filter(u => u.documentRole === 'challenger' || !u.documentRole).map((upload) => (
+                      <div key={upload.storagePath} className="flex items-center justify-between p-3 bg-white dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-emerald-600" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium">{upload.fileName}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium">{upload.fileName}</p>
+                              <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-800 px-1.5 py-0.5 rounded">
+                                {tCaseBrief('form.documentUpload.challengerSection.badge')}
+                              </span>
+                            </div>
                             <p className="text-xs text-muted-foreground">
                               {upload.pageCount ? `${upload.pageCount} ${tCaseBrief('form.pages')}` : ''}
                               {upload.pageCount && upload.fileSize ? ' • ' : ''}
                               {upload.fileSize ? `${Math.round(upload.fileSize / 1024)} KB` : ''}
-                              {/* ✅ CORRECCIÓN: Indicar si es póliza existente (no eliminable) */}
                               {upload.isExistingArtifact && ` • ${tCaseBrief('form.savedPolicy')}`}
                             </p>
                           </div>
                         </div>
-                        {/* ✅ CORRECCIÓN: Solo mostrar botón X si NO es póliza existente */}
                         {!upload.isExistingArtifact && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveUpload(upload.storagePath)}
-                          className="flex-shrink-0"
-                          aria-label="Eliminar archivo"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveUpload(upload.storagePath)}
+                            className="flex-shrink-0 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100"
+                            aria-label="Eliminar archivo"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* ✅ CORRECCIÓN CRÍTICA FASE 2.3: NO renderizar artifacts directamente bajo ninguna circunstancia */}
               {/* Si tempUploads está vacío, NO mostrar nada - la conversión se realizará automáticamente en el useEffect */}

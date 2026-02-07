@@ -272,6 +272,8 @@ export interface CaseBrief {
     charactersExtracted?: number;
     fileHash?: string;
     extractedText?: string;
+    /** Document role for comparison: baseline (current policy) or challenger (new proposals) */
+    documentRole?: 'baseline' | 'challenger';
   }>;
   /** Linked org policy IDs to be associated with the case */
   linkedPolicyIds?: string[];
@@ -535,6 +537,7 @@ export type ComparisonMetric = 'premium' | 'deductible' | 'riders' | 'network' |
  * Lightweight view model for policies used in the UI layer
  * ✅ FASE 6: Extended to include policy analysis fields
  * ✅ CORRECCIÓN: network y service opcionales para compatibilidad
+ * ✅ FASE BASELINE vs CHALLENGERS: Added documentRole for comparison flow
  */
 export type PolicyView = Pick<Policy, "id" | "plan" | "riders"> & {
   premium: number;
@@ -553,6 +556,8 @@ export type PolicyView = Pick<Policy, "id" | "plan" | "riders"> & {
   linkId?: string; // ID del CasePolicyLink para desvinculación
   // ✅ FASE CONTEXTUALIZACIÓN: Timestamp de contextualización (null = pendiente)
   contextualizedAt?: Date | string | null;
+  // ✅ FASE BASELINE vs CHALLENGERS: Role del documento para comparación
+  documentRole?: 'baseline' | 'challenger';
 };
 
 /**
@@ -684,6 +689,9 @@ export interface PolicyAnalysis {
   linkedBy?: string | null;
   /** When the policy analysis was contextualized with the case (null = pending) */
   contextualizedAt?: Date | string | null;
+  // ✅ FASE BASELINE vs CHALLENGERS: Document role for comparison flow
+  /** Role of the document: 'baseline' (current policy) or 'challenger' (new quote) */
+  documentRole?: 'baseline' | 'challenger';
   /** Related artifact info (when included) */
   artifact?: {
     id: string;
