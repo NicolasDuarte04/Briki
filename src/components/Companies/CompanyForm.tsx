@@ -44,31 +44,61 @@ const ID_TYPES = ['CC', 'CE', 'PASSPORT', 'TI'] as const;
 // Monedas
 const CURRENCIES = ['COP', 'USD', 'EUR'] as const;
 
+/** Valores por defecto para modo edición */
+interface CompanyDefaultValues {
+  companyType?: string;
+  legalName?: string;
+  tradeName?: string;
+  nit?: string;
+  constitutionDate?: string;
+  registrationCity?: string;
+  legalRepName?: string;
+  legalRepIdType?: string;
+  legalRepIdNumber?: string;
+  legalRepEmail?: string;
+  legalRepPhone?: string;
+  legalRepStartDate?: string;
+  annualRevenue?: string;
+  totalAssets?: string;
+  totalLiabilities?: string;
+  totalEquity?: string;
+  financialYear?: number;
+  currency?: string;
+  riskClassification?: string;
+  ciiuCode?: string;
+  isPep?: boolean;
+  isObligatedSubject?: boolean;
+  lastSarlaftUpdate?: string;
+  complianceNotes?: string;
+}
+
 interface CompanyFormProps {
   orgId: string;
   userId?: string;
   companyId?: string; // Para modo edición
+  defaultValues?: CompanyDefaultValues; // Valores para prellenar en edición
 }
 
 type TabId = 'identity' | 'legalRep' | 'financial' | 'shareholders' | 'risk';
 
-export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
+export function CompanyForm({ orgId, userId, companyId, defaultValues }: CompanyFormProps) {
   const router = useRouter();
   const locale = useLocale();
   const t = useTranslations('companies.form');
+  const tRoot = useTranslations('companies'); // Para acceder a companyTypes y riskLevels
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('identity');
   
-  // Form state
-  const [companyType, setCompanyType] = useState<string>('sas');
-  const [riskClassification, setRiskClassification] = useState<string>('bajo');
-  const [legalRepIdType, setLegalRepIdType] = useState<string>('');
-  const [currency, setCurrency] = useState<string>('COP');
-  const [isPep, setIsPep] = useState(false);
-  const [isObligatedSubject, setIsObligatedSubject] = useState(false);
+  // Form state (inicializado con defaultValues si están disponibles)
+  const [companyType, setCompanyType] = useState<string>(defaultValues?.companyType || 'sas');
+  const [riskClassification, setRiskClassification] = useState<string>(defaultValues?.riskClassification || 'bajo');
+  const [legalRepIdType, setLegalRepIdType] = useState<string>(defaultValues?.legalRepIdType || '');
+  const [currency, setCurrency] = useState<string>(defaultValues?.currency || 'COP');
+  const [isPep, setIsPep] = useState(defaultValues?.isPep || false);
+  const [isObligatedSubject, setIsObligatedSubject] = useState(defaultValues?.isObligatedSubject || false);
   
   const isEditMode = !!companyId;
   const tabs: TabId[] = ['identity', 'legalRep', 'financial', 'shareholders', 'risk'];
@@ -146,7 +176,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
       const data = await response.json();
       const newCompanyId = isEditMode ? companyId : data.id;
       
-      setSuccess(isEditMode ? t('messages.updated') : t('messages.created'));
+      setSuccess(isEditMode ? tRoot('messages.updated') : tRoot('messages.created'));
       
       // Redirigir después de 2 segundos
       setTimeout(() => {
@@ -160,8 +190,15 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
     }
   };
   
+  // Prevenir submit accidental con Enter excepto en última pestaña
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    if (e.key === 'Enter' && currentTabIndex < tabs.length - 1) {
+      e.preventDefault();
+    }
+  };
+  
   return (
-    <form id="company-form" onSubmit={handleSubmit} className="space-y-6">
+    <form id="company-form" onSubmit={handleSubmit} onKeyDown={handleKeyDown} className="space-y-6">
       {error && (
         <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-lg">
           {error}
@@ -214,7 +251,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
         </TabsList>
         
         {/* Tab A: Identidad Corporativa */}
-        <TabsContent value="identity">
+        <TabsContent value="identity" forceMount className="data-[state=inactive]:hidden">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -235,6 +272,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     placeholder={t('legalNamePlaceholder')}
                     required
                     autoFocus={!isEditMode}
+                    defaultValue={defaultValues?.legalName}
                   />
                 </div>
                 
@@ -244,6 +282,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     id="tradeName"
                     name="tradeName"
                     placeholder={t('tradeNamePlaceholder')}
+                    defaultValue={defaultValues?.tradeName}
                   />
                 </div>
               </div>
@@ -256,6 +295,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     name="nit"
                     placeholder={t('nitPlaceholder')}
                     required
+                    defaultValue={defaultValues?.nit}
                   />
                 </div>
                 
@@ -268,7 +308,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     <SelectContent>
                       {COMPANY_TYPES.map((type) => (
                         <SelectItem key={type} value={type}>
-                          {t(`../companyTypes.${type}`)}
+                          {tRoot(`companyTypes.${type}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -283,6 +323,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     id="constitutionDate"
                     name="constitutionDate"
                     type="date"
+                    defaultValue={defaultValues?.constitutionDate}
                   />
                 </div>
                 
@@ -292,6 +333,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     id="registrationCity"
                     name="registrationCity"
                     placeholder={t('registrationCityPlaceholder')}
+                    defaultValue={defaultValues?.registrationCity}
                   />
                 </div>
               </div>
@@ -300,7 +342,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
         </TabsContent>
         
         {/* Tab B: Representación Legal */}
-        <TabsContent value="legalRep">
+        <TabsContent value="legalRep" forceMount className="data-[state=inactive]:hidden">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -318,6 +360,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                   id="legalRepName"
                   name="legalRepName"
                   placeholder={t('legalRepNamePlaceholder')}
+                  defaultValue={defaultValues?.legalRepName}
                 />
               </div>
               
@@ -344,6 +387,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     id="legalRepIdNumber"
                     name="legalRepIdNumber"
                     placeholder={t('legalRepIdNumberPlaceholder')}
+                    defaultValue={defaultValues?.legalRepIdNumber}
                   />
                 </div>
               </div>
@@ -356,6 +400,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     name="legalRepEmail"
                     type="email"
                     placeholder={t('legalRepEmailPlaceholder')}
+                    defaultValue={defaultValues?.legalRepEmail}
                   />
                 </div>
                 
@@ -366,6 +411,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     name="legalRepPhone"
                     type="tel"
                     placeholder={t('legalRepPhonePlaceholder')}
+                    defaultValue={defaultValues?.legalRepPhone}
                   />
                 </div>
               </div>
@@ -376,6 +422,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                   id="legalRepStartDate"
                   name="legalRepStartDate"
                   type="date"
+                  defaultValue={defaultValues?.legalRepStartDate}
                 />
               </div>
             </CardContent>
@@ -383,7 +430,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
         </TabsContent>
         
         {/* Tab C: Información Financiera */}
-        <TabsContent value="financial">
+        <TabsContent value="financial" forceMount className="data-[state=inactive]:hidden">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -402,6 +449,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     id="annualRevenue"
                     name="annualRevenue"
                     placeholder={t('annualRevenuePlaceholder')}
+                    defaultValue={defaultValues?.annualRevenue}
                   />
                 </div>
                 
@@ -411,6 +459,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     id="totalAssets"
                     name="totalAssets"
                     placeholder={t('totalAssetsPlaceholder')}
+                    defaultValue={defaultValues?.totalAssets}
                   />
                 </div>
               </div>
@@ -422,6 +471,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     id="totalLiabilities"
                     name="totalLiabilities"
                     placeholder={t('totalLiabilitiesPlaceholder')}
+                    defaultValue={defaultValues?.totalLiabilities}
                   />
                 </div>
                 
@@ -431,6 +481,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     id="totalEquity"
                     name="totalEquity"
                     placeholder={t('totalEquityPlaceholder')}
+                    defaultValue={defaultValues?.totalEquity}
                   />
                 </div>
               </div>
@@ -445,6 +496,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     min="2000"
                     max="2030"
                     placeholder={t('financialYearPlaceholder')}
+                    defaultValue={defaultValues?.financialYear}
                   />
                 </div>
                 
@@ -473,7 +525,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     <SelectContent>
                       {RISK_CLASSIFICATIONS.map((risk) => (
                         <SelectItem key={risk} value={risk}>
-                          {t(`../riskLevels.${risk}`)}
+                          {tRoot(`riskLevels.${risk}`)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -485,7 +537,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
         </TabsContent>
         
         {/* Tab D: Composición Accionaria */}
-        <TabsContent value="shareholders">
+        <TabsContent value="shareholders" forceMount className="data-[state=inactive]:hidden">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -522,7 +574,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
         </TabsContent>
         
         {/* Tab E: Datos de Riesgo */}
-        <TabsContent value="risk">
+        <TabsContent value="risk" forceMount className="data-[state=inactive]:hidden">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -541,6 +593,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     id="ciiuCode"
                     name="ciiuCode"
                     placeholder={t('ciiuCodePlaceholder')}
+                    defaultValue={defaultValues?.ciiuCode}
                   />
                 </div>
                 
@@ -550,6 +603,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                     id="lastSarlaftUpdate"
                     name="lastSarlaftUpdate"
                     type="date"
+                    defaultValue={defaultValues?.lastSarlaftUpdate}
                   />
                 </div>
               </div>
@@ -591,6 +645,7 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
                   name="complianceNotes"
                   placeholder={t('complianceNotesPlaceholder')}
                   rows={4}
+                  defaultValue={defaultValues?.complianceNotes}
                 />
               </div>
             </CardContent>
@@ -610,31 +665,44 @@ export function CompanyForm({ orgId, userId, companyId }: CompanyFormProps) {
           {t('previous')}
         </Button>
         
+        {/* 
+          FIX: Renderizar ambos botones siempre y usar CSS para ocultar.
+          Esto evita el race condition de React reconciliation donde el evento
+          de clic del botón "Next" podía ser capturado por el botón "Submit"
+          al intercambiarlos con un ternario.
+        */}
         <div className="flex gap-2">
-          {currentTabIndex < tabs.length - 1 ? (
-            <Button
-              type="button"
-              onClick={goToNextTab}
-              disabled={isLoading}
-            >
-              {t('next')}
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
-          ) : (
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {isEditMode ? t('saving') : t('creating')}
-                </>
-              ) : (
-                <>
-                  <Check className="h-4 w-4 mr-2" />
-                  {isEditMode ? t('save') : t('create')}
-                </>
-              )}
-            </Button>
-          )}
+          {/* Botón Siguiente - visible solo si NO es la última pestaña */}
+          <Button
+            type="button"
+            onClick={goToNextTab}
+            disabled={isLoading}
+            className={currentTabIndex >= tabs.length - 1 ? 'hidden' : ''}
+            aria-hidden={currentTabIndex >= tabs.length - 1}
+          >
+            {t('next')}
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+          
+          {/* Botón Submit - visible solo en la última pestaña */}
+          <Button 
+            type="submit" 
+            disabled={isLoading}
+            className={currentTabIndex < tabs.length - 1 ? 'hidden' : ''}
+            aria-hidden={currentTabIndex < tabs.length - 1}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {isEditMode ? t('saving') : t('creating')}
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                {isEditMode ? t('save') : t('create')}
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </form>
