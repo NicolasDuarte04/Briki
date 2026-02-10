@@ -11,12 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield, LinkIcon } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield, LinkIcon, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PdfUploader } from '@/components/Upload/PdfUploader';
-import { OrgPolicySelector } from '@/components/Policies/OrgPolicySelector';
+import { OrgDocumentSelector } from '@/components/Common/OrgDocumentSelector';
 import { useUI } from '@/lib/ui/state';
 import { useClientValidation } from '@/hooks/useClientValidation';
+import { useCompanyValidation } from '@/hooks/useCompanyValidation';
 import { createCaseIfNeeded } from '@/lib/case-actions';
 import { ClientValidationModal } from '@/components/Workspace/ClientValidationModal';
 import { useRouter } from 'next/navigation';
@@ -33,6 +34,8 @@ export type TempUpload = {
   fileHash?: string;
   extractedText?: string;
   isExistingArtifact?: boolean; // ✅ CORRECCIÓN: Flag para identificar pólizas ya persistidas (no eliminables)
+  /** Document role for comparison: baseline (current policy) or challenger (new proposals) */
+  documentRole?: 'baseline' | 'challenger';
 };
 
 // Define el tipo para opciones de cliente
@@ -40,6 +43,15 @@ export type ClientOption = {
   id: string;
   name: string;
 };
+
+// Define el tipo para opciones de empresa
+export type CompanyOption = {
+  id: string;
+  name: string;
+};
+
+// Tipo para el sujeto del caso: cliente (persona física) o empresa (persona jurídica)
+export type SubjectType = 'client' | 'company';
 
 // Define la interfaz de los datos que el formulario manejará
 export type CaseBriefData = {
@@ -316,6 +328,8 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
   // ✅ FASE POLICY_LINKS: Estado para pólizas de organización seleccionadas
   const [selectedOrgPolicyIds, setSelectedOrgPolicyIds] = useState<string[]>([]);
+  // ✅ FASE ORG_DOCUMENTS: Estado para cotizaciones de organización seleccionadas
+  const [selectedOrgQuoteIds, setSelectedOrgQuoteIds] = useState<string[]>([]);
 
   // ✅ CORRECCIÓN: Detectar si hay cambios en el formulario respecto al snapshot inicial
   // Esto permite mostrar/ocultar el botón "Actualizar Caso" solo cuando hay modificaciones
@@ -483,8 +497,19 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       setClientSearchTerm('');
       setSelectedClient(null);
       setIsClientComboboxOpen(false);
+      // ✅ Limpiar estados de empresa también
+      setCompanySearchTerm('');
+      setSelectedCompany(null);
+      setIsCompanyComboboxOpen(false);
     }
   }, [initialNotes, setBrief]);
+
+  // ✅ FASE CLIENTE/EMPRESA: Estado para el tipo de sujeto
+  const [subjectType, setSubjectType] = useState<SubjectType>(
+    (initialData?.subjectType as SubjectType) || 
+    (shouldUseBriefFallback ? (brief as any)?.subjectType : 'client') || 
+    'client'
+  );
 
   // Estados para el Combobox de clientes
   const [clientList, setClientList] = useState<ClientOption[]>([]);
@@ -492,6 +517,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   const [selectedClient, setSelectedClient] = useState<ClientOption | null>(null);
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [isClientComboboxOpen, setIsClientComboboxOpen] = useState(false);
+
+  // ✅ FASE CLIENTE/EMPRESA: Estados para el Combobox de empresas
+  const [companyList, setCompanyList] = useState<CompanyOption[]>([]);
+  const [isCompanyListLoading, setIsCompanyListLoading] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<CompanyOption | null>(null);
+  const [companySearchTerm, setCompanySearchTerm] = useState('');
+  const [isCompanyComboboxOpen, setIsCompanyComboboxOpen] = useState(false);
 
   // Cargar clientes al montar el componente
   useEffect(() => {
@@ -517,11 +549,39 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     loadClients();
   }, []);
 
+  // ✅ FASE CLIENTE/EMPRESA: Cargar empresas al montar el componente
+  useEffect(() => {
+    const loadCompanies = async () => {
+      console.log('🔄 Loading companies...');
+      setIsCompanyListLoading(true);
+      try {
+        const response = await fetch('/api/companies/list');
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        console.log('✅ Companies loaded:', data.companies?.length || 0);
+        setCompanyList(data.companies || []);
+      } catch (error) {
+        console.error('❌ Error loading companies:', error);
+        setCompanyList([]);
+      } finally {
+        console.log('🏁 Company loading finished');
+        setIsCompanyListLoading(false);
+      }
+    };
+    loadCompanies();
+  }, []);
+
   // ✅ CORRECCIÓN QUIRÚRGICA: Sincronización inicial de clientName desde brief (solo cuando hay currentCaseId)
   useEffect(() => {
     const currentCaseId = useUI.getState().currentCaseId;
     if (currentCaseId && !clientSearchTerm && brief?.clientName) {
       setClientSearchTerm(brief.clientName);
+    }
+    // Sincronizar companyName también
+    if (currentCaseId && !companySearchTerm && (brief as any)?.companyName) {
+      setCompanySearchTerm((brief as any).companyName);
     }
   }, []); // Solo ejecutar una vez al montar
 
@@ -547,11 +607,15 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       if (isClientComboboxOpen && !target.closest('.client-combobox-container')) {
         setIsClientComboboxOpen(false);
       }
+      // ✅ FASE CLIENTE/EMPRESA: También cerrar combobox de empresas
+      if (isCompanyComboboxOpen && !target.closest('.company-combobox-container')) {
+        setIsCompanyComboboxOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isClientComboboxOpen]);
+  }, [isClientComboboxOpen, isCompanyComboboxOpen]);
 
   // Handlers para actualizar el estado - MEMOIZADO
   // ✅ CORRECCIÓN CRÍTICA: Actualizar solo el estado local (NO guardar en tiempo real)
@@ -605,6 +669,50 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     }
   }, [setBrief, updateField]);
 
+  // ✅ FASE CLIENTE/EMPRESA: Handlers para el Combobox de empresas
+  const handleCompanySelect = useCallback((company: CompanyOption | null) => {
+    const name = company?.name || '';
+    const id = company?.id || null;
+
+    // Actualizar estado local
+    setSelectedCompany(company);
+    setCompanySearchTerm(name);
+
+    // Actualizar estado global
+    setBrief({ companyName: name, selectedCompanyId: id } as any);
+    setIsCompanyComboboxOpen(false);
+  }, [setBrief]);
+
+  const handleCompanySearchChange = useCallback((value: string) => {
+    setCompanySearchTerm(value);
+
+    // Actualizar estado global con el término de búsqueda
+    setBrief({ companyName: value, selectedCompanyId: null } as any);
+
+    // Abrir dropdown cuando se escriba
+    if (value.length > 0) {
+      setIsCompanyComboboxOpen(true);
+    }
+  }, [setBrief]);
+
+  // ✅ FASE CLIENTE/EMPRESA: Handler para cambio de tipo de sujeto
+  const handleSubjectTypeChange = useCallback((newType: SubjectType) => {
+    setSubjectType(newType);
+    
+    // Limpiar selecciones al cambiar de tipo
+    if (newType === 'client') {
+      setCompanySearchTerm('');
+      setSelectedCompany(null);
+      setBrief({ subjectType: 'client', companyName: undefined, selectedCompanyId: null } as any);
+    } else {
+      setClientSearchTerm('');
+      setSelectedClient(null);
+      updateField('clientName', '');
+      setBrief({ subjectType: 'company', clientName: undefined, selectedClientId: null } as any);
+    }
+    console.log('🔄 [BriefForm] Tipo de sujeto cambiado a:', newType);
+  }, [setBrief, updateField]);
+
   const handleAddCoverage = useCallback(() => {
     if (currentCoverage.trim() !== '' && !formData.required_coverages.includes(currentCoverage.trim())) {
       updateField('required_coverages', [...formData.required_coverages, currentCoverage.trim()]);
@@ -619,10 +727,16 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // ✅ CORRECCIÓN CRÍTICA: Ref para almacenar onUploadComplete de PdfUploader
   // Esto permite llamar a onUploadComplete desde handleFileUpload para que PdfUploader limpie selectedFile
   const onUploadCompleteRef = useRef<((upload: TempUpload) => void) | null>(null);
+  // ✅ FASE BASELINE vs CHALLENGERS: Ref para el documentRole del upload actual
+  const currentUploadRoleRef = useRef<'baseline' | 'challenger'>('challenger');
 
   // Handlers para uploads
-  const handleFileUpload = async (file: File) => {
-    console.log('📄 [BriefForm] Iniciando subida de PDF temporal:', file.name);
+  // ✅ FASE BASELINE vs CHALLENGERS: Modificado para aceptar documentRole
+  const handleFileUpload = async (file: File, documentRole: 'baseline' | 'challenger' = 'challenger') => {
+    console.log('📄 [BriefForm] Iniciando subida de PDF temporal:', file.name, 'rol:', documentRole);
+    
+    // Guardar el rol actual para cuando se complete el upload
+    currentUploadRoleRef.current = documentRole;
 
     try {
       // ✅ REUTILIZACIÓN MÁXIMA: Usar el mismo endpoint que el Landing
@@ -641,14 +755,20 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       if (result.success && result.mode === 'temp' && result.tempUpload) {
         console.log('✅ [BriefForm] PDF subido como temp con storagePath real:', result.tempUpload);
 
+        // ✅ FASE BASELINE vs CHALLENGERS: Agregar documentRole al upload
+        const uploadWithRole = {
+          ...result.tempUpload,
+          documentRole: currentUploadRoleRef.current,
+        };
+
         // ✅ CORRECCIÓN CRÍTICA: Llamar a onUploadComplete (que pasa por wrappedOnUploadComplete en PdfUploader)
         // Esto permite que PdfUploader limpie selectedFile ANTES de agregar a tempUploads
         // onUploadCompleteRef.current es handleUploadComplete que se pasa a PdfUploader
         if (onUploadCompleteRef.current) {
-          onUploadCompleteRef.current(result.tempUpload);
+          onUploadCompleteRef.current(uploadWithRole);
         } else {
           // Fallback: si no hay ref, llamar directamente a handleUploadComplete
-          handleUploadComplete(result.tempUpload);
+          handleUploadComplete(uploadWithRole);
         }
       } else {
         console.error('❌ [BriefForm] Error al subir PDF:', result.error);
@@ -752,17 +872,21 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
         tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
         linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org seleccionadas
+        linkedQuoteIds: selectedOrgQuoteIds || [], // ✅ FASE ORG_DOCUMENTS: Incluir cotizaciones de org seleccionadas
       };
 
       console.log('📝 [BriefForm] Actualizando brief global con TODOS los datos del formulario:', {
         ...briefUpdate,
         freeText: briefUpdate.freeText?.substring(0, 50) + '...',
         tempUploadsCount: briefUpdate.tempUploads?.length || 0,
-        linkedPolicyIdsCount: selectedOrgPolicyIds?.length || 0
+        linkedPolicyIdsCount: selectedOrgPolicyIds?.length || 0,
+        linkedQuoteIdsCount: selectedOrgQuoteIds?.length || 0
       });
-      // 🔍 DEBUG: Log detallado de linkedPolicyIds
+      // 🔍 DEBUG: Log detallado de linkedPolicyIds y linkedQuoteIds
       console.log('🔍 [BriefForm] selectedOrgPolicyIds EXACTOS:', JSON.stringify(selectedOrgPolicyIds));
+      console.log('🔍 [BriefForm] selectedOrgQuoteIds EXACTOS:', JSON.stringify(selectedOrgQuoteIds));
       console.log('🔍 [BriefForm] briefUpdate.linkedPolicyIds EXACTOS:', JSON.stringify(briefUpdate.linkedPolicyIds));
+      console.log('🔍 [BriefForm] briefUpdate.linkedQuoteIds EXACTOS:', JSON.stringify(briefUpdate.linkedQuoteIds));
       setBrief(briefUpdate);
 
       // En modo edición: llamar onSubmit con todos los datos
@@ -784,6 +908,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           freeText: formData.notes || formData.freeText || '', // ✅ Prioridad: notes > freeText > ''
           tempUploads: newTempUploads,
           linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org
+          linkedQuoteIds: selectedOrgQuoteIds || [], // ✅ FASE ORG_DOCUMENTS: Incluir cotizaciones de org
         };
 
         console.log('✏️ [BriefForm] Edit mode: Calling onSubmit with formData + newTempUploads', {
@@ -791,6 +916,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           existingArtifacts: existingArtifactPaths.length,
           newTempUploads: newTempUploads.length,
           linkedPolicyIds: selectedOrgPolicyIds?.length || 0,
+          linkedQuoteIds: selectedOrgQuoteIds?.length || 0,
           freeText: formDataWithFreeText.freeText?.substring(0, 50) + '...',
           notes: formData.notes?.substring(0, 50) + '...'
         });
@@ -854,11 +980,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             freeText: formData.notes || formData.freeText || '', // ✅ Prioridad: notes > freeText > ''
             tempUploads: tempUploads,
             linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org
+            linkedQuoteIds: selectedOrgQuoteIds || [], // ✅ FASE ORG_DOCUMENTS: Incluir cotizaciones de org
           };
           console.log('📝 [BriefForm] Fallback mode: Calling onSubmit with formData (notes mapeado a freeText)', {
             freeText: formDataWithFreeText.freeText?.substring(0, 50) + '...',
             notes: formData.notes?.substring(0, 50) + '...',
-            linkedPolicyIds: selectedOrgPolicyIds?.length || 0
+            linkedPolicyIds: selectedOrgPolicyIds?.length || 0,
+            linkedQuoteIds: selectedOrgQuoteIds?.length || 0
           });
           await onSubmit(formDataWithFreeText);
         }
@@ -868,7 +996,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       // Re-lanzar el error para que se maneje en el componente padre
       throw error;
     }
-  }, [onApprove, onSubmit, formData, tempUploads, selectedOrgPolicyIds, setBrief, mode, formData.insurance_category, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId]);
+  }, [onApprove, onSubmit, formData, tempUploads, selectedOrgPolicyIds, selectedOrgQuoteIds, setBrief, mode, formData.insurance_category, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId]);
 
   // ✅ CORRECCIÓN UX: Estado combinado para mostrar overlay de procesamiento
   const isProcessing = isSubmitting || caseApproving || caseResolvingClient;
@@ -1034,68 +1162,162 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             />
           </div>
 
-          {/* Información del Negocio (campos existentes) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* ✅ FASE CLIENTE/EMPRESA: Toggle para tipo de sujeto + Campo de nombre */}
+          <div className="space-y-4">
+            {/* Toggle Cliente/Empresa */}
             <div className="space-y-2">
-              <Label htmlFor="clientName">
-                {tCaseBrief('form.clientName')}
-                {/* ✅ CORRECCIÓN: Indicar que no es editable en modo edición */}
-                {mode === 'edit' && (
-                  <span className="ml-2 text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
-                )}
+              <Label className="flex items-center gap-2">
+                {subjectType === 'client' ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                {tCaseBrief('form.subjectType')}
               </Label>
-              <div className="relative client-combobox-container">
-                <Input
-                  id="clientName"
-                  placeholder={tCaseBrief('form.clientNamePlaceholder')}
-                  value={clientSearchTerm}
-                  onChange={(e) => handleClientSearchChange(e.target.value)}
-                  onFocus={() => mode !== 'edit' && setIsClientComboboxOpen(true)} // ✅ CORRECCIÓN: No abrir dropdown en modo edición
-                  className="w-full"
-                  disabled={mode === 'edit'} // ✅ CORRECCIÓN: Bloquear en modo edición
-                />
-                {/* ✅ CORRECCIÓN: No mostrar dropdown en modo edición */}
-                {isClientComboboxOpen && mode !== 'edit' && (
-                  <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
-                    {isClientListLoading ? (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingClients')}</div>
-                    ) : clientList.filter(client =>
-                      client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
-                    ).length === 0 ? (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.noClientsFound')}</div>
-                    ) : (
-                      clientList
-                        .filter(client =>
+              <div className="flex rounded-lg border border-input bg-background p-1 gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleSubjectTypeChange('client')}
+                  disabled={mode === 'edit'}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all duration-200",
+                    subjectType === 'client'
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                    mode === 'edit' && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <User className="h-4 w-4" />
+                  {tCaseBrief('form.subjectTypeClient')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSubjectTypeChange('company')}
+                  disabled={mode === 'edit'}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all duration-200",
+                    subjectType === 'company'
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                    mode === 'edit' && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <Building2 className="h-4 w-4" />
+                  {tCaseBrief('form.subjectTypeCompany')}
+                </button>
+              </div>
+            </div>
+
+            {/* Campo de nombre dinámico según tipo de sujeto */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor={subjectType === 'client' ? 'clientName' : 'companyName'}>
+                  {subjectType === 'client' 
+                    ? tCaseBrief('form.clientName')
+                    : tCaseBrief('form.companyName')
+                  }
+                  {mode === 'edit' && (
+                    <span className="ml-2 text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
+                  )}
+                </Label>
+                
+                {/* Combobox para Cliente */}
+                {subjectType === 'client' && (
+                  <div className="relative client-combobox-container">
+                    <Input
+                      id="clientName"
+                      placeholder={tCaseBrief('form.clientNamePlaceholder')}
+                      value={clientSearchTerm}
+                      onChange={(e) => handleClientSearchChange(e.target.value)}
+                      onFocus={() => mode !== 'edit' && setIsClientComboboxOpen(true)}
+                      className="w-full"
+                      disabled={mode === 'edit'}
+                    />
+                    {isClientComboboxOpen && mode !== 'edit' && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {isClientListLoading ? (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingClients')}</div>
+                        ) : clientList.filter(client =>
                           client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
-                        )
-                        .map((client) => (
-                          <div
-                            key={client.id}
-                            onClick={() => handleClientSelect(client)}
-                            className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedClient?.id === client.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {client.name}
-                          </div>
-                        ))
+                        ).length === 0 ? (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.noClientsFound')}</div>
+                        ) : (
+                          clientList
+                            .filter(client =>
+                              client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
+                            )
+                            .map((client) => (
+                              <div
+                                key={client.id}
+                                onClick={() => handleClientSelect(client)}
+                                className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedClient?.id === client.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {client.name}
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Combobox para Empresa */}
+                {subjectType === 'company' && (
+                  <div className="relative company-combobox-container">
+                    <Input
+                      id="companyName"
+                      placeholder={tCaseBrief('form.companyNamePlaceholder')}
+                      value={companySearchTerm}
+                      onChange={(e) => handleCompanySearchChange(e.target.value)}
+                      onFocus={() => mode !== 'edit' && setIsCompanyComboboxOpen(true)}
+                      className="w-full"
+                      disabled={mode === 'edit'}
+                    />
+                    {isCompanyComboboxOpen && mode !== 'edit' && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {isCompanyListLoading ? (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingCompanies')}</div>
+                        ) : companyList.filter(company =>
+                          company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
+                        ).length === 0 ? (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.noCompaniesFound')}</div>
+                        ) : (
+                          companyList
+                            .filter(company =>
+                              company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
+                            )
+                            .map((company) => (
+                              <div
+                                key={company.id}
+                                onClick={() => handleCompanySelect(company)}
+                                className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedCompany?.id === company.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {company.name}
+                              </div>
+                            ))
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="businessType">{tCaseBrief('form.businessType')}</Label>
-              <Input
-                id="businessType"
-                placeholder={tCaseBrief('form.businessTypePlaceholder')}
-                value={formData.businessType}
-                onChange={(e) => updateField('businessType', e.target.value)}
-              />
+              <div className="space-y-2">
+                <Label htmlFor="businessType">{tCaseBrief('form.businessType')}</Label>
+                <Input
+                  id="businessType"
+                  placeholder={tCaseBrief('form.businessTypePlaceholder')}
+                  value={formData.businessType}
+                  onChange={(e) => updateField('businessType', e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
@@ -1133,9 +1355,9 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             />
           </div>
 
-          {/* Sección de Carga de PDFs */}
+          {/* ✅ FASE BASELINE vs CHALLENGERS: Sección de Carga de PDFs con dos zonas */}
           {orgId && (
-            <div className="space-y-4 pt-4 border-t">
+            <div className="space-y-6 pt-4 border-t">
               <div className="space-y-2">
                 <Label className="text-base font-semibold flex items-center gap-2">
                   <FileText className="h-4 w-4" />
@@ -1146,77 +1368,168 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 </p>
               </div>
 
-              <PdfUploader
-                // ✅ CORRECCIÓN: Omitir caseId para usar tempUploads (no pasar undefined explícitamente)
-                // Esto permite que PdfUploader funcione en modo temporal, incluso en modo edición
-                orgId={orgId}
-                onFileSelected={handleFileUpload}
-                onUploadComplete={(upload) => {
-                  // ✅ CORRECCIÓN CRÍTICA: Almacenar la función en ref para poder llamarla desde handleFileUpload
-                  onUploadCompleteRef.current = handleUploadComplete;
-                  // Llamar a handleUploadComplete (que agrega a tempUploads)
-                  // PdfUploader intercepta esta llamada con wrappedOnUploadComplete que limpia selectedFile
-                  handleUploadComplete(upload);
-                }}
-              />
-
-              {/* ✅ CORRECCIÓN CRÍTICA FASE 2.3: SOLO renderizar tempUploads, NUNCA artifacts directamente */}
-              {/* IMPORTANTE: NO renderizar initialData?.artifacts bajo ninguna circunstancia */}
-              {/* El único renderizado permitido es la lista simple de tempUploads */}
-              {tempUploads.length > 0 && (
-                <div className="space-y-2 mt-4">
-                  <Label className="text-sm font-medium">{tCaseBrief('form.associatedDocs')}</Label>
-                  <div className="space-y-2">
-                    {tempUploads.map((upload) => (
-                      <div key={upload.storagePath} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              {/* ✅ ZONA A: Condiciones Actuales (Baseline) */}
+              <div className="space-y-3 p-4 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                      <Shield className="h-4 w-4" />
+                      {tCaseBrief('form.documentUpload.baselineSection.title')}
+                    </h4>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-0.5">
+                      {tCaseBrief('form.documentUpload.baselineSection.subtitle')}
+                    </p>
+                  </div>
+                  <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+                    {tCaseBrief('form.documentUpload.baselineSection.limit')}
+                  </span>
+                </div>
+                
+                {/* Mostrar uploader solo si no hay baseline */}
+                {tempUploads.filter(u => u.documentRole === 'baseline').length === 0 ? (
+                  <PdfUploader
+                    orgId={orgId}
+                    documentRole="baseline"
+                    hideCard
+                    dropzoneClassName="border-blue-300 dark:border-blue-700 hover:border-blue-400"
+                    customDropHint={tCaseBrief('form.documentUpload.baselineSection.dropHint')}
+                    customSubtitle={tCaseBrief('form.documentUpload.baselineSection.limit')}
+                    onFileSelected={(file) => handleFileUpload(file, 'baseline')}
+                    onUploadComplete={(upload) => {
+                      onUploadCompleteRef.current = handleUploadComplete;
+                      handleUploadComplete({ ...upload, documentRole: 'baseline' });
+                    }}
+                  />
+                ) : (
+                  <p className="text-xs text-blue-600 dark:text-blue-400 italic">
+                    {tCaseBrief('form.documentUpload.baselineSection.alreadyHasBaseline')}
+                  </p>
+                )}
+                
+                {/* Lista de archivos baseline */}
+                {tempUploads.filter(u => u.documentRole === 'baseline').map((upload) => (
+                  <div key={upload.storagePath} className="flex items-center justify-between p-3 bg-white dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <p className="text-sm font-medium">{upload.fileName}</p>
+                          <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800 px-1.5 py-0.5 rounded">
+                            {tCaseBrief('form.documentUpload.baselineSection.badge')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {upload.pageCount ? `${upload.pageCount} ${tCaseBrief('form.pages')}` : ''}
+                          {upload.pageCount && upload.fileSize ? ' • ' : ''}
+                          {upload.fileSize ? `${Math.round(upload.fileSize / 1024)} KB` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    {!upload.isExistingArtifact && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveUpload(upload.storagePath)}
+                        className="flex-shrink-0 text-blue-600 hover:text-blue-800 hover:bg-blue-100"
+                        aria-label="Eliminar archivo"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* ✅ ZONA B: Pólizas a Proponer (Challengers) */}
+              <div className="space-y-3 p-4 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold text-emerald-900 dark:text-emerald-100 flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      {tCaseBrief('form.documentUpload.challengerSection.title')}
+                    </h4>
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
+                      {tCaseBrief('form.documentUpload.challengerSection.subtitle')}
+                    </p>
+                  </div>
+                  <span className="text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900 px-2 py-1 rounded">
+                    {tCaseBrief('form.documentUpload.challengerSection.multiple')}
+                  </span>
+                </div>
+                
+                <PdfUploader
+                  orgId={orgId}
+                  documentRole="challenger"
+                  hideCard
+                  dropzoneClassName="border-emerald-300 dark:border-emerald-700 hover:border-emerald-400"
+                  customDropHint={tCaseBrief('form.documentUpload.challengerSection.dropHint')}
+                  customSubtitle={tCaseBrief('form.documentUpload.challengerSection.multiple')}
+                  onFileSelected={(file) => handleFileUpload(file, 'challenger')}
+                  onUploadComplete={(upload) => {
+                    onUploadCompleteRef.current = handleUploadComplete;
+                    handleUploadComplete({ ...upload, documentRole: 'challenger' });
+                  }}
+                />
+                
+                {/* Lista de archivos challengers */}
+                {tempUploads.filter(u => u.documentRole === 'challenger' || !u.documentRole).length > 0 && (
+                  <div className="space-y-2">
+                    {tempUploads.filter(u => u.documentRole === 'challenger' || !u.documentRole).map((upload) => (
+                      <div key={upload.storagePath} className="flex items-center justify-between p-3 bg-white dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-emerald-600" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium">{upload.fileName}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium">{upload.fileName}</p>
+                              <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-800 px-1.5 py-0.5 rounded">
+                                {tCaseBrief('form.documentUpload.challengerSection.badge')}
+                              </span>
+                            </div>
                             <p className="text-xs text-muted-foreground">
                               {upload.pageCount ? `${upload.pageCount} ${tCaseBrief('form.pages')}` : ''}
                               {upload.pageCount && upload.fileSize ? ' • ' : ''}
                               {upload.fileSize ? `${Math.round(upload.fileSize / 1024)} KB` : ''}
-                              {/* ✅ CORRECCIÓN: Indicar si es póliza existente (no eliminable) */}
                               {upload.isExistingArtifact && ` • ${tCaseBrief('form.savedPolicy')}`}
                             </p>
                           </div>
                         </div>
-                        {/* ✅ CORRECCIÓN: Solo mostrar botón X si NO es póliza existente */}
                         {!upload.isExistingArtifact && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveUpload(upload.storagePath)}
-                          className="flex-shrink-0"
-                          aria-label="Eliminar archivo"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveUpload(upload.storagePath)}
+                            className="flex-shrink-0 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100"
+                            aria-label="Eliminar archivo"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* ✅ CORRECCIÓN CRÍTICA FASE 2.3: NO renderizar artifacts directamente bajo ninguna circunstancia */}
               {/* Si tempUploads está vacío, NO mostrar nada - la conversión se realizará automáticamente en el useEffect */}
 
-              {/* ✅ FASE POLICY_LINKS: Selector de pólizas de la organización */}
+              {/* ✅ FASE ORG_DOCUMENTS: Selector combinado de pólizas y cotizaciones de la organización */}
               <div className="space-y-2 mt-6 pt-4 border-t border-dashed">
                 <Label className="text-base font-semibold flex items-center gap-2">
                   <LinkIcon className="h-4 w-4" />
-                  {tCaseBrief('form.orgPolicies')}
+                  {tCaseBrief('form.orgDocuments')}
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  {tCaseBrief('form.orgPoliciesDescription')}
+                  {tCaseBrief('form.orgDocumentsDescription')}
                 </p>
-                <OrgPolicySelector
+                <OrgDocumentSelector
                   orgId={orgId}
-                  selectedIds={selectedOrgPolicyIds}
-                  onSelectionChange={setSelectedOrgPolicyIds}
+                  selectedPolicyIds={selectedOrgPolicyIds}
+                  selectedQuoteIds={selectedOrgQuoteIds}
+                  onPolicySelectionChange={setSelectedOrgPolicyIds}
+                  onQuoteSelectionChange={setSelectedOrgQuoteIds}
                   disabled={isSubmitting || caseApproving}
                 />
               </div>

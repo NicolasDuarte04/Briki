@@ -6,6 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -28,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ChevronDown, Shield, FileText } from "lucide-react";
 import { useUI } from "@/lib/ui/state";
 import { formatMoney as formatMoneyValue, getMoneyAmountMajor, createMoneyFromMajor } from "@/lib/format";
 import { type CurrencyCode, type Money, type Policy, type PolicyView } from "@/lib/types";
@@ -222,6 +228,8 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
     // 3. Mapear artefactos DIRECTOS a filas (priorizando datos de análisis si existen)
     const directArtifactRows = directArtifacts.map((artifact: any) => {
       const analysis = analysisMap.get(artifact.id);
+      // ✅ FASE BASELINE vs CHALLENGERS: Extraer documentRole del artifact metadata
+      const documentRole = artifact.metadata?.documentRole as 'baseline' | 'challenger' | undefined;
 
       if (analysis) {
         // CASO A: Ya existe análisis -> Mostrar datos extraídos
@@ -239,6 +247,7 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
           analysisId: analysis.id,
           pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
           linkType: 'direct' as const,
+          documentRole, // ✅ FASE BASELINE vs CHALLENGERS
         };
       } else {
         // CASO B: No hay análisis -> Mostrar fila "pendiente" para permitir análisis manual
@@ -254,12 +263,14 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
           analysisId: undefined, // undefined activa el botón "Analizar"
           pageReference: 1,
           linkType: 'direct' as const,
+          documentRole, // ✅ FASE BASELINE vs CHALLENGERS
         };
       }
     });
 
     // 4. ✅ FASE POLICY_LINKS: Mapear pólizas VINCULADAS (siempre tienen análisis)
     // Las pólizas vinculadas vienen de /policies y ya fueron analizadas
+    // ✅ FASE BASELINE vs CHALLENGERS: Las vinculadas siempre son challengers (referencia externa)
     const linkedRows = linkedAnalyses.map((analysis: any) => ({
       id: analysis.id,
       plan: analysis.extractedData?.insurer?.name || analysis.artifact?.fileName || 'Póliza vinculada',
@@ -276,6 +287,7 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
       linkType: 'linked' as const,
       linkId: analysis.linkId, // ID del CasePolicyLink para posible desvinculación
       contextualizedAt: analysis.contextualizedAt, // ✅ PROBLEMA 1 FIX: Para determinar si ya se cargó el análisis
+      documentRole: 'challenger' as const, // ✅ FASE BASELINE vs CHALLENGERS: Vinculadas siempre son challengers
     }));
 
     // 5. Incluir análisis directos "huérfanos" (que no coinciden con artifacts actuales)
@@ -297,24 +309,99 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
       analysisId: analysis.id,
       pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
       linkType: 'direct' as const,
+      documentRole: 'challenger' as const, // ✅ FASE BASELINE vs CHALLENGERS: Huérfanos default challenger
     }));
 
     // Combinar: artifacts directos primero, luego vinculados, luego huérfanos
     return [...directArtifactRows, ...linkedRows, ...orphanRows];
   }, [policyAnalyses, caseData]);
 
+  // ✅ FASE BASELINE vs CHALLENGERS: Separar filas por rol
+  const baselineRows = React.useMemo(() => 
+    rows.filter(r => r.documentRole === 'baseline'), [rows]);
+  const challengerRows = React.useMemo(() => 
+    rows.filter(r => r.documentRole !== 'baseline'), [rows]);
+
+  // Estados de acordeón
+  const [baselineOpen, setBaselineOpen] = React.useState(true);
+  const [challengersOpen, setChallengersOpen] = React.useState(true);
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>{t("title")}</CardTitle>
       </CardHeader>
-      <CardContent>
-        <PoliciesTable
-          rows={rows}
-          loading={policyAnalysesLoading}
-          loaded={policyAnalysesLoaded}
-          locale={locale}
-        />
+      <CardContent className="space-y-4">
+        {/* ✅ FASE BASELINE vs CHALLENGERS: Sección Condiciones Actuales */}
+        <Collapsible open={baselineOpen} onOpenChange={setBaselineOpen}>
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="ghost"
+              className="w-full justify-between p-3 h-auto bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30"
+            >
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-blue-600" />
+                <span className="font-semibold text-blue-900 dark:text-blue-100">
+                  {t("sections.baseline")}
+                </span>
+                <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                  {baselineRows.length}
+                </Badge>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-blue-600 transition-transform ${baselineOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            {baselineRows.length > 0 ? (
+              <PoliciesTable
+                rows={baselineRows}
+                loading={policyAnalysesLoading}
+                loaded={policyAnalysesLoaded}
+                locale={locale}
+                isBaseline
+              />
+            ) : (
+              <div className="text-center py-6 text-muted-foreground text-sm border rounded-lg bg-muted/30">
+                {t("sections.noBaseline")}
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+
+        {/* ✅ FASE BASELINE vs CHALLENGERS: Sección Alternativas a Proponer */}
+        <Collapsible open={challengersOpen} onOpenChange={setChallengersOpen}>
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="ghost"
+              className="w-full justify-between p-3 h-auto bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
+            >
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-emerald-600" />
+                <span className="font-semibold text-emerald-900 dark:text-emerald-100">
+                  {t("sections.challengers")}
+                </span>
+                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                  {challengerRows.length}
+                </Badge>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-emerald-600 transition-transform ${challengersOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            {challengerRows.length > 0 ? (
+              <PoliciesTable
+                rows={challengerRows}
+                loading={policyAnalysesLoading}
+                loaded={policyAnalysesLoaded}
+                locale={locale}
+              />
+            ) : (
+              <div className="text-center py-6 text-muted-foreground text-sm border rounded-lg bg-muted/30">
+                {t("sections.noChallengers")}
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
       </CardContent>
     </Card>
   );
@@ -325,9 +412,10 @@ interface PoliciesTableProps {
   loading: boolean;
   loaded: boolean;
   locale: string;
+  isBaseline?: boolean; // ✅ FASE BASELINE vs CHALLENGERS: Para estilos diferenciados
 }
 
-function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
+function PoliciesTable({ rows, loading, loaded, locale, isBaseline }: PoliciesTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnPinning, setColumnPinning] = React.useState<ColumnPinningState>({ left: [], right: [] });
@@ -482,7 +570,7 @@ function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
         enableSorting: false,
         header: () => <div className="sr-only">{t("actions.columnLabel")}</div>,
         cell: ({ row }) => {
-          const { analysisId, artifactId, plan, linkType, contextualizedAt, linkId } = row.original;
+          const { analysisId, artifactId, plan, linkType, contextualizedAt, linkId, documentRole } = row.original;
           const isLinked = linkType === 'linked';
           // ✅ PROBLEMA 1 FIX: Una póliza vinculada ya contextualizada debe mostrar "Ver en PDF"
           const isContextualized = isLinked && contextualizedAt != null;
@@ -516,6 +604,7 @@ function PoliciesTable({ rows, loading, loaded, locale }: PoliciesTableProps) {
                       <AnalyzeButton
                         artifactId={artifactId}
                         policyName={plan}
+                        documentRole={documentRole}
                       />
                     ) : (
                       <span className="text-xs text-muted-foreground italic">Sin archivo</span>
@@ -909,7 +998,18 @@ function ViewInPdfButton({ analysisId }: { analysisId: string }) {
  * - Dispara el análisis y luego redirige al chat para que el agente comente
  * - Se bloquea si hay OTRO análisis en progreso
  */
-function AnalyzeButton({ artifactId, policyName }: { artifactId: string, policyName: string }) {
+/**
+ * ✅ FASE BASELINE vs CHALLENGERS: Props extendidas para incluir documentRole
+ */
+function AnalyzeButton({ 
+  artifactId, 
+  policyName,
+  documentRole 
+}: { 
+  artifactId: string, 
+  policyName: string,
+  documentRole?: 'baseline' | 'challenger' | undefined
+}) {
   const analyzePolicyArtifact = useUI((s) => s.analyzePolicyArtifact);
   const setActiveTab = useUI((s) => s.setActiveTab);
   const _analyzingArtifactId = useUI((s) => s._analyzingArtifactId);
@@ -936,14 +1036,18 @@ function AnalyzeButton({ artifactId, policyName }: { artifactId: string, policyN
 
     try {
       setLoading(true);
-      console.log('🤖 [AnalyzeButton] Triggering analysis for:', artifactId);
+      console.log('🤖 [AnalyzeButton] Triggering analysis for:', artifactId, 'Role:', documentRole);
 
       // 1. Ejecutar análisis (ahora usa jobs async si QStash está disponible)
       const analysis = await analyzePolicyArtifact(artifactId);
 
-      // 2. Preparar mensaje para el agente con instrucción de comparación
-      // ✅ FASE 6B: Prompt explícito para comparación
-      const prompt = `He analizado la póliza "${policyName}". Por favor, compárala con las pólizas anteriores (si existen) y dime cuál se ajusta mejor a mis necesidades.`;
+      // 2. ✅ FASE BASELINE vs CHALLENGERS: Prompt diferenciado según rol
+      const isBaseline = documentRole === 'baseline';
+      const roleLabel = isBaseline ? 'póliza actual (baseline)' : 'cotización (challenger)';
+      
+      const prompt = isBaseline
+        ? `He analizado la ${roleLabel} "${policyName}". Esta es la póliza que el cliente tiene actualmente. Por favor, extrae todos los datos relevantes: información del cliente, valor asegurado, coberturas completas, prima y condiciones. Este será el punto de referencia para comparar las cotizaciones.`
+        : `He analizado la ${roleLabel} "${policyName}". Por favor, extrae primas, coberturas, deducibles y límites. Compárala con la póliza baseline (si existe) y con otras cotizaciones, indicando cuál ofrece mejor relación calidad-precio.`;
 
       // 3. Enviar mensaje automáticamente y redirigir al chat
       const sendAutoMessage = useUI.getState().sendAutoMessage;

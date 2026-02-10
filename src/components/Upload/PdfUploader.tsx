@@ -15,9 +15,32 @@ interface PdfUploaderProps {
   orgId: string;
   onFileSelected?: (file: File) => void; // Callback para cuando se selecciona un archivo
   onUploadComplete?: (upload: any) => void; // Callback para cuando se completa la subida
+  /** ✅ FASE BASELINE vs CHALLENGERS: Rol del documento para clasificación */
+  documentRole?: 'baseline' | 'challenger';
+  /** Estilo de la zona de drop (opcional) */
+  dropzoneClassName?: string;
+  /** Ocultar el Card wrapper (para layouts custom) */
+  hideCard?: boolean;
+  /** Texto personalizado para el hint de drop */
+  customDropHint?: string;
+  /** Texto personalizado para el subtítulo */
+  customSubtitle?: string;
+  /** Deshabilitar el componente */
+  disabled?: boolean;
 }
 
-export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }: PdfUploaderProps) {
+export function PdfUploader({ 
+  caseId, 
+  orgId, 
+  onFileSelected, 
+  onUploadComplete,
+  documentRole = 'challenger',
+  dropzoneClassName,
+  hideCard = false,
+  customDropHint,
+  customSubtitle,
+  disabled = false,
+}: PdfUploaderProps) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -179,45 +202,46 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
     setProgress(0);
     setSuccessMessage(null);
   };
-  
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        {successMessage && (
-          <div className="mb-4 flex items-center gap-2 text-sm text-green-700 bg-green-50 p-3 rounded-lg">
-            <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-        {!selectedFile && !uploadResult && (
-          <div
-            {...getRootProps()}
-            className={`
-              border-2 border-dashed rounded-lg p-8 text-center cursor-pointer
-              transition-colors
-              ${isDragActive 
-                ? 'border-primary bg-primary/5' 
-                : 'border-muted-foreground/25 hover:border-primary/50'
-              }
-              ${uploading ? 'opacity-50 cursor-not-allowed' : ''}
-            `}
-          >
-            <input {...getInputProps()} />
-            <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            {isDragActive ? (
-              <p className="text-lg font-medium">Suelta el archivo aquí</p>
-            ) : (
-              <>
-                <p className="text-lg font-medium mb-2">
-                  Arrastra un PDF aquí o haz click para seleccionar
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Archivos PDF hasta 10MB
-                </p>
-              </>
-            )}
-          </div>
-        )}
+
+  // ✅ FASE BASELINE vs CHALLENGERS: Componente interno para renderizar el contenido
+  const renderContent = () => (
+    <>
+      {successMessage && (
+        <div className="mb-4 flex items-center gap-2 text-sm text-green-700 bg-green-50 p-3 rounded-lg">
+          <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+          <span>{successMessage}</span>
+        </div>
+      )}
+      {!selectedFile && !uploadResult && (
+        <div
+          {...getRootProps()}
+          className={`
+            border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
+            transition-colors
+            ${isDragActive 
+              ? 'border-primary bg-primary/5' 
+              : 'border-muted-foreground/25 hover:border-primary/50'
+            }
+            ${uploading || disabled ? 'opacity-50 cursor-not-allowed' : ''}
+            ${dropzoneClassName || ''}
+          `}
+        >
+          <input {...getInputProps()} disabled={disabled} />
+          <Upload className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+          {isDragActive ? (
+            <p className="text-base font-medium">Suelta el archivo aquí</p>
+          ) : (
+            <>
+              <p className="text-base font-medium mb-1">
+                {customDropHint || 'Arrastra un PDF aquí o haz click para seleccionar'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {customSubtitle || 'Archivos PDF hasta 10MB'}
+              </p>
+            </>
+          )}
+        </div>
+      )}
         
         {selectedFile && !uploadResult && (
           <div className="space-y-4">
@@ -317,6 +341,18 @@ export function PdfUploader({ caseId, orgId, onFileSelected, onUploadComplete }:
             </div>
           </div>
         )}
+      </>
+    );
+
+  // ✅ FASE BASELINE vs CHALLENGERS: Soporte para renderizado sin Card
+  if (hideCard) {
+    return <div className="w-full">{renderContent()}</div>;
+  }
+  
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        {renderContent()}
       </CardContent>
     </Card>
   );

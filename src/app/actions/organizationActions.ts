@@ -567,7 +567,7 @@ export async function updateMemberRole(
  * - Owner NUNCA puede ser eliminado
  * @param memberId - El ID del registro en org_members
  */
-export async function removeMemberFromOrg(memberId: string): Promise<{ ok: boolean; error?: string }> {
+export async function  removeMemberFromOrg(memberId: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const supabase = await createServerSupabase();
     const { data: { user } } = await supabase.auth.getUser();

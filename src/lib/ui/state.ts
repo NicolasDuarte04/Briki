@@ -1518,28 +1518,57 @@ export const useUI = create<UIState>()(
           let artifactCount = 0;
           let linkedPolicyCount = 0;
           
+          // ✅ FASE BASELINE vs CHALLENGERS: Variables para clasificar documentos
+          let baselineCount = 0;
+          let challengerCount = 0;
+          let baselineFileName = '';
+          
           try {
             const artifactsResponse = await fetch(`/api/cases/${currentCaseId}/artifacts`);
             if (artifactsResponse.ok) {
               const { artifacts } = await artifactsResponse.json();
-              // Contar solo PDFs
-              artifactCount = artifacts.filter((a: any) => 
+              // Filtrar solo PDFs
+              const pdfArtifacts = artifacts.filter((a: any) => 
                 a.contentType === 'application/pdf' || 
                 a.fileName?.toLowerCase().endsWith('.pdf')
-              ).length;
+              );
+              
+              // ✅ FASE BASELINE vs CHALLENGERS: Clasificar por documentRole
+              for (const artifact of pdfArtifacts) {
+                const role = artifact.metadata?.documentRole;
+                if (role === 'baseline') {
+                  baselineCount++;
+                  baselineFileName = artifact.fileName || 'Documento';
+                } else {
+                  challengerCount++;
+                }
+              }
+              
+              artifactCount = pdfArtifacts.length;
             }
             
-            // Contar pólizas vinculadas desde el brief
+            // Contar pólizas vinculadas desde el brief (siempre son challengers)
             linkedPolicyCount = updatedBrief.linkedPolicyIds?.length || 0;
             
-            console.log('📊 [approveCurrentCase] Conteo de pólizas:', { artifactCount, linkedPolicyCount });
+            console.log('📊 [approveCurrentCase] Conteo de pólizas:', { 
+              artifactCount, 
+              linkedPolicyCount,
+              baselineCount,
+              challengerCount,
+              baselineFileName
+            });
           } catch (countError) {
             console.warn('⚠️ [approveCurrentCase] Error obteniendo conteo de artifacts:', countError);
           }
           
           // Importar y usar la nueva función de mensaje de bienvenida
           const { generateWelcomeMessageFromBrief } = await import('@/lib/helpers/message-helpers');
-          const welcomeMessage = generateWelcomeMessageFromBrief(updatedBrief, artifactCount, linkedPolicyCount);
+          const welcomeMessage = generateWelcomeMessageFromBrief(
+            updatedBrief, 
+            artifactCount, 
+            linkedPolicyCount,
+            { baselineCount, challengerCount, baselineFileName }
+          );
           
           console.log('📝 [approveCurrentCase] Mensaje de bienvenida generado:', welcomeMessage.substring(0, 100) + '...');
           

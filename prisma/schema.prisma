@@ -377,8 +377,10 @@ model sso_providers {
 model Case {
   id                 String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   orgId              String?          @map("org_id") @db.Uuid
-  clientId           String?          @map("client_id") @db.Uuid // ✅ NUEVO: FK a clients
-  caseName           String           @default("Nuevo Caso") @map("case_name") @db.VarChar(255) // ✅ NUEVO: Nombre descriptivo del caso
+  clientId           String?          @map("client_id") @db.Uuid // FK a clients (persona física)
+  companyId          String?          @map("company_id") @db.Uuid // ✅ NUEVO: FK a companies (persona jurídica)
+  subjectType        String           @default("client") @map("subject_type") @db.VarChar(20) // ✅ NUEVO: 'client' | 'company'
+  caseName           String           @default("Nuevo Caso") @map("case_name") @db.VarChar(255) // Nombre descriptivo del caso
   clientRef          String?          @map("client_ref") @db.VarChar(255)
   clientName         String?          @map("client_name") @db.VarChar(255) // Mantener por compatibilidad
   businessType       String?          @map("business_type") @db.VarChar(255)
@@ -396,17 +398,22 @@ model Case {
   required_coverages String[]         @default([]) @map("required_coverages")
   
   // Relaciones
-  client             clients?         @relation(fields: [clientId], references: [id], onDelete: SetNull) // ✅ NUEVO
+  client             clients?         @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  company            Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull) // ✅ NUEVO: Relación con empresa
   artifacts          Artifact[]
   auditLogs          AuditLog[]
   messages           Message[]
-  policyAnalyses     PolicyAnalysis[] // ✅ Relación con análisis de pólizas
-  comparisons        Comparison[]     // ✅ FASE 30: Relación con comparaciones
-  renewals           Renewal[]        // ✅ FASE RENOVACIONES: Relación con renovaciones
-  complianceRecords  ComplianceRecord[] // ✅ FASE COMPLIANCE: Registros de cumplimiento
-  linkedPolicies     CasePolicyLink[] // ✅ FASE POLICY_LINKS: Pólizas de org vinculadas a este caso
+  policyAnalyses     PolicyAnalysis[] // Relación con análisis de pólizas
+  quoteAnalyses      QuoteAnalysis[]  // ✅ FASE COTIZACIONES: Relación con análisis de cotizaciones
+  comparisons        Comparison[]     // FASE 30: Relación con comparaciones
+  renewals           Renewal[]        // FASE RENOVACIONES: Relación con renovaciones
+  complianceRecords  ComplianceRecord[] // FASE COMPLIANCE: Registros de cumplimiento
+  linkedPolicies     CasePolicyLink[] // FASE POLICY_LINKS: Pólizas de org vinculadas a este caso
+  linkedQuotes       CaseQuoteLink[]  // ✅ FASE COTIZACIONES: Cotizaciones de org vinculadas a este caso
 
   @@index([clientId], map: "idx_cases_client_id")
+  @@index([companyId], map: "idx_cases_company_id") // ✅ NUEVO índice
+  @@index([subjectType], map: "idx_cases_subject_type") // ✅ NUEVO índice
   @@index([caseName], map: "idx_cases_case_name")
   @@map("cases")
   @@schema("public")
@@ -424,6 +431,7 @@ model Artifact {
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   case           Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
   policyAnalyses PolicyAnalysis[] // ✅ NUEVO: Relación con análisis de pólizas
+  quoteAnalyses  QuoteAnalysis[]  // ✅ FASE COTIZACIONES: Relación con análisis de cotizaciones
 
   @@map("artifacts")
   @@schema("public")
@@ -527,6 +535,7 @@ model organizations {
   updated_at      DateTime?         @default(now()) @db.Timestamptz(6)
   api_keys        api_keys[]
   clients         clients[]
+  companies       Company[]         // ✅ FASE COMPANIES: Empresas de la organización
   org_members     org_members[]
   org_invitations org_invitations[]
   userPreferences UserPreferences[] // ✅ SINCRONIZADO: Usuarios con esta org como activa
@@ -750,6 +759,91 @@ model CasePolicyLink {
   @@index([orgId], map: "idx_case_policy_links_org_id")
   @@index([linkedAt(sort: Desc)], map: "idx_case_policy_links_linked_at")
   @@map("case_policy_links")
+  @@schema("public")
+}
+
+/// ============================================================================
+/// QUOTE ANALYSIS MODELS - FASE COTIZACIONES (Febrero 2026)
+/// ============================================================================
+/// Stores structured data extracted from insurance quote PDF documents
+/// Analogous to PolicyAnalysis but for quotes/proposals from insurers
+model QuoteAnalysis {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  artifactId        String   @map("artifact_id") @db.Uuid
+  caseId            String   @map("case_id") @db.Uuid
+  orgId             String   @map("org_id") @db.Uuid
+  extractedData     Json     @map("extracted_data")
+  extractionMethod  String   @default("hybrid") @map("extraction_method")
+  overallConfidence Decimal  @default(0.00) @map("overall_confidence") @db.Decimal(3, 2)
+  extractedAt       DateTime @map("extracted_at") @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  artifact          Artifact              @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  case              Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  pageReferences    QuotePageReference[]
+  caseLinks         CaseQuoteLink[]       // Casos que referencian esta cotización
+
+  @@index([artifactId])
+  @@index([caseId])
+  @@index([orgId])
+  @@index([extractedAt(sort: Desc)])
+  @@index([overallConfidence])
+  @@map("quote_analyses")
+  @@schema("public")
+}
+
+/// Maps extracted quote fields to their exact locations in the source PDF
+model QuotePageReference {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quoteAnalysisId String   @map("quote_analysis_id") @db.Uuid
+  fieldName       String   @map("field_name")
+  fieldValue      String?  @map("field_value")
+  pageNumber      Int      @map("page_number")
+  boundingBox     Json?    @map("bounding_box")
+  confidence      Decimal  @default(0.00) @db.Decimal(3, 2)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  quoteAnalysis QuoteAnalysis @relation(fields: [quoteAnalysisId], references: [id], onDelete: Cascade)
+
+  @@index([quoteAnalysisId])
+  @@index([fieldName])
+  @@index([pageNumber])
+  @@index([confidence])
+  @@map("quote_page_references")
+  @@schema("public")
+}
+
+/// ============================================================================
+/// CASE QUOTE LINKS - Enlaces N:M entre casos y cotizaciones de organización
+/// ============================================================================
+/// Permite vincular cotizaciones de la organización (almacenadas en el case contenedor)
+/// a casos específicos sin duplicar datos.
+model CaseQuoteLink {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId          String   @map("case_id") @db.Uuid
+  quoteAnalysisId String   @map("quote_analysis_id") @db.Uuid
+  orgId           String   @map("org_id") @db.Uuid
+  
+  // Metadata del enlace
+  linkType         String   @default("reference") @map("link_type") @db.VarChar(50)
+  linkedAt         DateTime @default(now()) @map("linked_at") @db.Timestamptz(6)
+  linkedBy         String   @map("linked_by") @db.Uuid
+  notes            String?
+  
+  // Timestamp de cuando la cotización fue contextualizada con el caso
+  contextualizedAt DateTime? @map("contextualized_at") @db.Timestamptz(6)
+  
+  // Relaciones
+  case             Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  quoteAnalysis    QuoteAnalysis @relation(fields: [quoteAnalysisId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, quoteAnalysisId], map: "unique_case_quote_link")
+  @@index([caseId], map: "idx_case_quote_links_case_id")
+  @@index([quoteAnalysisId], map: "idx_case_quote_links_quote_analysis_id")
+  @@index([orgId], map: "idx_case_quote_links_org_id")
+  @@index([linkedAt(sort: Desc)], map: "idx_case_quote_links_linked_at")
+  @@map("case_quote_links")
   @@schema("public")
 }
 
@@ -1140,5 +1234,102 @@ model CaseActivity {
   @@index([jobType])
   @@index([createdAt(sort: Desc)])
   @@map("case_activities")
+  @@schema("public")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FASE COMPANIES: Entidad Empresas como ciudadano de primera clase
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Tipos de empresa según legislación colombiana
+enum CompanyType {
+  sas           // Sociedad por Acciones Simplificada
+  sa            // Sociedad Anónima
+  ltda          // Sociedad Limitada
+  eu            // Empresa Unipersonal
+  cooperativa   // Cooperativa
+  fundacion     // Fundación
+  ong           // ONG
+  otro          // Otro tipo
+
+  @@map("company_type_enum")
+  @@schema("public")
+}
+
+/// Clasificación de riesgo SARLAFT
+enum RiskClassification {
+  bajo
+  medio
+  alto
+  muy_alto
+
+  @@map("risk_classification_enum")
+  @@schema("public")
+}
+
+/// Empresas con cifrado PII usando pgcrypto - Cumple requisitos SARLAFT
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model Company {
+  id                      String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orgId                   String              @map("org_id") @db.Uuid
+  
+  // SECCIÓN A: Identidad Corporativa
+  companyType             CompanyType         @default(sas) @map("company_type")
+  isPinned                Boolean             @default(false) @map("is_pinned")
+  legalNameEnc            Bytes               @map("legal_name_enc")         // Razón Social cifrada
+  tradeNameEnc            Bytes?              @map("trade_name_enc")         // Nombre Comercial cifrado
+  nitEnc                  Bytes               @map("nit_enc")                // NIT cifrado
+  constitutionDate        DateTime?           @map("constitution_date") @db.Date
+  registrationCity        String?             @map("registration_city") @db.VarChar(100)
+  
+  // SECCIÓN B: Representación Legal
+  legalRepNameEnc         Bytes?              @map("legal_rep_name_enc")
+  legalRepIdType          String?             @map("legal_rep_id_type") @db.VarChar(20)
+  legalRepIdNumberEnc     Bytes?              @map("legal_rep_id_number_enc")
+  legalRepEmailEnc        Bytes?              @map("legal_rep_email_enc")
+  legalRepPhoneEnc        Bytes?              @map("legal_rep_phone_enc")
+  legalRepStartDate       DateTime?           @map("legal_rep_start_date") @db.Date
+  
+  // SECCIÓN C: Información Financiera (SARLAFT)
+  annualRevenueEnc        Bytes?              @map("annual_revenue_enc")
+  totalAssetsEnc          Bytes?              @map("total_assets_enc")
+  totalLiabilitiesEnc     Bytes?              @map("total_liabilities_enc")
+  totalEquityEnc          Bytes?              @map("total_equity_enc")
+  financialYear           Int?                @map("financial_year")
+  currency                String              @default("COP") @db.VarChar(3)
+  riskClassification      RiskClassification  @default(bajo) @map("risk_classification")
+  
+  // SECCIÓN D: Composición Accionaria
+  shareholdersEnc         Bytes?              @map("shareholders_enc")       // JSON array cifrado
+  beneficialOwnersEnc     Bytes?              @map("beneficial_owners_enc")  // Beneficiarios finales cifrado
+  
+  // SECCIÓN E: Datos de Riesgo y Compliance
+  ciiuCode                String?             @map("ciiu_code") @db.VarChar(10)
+  isPep                   Boolean             @default(false) @map("is_pep")
+  isObligatedSubject      Boolean             @default(false) @map("is_obligated_subject")
+  lastSarlaftUpdate       DateTime?           @map("last_sarlaft_update") @db.Date
+  complianceNotesEnc      Bytes?              @map("compliance_notes_enc")
+  
+  // Auditoría
+  createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdBy               String?             @map("created_by") @db.Uuid
+  lastEditedBy            String?             @map("last_edited_by") @db.Uuid
+  
+  // Soft Delete
+  deletedAt               DateTime?           @map("deleted_at") @db.Timestamptz(6)
+  deletedBy               String?             @map("deleted_by") @db.Uuid
+  
+  // Relaciones
+  organization            organizations       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  cases                   Case[]              // ✅ NUEVO: Casos vinculados a esta empresa
+
+  @@index([orgId], map: "idx_companies_org_id")
+  @@index([createdAt(sort: Desc)], map: "idx_companies_created_at")
+  @@index([orgId, isPinned], map: "idx_companies_is_pinned")
+  @@index([orgId, riskClassification], map: "idx_companies_risk_classification")
+  @@index([orgId, companyType], map: "idx_companies_company_type")
+  @@index([deletedAt], map: "idx_companies_deleted_at")
+  @@map("companies")
   @@schema("public")
 }

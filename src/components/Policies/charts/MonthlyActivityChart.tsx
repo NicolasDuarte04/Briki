@@ -67,8 +67,8 @@ export function MonthlyActivityChart({
   const t = translations ?? {
     title: "Monthly Activity",
     description: "Policies analyzed in the last 6 months",
-    inMonth: "in {month}",
-    policiesInMonth: "{count} policies in {month}",
+    inMonth: "in %month%",
+    policiesInMonth: "%count% policies in %month%",
     vsPreviousMonth: "vs previous month",
     policies: "Policies",
     loadingChart: "Loading chart...",
@@ -173,7 +173,7 @@ export function MonthlyActivityChart({
           </div>
           <div className="text-right">
             <p className="text-2xl font-bold">{currentMonthCount}</p>
-            <p className="text-xs text-muted-foreground">{t.inMonth.replace('{month}', currentMonthName)}</p>
+            <p className="text-xs text-muted-foreground">{t.inMonth.replace('%month%', currentMonthName)}</p>
           </div>
         </div>
       </CardHeader>
@@ -205,7 +205,7 @@ export function MonthlyActivityChart({
             <span className="text-sm text-muted-foreground">{t.vsPreviousMonth}</span>
           </div>
           <div className="text-sm text-muted-foreground">
-            {t.policiesInMonth.replace('{count}', String(previousMonthCount)).replace('{month}', previousMonthName)}
+            {t.policiesInMonth.replace('%count%', String(previousMonthCount)).replace('%month%', previousMonthName)}
           </div>
         </div>
       </CardContent>

@@ -240,6 +240,8 @@ export type Case = CaseParsed;
  * Represents a case brief
  */
 export interface CaseBrief {
+  /** Subject type: 'client' (persona física) or 'company' (persona jurídica) */
+  subjectType?: 'client' | 'company';
   /** Business type description */
   businessType?: string;
   /** Number of employees */
@@ -248,10 +250,14 @@ export interface CaseBrief {
   coverage?: string;
   /** Free text notes */
   freeText?: string;
-  /** Client name (for display and search) */
+  /** Client name (for display and search) - used when subjectType = 'client' */
   clientName?: string;
-  /** Selected client ID (if from existing client) */
+  /** Selected client ID (if from existing client) - used when subjectType = 'client' */
   selectedClientId?: string | null;
+  /** Company name (for display and search) - used when subjectType = 'company' */
+  companyName?: string;
+  /** Selected company ID (if from existing company) - used when subjectType = 'company' */
+  selectedCompanyId?: string | null;
   /** Insurance category */
   insurance_category?: string;
   /** Maximum budget for insurance */
@@ -272,9 +278,13 @@ export interface CaseBrief {
     charactersExtracted?: number;
     fileHash?: string;
     extractedText?: string;
+    /** Document role for comparison: baseline (current policy) or challenger (new proposals) */
+    documentRole?: 'baseline' | 'challenger';
   }>;
   /** Linked org policy IDs to be associated with the case */
   linkedPolicyIds?: string[];
+  /** Linked org quote IDs to be associated with the case */
+  linkedQuoteIds?: string[];
 }
 
 /**
@@ -535,6 +545,7 @@ export type ComparisonMetric = 'premium' | 'deductible' | 'riders' | 'network' |
  * Lightweight view model for policies used in the UI layer
  * ✅ FASE 6: Extended to include policy analysis fields
  * ✅ CORRECCIÓN: network y service opcionales para compatibilidad
+ * ✅ FASE BASELINE vs CHALLENGERS: Added documentRole for comparison flow
  */
 export type PolicyView = Pick<Policy, "id" | "plan" | "riders"> & {
   premium: number;
@@ -553,6 +564,8 @@ export type PolicyView = Pick<Policy, "id" | "plan" | "riders"> & {
   linkId?: string; // ID del CasePolicyLink para desvinculación
   // ✅ FASE CONTEXTUALIZACIÓN: Timestamp de contextualización (null = pendiente)
   contextualizedAt?: Date | string | null;
+  // ✅ FASE BASELINE vs CHALLENGERS: Role del documento para comparación
+  documentRole?: 'baseline' | 'challenger';
 };
 
 /**
@@ -684,6 +697,9 @@ export interface PolicyAnalysis {
   linkedBy?: string | null;
   /** When the policy analysis was contextualized with the case (null = pending) */
   contextualizedAt?: Date | string | null;
+  // ✅ FASE BASELINE vs CHALLENGERS: Document role for comparison flow
+  /** Role of the document: 'baseline' (current policy) or 'challenger' (new quote) */
+  documentRole?: 'baseline' | 'challenger';
   /** Related artifact info (when included) */
   artifact?: {
     id: string;

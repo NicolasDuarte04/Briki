@@ -8,9 +8,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useUI } from "@/lib/ui/state";
 import { ComparisonTable } from "./Comparison/ComparisonTable";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Sparkles, FileText, RefreshCw } from "lucide-react";
+import { Loader2, Sparkles, FileText, RefreshCw, AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export default function Comparison() {
+// ✅ FASE BASELINE vs CHALLENGERS: Props para recibir caseData con artifacts
+interface ComparisonProps {
+  caseData?: {
+    id: string;
+    artifacts?: Array<{
+      id: string;
+      fileName?: string;
+      metadata?: { documentRole?: 'baseline' | 'challenger' };
+    }>;
+  } | null;
+}
+
+export default function Comparison({ caseData }: ComparisonProps = {}) {
   const t = useTranslations("workspace.comparisons");
 
   // Global State
@@ -35,6 +48,21 @@ export default function Comparison() {
       a.caseId === currentCaseId || a.linkType === 'linked'
     );
   }, [policyAnalyses, currentCaseId]);
+
+  // ✅ FASE BASELINE vs CHALLENGERS: Identificar el análisis baseline
+  const baselineAnalysisId = useMemo(() => {
+    // Buscar el artifact con documentRole='baseline' en caseData
+    const baselineArtifact = caseData?.artifacts?.find(
+      (a) => a.metadata?.documentRole === 'baseline'
+    );
+    if (!baselineArtifact) return undefined;
+    
+    // Buscar el análisis correspondiente a ese artifact
+    const baselineAnalysis = validAnalyses.find(
+      analysis => analysis.artifactId === baselineArtifact.id
+    );
+    return baselineAnalysis?.id;
+  }, [caseData, validAnalyses]);
 
   // Derived State - use validAnalyses instead of all policyAnalyses
   const hasEnoughPolicies = validAnalyses.length >= 2;
@@ -155,12 +183,23 @@ export default function Comparison() {
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col gap-6 px-0 pb-0">
+        {/* ✅ FASE BASELINE vs CHALLENGERS: Advertencia si no hay baseline */}
+        {activeComparison && !baselineAnalysisId && (
+          <Alert variant="default" className="mx-4 mb-2 bg-amber-50 dark:bg-amber-950/20 border-amber-200">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
+              {t("semantic.noBaselineWarning")}
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {comparisonLoading ? (
           <ComparisonSkeleton />
         ) : activeComparison ? (
           <ComparisonTable
             comparison={activeComparison}
             analyses={policyAnalyses}
+            {...(baselineAnalysisId && { baselineAnalysisId })}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center p-8 border-2 border-dashed rounded-xl bg-muted/10">
