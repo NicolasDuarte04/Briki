@@ -46,7 +46,9 @@ export async function POST(request: NextRequest) {
       userId,
       clientName,
       clientRef,
-      selectedClientId, // ✅ NUEVO: ID del cliente seleccionado (para generar nombre)
+      selectedClientId, // ID del cliente seleccionado (para generar nombre)
+      selectedCompanyId, // ✅ FASE CLIENTE/EMPRESA: ID de la empresa seleccionada
+      subjectType, // ✅ FASE CLIENTE/EMPRESA: 'client' | 'company'
       businessType,
       employees,
       status,
@@ -54,10 +56,11 @@ export async function POST(request: NextRequest) {
       priority,
       briefData,
       tempUploads = [], // PDFs temporales del formulario
-      linkedPolicyIds = [], // ✅ FASE POLICY_LINKS: IDs de pólizas de org a vincular
+      linkedPolicyIds = [], // FASE POLICY_LINKS: IDs de pólizas de org a vincular
+      linkedQuoteIds = [], // FASE ORG_DOCUMENTS: IDs de cotizaciones de org a vincular
       // Nuevos campos del Brief detallado
       insurance_category,
-      max_budget: rawMaxBudget, // ✅ Validar antes de usar
+      max_budget: rawMaxBudget, // Validar antes de usar
       budget_currency,
       required_coverages,
       client_profile,
@@ -180,8 +183,10 @@ export async function POST(request: NextRequest) {
         // para cumplir con exactOptionalPropertyTypes: solo incluir propiedades con valor
         const additionalData: {
           clientName?: string;
-          clientId?: string;     // ✅ NUEVO
-          caseName?: string;     // ✅ NUEVO
+          clientId?: string;
+          companyId?: string;    // ✅ FASE CLIENTE/EMPRESA
+          subjectType?: string;  // ✅ FASE CLIENTE/EMPRESA
+          caseName?: string;
           clientRef?: string;
           businessType?: string;
           employees?: number;
@@ -197,7 +202,10 @@ export async function POST(request: NextRequest) {
         
         // Solo agregar propiedades si tienen valor (no undefined)
         if (finalClientName !== undefined) additionalData.clientName = finalClientName;
-        if (selectedClientId !== undefined) additionalData.clientId = selectedClientId; // ✅ NUEVO
+        if (selectedClientId !== undefined) additionalData.clientId = selectedClientId;
+        // ✅ FASE CLIENTE/EMPRESA: Agregar companyId y subjectType
+        if (selectedCompanyId !== undefined) additionalData.companyId = selectedCompanyId;
+        if (subjectType !== undefined) additionalData.subjectType = subjectType;
         if (generatedCaseName !== undefined) additionalData.caseName = generatedCaseName; // ✅ NUEVO
         if (clientRef !== undefined) additionalData.clientRef = clientRef;
         if (businessType !== undefined) additionalData.businessType = businessType;
@@ -475,6 +483,70 @@ export async function POST(request: NextRequest) {
           linkedCount,
           requestedCount: linkedPolicyIds.length,
           invalidCount: invalidIds.length,
+        },
+      });
+    }
+    
+    // =========================================================================
+    // ✅ FASE ORG_DOCUMENTS: Vincular cotizaciones de organización al caso
+    // =========================================================================
+    console.log('🔍 [API/cases/create] linkedQuoteIds RECIBIDOS del frontend:', JSON.stringify(linkedQuoteIds));
+    console.log('🔍 [API/cases/create] Tipo de linkedQuoteIds:', typeof linkedQuoteIds, 'Es array:', Array.isArray(linkedQuoteIds));
+    
+    if (linkedQuoteIds && Array.isArray(linkedQuoteIds) && linkedQuoteIds.length > 0) {
+      console.log(`🔗 [API/cases/create] Vinculando ${linkedQuoteIds.length} cotizaciones de organización...`);
+      const { prisma } = await import('@/lib/prisma');
+      
+      // Verificar que las cotizaciones existen y pertenecen a la organización
+      const validQuotes = await prisma.quoteAnalysis.findMany({
+        where: {
+          id: { in: linkedQuoteIds },
+          orgId: orgId,
+        },
+        select: { id: true },
+      });
+      
+      const validQuoteIds = validQuotes.map(q => q.id);
+      const invalidQuoteIds = linkedQuoteIds.filter((id: string) => !validQuoteIds.includes(id));
+      
+      if (invalidQuoteIds.length > 0) {
+        console.warn(`⚠️ [API/cases/create] ${invalidQuoteIds.length} cotizaciones no encontradas o no pertenecen a la org:`, invalidQuoteIds);
+      }
+      
+      // Crear enlaces para las cotizaciones válidas
+      let linkedQuotesCount = 0;
+      for (const quoteAnalysisId of validQuoteIds) {
+        try {
+          await prisma.caseQuoteLink.create({
+            data: {
+              caseId: newCase.id,
+              quoteAnalysisId,
+              orgId: orgId,
+              linkedBy: user.id,
+            },
+          });
+          linkedQuotesCount++;
+        } catch (linkError: any) {
+          // Ignorar errores de duplicados (constraint unique)
+          if (linkError.code !== 'P2002') {
+            console.error(`❌ [API/cases/create] Error vinculando cotización ${quoteAnalysisId}:`, linkError);
+          }
+        }
+      }
+      
+      console.log(`✅ [API/cases/create] Vinculadas ${linkedQuotesCount} cotizaciones de organización al caso`);
+      
+      // Registrar en auditoría
+      await recordAuditLog({
+        caseId: newCase.id,
+        actor: user.id,
+        action: 'org_quotes_linked_on_create',
+        tool: 'cases_create_api',
+        payload: {
+          orgId: orgId,
+          linkedCount: linkedQuotesCount,
+          requestedCount: linkedQuoteIds.length,
+          invalidCount: invalidQuoteIds.length,
         },
       });
     }

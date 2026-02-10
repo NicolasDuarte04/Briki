@@ -20,6 +20,10 @@ import {
   pathForPoliciesOverview,
   pathForPoliciesAnalysis,
   pathForPoliciesUpload,
+  pathForQuotes,
+  pathForQuotesOverview,
+  pathForQuotesAnalysis,
+  pathForQuotesUpload,
 } from '@/lib/routes/workspace';
 import type { Locale } from '@/lib/routes/workspace';
 import { 
@@ -36,6 +40,7 @@ import {
   FileSearch,
   Upload,
   Building2,
+  Receipt,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -146,7 +151,34 @@ export function getWorkspaceSections(locale: Locale): NavSection[] {
             },
           ],
         },
-        // ✅ AGENTE: Ahora debajo de Dashboard y Policies
+        // ✅ COTIZACIONES: Nueva sección análoga a Pólizas
+        {
+          label: locale === 'es' ? 'Cotizaciones' : 'Quotes',
+          href: pathForQuotes(locale),
+          matchPath: '/quotes',
+          icon: Receipt,
+          subItems: [
+            {
+              label: locale === 'es' ? 'Resumen' : 'Overview',
+              href: pathForQuotesOverview(locale),
+              matchPath: '/quotes/overview',
+              icon: BarChart3,
+            },
+            {
+              label: locale === 'es' ? 'Análisis' : 'Analysis',
+              href: pathForQuotesAnalysis(locale),
+              matchPath: '/quotes/analysis',
+              icon: FileSearch,
+            },
+            {
+              label: locale === 'es' ? 'Subir Cotización' : 'Upload Quote',
+              href: pathForQuotesUpload(locale),
+              matchPath: '/quotes/upload',
+              icon: Upload,
+            },
+          ],
+        },
+        // ✅ AGENTE: Ahora debajo de Dashboard, Policies y Quotes
         {
           label: locale === 'es' ? 'Agente' : 'Agent',
           href: pathForAgent(locale),

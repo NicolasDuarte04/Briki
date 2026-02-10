@@ -20,6 +20,7 @@
 
 import { prisma } from './prisma';
 import { Prisma } from '@prisma/client';
+import { withTransactionRetryOrDefault } from './helpers/withTransactionRetry';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TIPOS E INTERFACES
@@ -300,47 +301,130 @@ export async function getCompaniesByOrg(orgId: string): Promise<CompanySummary[]
   });
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// FUNCIÓN OPTIMIZADA PARA COMBOBOX
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Caché en memoria para optimizar consultas repetidas del combobox
+const companyComboboxCache = new Map<string, { data: { id: string; name: string }[], timestamp: number }>();
+const COMBOBOX_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
 /**
- * Obtiene las empresas pineadas de una organización.
- * Ideal para el widget del dashboard.
+ * Obtiene empresas optimizadas para el Combobox de BriefForm.
+ * Solo retorna ID y nombre (razón social) para máxima eficiencia.
+ * Incluye caché en memoria para evitar consultas repetidas.
  * 
  * @param orgId - ID de la organización
- * @param limit - Número máximo de empresas a retornar
- * @returns Array de empresas pineadas resumidas
+ * @returns Array de empresas con solo ID y nombre
  */
-export async function getPinnedCompanies(orgId: string, limit = 5): Promise<CompanySummary[]> {
+export async function getCompaniesForCombobox(orgId: string): Promise<{ id: string; name: string }[]> {
   if (!orgId) {
     throw new Error('Organization ID is required');
   }
+  
+  const cacheKey = `combobox-companies-${orgId}`;
+  const cachedEntry = companyComboboxCache.get(cacheKey);
+
+  // Verificar si la entrada de caché existe y no ha expirado
+  if (cachedEntry && (Date.now() - cachedEntry.timestamp < COMBOBOX_CACHE_TTL_MS)) {
+    console.log(`[Cache Hit] Serving companies for org ${orgId} from cache.`);
+    return cachedEntry.data;
+  }
+
+  console.log(`[Cache Miss] Fetching companies for org ${orgId} from database.`);
   
   const encryptionKey = process.env.APP_ENCRYPTION_KEY;
   if (!encryptionKey) {
     throw new Error('APP_ENCRYPTION_KEY no está configurada.');
   }
 
-  return prisma.$transaction(async (tx) => {
+  const companies = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
     
-    return tx.$queryRaw<CompanySummary[]>`
+    // Solo descifrar razón social para el Combobox
+    return tx.$queryRaw<{ id: string; name: string }[]>`
       SELECT 
         id::text,
-        public.decrypt_pii(legal_name_enc) as "legalName",
-        public.decrypt_pii(trade_name_enc) as "tradeName",
-        public.decrypt_pii(nit_enc) as nit,
-        company_type as "companyType",
-        is_pinned as "isPinned",
-        risk_classification as "riskClassification",
-        created_at as "createdAt"
+        public.decrypt_pii(legal_name_enc) as name
       FROM public.companies
       WHERE org_id = ${orgId}::uuid
-        AND is_pinned = TRUE
         AND deleted_at IS NULL
       ORDER BY created_at DESC
-      LIMIT ${limit}
+      LIMIT 100
     `;
   }, {
-    timeout: 30000,
+    timeout: 60000,
+    maxWait: 10000,
   });
+  
+  // Almacenar el resultado en caché con timestamp
+  companyComboboxCache.set(cacheKey, { data: companies, timestamp: Date.now() });
+
+  return companies;
+}
+
+/**
+ * Invalida el caché del combobox de empresas para una organización.
+ * Llamar después de crear/editar/eliminar una empresa.
+ */
+export function invalidateCompanyComboboxCache(orgId: string): void {
+  const cacheKey = `combobox-companies-${orgId}`;
+  companyComboboxCache.delete(cacheKey);
+  console.log(`[Cache Invalidated] Company combobox cache cleared for org ${orgId}`);
+}
+
+/**
+ * Obtiene las empresas pineadas de una organización.
+ * Ideal para el widget del dashboard.
+ * 
+ * ✅ FASE ESTABILIZACIÓN: Retry logic con backoff exponencial para evitar
+ * errores de "Unable to start transaction" por pool saturado.
+ * 
+ * @param orgId - ID de la organización
+ * @param limit - Número máximo de empresas a retornar
+ * @returns Array de empresas pineadas resumidas (vacío si falla)
+ */
+export async function getPinnedCompanies(orgId: string, limit = 5): Promise<CompanySummary[]> {
+  if (!orgId) {
+    console.error('[getPinnedCompanies] Organization ID is required');
+    return [];
+  }
+  
+  const encryptionKey = process.env.APP_ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    console.error('[getPinnedCompanies] APP_ENCRYPTION_KEY no está configurada.');
+    return [];
+  }
+
+  // ✅ Usar retry helper para manejar pool saturation
+  return withTransactionRetryOrDefault(
+    () => prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
+      
+      return tx.$queryRaw<CompanySummary[]>`
+        SELECT 
+          id::text,
+          public.decrypt_pii(legal_name_enc) as "legalName",
+          public.decrypt_pii(trade_name_enc) as "tradeName",
+          public.decrypt_pii(nit_enc) as nit,
+          company_type as "companyType",
+          is_pinned as "isPinned",
+          risk_classification as "riskClassification",
+          created_at as "createdAt"
+        FROM public.companies
+        WHERE org_id = ${orgId}::uuid
+          AND is_pinned = TRUE
+          AND deleted_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT ${limit}
+      `;
+    }, {
+      timeout: 15000, // ✅ Reducido para fallar rápido y reintentar
+      isolationLevel: 'ReadCommitted',
+    }),
+    [], // ✅ Graceful degradation: devolver vacío en lugar de crashear
+    { context: 'getPinnedCompanies' }
+  );
 }
 
 /**
@@ -699,46 +783,7 @@ export async function restoreCompany(
 }
 
 /**
- * Obtiene empresas para combobox (optimizado).
- * 
- * @param orgId - ID de la organización
- * @returns Array de empresas con solo id, legalName y nit
- */
-export async function getCompaniesForCombobox(orgId: string): Promise<{ id: string; legalName: string; nit: string }[]> {
-  if (!orgId) {
-    throw new Error('Organization ID is required');
-  }
-  
-  const encryptionKey = process.env.APP_ENCRYPTION_KEY;
-  if (!encryptionKey) {
-    throw new Error('APP_ENCRYPTION_KEY no está configurada.');
-  }
 
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
-    
-    return tx.$queryRaw<{ id: string; legalName: string; nit: string }[]>`
-      SELECT 
-        id::text,
-        public.decrypt_pii(legal_name_enc) as "legalName",
-        public.decrypt_pii(nit_enc) as nit
-      FROM public.companies
-      WHERE org_id = ${orgId}::uuid
-        AND deleted_at IS NULL
-      ORDER BY created_at DESC
-      LIMIT 100
-    `;
-  }, {
-    timeout: 60000,
-    maxWait: 10000,
-  });
-}
-
-/**
- * Cuenta las empresas de una organización.
- * 
- * @param orgId - ID de la organización
- * @returns Número de empresas
  */
 export async function countCompaniesByOrg(orgId: string): Promise<number> {
   if (!orgId) {

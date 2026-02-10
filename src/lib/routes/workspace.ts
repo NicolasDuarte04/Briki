@@ -119,6 +119,45 @@ export function pathForPolicyAnalysisDetail(policyId: string, locale: Locale): s
   return `/${locale}/policies/analysis/${policyId}`;
 }
 
+// =============================================================================
+// RUTAS DE COTIZACIONES STANDALONE (Org-level quotes)
+// =============================================================================
+
+/**
+ * Get the main quotes dashboard route (org-level quotes)
+ */
+export function pathForQuotes(locale: Locale): string {
+  return `/${locale}/quotes`;
+}
+
+/**
+ * Get the quotes overview/metrics route
+ */
+export function pathForQuotesOverview(locale: Locale): string {
+  return `/${locale}/quotes/overview`;
+}
+
+/**
+ * Get the quotes analysis route
+ */
+export function pathForQuotesAnalysis(locale: Locale): string {
+  return `/${locale}/quotes/analysis`;
+}
+
+/**
+ * Get the quotes upload route
+ */
+export function pathForQuotesUpload(locale: Locale): string {
+  return `/${locale}/quotes/upload`;
+}
+
+/**
+ * Get the quote analysis detail route (for org-level standalone quotes)
+ */
+export function pathForQuoteAnalysisDetail(quoteId: string, locale: Locale): string {
+  return `/${locale}/quotes/analysis/${quoteId}`;
+}
+
 /**
  * Get the login route
  */

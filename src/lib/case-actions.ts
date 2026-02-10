@@ -142,13 +142,16 @@ export async function createCaseIfNeeded(
         const { orgId, userId } = await authResponse.json();
         console.log('👤 Usuario autenticado:', { orgId, userId });
 
-        // 3. Crear el caso con tempUploads y linkedPolicyIds si existen
+        // 3. Crear el caso con tempUploads y linkedPolicyIds/linkedQuoteIds si existen
         const tempUploads = (briefData as any).tempUploads || [];
         const linkedPolicyIds = briefData.linkedPolicyIds || [];
-        console.log('📎 [case-actions] Creando caso con tempUploads:', tempUploads.length, 'linkedPolicyIds:', linkedPolicyIds.length);
-        // 🔍 DEBUG: Log detallado de linkedPolicyIds que se envían al backend
+        const linkedQuoteIds = briefData.linkedQuoteIds || [];
+        console.log('📎 [case-actions] Creando caso con tempUploads:', tempUploads.length, 'linkedPolicyIds:', linkedPolicyIds.length, 'linkedQuoteIds:', linkedQuoteIds.length);
+        // 🔍 DEBUG: Log detallado de linkedPolicyIds y linkedQuoteIds que se envían al backend
         console.log('🔍 [case-actions] linkedPolicyIds EXACTOS que se enviarán:', JSON.stringify(linkedPolicyIds));
+        console.log('🔍 [case-actions] linkedQuoteIds EXACTOS que se enviarán:', JSON.stringify(linkedQuoteIds));
         console.log('🔍 [case-actions] briefData.linkedPolicyIds raw:', JSON.stringify(briefData.linkedPolicyIds));
+        console.log('🔍 [case-actions] briefData.linkedQuoteIds raw:', JSON.stringify(briefData.linkedQuoteIds));
 
         // ✅ CORRECCIÓN CRÍTICA: Asegurar que freeText esté presente en briefData
         // Si no está en briefData, intentar obtenerlo del estado global como último recurso
@@ -160,6 +163,10 @@ export async function createCaseIfNeeded(
         }
         console.log('📝 [case-actions] freeText final que se enviará al API:', finalFreeText);
 
+        // ✅ FASE CLIENTE/EMPRESA: Determinar qué ID enviar según subjectType
+        const subjectType = (briefData as any).subjectType || 'client';
+        const selectedCompanyId = (briefData as any).selectedCompanyId || null;
+
         const response = await fetch('/api/cases/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -167,18 +174,22 @@ export async function createCaseIfNeeded(
                 orgId,
                 userId,
                 clientName: briefData.clientName,
-                selectedClientId: clientId, // ✅ Incluir clientId validado
+                selectedClientId: subjectType === 'client' ? clientId : null, // Solo si es cliente
+                selectedCompanyId: subjectType === 'company' ? selectedCompanyId : null, // ✅ Solo si es empresa
+                subjectType, // ✅ FASE CLIENTE/EMPRESA: Tipo de sujeto
                 businessType: briefData.businessType,
                 employees: briefData.employees,
                 status: 'draft',
                 stage: 'initial',
                 priority: 'medium',
                 briefData: {
-                    freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText garantizado
+                    freeText: finalFreeText,
                     businessType: briefData.businessType,
                     employees: briefData.employees,
                     coverage: briefData.coverage,
-                    selectedClientId: clientId, // ✅ También en briefData
+                    selectedClientId: subjectType === 'client' ? clientId : null,
+                    selectedCompanyId: subjectType === 'company' ? selectedCompanyId : null,
+                    subjectType, // ✅ También en briefData para el agente
                 },
                 insurance_category: briefData.insurance_category,
                 max_budget: briefData.max_budget,
@@ -186,7 +197,8 @@ export async function createCaseIfNeeded(
                 required_coverages: briefData.required_coverages,
                 client_profile: briefData.client_profile,
                 tempUploads: tempUploads,
-                linkedPolicyIds: linkedPolicyIds, // ✅ FASE POLICY_LINKS: Pólizas de org a vincular
+                linkedPolicyIds: linkedPolicyIds,
+                linkedQuoteIds: linkedQuoteIds,
             }),
         });
 

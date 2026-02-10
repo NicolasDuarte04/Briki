@@ -471,8 +471,10 @@ export async function createCaseWithOrg(
   additionalData: {
     clientRef?: string;
     clientName?: string;
-    clientId?: string;           // ✅ NUEVO: FK a clients
-    caseName?: string;           // ✅ NUEVO: Nombre descriptivo del caso
+    clientId?: string;           // FK a clients (persona física)
+    companyId?: string;          // ✅ FASE CLIENTE/EMPRESA: FK a companies (persona jurídica)
+    subjectType?: string;        // ✅ FASE CLIENTE/EMPRESA: 'client' | 'company'
+    caseName?: string;           // Nombre descriptivo del caso
     businessType?: string;
     employees?: number;
     status?: 'draft' | 'active' | 'completed' | 'archived';
@@ -504,13 +506,15 @@ export async function createCaseWithOrg(
     priority: additionalData.priority || 'medium',
     budget_currency: additionalData.budget_currency || 'COP',
     required_coverages: additionalData.required_coverages || [],
+    subjectType: additionalData.subjectType || 'client', // ✅ FASE CLIENTE/EMPRESA: default 'client'
   };
   
   // Solo agregar campos si tienen valor (evitar undefined)
   if (additionalData.clientRef !== undefined) caseData.clientRef = additionalData.clientRef;
   if (additionalData.clientName !== undefined) caseData.clientName = additionalData.clientName;
-  if (additionalData.clientId !== undefined) caseData.clientId = additionalData.clientId; // ✅ NUEVO
-  if (additionalData.caseName !== undefined) caseData.caseName = additionalData.caseName; // ✅ NUEVO
+  if (additionalData.clientId !== undefined) caseData.clientId = additionalData.clientId;
+  if (additionalData.companyId !== undefined) caseData.companyId = additionalData.companyId; // ✅ FASE CLIENTE/EMPRESA
+  if (additionalData.caseName !== undefined) caseData.caseName = additionalData.caseName;
   if (additionalData.businessType !== undefined) caseData.businessType = additionalData.businessType;
   if (additionalData.employees !== undefined) caseData.employees = additionalData.employees;
   if (additionalData.insurance_category !== undefined) caseData.insurance_category = additionalData.insurance_category;

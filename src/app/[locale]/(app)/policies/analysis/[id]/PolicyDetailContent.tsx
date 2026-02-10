@@ -54,6 +54,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { pathForPoliciesAnalysis, type Locale } from '@/lib/routes/workspace';
+import { normalizePolicyData, formatCurrency, formatPolicyDate } from '@/lib/helpers/normalizePolicyData';
 
 // ============================================================================
 // TYPES
@@ -139,7 +140,7 @@ function ConfidenceBadge({ confidence, translations }: { confidence: number; tra
     return (
       <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200">
         <CheckCircle2 className="h-3 w-3 mr-1" />
-        {translations.high.replace('{percent}', percentage.toFixed(0))}
+        {translations.high.replace('%percent%', percentage.toFixed(0))}
       </Badge>
     );
   }
@@ -147,14 +148,14 @@ function ConfidenceBadge({ confidence, translations }: { confidence: number; tra
     return (
       <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-200">
         <AlertCircle className="h-3 w-3 mr-1" />
-        {translations.medium.replace('{percent}', percentage.toFixed(0))}
+        {translations.medium.replace('%percent%', percentage.toFixed(0))}
       </Badge>
     );
   }
   return (
     <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-200">
       <Info className="h-3 w-3 mr-1" />
-      {translations.low.replace('{percent}', percentage.toFixed(0))}
+      {translations.low.replace('%percent%', percentage.toFixed(0))}
     </Badge>
   );
 }
@@ -198,31 +199,35 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
   const safeString = (value: unknown) => safeStringWithFallback(value, notAvailable);
   const formatDate = (dateStr: string | undefined) => formatDateWithLocale(dateStr, notAvailable, locale);
   
-  const extractedData = (policy.extractedData || {}) as Record<string, unknown>;
+  // ✅ CORRECCIÓN: Usar normalizador centralizado para acceder a datos extraídos
+  // Esto mapea la estructura IA (insurer.name, financials.premium_total) a campos planos
+  const normalized = normalizePolicyData(policy.extractedData as Record<string, unknown> | null);
   const confidence = policy.overallConfidence;
   
-  // Extract all data safely
-  const policyNumber = safeString(extractedData.policy_number);
-  const insurer = safeString(extractedData.insurer);
-  const policyType = safeString(extractedData.policy_type || extractedData.insurance_type);
-  const sumInsured = safeString(extractedData.sum_insured);
-  const premium = safeString(extractedData.premium);
-  const deductible = safeString(extractedData.deductible);
-  const startDate = safeString(extractedData.start_date || extractedData.effective_date);
-  const endDate = safeString(extractedData.end_date || extractedData.expiry_date);
+  // Datos normalizados con fallback a notAvailable
+  const policyNumber = normalized.policyNumber || notAvailable;
+  const insurer = normalized.insurer || notAvailable;
+  const policyType = normalized.policyType || notAvailable;
+  const sumInsured = normalized.sumInsured 
+    ? formatCurrency(normalized.sumInsured, normalized.currency, locale)
+    : notAvailable;
+  const premium = normalized.premiumTotal 
+    ? formatCurrency(normalized.premiumTotal, normalized.currency, locale)
+    : notAvailable;
+  const deductible = normalized.deductibleAmount
+    ? `${formatCurrency(normalized.deductibleAmount, normalized.currency, locale)}${normalized.deductibleUnit ? ` (${normalized.deductibleUnit})` : ''}`
+    : notAvailable;
+  const startDate = normalized.effectiveFrom || notAvailable;
+  const endDate = normalized.effectiveTo || notAvailable;
   
-  // Insured data
-  const insuredName = safeString(extractedData.insured_name || (extractedData.policyholder as any)?.name);
-  const insuredAddress = safeString(extractedData.insured_address || (extractedData.policyholder as any)?.address);
-  const insuredId = safeString(extractedData.insured_id || (extractedData.policyholder as any)?.id);
+  // Datos del asegurado
+  const insuredName = normalized.insuredName || notAvailable;
+  const insuredAddress = normalized.insuredAddress || notAvailable;
+  const insuredId = normalized.insuredId || notAvailable;
   
-  // Coverages and exclusions
-  const coverages = Array.isArray(extractedData.coverages) 
-    ? extractedData.coverages 
-    : Array.isArray(extractedData.coverage_details)
-      ? extractedData.coverage_details
-      : [];
-  const exclusions = Array.isArray(extractedData.exclusions) ? extractedData.exclusions : [];
+  // Coberturas y exclusiones (ya normalizadas con estructura rica)
+  const coverages = normalized.coverages;
+  const exclusions = normalized.exclusions;
   
   // Badge translations
   const badgeTranslations = {
@@ -416,13 +421,52 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {coverages.map((coverage: unknown, index: number) => (
-                    <div key={index} className="flex items-center gap-2 p-3 bg-green-50 rounded-lg">
-                      <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                      <span className="text-sm text-green-800">
-                        {typeof coverage === 'string' ? coverage : safeString(coverage)}
-                      </span>
+                <div className="space-y-3">
+                  {coverages.map((coverage, index: number) => (
+                    <div key={index} className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                          <span className="font-medium text-green-800 dark:text-green-200">
+                            {coverage.name}
+                          </span>
+                        </div>
+                        {coverage.limitAmount && (
+                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
+                            {formatCurrency(coverage.limitAmount, coverage.limitCurrency || normalized.currency, locale)}
+                          </Badge>
+                        )}
+                      </div>
+                      {coverage.description && (
+                        <p className="text-sm text-green-700 dark:text-green-300 mt-2 ml-6">
+                          {coverage.description}
+                        </p>
+                      )}
+                      {coverage.limitDescription && !coverage.limitAmount && (
+                        <p className="text-sm text-green-600 dark:text-green-400 mt-1 ml-6">
+                          <strong>{t('coveragesSection.limit')}:</strong> {coverage.limitDescription}
+                        </p>
+                      )}
+                      {coverage.deductibleAmount && (
+                        <p className="text-sm text-green-600 dark:text-green-400 mt-1 ml-6">
+                          <strong>{t('coveragesSection.deductible')}:</strong> {formatCurrency(coverage.deductibleAmount, coverage.limitCurrency || normalized.currency, locale)}{coverage.deductibleUnit ? ` (${coverage.deductibleUnit})` : ''}
+                        </p>
+                      )}
+                      {coverage.waitingPeriod && (
+                        <p className="text-sm text-green-600 dark:text-green-400 mt-1 ml-6">
+                          <strong>{t('coveragesSection.waitingPeriod')}:</strong> {coverage.waitingPeriod} {t('coveragesSection.days')}
+                        </p>
+                      )}
+                      {coverage.sublimits.length > 0 && (
+                        <div className="mt-2 ml-6 space-y-1">
+                          <p className="text-xs font-medium text-green-700 dark:text-green-300">{t('coveragesSection.sublimits')}:</p>
+                          {coverage.sublimits.map((sub, subIndex) => (
+                            <p key={subIndex} className="text-xs text-green-600 dark:text-green-400 pl-2">
+                              • {sub.name}: {sub.amount} {sub.unit}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -446,13 +490,22 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {exclusions.map((exclusion: unknown, index: number) => (
-                    <div key={index} className="flex items-center gap-2 p-3 bg-red-50 rounded-lg">
-                      <AlertCircle className="h-4 w-4 text-red-600 shrink-0" />
-                      <span className="text-sm text-red-800">
-                        {typeof exclusion === 'string' ? exclusion : safeString(exclusion)}
-                      </span>
+                <div className="space-y-2">
+                  {exclusions.map((exclusion, index: number) => (
+                    <div key={index} className="p-3 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                            {exclusion.name}
+                          </span>
+                          {exclusion.description && (
+                            <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                              {exclusion.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

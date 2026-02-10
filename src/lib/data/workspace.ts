@@ -104,12 +104,13 @@ export interface UserPins {
   clients: string[];
   policies: string[];
   companies: string[];
+  quotes: string[];
 }
 
 /**
  * Entity types that can be pinned
  */
-export type PinnableEntityType = 'case' | 'client' | 'policy' | 'company';
+export type PinnableEntityType = 'case' | 'client' | 'policy' | 'company' | 'quote';
 
 // ============================================================================
 // CONSTANTS
@@ -368,7 +369,7 @@ export async function getUserPins(userId: string): Promise<UserPins> {
   
   if (error) {
     console.error('[getUserPins] Error:', error);
-    return { cases: [], clients: [], policies: [], companies: [] };
+    return { cases: [], clients: [], policies: [], companies: [], quotes: [] };
   }
   
   // Parse pins from ui_preferences JSONB
@@ -380,6 +381,7 @@ export async function getUserPins(userId: string): Promise<UserPins> {
     clients: Array.isArray(pins?.clients) ? pins.clients : [],
     policies: Array.isArray(pins?.policies) ? pins.policies : [],
     companies: Array.isArray(pins?.companies) ? pins.companies : [],
+    quotes: Array.isArray(pins?.quotes) ? pins.quotes : [],
   };
 }
 
@@ -413,12 +415,13 @@ export async function togglePin(
     
     // 2. Parse current pins
     const uiPrefs = (existing?.ui_preferences as Record<string, unknown>) || {};
-    const currentPins = (uiPrefs.pins as UserPins) || { cases: [], clients: [], policies: [], companies: [] };
+    const currentPins = (uiPrefs.pins as UserPins) || { cases: [], clients: [], policies: [], companies: [], quotes: [] };
     
     // 3. Determine array key based on entity type
     const arrayKey = entityType === 'case' ? 'cases' : 
                      entityType === 'client' ? 'clients' : 
-                     entityType === 'company' ? 'companies' : 'policies';
+                     entityType === 'company' ? 'companies' :
+                     entityType === 'quote' ? 'quotes' : 'policies';
     
     // 4. Get current array (ensure it's an array)
     const currentArray = Array.isArray(currentPins[arrayKey]) ? currentPins[arrayKey] : [];
@@ -450,6 +453,7 @@ export async function togglePin(
       clients: arrayKey === 'clients' ? newArray : (currentPins.clients || []),
       policies: arrayKey === 'policies' ? newArray : (currentPins.policies || []),
       companies: arrayKey === 'companies' ? newArray : (currentPins.companies || []),
+      quotes: arrayKey === 'quotes' ? newArray : (currentPins.quotes || []),
     };
     
     // 7. Build updated ui_preferences

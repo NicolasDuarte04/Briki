@@ -11,12 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield, LinkIcon } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield, LinkIcon, Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PdfUploader } from '@/components/Upload/PdfUploader';
-import { OrgPolicySelector } from '@/components/Policies/OrgPolicySelector';
+import { OrgDocumentSelector } from '@/components/Common/OrgDocumentSelector';
 import { useUI } from '@/lib/ui/state';
 import { useClientValidation } from '@/hooks/useClientValidation';
+import { useCompanyValidation } from '@/hooks/useCompanyValidation';
 import { createCaseIfNeeded } from '@/lib/case-actions';
 import { ClientValidationModal } from '@/components/Workspace/ClientValidationModal';
 import { useRouter } from 'next/navigation';
@@ -42,6 +43,15 @@ export type ClientOption = {
   id: string;
   name: string;
 };
+
+// Define el tipo para opciones de empresa
+export type CompanyOption = {
+  id: string;
+  name: string;
+};
+
+// Tipo para el sujeto del caso: cliente (persona física) o empresa (persona jurídica)
+export type SubjectType = 'client' | 'company';
 
 // Define la interfaz de los datos que el formulario manejará
 export type CaseBriefData = {
@@ -318,6 +328,8 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
   // ✅ FASE POLICY_LINKS: Estado para pólizas de organización seleccionadas
   const [selectedOrgPolicyIds, setSelectedOrgPolicyIds] = useState<string[]>([]);
+  // ✅ FASE ORG_DOCUMENTS: Estado para cotizaciones de organización seleccionadas
+  const [selectedOrgQuoteIds, setSelectedOrgQuoteIds] = useState<string[]>([]);
 
   // ✅ CORRECCIÓN: Detectar si hay cambios en el formulario respecto al snapshot inicial
   // Esto permite mostrar/ocultar el botón "Actualizar Caso" solo cuando hay modificaciones
@@ -485,8 +497,19 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       setClientSearchTerm('');
       setSelectedClient(null);
       setIsClientComboboxOpen(false);
+      // ✅ Limpiar estados de empresa también
+      setCompanySearchTerm('');
+      setSelectedCompany(null);
+      setIsCompanyComboboxOpen(false);
     }
   }, [initialNotes, setBrief]);
+
+  // ✅ FASE CLIENTE/EMPRESA: Estado para el tipo de sujeto
+  const [subjectType, setSubjectType] = useState<SubjectType>(
+    (initialData?.subjectType as SubjectType) || 
+    (shouldUseBriefFallback ? (brief as any)?.subjectType : 'client') || 
+    'client'
+  );
 
   // Estados para el Combobox de clientes
   const [clientList, setClientList] = useState<ClientOption[]>([]);
@@ -494,6 +517,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   const [selectedClient, setSelectedClient] = useState<ClientOption | null>(null);
   const [clientSearchTerm, setClientSearchTerm] = useState('');
   const [isClientComboboxOpen, setIsClientComboboxOpen] = useState(false);
+
+  // ✅ FASE CLIENTE/EMPRESA: Estados para el Combobox de empresas
+  const [companyList, setCompanyList] = useState<CompanyOption[]>([]);
+  const [isCompanyListLoading, setIsCompanyListLoading] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState<CompanyOption | null>(null);
+  const [companySearchTerm, setCompanySearchTerm] = useState('');
+  const [isCompanyComboboxOpen, setIsCompanyComboboxOpen] = useState(false);
 
   // Cargar clientes al montar el componente
   useEffect(() => {
@@ -519,11 +549,39 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     loadClients();
   }, []);
 
+  // ✅ FASE CLIENTE/EMPRESA: Cargar empresas al montar el componente
+  useEffect(() => {
+    const loadCompanies = async () => {
+      console.log('🔄 Loading companies...');
+      setIsCompanyListLoading(true);
+      try {
+        const response = await fetch('/api/companies/list');
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        console.log('✅ Companies loaded:', data.companies?.length || 0);
+        setCompanyList(data.companies || []);
+      } catch (error) {
+        console.error('❌ Error loading companies:', error);
+        setCompanyList([]);
+      } finally {
+        console.log('🏁 Company loading finished');
+        setIsCompanyListLoading(false);
+      }
+    };
+    loadCompanies();
+  }, []);
+
   // ✅ CORRECCIÓN QUIRÚRGICA: Sincronización inicial de clientName desde brief (solo cuando hay currentCaseId)
   useEffect(() => {
     const currentCaseId = useUI.getState().currentCaseId;
     if (currentCaseId && !clientSearchTerm && brief?.clientName) {
       setClientSearchTerm(brief.clientName);
+    }
+    // Sincronizar companyName también
+    if (currentCaseId && !companySearchTerm && (brief as any)?.companyName) {
+      setCompanySearchTerm((brief as any).companyName);
     }
   }, []); // Solo ejecutar una vez al montar
 
@@ -549,11 +607,15 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       if (isClientComboboxOpen && !target.closest('.client-combobox-container')) {
         setIsClientComboboxOpen(false);
       }
+      // ✅ FASE CLIENTE/EMPRESA: También cerrar combobox de empresas
+      if (isCompanyComboboxOpen && !target.closest('.company-combobox-container')) {
+        setIsCompanyComboboxOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isClientComboboxOpen]);
+  }, [isClientComboboxOpen, isCompanyComboboxOpen]);
 
   // Handlers para actualizar el estado - MEMOIZADO
   // ✅ CORRECCIÓN CRÍTICA: Actualizar solo el estado local (NO guardar en tiempo real)
@@ -605,6 +667,50 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     if (value.length > 0) {
       setIsClientComboboxOpen(true);
     }
+  }, [setBrief, updateField]);
+
+  // ✅ FASE CLIENTE/EMPRESA: Handlers para el Combobox de empresas
+  const handleCompanySelect = useCallback((company: CompanyOption | null) => {
+    const name = company?.name || '';
+    const id = company?.id || null;
+
+    // Actualizar estado local
+    setSelectedCompany(company);
+    setCompanySearchTerm(name);
+
+    // Actualizar estado global
+    setBrief({ companyName: name, selectedCompanyId: id } as any);
+    setIsCompanyComboboxOpen(false);
+  }, [setBrief]);
+
+  const handleCompanySearchChange = useCallback((value: string) => {
+    setCompanySearchTerm(value);
+
+    // Actualizar estado global con el término de búsqueda
+    setBrief({ companyName: value, selectedCompanyId: null } as any);
+
+    // Abrir dropdown cuando se escriba
+    if (value.length > 0) {
+      setIsCompanyComboboxOpen(true);
+    }
+  }, [setBrief]);
+
+  // ✅ FASE CLIENTE/EMPRESA: Handler para cambio de tipo de sujeto
+  const handleSubjectTypeChange = useCallback((newType: SubjectType) => {
+    setSubjectType(newType);
+    
+    // Limpiar selecciones al cambiar de tipo
+    if (newType === 'client') {
+      setCompanySearchTerm('');
+      setSelectedCompany(null);
+      setBrief({ subjectType: 'client', companyName: undefined, selectedCompanyId: null } as any);
+    } else {
+      setClientSearchTerm('');
+      setSelectedClient(null);
+      updateField('clientName', '');
+      setBrief({ subjectType: 'company', clientName: undefined, selectedClientId: null } as any);
+    }
+    console.log('🔄 [BriefForm] Tipo de sujeto cambiado a:', newType);
   }, [setBrief, updateField]);
 
   const handleAddCoverage = useCallback(() => {
@@ -766,17 +872,21 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
         tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
         linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org seleccionadas
+        linkedQuoteIds: selectedOrgQuoteIds || [], // ✅ FASE ORG_DOCUMENTS: Incluir cotizaciones de org seleccionadas
       };
 
       console.log('📝 [BriefForm] Actualizando brief global con TODOS los datos del formulario:', {
         ...briefUpdate,
         freeText: briefUpdate.freeText?.substring(0, 50) + '...',
         tempUploadsCount: briefUpdate.tempUploads?.length || 0,
-        linkedPolicyIdsCount: selectedOrgPolicyIds?.length || 0
+        linkedPolicyIdsCount: selectedOrgPolicyIds?.length || 0,
+        linkedQuoteIdsCount: selectedOrgQuoteIds?.length || 0
       });
-      // 🔍 DEBUG: Log detallado de linkedPolicyIds
+      // 🔍 DEBUG: Log detallado de linkedPolicyIds y linkedQuoteIds
       console.log('🔍 [BriefForm] selectedOrgPolicyIds EXACTOS:', JSON.stringify(selectedOrgPolicyIds));
+      console.log('🔍 [BriefForm] selectedOrgQuoteIds EXACTOS:', JSON.stringify(selectedOrgQuoteIds));
       console.log('🔍 [BriefForm] briefUpdate.linkedPolicyIds EXACTOS:', JSON.stringify(briefUpdate.linkedPolicyIds));
+      console.log('🔍 [BriefForm] briefUpdate.linkedQuoteIds EXACTOS:', JSON.stringify(briefUpdate.linkedQuoteIds));
       setBrief(briefUpdate);
 
       // En modo edición: llamar onSubmit con todos los datos
@@ -798,6 +908,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           freeText: formData.notes || formData.freeText || '', // ✅ Prioridad: notes > freeText > ''
           tempUploads: newTempUploads,
           linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org
+          linkedQuoteIds: selectedOrgQuoteIds || [], // ✅ FASE ORG_DOCUMENTS: Incluir cotizaciones de org
         };
 
         console.log('✏️ [BriefForm] Edit mode: Calling onSubmit with formData + newTempUploads', {
@@ -805,6 +916,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           existingArtifacts: existingArtifactPaths.length,
           newTempUploads: newTempUploads.length,
           linkedPolicyIds: selectedOrgPolicyIds?.length || 0,
+          linkedQuoteIds: selectedOrgQuoteIds?.length || 0,
           freeText: formDataWithFreeText.freeText?.substring(0, 50) + '...',
           notes: formData.notes?.substring(0, 50) + '...'
         });
@@ -868,11 +980,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             freeText: formData.notes || formData.freeText || '', // ✅ Prioridad: notes > freeText > ''
             tempUploads: tempUploads,
             linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org
+            linkedQuoteIds: selectedOrgQuoteIds || [], // ✅ FASE ORG_DOCUMENTS: Incluir cotizaciones de org
           };
           console.log('📝 [BriefForm] Fallback mode: Calling onSubmit with formData (notes mapeado a freeText)', {
             freeText: formDataWithFreeText.freeText?.substring(0, 50) + '...',
             notes: formData.notes?.substring(0, 50) + '...',
-            linkedPolicyIds: selectedOrgPolicyIds?.length || 0
+            linkedPolicyIds: selectedOrgPolicyIds?.length || 0,
+            linkedQuoteIds: selectedOrgQuoteIds?.length || 0
           });
           await onSubmit(formDataWithFreeText);
         }
@@ -882,7 +996,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       // Re-lanzar el error para que se maneje en el componente padre
       throw error;
     }
-  }, [onApprove, onSubmit, formData, tempUploads, selectedOrgPolicyIds, setBrief, mode, formData.insurance_category, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId]);
+  }, [onApprove, onSubmit, formData, tempUploads, selectedOrgPolicyIds, selectedOrgQuoteIds, setBrief, mode, formData.insurance_category, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId]);
 
   // ✅ CORRECCIÓN UX: Estado combinado para mostrar overlay de procesamiento
   const isProcessing = isSubmitting || caseApproving || caseResolvingClient;
@@ -1048,68 +1162,162 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
             />
           </div>
 
-          {/* Información del Negocio (campos existentes) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* ✅ FASE CLIENTE/EMPRESA: Toggle para tipo de sujeto + Campo de nombre */}
+          <div className="space-y-4">
+            {/* Toggle Cliente/Empresa */}
             <div className="space-y-2">
-              <Label htmlFor="clientName">
-                {tCaseBrief('form.clientName')}
-                {/* ✅ CORRECCIÓN: Indicar que no es editable en modo edición */}
-                {mode === 'edit' && (
-                  <span className="ml-2 text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
-                )}
+              <Label className="flex items-center gap-2">
+                {subjectType === 'client' ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                {tCaseBrief('form.subjectType')}
               </Label>
-              <div className="relative client-combobox-container">
-                <Input
-                  id="clientName"
-                  placeholder={tCaseBrief('form.clientNamePlaceholder')}
-                  value={clientSearchTerm}
-                  onChange={(e) => handleClientSearchChange(e.target.value)}
-                  onFocus={() => mode !== 'edit' && setIsClientComboboxOpen(true)} // ✅ CORRECCIÓN: No abrir dropdown en modo edición
-                  className="w-full"
-                  disabled={mode === 'edit'} // ✅ CORRECCIÓN: Bloquear en modo edición
-                />
-                {/* ✅ CORRECCIÓN: No mostrar dropdown en modo edición */}
-                {isClientComboboxOpen && mode !== 'edit' && (
-                  <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
-                    {isClientListLoading ? (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingClients')}</div>
-                    ) : clientList.filter(client =>
-                      client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
-                    ).length === 0 ? (
-                      <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.noClientsFound')}</div>
-                    ) : (
-                      clientList
-                        .filter(client =>
+              <div className="flex rounded-lg border border-input bg-background p-1 gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleSubjectTypeChange('client')}
+                  disabled={mode === 'edit'}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all duration-200",
+                    subjectType === 'client'
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                    mode === 'edit' && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <User className="h-4 w-4" />
+                  {tCaseBrief('form.subjectTypeClient')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSubjectTypeChange('company')}
+                  disabled={mode === 'edit'}
+                  className={cn(
+                    "flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all duration-200",
+                    subjectType === 'company'
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                    mode === 'edit' && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <Building2 className="h-4 w-4" />
+                  {tCaseBrief('form.subjectTypeCompany')}
+                </button>
+              </div>
+            </div>
+
+            {/* Campo de nombre dinámico según tipo de sujeto */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor={subjectType === 'client' ? 'clientName' : 'companyName'}>
+                  {subjectType === 'client' 
+                    ? tCaseBrief('form.clientName')
+                    : tCaseBrief('form.companyName')
+                  }
+                  {mode === 'edit' && (
+                    <span className="ml-2 text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
+                  )}
+                </Label>
+                
+                {/* Combobox para Cliente */}
+                {subjectType === 'client' && (
+                  <div className="relative client-combobox-container">
+                    <Input
+                      id="clientName"
+                      placeholder={tCaseBrief('form.clientNamePlaceholder')}
+                      value={clientSearchTerm}
+                      onChange={(e) => handleClientSearchChange(e.target.value)}
+                      onFocus={() => mode !== 'edit' && setIsClientComboboxOpen(true)}
+                      className="w-full"
+                      disabled={mode === 'edit'}
+                    />
+                    {isClientComboboxOpen && mode !== 'edit' && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {isClientListLoading ? (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingClients')}</div>
+                        ) : clientList.filter(client =>
                           client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
-                        )
-                        .map((client) => (
-                          <div
-                            key={client.id}
-                            onClick={() => handleClientSelect(client)}
-                            className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                selectedClient?.id === client.id ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {client.name}
-                          </div>
-                        ))
+                        ).length === 0 ? (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.noClientsFound')}</div>
+                        ) : (
+                          clientList
+                            .filter(client =>
+                              client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
+                            )
+                            .map((client) => (
+                              <div
+                                key={client.id}
+                                onClick={() => handleClientSelect(client)}
+                                className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedClient?.id === client.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {client.name}
+                              </div>
+                            ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Combobox para Empresa */}
+                {subjectType === 'company' && (
+                  <div className="relative company-combobox-container">
+                    <Input
+                      id="companyName"
+                      placeholder={tCaseBrief('form.companyNamePlaceholder')}
+                      value={companySearchTerm}
+                      onChange={(e) => handleCompanySearchChange(e.target.value)}
+                      onFocus={() => mode !== 'edit' && setIsCompanyComboboxOpen(true)}
+                      className="w-full"
+                      disabled={mode === 'edit'}
+                    />
+                    {isCompanyComboboxOpen && mode !== 'edit' && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+                        {isCompanyListLoading ? (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingCompanies')}</div>
+                        ) : companyList.filter(company =>
+                          company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
+                        ).length === 0 ? (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.noCompaniesFound')}</div>
+                        ) : (
+                          companyList
+                            .filter(company =>
+                              company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
+                            )
+                            .map((company) => (
+                              <div
+                                key={company.id}
+                                onClick={() => handleCompanySelect(company)}
+                                className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedCompany?.id === company.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {company.name}
+                              </div>
+                            ))
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="businessType">{tCaseBrief('form.businessType')}</Label>
-              <Input
-                id="businessType"
-                placeholder={tCaseBrief('form.businessTypePlaceholder')}
-                value={formData.businessType}
-                onChange={(e) => updateField('businessType', e.target.value)}
-              />
+              <div className="space-y-2">
+                <Label htmlFor="businessType">{tCaseBrief('form.businessType')}</Label>
+                <Input
+                  id="businessType"
+                  placeholder={tCaseBrief('form.businessTypePlaceholder')}
+                  value={formData.businessType}
+                  onChange={(e) => updateField('businessType', e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
@@ -1307,19 +1515,21 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               {/* ✅ CORRECCIÓN CRÍTICA FASE 2.3: NO renderizar artifacts directamente bajo ninguna circunstancia */}
               {/* Si tempUploads está vacío, NO mostrar nada - la conversión se realizará automáticamente en el useEffect */}
 
-              {/* ✅ FASE POLICY_LINKS: Selector de pólizas de la organización */}
+              {/* ✅ FASE ORG_DOCUMENTS: Selector combinado de pólizas y cotizaciones de la organización */}
               <div className="space-y-2 mt-6 pt-4 border-t border-dashed">
                 <Label className="text-base font-semibold flex items-center gap-2">
                   <LinkIcon className="h-4 w-4" />
-                  {tCaseBrief('form.orgPolicies')}
+                  {tCaseBrief('form.orgDocuments')}
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  {tCaseBrief('form.orgPoliciesDescription')}
+                  {tCaseBrief('form.orgDocumentsDescription')}
                 </p>
-                <OrgPolicySelector
+                <OrgDocumentSelector
                   orgId={orgId}
-                  selectedIds={selectedOrgPolicyIds}
-                  onSelectionChange={setSelectedOrgPolicyIds}
+                  selectedPolicyIds={selectedOrgPolicyIds}
+                  selectedQuoteIds={selectedOrgQuoteIds}
+                  onPolicySelectionChange={setSelectedOrgPolicyIds}
+                  onQuoteSelectionChange={setSelectedOrgQuoteIds}
                   disabled={isSubmitting || caseApproving}
                 />
               </div>

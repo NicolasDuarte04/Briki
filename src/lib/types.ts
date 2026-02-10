@@ -240,6 +240,8 @@ export type Case = CaseParsed;
  * Represents a case brief
  */
 export interface CaseBrief {
+  /** Subject type: 'client' (persona física) or 'company' (persona jurídica) */
+  subjectType?: 'client' | 'company';
   /** Business type description */
   businessType?: string;
   /** Number of employees */
@@ -248,10 +250,14 @@ export interface CaseBrief {
   coverage?: string;
   /** Free text notes */
   freeText?: string;
-  /** Client name (for display and search) */
+  /** Client name (for display and search) - used when subjectType = 'client' */
   clientName?: string;
-  /** Selected client ID (if from existing client) */
+  /** Selected client ID (if from existing client) - used when subjectType = 'client' */
   selectedClientId?: string | null;
+  /** Company name (for display and search) - used when subjectType = 'company' */
+  companyName?: string;
+  /** Selected company ID (if from existing company) - used when subjectType = 'company' */
+  selectedCompanyId?: string | null;
   /** Insurance category */
   insurance_category?: string;
   /** Maximum budget for insurance */
@@ -277,6 +283,8 @@ export interface CaseBrief {
   }>;
   /** Linked org policy IDs to be associated with the case */
   linkedPolicyIds?: string[];
+  /** Linked org quote IDs to be associated with the case */
+  linkedQuoteIds?: string[];
 }
 
 /**
