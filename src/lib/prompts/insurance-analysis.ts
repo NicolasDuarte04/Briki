@@ -116,14 +116,20 @@ function detectOperationMode(
     if (pattern.test(lowerMessage)) return 'guardrails';
   }
   
-  // MODO 1: Brief Update - Mensajes sobre actualización de formulario
+  // MODO 1: Brief Update - Mensajes con tag explícito [BRIEF_UPDATE] desde CaseBriefForm
+  // ✅ FIX DEFECTO B: Priorizar detección por tag, independientemente de documentos cargados
+  if (lowerMessage.includes('[brief_update]')) {
+    return 'brief_update';
+  }
+  
+  // MODO 1 (alternativo): Brief Update - Patrones de texto sobre actualización de formulario
   const briefUpdatePatterns = [
     /actualic[eé]|cambi[eé]|modifiqu[eé]/i,
     /el presupuesto|los empleados|el negocio/i,
     /nuevo valor|nueva cantidad/i,
   ];
   
-  // Solo aplica si NO hay documentos nuevos
+  // Solo aplica si NO hay documentos nuevos con contenido
   if (documents.length === 0 || documents.every(d => !d.content)) {
     for (const pattern of briefUpdatePatterns) {
       if (pattern.test(lowerMessage)) return 'brief_update';

@@ -8,7 +8,7 @@ import { findDuplicateArtifact } from '@/lib/storage/findDuplicateArtifact';
 export async function PUT(request: NextRequest) {
     try {
         const { user, currentOrg } = await getCurrentOrg();
-        const { caseId, tempUploads, linkedPolicyIds, ...updateData } = await request.json();
+        const { caseId, tempUploads, linkedPolicyIds, linkedQuoteIds, ...updateData } = await request.json();
 
         if (!caseId) {
             return NextResponse.json({ error: 'Case ID is required' }, { status: 400 });
@@ -178,6 +178,7 @@ export async function PUT(request: NextRequest) {
                                         fileSize: tempUpload.fileSize,
                                         fileHash: tempUpload.fileHash,
                                         pageCount: tempUpload.pageCount,
+                                        documentRole: tempUpload.documentRole || null, // ✅ FIX DEFECTO A: Persistir baseline/challenger
                                         reusedFrom: globalDuplicate.artifact.id, // ✅ Metadata: indica que es reutilizado
                                         originalFileName: globalDuplicate.artifact.fileName,
                                         originalCaseId: globalDuplicate.artifact.caseId,
@@ -212,6 +213,7 @@ export async function PUT(request: NextRequest) {
                             fileSize: tempUpload.fileSize,
                             fileHash: tempUpload.fileHash,
                             pageCount: tempUpload.pageCount,
+                            documentRole: tempUpload.documentRole || null, // ✅ FIX DEFECTO A: Persistir baseline/challenger
                             migratedToPersistent: moveResult.success, // ✅ Metadata: indica si se movió correctamente
                             migrationError: moveResult.error || null,
                         },
@@ -297,6 +299,72 @@ export async function PUT(request: NextRequest) {
                 }
                 
                 console.log(`✅ [API/cases/update] Vinculadas ${linkedCount} pólizas de organización al caso`);
+            }
+        }
+
+        // =========================================================================
+        // ✅ FIX DEFECTO C: Vincular COTIZACIONES de organización al caso (EDIT MODE)
+        // Espejo de linkedPolicyIds pero para CaseQuoteLink / QuoteAnalysis
+        // =========================================================================
+        if (linkedQuoteIds && Array.isArray(linkedQuoteIds) && linkedQuoteIds.length > 0) {
+            console.log(`🔗 [API/cases/update] Procesando ${linkedQuoteIds.length} cotizaciones de organización...`);
+            
+            // 1. Obtener enlaces existentes para este caso
+            const existingQuoteLinks = await prisma.caseQuoteLink.findMany({
+                where: {
+                    caseId: caseId,
+                    orgId: currentOrg.id,
+                },
+                select: { quoteAnalysisId: true },
+            });
+            const existingQuoteIds = new Set(existingQuoteLinks.map(l => l.quoteAnalysisId));
+            
+            // 2. Filtrar solo los nuevos (que no estén ya vinculados)
+            const newQuoteIds = linkedQuoteIds.filter((id: string) => !existingQuoteIds.has(id));
+            
+            if (newQuoteIds.length === 0) {
+                console.log(`ℹ️ [API/cases/update] Todas las cotizaciones ya estaban vinculadas, nada que hacer`);
+            } else {
+                console.log(`🔗 [API/cases/update] Vinculando ${newQuoteIds.length} cotizaciones nuevas...`);
+                
+                // 3. Verificar que las cotizaciones existen y pertenecen a la organización
+                const validQuotes = await prisma.quoteAnalysis.findMany({
+                    where: {
+                        id: { in: newQuoteIds },
+                        orgId: currentOrg.id,
+                    },
+                    select: { id: true },
+                });
+                
+                const validQuoteIdsList = validQuotes.map(q => q.id);
+                const invalidQuoteIds = newQuoteIds.filter((id: string) => !validQuoteIdsList.includes(id));
+                
+                if (invalidQuoteIds.length > 0) {
+                    console.warn(`⚠️ [API/cases/update] ${invalidQuoteIds.length} cotizaciones no encontradas o no pertenecen a la org:`, invalidQuoteIds);
+                }
+                
+                // 4. Crear enlaces para las cotizaciones válidas
+                let linkedQuoteCount = 0;
+                for (const quoteAnalysisId of validQuoteIdsList) {
+                    try {
+                        await prisma.caseQuoteLink.create({
+                            data: {
+                                caseId: caseId,
+                                quoteAnalysisId,
+                                orgId: currentOrg.id,
+                                linkedBy: user.id,
+                            },
+                        });
+                        linkedQuoteCount++;
+                    } catch (linkError: any) {
+                        // Ignorar errores de duplicados (constraint unique)
+                        if (linkError.code !== 'P2002') {
+                            console.error(`❌ [API/cases/update] Error vinculando cotización ${quoteAnalysisId}:`, linkError);
+                        }
+                    }
+                }
+                
+                console.log(`✅ [API/cases/update] Vinculadas ${linkedQuoteCount} cotizaciones de organización al caso`);
             }
         }
 

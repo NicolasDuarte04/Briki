@@ -560,7 +560,7 @@ export type PolicyView = Pick<Policy, "id" | "plan" | "riders"> & {
   analysisId?: string;
   pageReference?: number;
   // ✅ FASE POLICY_LINKS: Fields for linked organization policies
-  linkType?: 'direct' | 'linked';
+  linkType?: 'direct' | 'linked' | 'linked_quote';
   linkId?: string; // ID del CasePolicyLink para desvinculación
   // ✅ FASE CONTEXTUALIZACIÓN: Timestamp de contextualización (null = pendiente)
   contextualizedAt?: Date | string | null;

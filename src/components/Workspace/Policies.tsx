@@ -214,9 +214,9 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
       a.contentType === 'application/pdf' || a.fileName?.toLowerCase().endsWith('.pdf')
     ) || [];
 
-    // ✅ FASE POLICY_LINKS: Separar análisis directos y vinculados
+    // ✅ FASE POLICY_LINKS: Separar análisis directos y vinculados (pólizas + cotizaciones)
     const directAnalyses = policyAnalyses.filter((a: any) => a.linkType === 'direct' || !a.linkType);
-    const linkedAnalyses = policyAnalyses.filter((a: any) => a.linkType === 'linked');
+    const linkedAnalyses = policyAnalyses.filter((a: any) => a.linkType === 'linked' || a.linkType === 'linked_quote');
 
     console.log('📊 [Policies] Calculando filas:', {
       directArtifactsCount: directArtifacts.length,
@@ -228,8 +228,9 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
     // 3. Mapear artefactos DIRECTOS a filas (priorizando datos de análisis si existen)
     const directArtifactRows = directArtifacts.map((artifact: any) => {
       const analysis = analysisMap.get(artifact.id);
-      // ✅ FASE BASELINE vs CHALLENGERS: Extraer documentRole del artifact metadata
-      const documentRole = artifact.metadata?.documentRole as 'baseline' | 'challenger' | undefined;
+      // ✅ FIX DEFECTO A: Leer documentRole desde provenance (no metadata, que no existe en Artifact)
+      const prov = typeof artifact.provenance === 'object' ? artifact.provenance : null;
+      const documentRole = (prov as any)?.documentRole as 'baseline' | 'challenger' | undefined;
 
       if (analysis) {
         // CASO A: Ya existe análisis -> Mostrar datos extraídos
@@ -284,7 +285,7 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
       artifactId: analysis.artifactId,
       analysisId: analysis.id,
       pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
-      linkType: 'linked' as const,
+      linkType: (analysis.linkType || 'linked') as 'linked' | 'linked_quote', // ✅ FIX: Preservar linkType original (póliza o cotización)
       linkId: analysis.linkId, // ID del CasePolicyLink para posible desvinculación
       contextualizedAt: analysis.contextualizedAt, // ✅ PROBLEMA 1 FIX: Para determinar si ya se cargó el análisis
       documentRole: 'challenger' as const, // ✅ FASE BASELINE vs CHALLENGERS: Vinculadas siempre son challengers
@@ -571,7 +572,7 @@ function PoliciesTable({ rows, loading, loaded, locale, isBaseline }: PoliciesTa
         header: () => <div className="sr-only">{t("actions.columnLabel")}</div>,
         cell: ({ row }) => {
           const { analysisId, artifactId, plan, linkType, contextualizedAt, linkId, documentRole } = row.original;
-          const isLinked = linkType === 'linked';
+          const isLinked = linkType === 'linked' || linkType === 'linked_quote';
           // ✅ PROBLEMA 1 FIX: Una póliza vinculada ya contextualizada debe mostrar "Ver en PDF"
           const isContextualized = isLinked && contextualizedAt != null;
           

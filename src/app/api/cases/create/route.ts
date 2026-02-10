@@ -375,6 +375,7 @@ export async function POST(request: NextRequest) {
                     fileSize: tempUpload.fileSize,
                     fileHash: tempUpload.fileHash,
                     pageCount: tempUpload.pageCount,
+                    documentRole: tempUpload.documentRole || null, // ✅ FIX DEFECTO A: Persistir baseline/challenger
                     reusedFrom: globalDuplicate.artifact.id, // ✅ Metadata: indica que es reutilizado
                     originalFileName: globalDuplicate.artifact.fileName,
                     originalCaseId: globalDuplicate.artifact.caseId,
@@ -409,6 +410,7 @@ export async function POST(request: NextRequest) {
               fileSize: tempUpload.fileSize,
               fileHash: tempUpload.fileHash,
               pageCount: tempUpload.pageCount,
+              documentRole: tempUpload.documentRole || null, // ✅ FIX DEFECTO A: Persistir baseline/challenger
               migratedToPersistent: moveResult.success, // ✅ Metadata: indica si se movió correctamente
               migrationError: moveResult.error || null,
             },

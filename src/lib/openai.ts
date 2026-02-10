@@ -21,7 +21,12 @@ function getOpenAIClient(): OpenAI {
 export interface AnalysisRequest {
   message: string;
   brief: Partial<CaseBrief>;
-  documents: Array<{ fileName: string; content: string | null }>; // Permitir content null
+  documents: Array<{ 
+    fileName: string; 
+    content: string | null; 
+    analysisId?: string;
+    documentRole?: 'baseline' | 'challenger'; // ✅ FIX: Alineado con PromptData en insurance-analysis.ts
+  }>;
   previousAnalyses?: any[]; // ✅ FASE 6B: Contexto de análisis previos para comparación
 }
 

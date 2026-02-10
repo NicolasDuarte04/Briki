@@ -21,7 +21,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Case ID is required' }, { status: 400 });
     }
 
-    console.log('🔄 API: Procesando mensaje:', message);
+    // ✅ FIX DEFECTO B: Separar tag [BRIEF_UPDATE] del mensaje visible
+    // El tag se preserva para el prompt (detectOperationMode), pero se elimina del texto almacenado/mostrado
+    const rawMessage = message || '';
+    const displayMessage = rawMessage.replace(/\[BRIEF_UPDATE\]\s*/i, '').trim();
+
+    console.log('🔄 API: Procesando mensaje:', displayMessage);
     console.log('📋 API: Brief recibido:', brief);
     console.log('📁 API: Case ID recibido:', caseId);
 
@@ -38,6 +43,7 @@ export async function POST(request: NextRequest) {
         id: true,
         fileName: true,
         contentText: true,
+        provenance: true, // ✅ FIX: Necesario para extraer documentRole
         policyAnalyses: { // ✅ CORREGIDO: Nombre correcto de la relación
           select: { id: true },
           take: 1,
@@ -74,14 +80,19 @@ export async function POST(request: NextRequest) {
     console.log(`📊 API: ${previousAnalyses.length} análisis previos encontrados para contexto`);
 
     // 2. Preparar la solicitud para el servicio OpenAI
+    // ✅ FIX DEFECTO B: rawMessage conserva el tag [BRIEF_UPDATE] para detectOperationMode
     const analysisRequest: AnalysisRequest = {
-      message: message || '',
+      message: rawMessage,
       brief: brief || {}, // Pasar el brief recibido del frontend
-      documents: artifacts.map(artifact => ({
-        fileName: artifact.fileName || 'Unknown Document',
-        content: artifact.contentText, // Puede ser null si la extracción falló
-        analysisId: artifact.policyAnalyses?.[0]?.id // ✅ FASE 9: Pasar ID de análisis si existe
-      })),
+      documents: artifacts.map(artifact => {
+        const prov = artifact.provenance as any;
+        return {
+          fileName: artifact.fileName || 'Unknown Document',
+          content: artifact.contentText, // Puede ser null si la extracción falló
+          ...(artifact.policyAnalyses?.[0]?.id ? { analysisId: artifact.policyAnalyses[0].id } : {}), // ✅ FASE 9
+          ...(prov?.documentRole ? { documentRole: prov.documentRole as 'baseline' | 'challenger' } : {}), // ✅ FIX: documentRole
+        };
+      }),
       previousAnalyses: previousAnalyses // ✅ FASE 6B: Inyectar contexto
     };
 
@@ -113,13 +124,14 @@ export async function POST(request: NextRequest) {
 
       // Desencriptar mensajes para comparar contenido
       const decryptedRecent = await decryptMessages(recentMessages);
-      const existingUserMessage = decryptedRecent.find(msg => msg.content === message);
+      const existingUserMessage = decryptedRecent.find(msg => msg.content === displayMessage);
 
       if (existingUserMessage) {
         console.log(`⚠️ API: Mensaje de usuario ya existe para caso ${caseId} (ID: ${existingUserMessage.id}), omitiendo creación duplicada.`);
       } else {
         // Encriptar contenido antes de guardar
-        const encryptedContent = await encryptMessageContent(message);
+        // ✅ FIX DEFECTO B: Almacenar displayMessage (sin tag [BRIEF_UPDATE]) en BD
+        const encryptedContent = await encryptMessageContent(displayMessage);
         // Solo crear si no existe
         await prisma.message.create({
           data: {
