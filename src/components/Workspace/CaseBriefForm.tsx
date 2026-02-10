@@ -317,7 +317,9 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 // ✅ CORRECCIÓN CRÍTICA: Generar mensaje completo con TODA la información del formulario
                 const { sendAutoMessage } = useUI.getState();
                 const { generateInitialMessageFromBrief } = await import('@/lib/helpers/message-helpers');
-                let autoMessageContent = generateInitialMessageFromBrief(briefUpdate) || "He actualizado la información del caso. Por favor, analiza los cambios y proporciona recomendaciones actualizadas.";
+                // ✅ FIX DEFECTO B: Prefijo [BRIEF_UPDATE] para que detectOperationMode active modo brief_update
+                // Esto evita que el agente responda con un análisis de póliza completo
+                let autoMessageContent = '[BRIEF_UPDATE] ' + (generateInitialMessageFromBrief(briefUpdate) || "He actualizado la información del caso. Por favor, analiza los cambios y proporciona recomendaciones actualizadas.");
                 
                 // ✅ FASE DETECCIÓN: Si hay nuevas pólizas DIRECTAS (subidas), añadir mensaje especial
                 if (newArtifacts.length > 0) {

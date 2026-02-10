@@ -132,6 +132,34 @@ export async function GET(request: NextRequest) {
     
     console.log(`✅ Pólizas vinculadas encontradas: ${linkedPolicyLinks.length}`);
     
+    // 5b. ✅ FIX DEFECTO C: Get LINKED quote analyses via CaseQuoteLink
+    const linkedQuoteLinks = await prisma.caseQuoteLink.findMany({
+      where: {
+        caseId: caseId,
+        orgId: currentOrg.id
+      },
+      include: {
+        quoteAnalysis: {
+          include: {
+            artifact: {
+              select: {
+                id: true,
+                fileName: true,
+                contentType: true,
+                fileId: true,
+                createdAt: true
+              }
+            },
+          }
+        }
+      },
+      orderBy: {
+        linkedAt: 'desc'
+      }
+    });
+    
+    console.log(`✅ Cotizaciones vinculadas encontradas: ${linkedQuoteLinks.length}`);
+    
     // 6. Combine and deduplicate analyses
     // Direct analyses take priority; add linkInfo to linked ones
     const directAnalysisIds = new Set(directAnalyses.map(a => a.id));
@@ -159,10 +187,30 @@ export async function GET(request: NextRequest) {
         contextualizedAt: link.contextualizedAt ?? null // ✅ Nuevo campo
       }));
     
-    // Combine: direct first, then linked
-    const allAnalyses = [...directWithMeta, ...linkedWithMeta];
+    // ✅ FIX DEFECTO C: Transform linked QUOTE analyses with linkType = 'linked_quote'
+    // QuoteAnalysis tiene estructura similar a PolicyAnalysis con extractedData, artifact, etc.
+    const linkedQuotesWithMeta = linkedQuoteLinks
+      .map(link => ({
+        id: link.quoteAnalysis.id,
+        extractedData: link.quoteAnalysis.extractedData,
+        overallConfidence: link.quoteAnalysis.overallConfidence,
+        extractedAt: link.quoteAnalysis.extractedAt,
+        artifactId: link.quoteAnalysis.artifactId,
+        caseId: link.quoteAnalysis.caseId,
+        orgId: link.quoteAnalysis.orgId,
+        artifact: link.quoteAnalysis.artifact,
+        pageReferences: [], // QuoteAnalysis no tiene pageReferences directos
+        linkType: 'linked_quote' as const,
+        linkId: link.id,
+        linkedAt: link.linkedAt,
+        linkedBy: link.linkedBy,
+        contextualizedAt: link.contextualizedAt ?? null
+      }));
     
-    console.log(`✅ Total análisis combinados: ${allAnalyses.length} (${directWithMeta.length} directos + ${linkedWithMeta.length} vinculados)`);
+    // Combine: direct first, then linked policies, then linked quotes
+    const allAnalyses = [...directWithMeta, ...linkedWithMeta, ...linkedQuotesWithMeta];
+    
+    console.log(`✅ Total análisis combinados: ${allAnalyses.length} (${directWithMeta.length} directos + ${linkedWithMeta.length} pólizas vinculadas + ${linkedQuotesWithMeta.length} cotizaciones vinculadas)`);
     
     if (allAnalyses.length > 0) {
       const firstAnalysis = allAnalyses[0];
@@ -180,7 +228,8 @@ export async function GET(request: NextRequest) {
       analyses: allAnalyses,
       count: allAnalyses.length,
       directCount: directWithMeta.length,
-      linkedCount: linkedWithMeta.length
+      linkedCount: linkedWithMeta.length,
+      linkedQuoteCount: linkedQuotesWithMeta.length
     });
     
   } catch (error: any) {
