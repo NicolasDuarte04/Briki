@@ -46,19 +46,19 @@ export function CompanyCard({ company, isPinned = false }: CompanyCardProps) {
       case 'bajo':
         return {
           variant: 'outline',
-          className: 'border-green-500 text-green-700 bg-green-50',
+          className: 'border-green-500 text-green-700 bg-green-50 dark:border-green-600 dark:text-green-300 dark:bg-green-950/50',
           icon: <ShieldCheck className="h-3 w-3" />,
         };
       case 'medio':
         return {
           variant: 'outline',
-          className: 'border-yellow-500 text-yellow-700 bg-yellow-50',
+          className: 'border-yellow-500 text-yellow-700 bg-yellow-50 dark:border-yellow-600 dark:text-yellow-300 dark:bg-yellow-950/50',
           icon: <AlertTriangle className="h-3 w-3" />,
         };
       case 'alto':
         return {
           variant: 'outline',
-          className: 'border-orange-500 text-orange-700 bg-orange-50',
+          className: 'border-orange-500 text-orange-700 bg-orange-50 dark:border-orange-600 dark:text-orange-300 dark:bg-orange-950/50',
           icon: <AlertCircle className="h-3 w-3" />,
         };
       case 'muy_alto':

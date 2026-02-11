@@ -466,7 +466,7 @@ export function OrgDocumentSelector({
             <Badge
               key={`policy-${policy.id}`}
               variant="secondary"
-              className="flex items-center gap-1.5 py-1 px-2 bg-blue-50 text-blue-700 border-blue-200"
+              className="flex items-center gap-1.5 py-1 px-2 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-700"
             >
               <Shield className="h-3 w-3" />
               <span className="truncate max-w-[120px]">
@@ -476,7 +476,7 @@ export function OrgDocumentSelector({
                 <button
                   type="button"
                   onClick={() => onPolicySelectionChange(selectedPolicyIds.filter(id => id !== policy.id))}
-                  className="ml-1 rounded-full hover:bg-blue-200 p-0.5"
+                  className="ml-1 rounded-full hover:bg-blue-200 dark:hover:bg-blue-800 p-0.5"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -487,7 +487,7 @@ export function OrgDocumentSelector({
             <Badge
               key={`quote-${quote.id}`}
               variant="secondary"
-              className="flex items-center gap-1.5 py-1 px-2 bg-green-50 text-green-700 border-green-200"
+              className="flex items-center gap-1.5 py-1 px-2 bg-green-50 text-green-700 border-green-200 dark:bg-green-950/30 dark:text-green-300 dark:border-green-700"
             >
               <Receipt className="h-3 w-3" />
               <span className="truncate max-w-[120px]">
@@ -497,7 +497,7 @@ export function OrgDocumentSelector({
                 <button
                   type="button"
                   onClick={() => onQuoteSelectionChange(selectedQuoteIds.filter(id => id !== quote.id))}
-                  className="ml-1 rounded-full hover:bg-green-200 p-0.5"
+                  className="ml-1 rounded-full hover:bg-green-200 dark:hover:bg-green-800 p-0.5"
                 >
                   <X className="h-3 w-3" />
                 </button>

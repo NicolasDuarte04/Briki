@@ -61,9 +61,10 @@ export async function POST(request: NextRequest) {
       select: {
         id: true, // ✅ Necesario para referencias
         extractedData: true,
-        artifact: { // ✅ NUEVO: Para obtener nombre del PDF
+        artifact: { // ✅ NUEVO: Para obtener nombre del PDF + provenance para documentRole
           select: {
-            fileName: true
+            fileName: true,
+            provenance: true // ✅ FIX DEFECTO 3: Traer provenance para extraer documentRole real
           }
         },
         pageReferences: {
@@ -93,7 +94,14 @@ export async function POST(request: NextRequest) {
           ...(prov?.documentRole ? { documentRole: prov.documentRole as 'baseline' | 'challenger' } : {}), // ✅ FIX: documentRole
         };
       }),
-      previousAnalyses: previousAnalyses // ✅ FASE 6B: Inyectar contexto
+      // ✅ FIX DEFECTO 3: Mapear documentRole desde artifact.provenance a cada análisis
+      previousAnalyses: previousAnalyses.map(analysis => {
+        const prov = analysis.artifact?.provenance as any;
+        return {
+          ...analysis,
+          ...(prov?.documentRole ? { documentRole: prov.documentRole as 'baseline' | 'challenger' } : {}),
+        };
+      })
     };
 
     // 3. Guardar mensaje del usuario en la tabla messages

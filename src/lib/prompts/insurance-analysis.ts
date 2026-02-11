@@ -287,13 +287,20 @@ const MODE_INSTRUCTIONS: Record<OperationMode, string> = {
 El usuario ha modificado información del caso (formulario).
 
 TU RESPUESTA DEBE SER:
-- Breve y ejecutiva (2-4 oraciones máximo)
+- Breve y ejecutiva (3-5 oraciones máximo)
 - Confirmar qué dato se actualizó
+- **Reportar la cantidad de documentos detectados**, distinguiendo:
+  · Pólizas (baseline / condiciones actuales): cuántas hay
+  · Cotizaciones (challengers / propuestas): cuántas hay
+  · Pólizas/cotizaciones vinculadas de la organización: cuántas hay
 - Mencionar el impacto potencial si es relevante
 - Sugerir siguiente paso concreto
 
 EJEMPLO:
-"He registrado el cambio en la nómina anual a **$X**. Esto impacta el cálculo de prima estimada para RC Empleadores. Te sugiero revisar las cotizaciones en el tab 'Pólizas' para re-validar."
+"He registrado los datos del caso para **Juan Pérez**. Detecto **1 póliza actual (baseline)** y **2 cotizaciones (challengers)** adjuntas, más **1 póliza vinculada** de la organización. Te sugiero analizar primero la póliza baseline en el tab 'Pólizas' para establecer el punto de referencia."
+
+SI NO HAY DOCUMENTOS:
+"He registrado los datos del caso. Aún no hay pólizas ni cotizaciones adjuntas. Puedes subirlas desde el formulario o vincular pólizas de la organización."
 
 NO hagas análisis extenso. NO uses tablas.
 `,

@@ -1524,18 +1524,22 @@ export const useUI = create<UIState>()(
           let baselineFileName = '';
           
           try {
-            const artifactsResponse = await fetch(`/api/cases/${currentCaseId}/artifacts`);
-            if (artifactsResponse.ok) {
-              const { artifacts } = await artifactsResponse.json();
+            // ✅ FIX DEFECTO 1: Usar endpoint existente GET /api/cases/[id] que ya retorna artifacts con provenance
+            // El endpoint /api/cases/[id]/artifacts NO existe y siempre retornaba 404
+            const caseResponse = await fetch(`/api/cases/${currentCaseId}`);
+            if (caseResponse.ok) {
+              const caseData = await caseResponse.json();
+              const artifacts = caseData.artifacts || [];
               // Filtrar solo PDFs
               const pdfArtifacts = artifacts.filter((a: any) => 
                 a.contentType === 'application/pdf' || 
                 a.fileName?.toLowerCase().endsWith('.pdf')
               );
               
-              // ✅ FASE BASELINE vs CHALLENGERS: Clasificar por documentRole
+              // ✅ FIX DEFECTO 2: Leer documentRole desde provenance (no metadata, que no existe)
               for (const artifact of pdfArtifacts) {
-                const role = artifact.metadata?.documentRole;
+                const prov = typeof artifact.provenance === 'object' ? artifact.provenance : null;
+                const role = (prov as any)?.documentRole;
                 if (role === 'baseline') {
                   baselineCount++;
                   baselineFileName = artifact.fileName || 'Documento';

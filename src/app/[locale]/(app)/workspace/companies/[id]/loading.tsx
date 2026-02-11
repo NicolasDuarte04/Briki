@@ -57,7 +57,15 @@ export default function CompanyDetailLoading() {
       </Card>
 
       {/* Security notice skeleton */}
-      <Skeleton className="h-20 w-full mt-6 rounded-lg" />
+      <div className="h-20 w-full mt-6 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-4">
+        <div className="flex gap-3">
+          <Skeleton className="h-5 w-5 rounded" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-3 w-full max-w-md" />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

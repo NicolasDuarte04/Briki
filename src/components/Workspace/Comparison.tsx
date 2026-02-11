@@ -51,9 +51,12 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
 
   // ✅ FASE BASELINE vs CHALLENGERS: Identificar el análisis baseline
   const baselineAnalysisId = useMemo(() => {
-    // Buscar el artifact con documentRole='baseline' en caseData
+    // ✅ FIX DEFECTO 2: Leer documentRole desde provenance (no metadata, que no existe en Artifact)
     const baselineArtifact = caseData?.artifacts?.find(
-      (a) => a.metadata?.documentRole === 'baseline'
+      (a: any) => {
+        const prov = typeof a.provenance === 'object' ? a.provenance : null;
+        return (prov as any)?.documentRole === 'baseline';
+      }
     );
     if (!baselineArtifact) return undefined;
     

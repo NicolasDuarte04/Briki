@@ -72,6 +72,8 @@ export type CaseBriefData = {
   tempUploads?: TempUpload[];
   // ✅ FASE POLICY_LINKS: Pólizas de organización a vincular
   linkedPolicyIds?: string[];
+  // ✅ FIX DEFECTO 4: Cotizaciones de organización a vincular
+  linkedQuoteIds?: string[];
 };
 
 interface BriefFormProps {

@@ -213,12 +213,12 @@ export function CompanyForm({ orgId, userId, companyId, defaultValues }: Company
       )}
       
       {/* Security Notice */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
         <div className="flex gap-3">
-          <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+          <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
           <div>
-            <h3 className="font-semibold text-blue-900 text-sm">{t('autoEncryption')}</h3>
-            <p className="text-xs text-blue-700 mt-1">
+            <h3 className="font-semibold text-blue-900 dark:text-blue-100 text-sm">{t('autoEncryption')}</h3>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
               {t('encryptionNote')}
             </p>
           </div>
@@ -558,12 +558,12 @@ export function CompanyForm({ orgId, userId, companyId, defaultValues }: Company
                 </p>
               </div>
               
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
                 <div className="flex gap-3">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5" />
                   <div>
-                    <h3 className="font-semibold text-amber-900 text-sm">{t('beneficialOwners')}</h3>
-                    <p className="text-xs text-amber-700 mt-1">
+                    <h3 className="font-semibold text-amber-900 dark:text-amber-100 text-sm">{t('beneficialOwners')}</h3>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
                       {t('beneficialOwnersDescription')}
                     </p>
                   </div>

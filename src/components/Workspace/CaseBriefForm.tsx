@@ -289,7 +289,8 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                         orgId: orgId,
                         ...briefUpdate,
                         tempUploads: data.tempUploads || [],
-                        linkedPolicyIds: data.linkedPolicyIds || [] // ✅ FIX: Vincular pólizas de organización
+                        linkedPolicyIds: data.linkedPolicyIds || [], // ✅ FIX: Vincular pólizas de organización
+                        linkedQuoteIds: data.linkedQuoteIds || [] // ✅ FIX DEFECTO 4: Vincular cotizaciones de organización
                     })
                 });
 
@@ -331,9 +332,18 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 // ✅ PROBLEMA 3 FIX: Si hay pólizas VINCULADAS de organización, solo mencionar disponibilidad
                 // NO resumir el contenido de las pólizas, solo indicar que están disponibles para cargar
                 const linkedPoliciesCount = data.linkedPolicyIds?.length || 0;
-                if (linkedPoliciesCount > 0) {
-                    autoMessageContent += `\n\n🔗 **Pólizas de la organización vinculadas:** ${linkedPoliciesCount} póliza(s) ya analizadas han sido vinculadas a este caso.\n\nPuedes verlas en el tab **'Pólizas'** y usar el botón **'Cargar Análisis'** para contextualizar cada una con los requerimientos actuales del cliente.`;
-                    console.log('🔗 [CaseBriefForm] Pólizas vinculadas detectadas, mensaje informativo añadido');
+                // ✅ FIX DEFECTO 4: Contar cotizaciones vinculadas por separado
+                const linkedQuotesCount = data.linkedQuoteIds?.length || 0;
+                if (linkedPoliciesCount > 0 || linkedQuotesCount > 0) {
+                    const parts: string[] = [];
+                    if (linkedPoliciesCount > 0) {
+                        parts.push(`${linkedPoliciesCount} póliza(s)`);
+                    }
+                    if (linkedQuotesCount > 0) {
+                        parts.push(`${linkedQuotesCount} cotización(es)`);
+                    }
+                    autoMessageContent += `\n\n🔗 **Documentos de la organización vinculados:** ${parts.join(' y ')} ya analizados han sido vinculados a este caso.\n\nPuedes verlos en el tab **'Pólizas'** y usar el botón **'Cargar Análisis'** para contextualizar cada uno con los requerimientos actuales del cliente.`;
+                    console.log('🔗 [CaseBriefForm] Documentos vinculados detectados:', { linkedPoliciesCount, linkedQuotesCount });
                 }
                 
                 console.log('📝 [CaseBriefForm] Mensaje generado para agente:', autoMessageContent.substring(0, 150) + '...');

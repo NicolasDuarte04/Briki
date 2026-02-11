@@ -389,10 +389,10 @@ export default function Proposal() {
             <h2 id="proposal-math" className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
               {t("mathCheck.label")}
             </h2>
-            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800">
+            <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200">
               <Badge
                 variant="secondary"
-                className={cn("flex items-center gap-1.5 border-transparent bg-emerald-600/10 text-emerald-700")}
+                className={cn("flex items-center gap-1.5 border-transparent bg-emerald-600/10 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300")}
                 aria-live="polite"
               >
                 <CheckCircle2 aria-hidden className="size-4" />
