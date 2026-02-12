@@ -928,8 +928,10 @@ export interface UIState {
   comparisonScores: PolicyComparisonScore[];
   comparisonPlaybook: ComparisonPlaybook;
 
-  // ✅ FASE 30: Comparación de pólizas
-  activeComparison: PolicyComparison | null;
+  // ✅ FASE 30 + REFORMULATION: Comparación de pólizas
+  comparisons: PolicyComparison[];           // All comparisons for current case
+  activeComparisonId: string | null;         // ID of the currently selected comparison
+  activeComparison: PolicyComparison | null;  // Computed getter: derived from comparisons + activeComparisonId
   comparisonLoading: boolean;
   comparisonFilters: ComparisonFilters;
 
@@ -1137,13 +1139,15 @@ export interface UIState {
   // ✅ FASE REESTRUCTURACIÓN: Setter para bloqueo de análisis concurrente
   setAnalyzingArtifactId: (artifactId: string | null) => void;
 
-  // ✅ FASE 30: Acciones de Comparación
+  // ✅ FASE 30 + REFORMULATION: Acciones de Comparación
   compareAnalyses: (analysisIds: string[]) => Promise<PolicyComparison>;
   setComparisonFilters: (filters: Partial<ComparisonFilters>) => void;
   exportComparison: (format: ComparisonExport) => Promise<Blob>;
-  alignCoveragesSemantically: (caseId: string, analysisIds: string[]) => Promise<ComparisonRow[]>;
+  alignCoveragesSemantically: (caseId: string, analysisIds: string[], reformulationOptions?: { label?: string; focusAspects?: string[]; userPrompt?: string; referenceComparisonIds?: string[] }) => Promise<ComparisonRow[]>;
   detectCoverageGaps: (comparison: PolicyComparison) => string[];
-  loadActiveComparison: (caseId: string) => Promise<void>;
+  loadComparisons: (caseId: string) => Promise<void>;
+  setActiveComparisonId: (comparisonId: string | null) => void;
+  deleteComparison: (comparisonId: string) => Promise<void>;
 
   // ✅ FASE 31: Acciones de Selección de Análisis para Propuesta
   toggleAnalysisSelection: (analysisId: string) => void;
@@ -1375,8 +1379,10 @@ export const useUI = create<UIState>()(
       _analysisJobProgress: null,
       _analysisJobMessage: null,
 
-      // ✅ FASE 30: Inicialización de Comparación
-      activeComparison: null,
+      // ✅ FASE 30 + REFORMULATION: Inicialización de Comparación
+      comparisons: [],
+      activeComparisonId: null,
+      activeComparison: null, // Computed: derived in actions
       comparisonLoading: false,
       comparisonFilters: {
         categories: [],
@@ -1408,6 +1414,8 @@ export const useUI = create<UIState>()(
             ...(isChangingCase && {
               policyAnalyses: [],
               policyAnalysesLoaded: false,
+              comparisons: [],
+              activeComparisonId: null,
               activeComparison: null,
               activeProposal: null,
               // Clear caches
@@ -2579,15 +2587,11 @@ export const useUI = create<UIState>()(
           };
         }),
 
-      // ✅ FASE 30: Implementación de Acciones de Comparación
+      // ✅ FASE 30 + REFORMULATION: Implementación de Acciones de Comparación
       compareAnalyses: async (analysisIds) => {
         set({ comparisonLoading: true });
         try {
           // TODO: FASE 30.2 - Implementar endpoint real
-          // const response = await fetch('/api/comparisons/align', { ... });
-          // const comparison = await response.json();
-
-          // MOCK TEMPORAL para evitar crash
           const mockComparison: PolicyComparison = {
             id: `comp - ${Date.now()}`,
             caseId: get().currentCaseId || '',
@@ -2598,7 +2602,8 @@ export const useUI = create<UIState>()(
             createdAt: new Date().toISOString(),
           };
 
-          set({ activeComparison: mockComparison, comparisonLoading: false });
+          const comparisons = [...get().comparisons, mockComparison];
+          set({ comparisons, activeComparisonId: mockComparison.id, activeComparison: mockComparison, comparisonLoading: false });
           return mockComparison;
         } catch (error) {
           console.error('❌ Error comparing analyses:', error);
@@ -2613,32 +2618,83 @@ export const useUI = create<UIState>()(
         }));
       },
 
-      loadActiveComparison: async (caseId) => {
+      loadComparisons: async (caseId) => {
         set({ comparisonLoading: true });
         try {
           const response = await fetch(`/api/comparisons/by-case/${caseId}`);
           if (!response.ok) {
             if (response.status === 404) {
-              set({ activeComparison: null, comparisonLoading: false });
+              set({ comparisons: [], activeComparisonId: null, activeComparison: null, comparisonLoading: false });
               return;
             }
-            throw new Error("Failed to load comparison");
+            throw new Error("Failed to load comparisons");
           }
 
           const data = await response.json();
-          if (data.comparison) {
+          const comparisons: PolicyComparison[] = data.comparisons || (data.comparison ? [data.comparison] : []);
+          
+          if (comparisons.length > 0) {
+            // Select the latest comparison as active
+            const latest = comparisons[0]!;
             set({
-              activeComparison: data.comparison,
+              comparisons,
+              activeComparisonId: latest.id,
+              activeComparison: latest,
               comparisonLoading: false
             });
-            // Optional: toast.success("Comparación cargada correctamente");
           } else {
-            set({ activeComparison: null, comparisonLoading: false });
+            set({ comparisons: [], activeComparisonId: null, activeComparison: null, comparisonLoading: false });
           }
         } catch (error) {
-          console.error("Error loading comparison:", error);
-          toast.error("Error al cargar la comparación guardada");
-          set({ comparisonLoading: false, activeComparison: null });
+          console.error("Error loading comparisons:", error);
+          toast.error("Error al cargar las comparaciones guardadas");
+          set({ comparisonLoading: false, comparisons: [], activeComparisonId: null, activeComparison: null });
+        }
+      },
+
+      setActiveComparisonId: (comparisonId) => {
+        const { comparisons } = get();
+        const activeComparison = comparisonId 
+          ? comparisons.find(c => c.id === comparisonId) || null 
+          : null;
+        set({ activeComparisonId: comparisonId, activeComparison });
+      },
+
+      deleteComparison: async (comparisonId) => {
+        try {
+          const response = await fetch(`/api/comparisons/${comparisonId}`, {
+            method: 'DELETE',
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to delete comparison');
+          }
+
+          const { comparisons, activeComparisonId } = get();
+          const updatedComparisons = comparisons.filter(c => c.id !== comparisonId);
+          
+          // If deleted the active one, select the latest remaining
+          let newActiveId = activeComparisonId;
+          let newActiveComparison: PolicyComparison | null = null;
+          if (activeComparisonId === comparisonId) {
+            newActiveId = updatedComparisons[0]?.id || null;
+            newActiveComparison = updatedComparisons[0] || null;
+          } else {
+            newActiveComparison = updatedComparisons.find(c => c.id === newActiveId) || null;
+          }
+
+          set({
+            comparisons: updatedComparisons,
+            activeComparisonId: newActiveId,
+            activeComparison: newActiveComparison,
+          });
+
+          toast.success("Comparación eliminada");
+        } catch (error: any) {
+          console.error("Error deleting comparison:", error);
+          toast.error(`Error al eliminar: ${error.message}`);
+          throw error;
         }
       },
 
@@ -2814,6 +2870,8 @@ export const useUI = create<UIState>()(
           selectedPolicyAnalysisId: null,
           
           // Resetear comparaciones
+          comparisons: [],
+          activeComparisonId: null,
           activeComparison: null,
           comparisonLoading: false,
           selectedAnalysisIds: new Set<string>(),
@@ -2861,7 +2919,7 @@ export const useUI = create<UIState>()(
         return new Blob(['Mock PDF Content'], { type: 'application/pdf' });
       },
 
-      alignCoveragesSemantically: async (caseId, analysisIds) => {
+      alignCoveragesSemantically: async (caseId, analysisIds, reformulationOptions) => {
         set({ comparisonLoading: true });
 
         try {
@@ -2873,22 +2931,33 @@ export const useUI = create<UIState>()(
             body: JSON.stringify({
               caseId,
               analysisIds,
+              ...(reformulationOptions || {}),
             }),
           });
 
           if (!response.ok) {
             const error = await response.json();
+            // ✅ Handle max comparisons limit
+            if (error.code === 'MAX_COMPARISONS_REACHED') {
+              toast.error(`Límite alcanzado: máximo ${error.maxAllowed} comparaciones por caso. Elimina alguna para crear nuevas.`);
+              set({ comparisonLoading: false });
+              throw new Error(error.error);
+            }
             throw new Error(error.message || "Failed to align policies");
           }
 
           const data = await response.json();
 
           if (data.success && data.comparison) {
+            const newComparison = data.comparison as PolicyComparison;
+            const updatedComparisons = [newComparison, ...get().comparisons];
             set({
-              activeComparison: data.comparison,
+              comparisons: updatedComparisons,
+              activeComparisonId: newComparison.id,
+              activeComparison: newComparison,
               comparisonLoading: false
             });
-            toast.success("Comparación generada exitosamente");
+            toast.success(reformulationOptions ? "Comparación reformulada exitosamente" : "Comparación generada exitosamente");
             return data.comparison.rows;
           } else {
             throw new Error("Invalid response format");
@@ -2896,7 +2965,9 @@ export const useUI = create<UIState>()(
         } catch (error: any) {
           set({ comparisonLoading: false });
           console.error("Error aligning policies:", error);
-          toast.error(`Error al generar comparación: ${error.message}`);
+          if (!error.message?.includes('Límite alcanzado') && !error.message?.includes('MAX_COMPARISONS_REACHED')) {
+            toast.error(`Error al generar comparación: ${error.message}`);
+          }
           throw error;
         }
       },

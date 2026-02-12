@@ -1,15 +1,18 @@
 
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useUI } from "@/lib/ui/state";
 import { ComparisonTable } from "./Comparison/ComparisonTable";
+import { ComparisonSelector } from "./Comparison/ComparisonSelector";
+import { ReformulateDialog } from "./Comparison/ReformulateDialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Sparkles, FileText, RefreshCw, AlertTriangle } from "lucide-react";
+import { Loader2, Sparkles, FileText, RefreshCw, AlertTriangle, IterationCw } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { ReformulationOptions } from "@/lib/types";
 
 // ✅ FASE BASELINE vs CHALLENGERS: Props para recibir caseData con artifacts
 interface ComparisonProps {
@@ -28,11 +31,18 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
 
   // Global State
   const policyAnalyses = useUI((state) => state.policyAnalyses);
+  const comparisons = useUI((state) => state.comparisons);
   const activeComparison = useUI((state) => state.activeComparison);
+  const activeComparisonId = useUI((state) => state.activeComparisonId);
   const comparisonLoading = useUI((state) => state.comparisonLoading);
   const alignCoveragesSemantically = useUI((state) => state.alignCoveragesSemantically);
-  const loadActiveComparison = useUI((state) => state.loadActiveComparison);
+  const loadComparisons = useUI((state) => state.loadComparisons);
+  const setActiveComparisonId = useUI((state) => state.setActiveComparisonId);
+  const deleteComparison = useUI((state) => state.deleteComparison);
   const currentCaseId = useUI((state) => state.currentCaseId);
+
+  // Reformulation dialog state
+  const [reformulateOpen, setReformulateOpen] = useState(false);
   
   // Selection state - Set<string> from store
   const selectedAnalysisIds = useUI((state) => state.selectedAnalysisIds);
@@ -89,20 +99,25 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
   // Show regeneration button when there's no comparison OR comparison is outdated
   const showGenerateButton = !activeComparison || isComparisonOutdated;
 
-  const handleAlign = async () => {
+  const handleAlign = async (reformulationOptions?: ReformulationOptions) => {
     // Error handling is managed in state.ts with toasts
     if (currentCaseId && validAnalyses.length >= 2) {
       console.log(`🔍 Comparing ${validAnalyses.length} analyses for case ${currentCaseId}`);
-      await alignCoveragesSemantically(currentCaseId, validAnalyses.map(a => a.id));
+      await alignCoveragesSemantically(currentCaseId, validAnalyses.map(a => a.id), reformulationOptions);
     }
   };
 
-  // ✅ FASE 30.4: Cargar comparación existente al montar
+  const handleReformulate = async (options: ReformulationOptions) => {
+    setReformulateOpen(false);
+    await handleAlign(options);
+  };
+
+  // ✅ FASE 30.4: Cargar comparaciones existentes al montar
   useEffect(() => {
-    if (currentCaseId && !activeComparison && !comparisonLoading) {
-      loadActiveComparison(currentCaseId);
+    if (currentCaseId && comparisons.length === 0 && !comparisonLoading) {
+      loadComparisons(currentCaseId);
     }
-  }, [currentCaseId, loadActiveComparison]); // activeComparison y comparisonLoading omitidos intencionalmente para evitar loops
+  }, [currentCaseId, loadComparisons]); // comparisons y comparisonLoading omitidos intencionalmente para evitar loops
 
   if (!hasEnoughPolicies) {
     return (
@@ -125,64 +140,86 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
             </CardDescription>
           </div>
 
-          {showGenerateButton && (
-            <Button
-              onClick={handleAlign}
-              disabled={comparisonLoading}
-              className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md"
-            >
-              {comparisonLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isComparisonOutdated ? t("semantic.regenerating") : t("semantic.aligning")}
-                </>
-              ) : isComparisonOutdated ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  {t("semantic.regenerateButton", { count: validAnalyses.length })}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {t("semantic.generateButton")}
-                </>
-              )}
-            </Button>
-          )}
-
-          {activeComparison && (
-            <div className="flex items-center gap-3">
-              {selectionCount > 0 && (
-                <span className="text-sm text-muted-foreground">
-                  {selectionCount === 1 ? t("semantic.policiesSelected", { count: selectionCount }) : t("semantic.policiesSelectedPlural", { count: selectionCount })}
-                </span>
-              )}
+          <div className="flex items-center gap-2">
+            {activeComparison && (
               <Button
-                onClick={() => {
-                  if (!currentCaseId) {
-                    console.error('No active case ID available');
-                    return;
-                  }
-                  const generateProposal = useUI.getState().generateProposal;
-                  const setActiveTab = useUI.getState().setActiveTab;
-                  // generateProposal uses selectedAnalysisIds from state internally
-                  generateProposal(currentCaseId, activeComparison.id)
-                    .then(() => {
-                      setActiveTab('proposal');
-                    })
-                    .catch((err) => {
-                      console.error('Error generating proposal:', err);
-                    });
-                }}
-                disabled={comparisonLoading || !canGenerateProposal}
-                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md disabled:opacity-50"
+                variant="outline"
+                onClick={() => setReformulateOpen(true)}
+                disabled={comparisonLoading}
+                className="border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
               >
-                <FileText className="mr-2 h-4 w-4" />
-                {canGenerateProposal ? t("semantic.generateProposal") : t("semantic.selectAtLeastOne")}
+                <IterationCw className="mr-2 h-4 w-4" />
+                {t("semantic.reformulateButton")}
               </Button>
-            </div>
-          )}
+            )}
+
+            {showGenerateButton && (
+              <Button
+                onClick={() => handleAlign()}
+                disabled={comparisonLoading}
+                className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-md"
+              >
+                {comparisonLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isComparisonOutdated ? t("semantic.regenerating") : t("semantic.aligning")}
+                  </>
+                ) : isComparisonOutdated ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    {t("semantic.regenerateButton", { count: validAnalyses.length })}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    {t("semantic.generateButton")}
+                  </>
+                )}
+              </Button>
+            )}
+
+            {activeComparison && (
+              <div className="flex items-center gap-3">
+                {selectionCount > 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    {selectionCount === 1 ? t("semantic.policiesSelected", { count: selectionCount }) : t("semantic.policiesSelectedPlural", { count: selectionCount })}
+                  </span>
+                )}
+                <Button
+                  onClick={() => {
+                    if (!currentCaseId) {
+                      console.error('No active case ID available');
+                      return;
+                    }
+                    const generateProposal = useUI.getState().generateProposal;
+                    const setActiveTab = useUI.getState().setActiveTab;
+                    // generateProposal uses selectedAnalysisIds from state internally
+                    generateProposal(currentCaseId, activeComparison.id)
+                      .then(() => {
+                        setActiveTab('proposal');
+                      })
+                      .catch((err) => {
+                        console.error('Error generating proposal:', err);
+                      });
+                  }}
+                  disabled={comparisonLoading || !canGenerateProposal}
+                  className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md disabled:opacity-50"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  {canGenerateProposal ? t("semantic.generateProposal") : t("semantic.selectAtLeastOne")}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Comparison Selector — only renders when >1 comparison */}
+        <ComparisonSelector
+          comparisons={comparisons}
+          activeComparisonId={activeComparisonId}
+          onSelect={setActiveComparisonId}
+          onDelete={deleteComparison}
+        />
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col gap-6 px-0 pb-0">
@@ -212,7 +249,7 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
               {t("semantic.clickToGenerate", { count: validAnalyses.length })}
             </p>
             <Button
-              onClick={handleAlign}
+              onClick={() => handleAlign()}
               variant="outline"
               className="mt-6"
             >
@@ -221,6 +258,15 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
           </div>
         )}
       </CardContent>
+
+      {/* Reformulate Dialog */}
+      <ReformulateDialog
+        open={reformulateOpen}
+        onOpenChange={setReformulateOpen}
+        onConfirm={handleReformulate}
+        comparisons={comparisons}
+        loading={comparisonLoading}
+      />
     </Card>
   );
 }

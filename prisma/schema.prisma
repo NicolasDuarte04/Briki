@@ -852,14 +852,20 @@ model CaseQuoteLink {
 /// ============================================================================
 /// Stores the result of comparing multiple policy analyses
 model Comparison {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  caseId      String   @map("case_id") @db.Uuid
-  analysisIds String[] @map("analysis_ids") // IDs of PolicyAnalysis compared
-  result      Json // PolicyComparison serialized
-  filters     Json // ComparisonFilters
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
-  userId      String?  @map("user_id") @db.Uuid // Optional, for audit
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  caseId              String   @map("case_id") @db.Uuid
+  analysisIds         String[] @map("analysis_ids") // IDs of PolicyAnalysis compared
+  result              Json // PolicyComparison serialized
+  filters             Json // ComparisonFilters
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  userId              String?  @map("user_id") @db.Uuid // Optional, for audit
+
+  // ✅ REFORMULATION FIELDS — Acumulación y reformulación de comparaciones
+  label               String?  @map("label") @db.VarChar(100) // Etiqueta visible (auto-generada o custom)
+  focusAspects        String[] @map("focus_aspects") @default([]) // Categorías priorizadas por la IA
+  userPrompt          String?  @map("user_prompt") @db.VarChar(500) // Instrucciones del usuario (sanitizadas, max 500 chars)
+  parentComparisonIds String[] @map("parent_comparison_ids") @default([]) // IDs de comparaciones previas de referencia
 
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
