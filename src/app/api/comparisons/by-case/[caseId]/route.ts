@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { resolveActiveOrg } from "@/lib/helpers/resolveActiveOrg";
+import { MAX_COMPARISONS_PER_CASE } from "@/lib/openai/comparisonAlignment";
+import { ComparisonRow, PolicyComparison } from "@/lib/types";
 
 /**
  * GET /api/comparisons/by-case/[caseId]
  * 
- * Fetches the latest comparison for a given case ID.
- * This is used to load comparisons for historical cases.
+ * Fetches ALL comparisons for a given case ID, ordered by creation date descending.
+ * ✅ REFORMULATION: Returns array instead of single comparison for accumulation support.
  */
 export async function GET(
     _request: NextRequest,
@@ -54,44 +56,53 @@ export async function GET(
             );
         }
 
-        // Fetch latest comparison for this case
-        const comparison = await prisma.comparison.findFirst({
+        // ✅ REFORMULATION: Fetch ALL comparisons for this case, ordered by newest first
+        const comparisonRecords = await prisma.comparison.findMany({
             where: { caseId },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { createdAt: 'desc' },
+            take: MAX_COMPARISONS_PER_CASE,
         });
 
-        if (!comparison) {
-            // Return success with null comparison - no comparison exists yet
+        if (!comparisonRecords.length) {
+            // Return success with empty array — no comparisons exist yet
             return NextResponse.json({
                 success: true,
-                comparison: null,
+                comparisons: [],
             });
         }
 
-        // ✅ CORRECCIÓN CRÍTICA: Extraer rows de result para mantener consistencia con /api/comparisons/align
-        // El campo 'result' en BD contiene { rows: ComparisonRow[] }
-        // Pero PolicyComparison interface espera 'rows' directamente
-        const resultData = comparison.result as { rows?: unknown[] } | null;
-        const rows = resultData?.rows || [];
+        // ✅ Transform each Prisma record to PolicyComparison
+        const comparisons: PolicyComparison[] = comparisonRecords.map(record => {
+            const resultData = record.result as { rows?: ComparisonRow[] } | null;
+            const rows = resultData?.rows || [];
+
+            return {
+                id: record.id,
+                caseId: record.caseId,
+                analysisIds: record.analysisIds,
+                rows,
+                alignmentMethod: 'semantic' as const,
+                filters: record.filters as PolicyComparison['filters'],
+                createdAt: record.createdAt.toISOString(),
+                ...(record.label ? { label: record.label } : {}),
+                focusAspects: (record.focusAspects || []) as ComparisonRow['category'][],
+                ...(record.userPrompt ? { userPrompt: record.userPrompt } : {}),
+                parentComparisonIds: record.parentComparisonIds || [],
+            };
+        });
 
         return NextResponse.json({
             success: true,
-            comparison: {
-                id: comparison.id,
-                caseId: comparison.caseId,
-                analysisIds: comparison.analysisIds,
-                rows: rows,  // ✅ Extraer rows de result
-                alignmentMethod: 'semantic' as const,
-                filters: comparison.filters,
-                createdAt: comparison.createdAt,
-            },
+            comparisons,
+            // ✅ Backward compatibility: also return latest as "comparison" for old clients
+            comparison: comparisons[0] || null,
         });
     } catch (error) {
-        console.error("Error fetching comparison by case:", error);
+        console.error("Error fetching comparisons by case:", error);
         return NextResponse.json(
             {
                 success: false,
-                message: error instanceof Error ? error.message : "Failed to fetch comparison",
+                message: error instanceof Error ? error.message : "Failed to fetch comparisons",
             },
             { status: 500 }
         );

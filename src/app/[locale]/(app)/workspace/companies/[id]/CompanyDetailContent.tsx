@@ -51,10 +51,10 @@ const getRiskBadge = (risk: string | null, t: (key: string) => string) => {
   if (!risk) return null;
   
   const riskStyles: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: string }> = {
-    bajo: { variant: 'secondary', color: 'bg-green-100 text-green-800 border-green-200' },
-    medio: { variant: 'outline', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
-    alto: { variant: 'destructive', color: 'bg-orange-100 text-orange-800 border-orange-200' },
-    muy_alto: { variant: 'destructive', color: 'bg-red-100 text-red-800 border-red-200' },
+    bajo: { variant: 'secondary', color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700' },
+    medio: { variant: 'outline', color: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/50 dark:text-yellow-300 dark:border-yellow-700' },
+    alto: { variant: 'destructive', color: 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/50 dark:text-orange-300 dark:border-orange-700' },
+    muy_alto: { variant: 'destructive', color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/50 dark:text-red-300 dark:border-red-700' },
   };
   
   const riskLabels: Record<string, string> = {
@@ -505,7 +505,7 @@ export function CompanyDetailContent({ company, companyId }: CompanyDetailConten
                     <h4 className="font-medium text-sm text-muted-foreground">{t('detail.beneficialOwners')} 🔒</h4>
                     <div className="grid gap-3">
                       {company.beneficialOwners.map((owner, idx) => (
-                        <div key={idx} className="p-3 border rounded-lg bg-amber-50/50 border-amber-200">
+                        <div key={idx} className="p-3 border rounded-lg bg-amber-50/50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
                           <div className="flex justify-between items-start">
                             <div>
                               <p className="font-medium">{owner.name}</p>
@@ -514,7 +514,7 @@ export function CompanyDetailContent({ company, companyId }: CompanyDetailConten
                               </p>
                             </div>
                             <div className="text-right">
-                              <Badge variant="outline" className="font-mono bg-amber-100">
+                              <Badge variant="outline" className="font-mono bg-amber-100 dark:bg-amber-900/50 dark:text-amber-300">
                                 {owner.percentage}%
                               </Badge>
                               {owner.isPep && (

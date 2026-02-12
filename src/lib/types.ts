@@ -841,6 +841,26 @@ export interface PolicyComparison {
   filters: ComparisonFilters;
   /** Timestamp */
   createdAt: string;
+
+  // ✅ REFORMULATION FIELDS
+  /** Etiqueta visible ("Comparación #1", custom, etc.) */
+  label?: string;
+  /** Categorías priorizadas por la IA en esta reformulación */
+  focusAspects?: ComparisonRow['category'][];
+  /** Instrucciones del usuario para refinar la comparación */
+  userPrompt?: string;
+  /** IDs de comparaciones previas usadas como referencia */
+  parentComparisonIds?: string[];
+}
+
+/** Opciones para la reformulación de una comparación */
+export interface ReformulationOptions {
+  /** Categorías que la IA debe priorizar */
+  focusAspects?: ComparisonRow['category'][];
+  /** Instrucciones libres del usuario (max 500 chars) */
+  userPrompt?: string;
+  /** IDs de comparaciones de referencia para que la IA mejore */
+  referenceComparisonIds?: string[];
 }
 
 /** Exportación de comparación */

@@ -113,7 +113,7 @@ export function WorkspaceTabs({ orgId }: WorkspaceTabsProps = {}) {
   // ✅ FASE 4 RENOVACIONES: Cargar renovaciones reales
   const fetchRenewals = useUI(s => s.fetchRenewals);
   // ✅ FASE 38: Load historical comparisons and proposals
-  const loadActiveComparison = useUI(s => s.loadActiveComparison);
+  const loadComparisons = useUI(s => s.loadComparisons);
   const loadProposalByCase = useUI(s => s.loadProposalByCase);
   const [activeCaseData, setActiveCaseData] = useState<CaseData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -174,14 +174,14 @@ export function WorkspaceTabs({ orgId }: WorkspaceTabsProps = {}) {
     }
   }, [currentCaseId, policyAnalysesLoaded, policyAnalysesLoading, fetchPolicyAnalyses]);
 
-  // ✅ FASE 38: Cargar comparación histórica cuando cambia el caso
+  // ✅ FASE 38 + REFORMULATION: Cargar comparaciones históricas cuando cambia el caso
   useEffect(() => {
     if (currentCaseId && currentCaseId !== 'new-thread-placeholder') {
-      loadActiveComparison(currentCaseId).catch(error => {
-        console.error('❌ [WorkspaceTabs] Error fetching comparison:', error);
+      loadComparisons(currentCaseId).catch(error => {
+        console.error('❌ [WorkspaceTabs] Error fetching comparisons:', error);
       });
     }
-  }, [currentCaseId, loadActiveComparison]);
+  }, [currentCaseId, loadComparisons]);
 
   // ✅ FASE 38: Cargar propuesta histórica cuando cambia el caso
   useEffect(() => {

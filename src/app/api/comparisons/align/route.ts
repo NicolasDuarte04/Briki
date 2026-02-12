@@ -2,14 +2,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { prisma } from '@/lib/prisma';
-import { alignPoliciesWithAI } from '@/lib/openai/comparisonAlignment';
-import { PolicyAnalysis, PolicyComparison, ComparisonFilters } from '@/lib/types';
+import { alignPoliciesWithAI, sanitizeUserPrompt, MAX_COMPARISONS_PER_CASE } from '@/lib/openai/comparisonAlignment';
+import { PolicyAnalysis, PolicyComparison, ComparisonFilters, ComparisonRow, ReformulationOptions } from '@/lib/types';
 
 export const runtime = 'nodejs';
 
 interface AlignRequest {
     analysisIds: string[];
     caseId: string;
+    // ✅ REFORMULATION FIELDS
+    label?: string;
+    focusAspects?: string[];
+    userPrompt?: string;
+    referenceComparisonIds?: string[];
 }
 
 export async function POST(request: NextRequest) {
@@ -20,7 +25,7 @@ export async function POST(request: NextRequest) {
         const { user, currentOrg } = await getCurrentOrg();
 
         const body = await request.json() as AlignRequest;
-        const { analysisIds, caseId } = body;
+        const { analysisIds, caseId, label, focusAspects, userPrompt, referenceComparisonIds } = body;
 
         if (!analysisIds || !Array.isArray(analysisIds) || analysisIds.length < 2) {
             return NextResponse.json(
@@ -36,7 +41,27 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        console.log(`📊 Comparing ${analysisIds.length} analyses for Case ${caseId}`);
+        // ✅ LÍMITE DE COMPARACIONES: Prevenir crecimiento ilimitado
+        const existingCount = await prisma.comparison.count({
+            where: { caseId }
+        });
+
+        if (existingCount >= MAX_COMPARISONS_PER_CASE) {
+            return NextResponse.json(
+                { 
+                    error: `Maximum ${MAX_COMPARISONS_PER_CASE} comparisons per case reached. Delete old comparisons to create new ones.`,
+                    code: 'MAX_COMPARISONS_REACHED',
+                    currentCount: existingCount,
+                    maxAllowed: MAX_COMPARISONS_PER_CASE
+                },
+                { status: 429 }
+            );
+        }
+
+        // ✅ SANITIZACIÓN DE PROMPT: Prevenir prompt injection
+        const sanitizedUserPrompt = userPrompt ? sanitizeUserPrompt(userPrompt) : undefined;
+
+        console.log(`📊 Comparing ${analysisIds.length} analyses for Case ${caseId} (${existingCount}/${MAX_COMPARISONS_PER_CASE} comparisons)`);
 
         // 2. Fetch Policy Analyses
         const analyses = await prisma.policyAnalysis.findMany({
@@ -76,7 +101,24 @@ export async function POST(request: NextRequest) {
             console.log(`📊 Proceeding with ${analyses.length} available analyses (${missingIds.length} skipped)`);
         }
 
-        // 3. Align with AI
+        // 3. ✅ REFORMULATION: Fetch reference comparison rows if provided
+        let referenceRows: ComparisonRow[] | undefined;
+        if (referenceComparisonIds?.length) {
+            const refComparisons = await prisma.comparison.findMany({
+                where: {
+                    id: { in: referenceComparisonIds },
+                    caseId // Security: only same case
+                },
+                select: { result: true }
+            });
+            referenceRows = refComparisons.flatMap(c => {
+                const data = c.result as { rows?: ComparisonRow[] } | null;
+                return data?.rows || [];
+            });
+            console.log(`📚 Loaded ${referenceRows.length} reference rows from ${refComparisons.length} previous comparisons`);
+        }
+
+        // 4. Align with AI
         // Cast Prisma type to application type (Json -> PolicyExtractedData, Date -> string, Decimal -> number)
         const typedAnalyses = analyses.map(a => ({
             id: a.id,
@@ -99,9 +141,15 @@ export async function POST(request: NextRequest) {
             pageReferences: [] // We don't need page refs for alignment prompt, saves memory
         })) as PolicyAnalysis[];
 
-        const comparisonRows = await alignPoliciesWithAI(typedAnalyses);
+        const alignOptions: ReformulationOptions & { referenceRows?: ComparisonRow[] } = {
+            focusAspects: focusAspects as ComparisonRow['category'][],
+        };
+        if (sanitizedUserPrompt) alignOptions.userPrompt = sanitizedUserPrompt;
+        if (referenceRows) alignOptions.referenceRows = referenceRows;
 
-        // 4. Save to Database
+        const comparisonRows = await alignPoliciesWithAI(typedAnalyses, alignOptions);
+
+        // 5. Save to Database — ✅ ACUMULACIÓN: NO deleteMany, simplemente crear nueva
         const defaultFilters: ComparisonFilters = {
             categories: [],
             onlyDifferences: false,
@@ -109,11 +157,8 @@ export async function POST(request: NextRequest) {
             searchQuery: ""
         };
 
-        // ✅ Delete old comparisons for this case to ensure only one active comparison
-        // This implements "upsert" semantics: 1 case = 1 comparison (latest)
-        await prisma.comparison.deleteMany({
-            where: { caseId }
-        });
+        // ✅ Auto-generate label if not provided
+        const autoLabel = label || `Comparación #${existingCount + 1}`;
 
         // ✅ Save with actual found analysis IDs (not the originally requested ones)
         const foundAnalysisIds = analyses.map(a => a.id);
@@ -124,13 +169,17 @@ export async function POST(request: NextRequest) {
                 analysisIds: foundAnalysisIds,
                 result: JSON.parse(JSON.stringify({ rows: comparisonRows })), // Proper Json serialization
                 filters: JSON.parse(JSON.stringify(defaultFilters)),
-                userId: user.id
+                userId: user.id,
+                label: autoLabel,
+                focusAspects: (focusAspects as string[]) || [],
+                userPrompt: sanitizedUserPrompt || null,
+                parentComparisonIds: referenceComparisonIds || [],
             }
         });
 
-        console.log(`✅ Comparison saved: ${comparison.id}`);
+        console.log(`✅ Comparison saved: ${comparison.id} (label: ${autoLabel})`);
 
-        // 5. Return Result
+        // 6. Return Result
         // Construct full PolicyComparison object
         const response: PolicyComparison = {
             id: comparison.id,
@@ -139,12 +188,20 @@ export async function POST(request: NextRequest) {
             rows: comparisonRows,
             alignmentMethod: 'semantic',
             filters: defaultFilters,
-            createdAt: comparison.createdAt.toISOString()
+            createdAt: comparison.createdAt.toISOString(),
+            ...(comparison.label ? { label: comparison.label } : {}),
+            focusAspects: comparison.focusAspects as ComparisonRow['category'][],
+            ...(comparison.userPrompt ? { userPrompt: comparison.userPrompt } : {}),
+            parentComparisonIds: comparison.parentComparisonIds,
         };
 
         return NextResponse.json({
             success: true,
-            comparison: response
+            comparison: response,
+            meta: {
+                totalComparisons: existingCount + 1,
+                maxAllowed: MAX_COMPARISONS_PER_CASE,
+            }
         });
 
     } catch (error: any) {
