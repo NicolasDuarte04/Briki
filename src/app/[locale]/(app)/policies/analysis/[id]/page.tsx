@@ -98,7 +98,7 @@ export default async function PolicyDetailPage({ params }: PolicyDetailPageProps
       id: ref.id,
       fieldName: ref.fieldName,
       pageNumber: ref.pageNumber,
-      confidence: ref.confidence,
+      confidence: ref.confidence != null ? Number(ref.confidence) : null,
       createdAt: ref.createdAt.toISOString(),
     })),
     caseLinks: policy.caseLinks.map(link => ({

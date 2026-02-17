@@ -53,6 +53,7 @@ import {
   type Table as TanTable,
 } from "@tanstack/react-table";
 import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 const DEFAULT_CURRENCY: CurrencyCode = "USD";
 
@@ -269,27 +270,31 @@ export default function Policies({ caseData, loading }: PoliciesProps = {}) {
       }
     });
 
-    // 4. ✅ FASE POLICY_LINKS: Mapear pólizas VINCULADAS (siempre tienen análisis)
-    // Las pólizas vinculadas vienen de /policies y ya fueron analizadas
-    // ✅ FASE BASELINE vs CHALLENGERS: Las vinculadas siempre son challengers (referencia externa)
-    const linkedRows = linkedAnalyses.map((analysis: any) => ({
-      id: analysis.id,
-      plan: analysis.extractedData?.insurer?.name || analysis.artifact?.fileName || 'Póliza vinculada',
-      premium: analysis.extractedData?.financials?.premium_total || 0,
-      deductible: analysis.extractedData?.deductibles?.[0]?.amount || 0,
-      currency: (analysis.extractedData?.currency as CurrencyCode) || 'USD',
-      riders: analysis.extractedData?.coverages?.map((c: any) => c.name || c.type) || [],
-      confidence: typeof analysis.overallConfidence === 'string'
-        ? parseFloat(analysis.overallConfidence)
-        : analysis.overallConfidence,
-      artifactId: analysis.artifactId,
-      analysisId: analysis.id,
-      pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
-      linkType: (analysis.linkType || 'linked') as 'linked' | 'linked_quote', // ✅ FIX: Preservar linkType original (póliza o cotización)
-      linkId: analysis.linkId, // ID del CasePolicyLink para posible desvinculación
-      contextualizedAt: analysis.contextualizedAt, // ✅ PROBLEMA 1 FIX: Para determinar si ya se cargó el análisis
-      documentRole: 'challenger' as const, // ✅ FASE BASELINE vs CHALLENGERS: Vinculadas siempre son challengers
-    }));
+    // 4. ✅ FASE POLICY_LINKS: Mapear documentos VINCULADOS (ya fueron analizados a nivel org)
+    // ✅ FIX DEFECTO H: Diferenciar pólizas vinculadas (baseline) de cotizaciones vinculadas (challenger)
+    // - linkType === 'linked'       → Póliza de org → documentRole: 'baseline' (condición actual del cliente)
+    // - linkType === 'linked_quote'  → Cotización de org → documentRole: 'challenger' (alternativa a proponer)
+    const linkedRows = linkedAnalyses.map((analysis: any) => {
+      const isOrgPolicy = analysis.linkType === 'linked';
+      return {
+        id: analysis.id,
+        plan: analysis.extractedData?.insurer?.name || analysis.artifact?.fileName || (isOrgPolicy ? 'Póliza vinculada' : 'Cotización vinculada'),
+        premium: analysis.extractedData?.financials?.premium_total || 0,
+        deductible: analysis.extractedData?.deductibles?.[0]?.amount || 0,
+        currency: (analysis.extractedData?.currency as CurrencyCode) || 'USD',
+        riders: analysis.extractedData?.coverages?.map((c: any) => c.name || c.type) || [],
+        confidence: typeof analysis.overallConfidence === 'string'
+          ? parseFloat(analysis.overallConfidence)
+          : analysis.overallConfidence,
+        artifactId: analysis.artifactId,
+        analysisId: analysis.id,
+        pageReference: analysis.pageReferences?.find((ref: any) => ref.fieldName === 'premium_total')?.pageNumber || 1,
+        linkType: (analysis.linkType || 'linked') as 'linked' | 'linked_quote',
+        linkId: analysis.linkId,
+        contextualizedAt: analysis.contextualizedAt,
+        documentRole: isOrgPolicy ? 'baseline' as const : 'challenger' as const,
+      };
+    });
 
     // 5. Incluir análisis directos "huérfanos" (que no coinciden con artifacts actuales)
     // Esto es defensivo por si hay inconsistencias en BD (solo para directos)
@@ -1035,6 +1040,12 @@ function AnalyzeButton({
 
     if (!artifactId || isDisabledByOther) return;
 
+    // ✅ FIX BUG O: Tomar lock MANUAL antes de analyzePolicyArtifact
+    // analyzePolicyArtifact.finally libera _analyzingArtifactId via setTimeout(100ms),
+    // pero sendAutoMessage tarda 10-30s. Sin lock manual, los demás botones se desbloquean prematuramente.
+    const setAnalyzingArtifactId = useUI.getState().setAnalyzingArtifactId;
+    setAnalyzingArtifactId(artifactId);
+
     try {
       setLoading(true);
       console.log('🤖 [AnalyzeButton] Triggering analysis for:', artifactId, 'Role:', documentRole);
@@ -1042,13 +1053,15 @@ function AnalyzeButton({
       // 1. Ejecutar análisis (ahora usa jobs async si QStash está disponible)
       const analysis = await analyzePolicyArtifact(artifactId);
 
-      // 2. ✅ FASE BASELINE vs CHALLENGERS: Prompt diferenciado según rol
+      // ✅ FIX BUG O: Re-tomar lock después de analyzePolicyArtifact retorna,
+      // porque su finally -> setTimeout(100ms) lo liberará en ~100ms
+      setAnalyzingArtifactId(artifactId);
+
+      // 2. ✅ FASE INDIVIDUAL: Prompt pide resumen individual (sin comparación automática)
       const isBaseline = documentRole === 'baseline';
       const roleLabel = isBaseline ? 'póliza actual (baseline)' : 'cotización (challenger)';
       
-      const prompt = isBaseline
-        ? `He analizado la ${roleLabel} "${policyName}". Esta es la póliza que el cliente tiene actualmente. Por favor, extrae todos los datos relevantes: información del cliente, valor asegurado, coberturas completas, prima y condiciones. Este será el punto de referencia para comparar las cotizaciones.`
-        : `He analizado la ${roleLabel} "${policyName}". Por favor, extrae primas, coberturas, deducibles y límites. Compárala con la póliza baseline (si existe) y con otras cotizaciones, indicando cuál ofrece mejor relación calidad-precio.`;
+      const prompt = `[POLICY_ANALYSIS] He analizado la ${roleLabel} "${policyName}". Por favor, dame un resumen individual de este documento: aseguradora, vigencia, prima, deducibles principales, coberturas clave y exclusiones relevantes.`;
 
       // 3. Enviar mensaje automáticamente y redirigir al chat
       const sendAutoMessage = useUI.getState().sendAutoMessage;
@@ -1061,11 +1074,26 @@ function AnalyzeButton({
 
     } catch (error: any) {
       console.error('❌ [AnalyzeButton] Error analyzing:', error);
-      // No mostrar toast si es por bloqueo concurrente
-      if (!error.message?.includes('already in progress')) {
-        // Aquí idealmente mostraríamos un toast de error
+      // ✅ FIX BUG P: Mostrar toast informativo para errores de encriptación u otros
+      if (error.message?.includes('encriptación') || error.message?.includes('encryption') || error.message?.includes('password')) {
+        toast.error('PDF protegido', {
+          description: error.message,
+          duration: 8000
+        });
+      } else if (!error.message?.includes('already in progress')) {
+        toast.error('Error al analizar', {
+          description: error.message || 'Error desconocido',
+          duration: 5000
+        });
       }
     } finally {
+      // ✅ FIX BUG O: Liberar lock SOLO aquí, después de que sendAutoMessage termine
+      setAnalyzingArtifactId(null);
+      // ✅ FIX: Safety net re-fetch para garantizar consistencia con BD
+      const caseId = useUI.getState().currentCaseId;
+      if (caseId) {
+        try { await useUI.getState().fetchPolicyAnalyses(caseId); } catch {} 
+      }
       setLoading(false);
     }
   };
@@ -1140,6 +1168,8 @@ function LoadAnalysisButton({
 
     try {
       setLoading(true);
+      // ✅ FIX DEFECTO K: Activar lock global para bloquear todos los demás botones
+      useUI.getState().setAnalyzingArtifactId(artifactId);
       console.log('📥 [LoadAnalysisButton] Loading analysis for linked policy:', artifactId);
       
       // Si ya tiene analysisId, simplemente navegar a él
@@ -1173,7 +1203,7 @@ function LoadAnalysisButton({
         }
         
         // Enviar mensaje al agente contextualizando
-        const prompt = `He cargado el análisis de la póliza "${policyName}" que ya tenemos en la organización. Por favor, contextualiza este análisis con los requerimientos del cliente actual y compáralo con otras pólizas del caso si existen.`;
+        const prompt = `[POLICY_ANALYSIS] He cargado el análisis de la póliza "${policyName}" de la organización. Por favor, dame un resumen individual de este documento contextualizado con los requerimientos del caso actual.`;
         const sendAutoMessage = useUI.getState().sendAutoMessage;
         await sendAutoMessage(prompt);
       } else {
@@ -1185,6 +1215,12 @@ function LoadAnalysisButton({
     } catch (error) {
       console.error('❌ [LoadAnalysisButton] Error loading analysis:', error);
     } finally {
+      // ✅ FIX DEFECTO K: Liberar lock global
+      useUI.getState().setAnalyzingArtifactId(null);
+      // ✅ FIX DEFECTO M: Safety net re-fetch para garantizar transición a "Ver en PDF"
+      if (currentCaseId) {
+        try { await fetchPolicyAnalyses(currentCaseId); } catch {} 
+      }
       setLoading(false);
     }
   };

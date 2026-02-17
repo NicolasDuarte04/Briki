@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileText, UserPlus, FolderKanban, MessageSquare, Check, Circle } from 'lucide-react';
-import { pathForNewEntity, pathForAgent, pathForCases, pathForClients, type Locale } from '@/lib/routes/workspace';
+import { FileText, UserPlus, FolderKanban, MessageSquare, Check, Circle, Receipt, Users } from 'lucide-react';
+import { pathForAgent, pathForCases, pathForClients, pathForCompanies, pathForPoliciesUpload, pathForQuotesUpload, pathForTeam, type Locale } from '@/lib/routes/workspace';
 import { useTranslations } from 'next-intl';
 
 // ============================================================================
@@ -13,7 +13,7 @@ import { useTranslations } from 'next-intl';
 
 interface ZeroStateProps {
   /**
-   * Optional progress tracking - steps completed (0-4)
+   * Optional progress tracking - steps completed (0-6)
    * If not provided, shows all steps as pending
    */
   completedSteps?: number;
@@ -44,6 +44,8 @@ interface Step {
   actionLabelKey: string;
   actionHref?: string;
   actionOnClick?: () => void;
+  secondaryActionLabelKey?: string;
+  secondaryActionHref?: string;
   isCompleted: boolean;
 }
 
@@ -54,9 +56,10 @@ interface Step {
 /**
  * ZeroState - First-run guidance for new workspace users
  * 
- * Client component that displays a friendly 4-step onboarding
- * flow. Guides users to create a case with the agent, manage clients,
- * manage cases, and analyze individual policies. Includes progress tracking and direct action links.
+ * Client component that displays a friendly 6-step onboarding
+ * flow. Guides users to create clients, analyze policies and quotes,
+ * create cases, manage cases, and manage their organization.
+ * Includes progress tracking and direct action links.
  */
 export function ZeroState({ 
   completedSteps = 0, 
@@ -73,39 +76,59 @@ export function ZeroState({
   const steps: Step[] = [
     {
       id: 1,
-      titleKey: 'steps.createCase.title',
-      descriptionKey: 'steps.createCase.description',
-      icon: <MessageSquare className="size-6 text-primary" aria-hidden="true" />,
-      actionLabelKey: 'steps.createCase.actionLabel',
-      actionHref: pathForAgent(locale),
-      isCompleted: completedSteps >= 1,
-    },
-    {
-      id: 2,
       titleKey: 'steps.manageClients.title',
       descriptionKey: 'steps.manageClients.description',
       icon: <UserPlus className="size-6 text-primary" aria-hidden="true" />,
       actionLabelKey: 'steps.manageClients.actionLabel',
       actionHref: pathForClients(locale),
+      secondaryActionLabelKey: 'steps.manageClients.secondaryActionLabel',
+      secondaryActionHref: pathForCompanies(locale),
+      isCompleted: completedSteps >= 1,
+    },
+    {
+      id: 2,
+      titleKey: 'steps.analyzePolicies.title',
+      descriptionKey: 'steps.analyzePolicies.description',
+      icon: <FileText className="size-6 text-primary" aria-hidden="true" />,
+      actionLabelKey: 'steps.analyzePolicies.actionLabel',
+      actionHref: pathForPoliciesUpload(locale),
       isCompleted: completedSteps >= 2,
     },
     {
       id: 3,
+      titleKey: 'steps.analyzeQuotes.title',
+      descriptionKey: 'steps.analyzeQuotes.description',
+      icon: <Receipt className="size-6 text-primary" aria-hidden="true" />,
+      actionLabelKey: 'steps.analyzeQuotes.actionLabel',
+      actionHref: pathForQuotesUpload(locale),
+      isCompleted: completedSteps >= 3,
+    },
+    {
+      id: 4,
+      titleKey: 'steps.createCase.title',
+      descriptionKey: 'steps.createCase.description',
+      icon: <MessageSquare className="size-6 text-primary" aria-hidden="true" />,
+      actionLabelKey: 'steps.createCase.actionLabel',
+      actionHref: pathForAgent(locale),
+      isCompleted: completedSteps >= 4,
+    },
+    {
+      id: 5,
       titleKey: 'steps.manageCases.title',
       descriptionKey: 'steps.manageCases.description',
       icon: <FolderKanban className="size-6 text-primary" aria-hidden="true" />,
       actionLabelKey: 'steps.manageCases.actionLabel',
       actionHref: pathForCases(locale),
-      isCompleted: completedSteps >= 3,
+      isCompleted: completedSteps >= 5,
     },
     {
-      id: 4,
-      titleKey: 'steps.analyzePolicies.title',
-      descriptionKey: 'steps.analyzePolicies.description',
-      icon: <FileText className="size-6 text-primary" aria-hidden="true" />,
-      actionLabelKey: 'steps.analyzePolicies.actionLabel',
-      actionHref: '#', // Temporarily disconnected until /policies is created
-      isCompleted: completedSteps >= 4,
+      id: 6,
+      titleKey: 'steps.manageOrganization.title',
+      descriptionKey: 'steps.manageOrganization.description',
+      icon: <Users className="size-6 text-primary" aria-hidden="true" />,
+      actionLabelKey: 'steps.manageOrganization.actionLabel',
+      actionHref: pathForTeam(locale),
+      isCompleted: completedSteps >= 6,
     },
   ];
 
@@ -150,10 +173,10 @@ export function ZeroState({
 
           {/* Progress indicator */}
           <div className="flex items-center justify-center gap-2 pt-2">
-            {[1, 2, 3, 4].map((step) => (
+            {[1, 2, 3, 4, 5, 6].map((step) => (
               <div
                 key={step}
-                className={`h-1.5 w-12 rounded-full transition-colors ${
+                className={`h-1.5 w-10 rounded-full transition-colors ${
                   completedSteps >= step 
                     ? 'bg-primary' 
                     : 'bg-muted'
@@ -247,9 +270,9 @@ function StepCard({ step, stepNumber, t }: { step: Step; stepNumber: number; t: 
               </p>
             </div>
 
-            {/* Action button */}
+            {/* Action buttons */}
             {!step.isCompleted && (
-              <>
+              <div className="flex flex-wrap gap-3">
                 {step.actionHref ? (
                   <Button asChild size="default" className="w-full sm:w-auto rounded-button">
                     <Link href={step.actionHref}>
@@ -265,7 +288,14 @@ function StepCard({ step, stepNumber, t }: { step: Step; stepNumber: number; t: 
                     {t(step.actionLabelKey)}
                   </Button>
                 ) : null}
-              </>
+                {step.secondaryActionHref && step.secondaryActionLabelKey && (
+                  <Button asChild variant="outline" size="default" className="w-full sm:w-auto rounded-button">
+                    <Link href={step.secondaryActionHref}>
+                      {t(step.secondaryActionLabelKey)}
+                    </Link>
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>

@@ -79,6 +79,13 @@ export function getProfilePath(locale: Locale): string {
   return `/${locale}/profile`;
 }
 
+/**
+ * Get the team dashboard route (navigates to profile with team tab active)
+ */
+export function pathForTeam(locale: Locale): string {
+  return `/${locale}/profile?tab=team`;
+}
+
 // =============================================================================
 // RUTAS DE PÓLIZAS STANDALONE (Org-level policies)
 // =============================================================================

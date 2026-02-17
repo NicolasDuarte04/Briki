@@ -1260,6 +1260,7 @@ export const useUI = create<UIState>()(
 
       // ✅ NUEVO: Inicialización de fase de aprobación
       approvalPhase: 'pending',
+      caseResolvingClient: false,
 
       // ✅ NUEVO: Implementación de helpers computados
       shouldShowApprovalButtons: () => {
@@ -1525,6 +1526,7 @@ export const useUI = create<UIState>()(
           // Obtener conteo de artifacts y pólizas vinculadas
           let artifactCount = 0;
           let linkedPolicyCount = 0;
+          let linkedQuoteCount = 0;
           
           // ✅ FASE BASELINE vs CHALLENGERS: Variables para clasificar documentos
           let baselineCount = 0;
@@ -1537,7 +1539,8 @@ export const useUI = create<UIState>()(
             const caseResponse = await fetch(`/api/cases/${currentCaseId}`);
             if (caseResponse.ok) {
               const caseData = await caseResponse.json();
-              const artifacts = caseData.artifacts || [];
+              // ✅ FIX BUG N: API retorna { case: { artifacts: [...] } } — acceder via .case
+              const artifacts = caseData.case?.artifacts || [];
               // Filtrar solo PDFs
               const pdfArtifacts = artifacts.filter((a: any) => 
                 a.contentType === 'application/pdf' || 
@@ -1559,12 +1562,14 @@ export const useUI = create<UIState>()(
               artifactCount = pdfArtifacts.length;
             }
             
-            // Contar pólizas vinculadas desde el brief (siempre son challengers)
+            // Contar pólizas vinculadas (baselines) y cotizaciones vinculadas (challengers)
             linkedPolicyCount = updatedBrief.linkedPolicyIds?.length || 0;
+            linkedQuoteCount = updatedBrief.linkedQuoteIds?.length || 0;
             
             console.log('📊 [approveCurrentCase] Conteo de pólizas:', { 
               artifactCount, 
               linkedPolicyCount,
+              linkedQuoteCount,
               baselineCount,
               challengerCount,
               baselineFileName
@@ -1579,7 +1584,7 @@ export const useUI = create<UIState>()(
             updatedBrief, 
             artifactCount, 
             linkedPolicyCount,
-            { baselineCount, challengerCount, baselineFileName }
+            { baselineCount, challengerCount, baselineFileName, linkedQuoteCount }
           );
           
           console.log('📝 [approveCurrentCase] Mensaje de bienvenida generado:', welcomeMessage.substring(0, 100) + '...');
@@ -2897,6 +2902,7 @@ export const useUI = create<UIState>()(
           caseApproved: false,
           caseApproving: false,
           caseApprovalError: null,
+          caseResolvingClient: false,
           
           // Limpiar datos pendientes del landing
           landingDataPending: null,
@@ -3413,9 +3419,10 @@ export const useUI = create<UIState>()(
           throw new Error('Analysis already in progress');
         }
         
-        // ✅ FASE REESTRUCTURACIÓN: Verificar si hay CUALQUIER análisis en progreso
+        // ✅ FASE REESTRUCTURACIÓN: Verificar si hay OTRO análisis en progreso
+        // Permitir si el caller ya seteó el lock con el mismo artifactId
         const currentAnalyzing = get()._analyzingArtifactId;
-        if (currentAnalyzing !== null) {
+        if (currentAnalyzing !== null && currentAnalyzing !== artifactId) {
           console.log('⏭️ [analyzePolicyArtifact] Otro análisis en progreso:', currentAnalyzing);
           throw new Error('Another analysis is already in progress');
         }
@@ -3589,7 +3596,9 @@ export const useUI = create<UIState>()(
           console.error('❌ [analyzePolicyArtifact] Error:', error.message);
           throw error;
         } finally {
-          // ✅ Limpiar todos los flags
+          // ✅ FIX BUG Q: Limpiar flags de progreso, pero NO tocar _analyzingArtifactId.
+          // Los callers (AnalyzeButton, LoadAnalysisButton) gestionan el lock manualmente
+          // para que se mantenga durante sendAutoMessage (10-30s).
           const currentPending = get()._pendingPolicyAnalysis || new Set();
           const updatedPending = new Set(currentPending);
           updatedPending.delete(artifactId);
@@ -3597,7 +3606,7 @@ export const useUI = create<UIState>()(
           setTimeout(() => {
             set({ 
               _pendingPolicyAnalysis: updatedPending,
-              _analyzingArtifactId: null,
+              // _analyzingArtifactId: NO tocar — los callers lo controlan
               _activeAnalysisJobId: null,
               _analysisJobProgress: null,
               _analysisJobMessage: null

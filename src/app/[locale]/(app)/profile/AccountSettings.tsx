@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useActionState, useCallback } from 'react';
 import { useFormStatus } from 'react-dom';
+import { useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,7 +85,13 @@ export function AccountSettings({
   const tCommon = useTranslations('common');
   const tNotifications = useTranslations('profilePage.notifications');
   
-  const [activeTab, setActiveTab] = useState<Tab>('personal');
+  // Support deep-linking to specific tabs (e.g. ?tab=team from ZeroState)
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const validTabs: Tab[] = ['personal', 'security', 'notifications', 'team', 'audit'];
+  const initialTab: Tab = tabParam && validTabs.includes(tabParam as Tab) ? (tabParam as Tab) : 'personal';
+  
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [isEditingAddress, setIsEditingAddress] = useState(false);

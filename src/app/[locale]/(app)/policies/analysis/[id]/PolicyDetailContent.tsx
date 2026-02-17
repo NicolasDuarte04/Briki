@@ -194,6 +194,7 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
   const t = useTranslations('policies.detailPage');
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [linkedError, setLinkedError] = useState<{ caseNames: string } | null>(null);
   
   const notAvailable = t('notAvailable');
   const safeString = (value: unknown) => safeStringWithFallback(value, notAvailable);
@@ -248,8 +249,19 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
       if (response.ok) {
         router.push(pathForPoliciesAnalysis(locale));
       } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Error al eliminar la póliza');
+        const errorData = await response.json();
+        
+        // ✅ Manejar error de póliza vinculada a casos
+        if (response.status === 409 && errorData.error === 'POLICY_LINKED_TO_CASES') {
+          const caseNames = (errorData.linkedCases as Array<{ name: string }>)
+            .map((c) => `"${c.name}"`)
+            .join(', ');
+          setShowDeleteConfirm(false);
+          setLinkedError({ caseNames });
+          return;
+        }
+        
+        throw new Error(errorData.error || 'Error al eliminar la póliza');
       }
     } catch (error) {
       console.error('Error deleting policy:', error);
@@ -656,6 +668,27 @@ export function PolicyDetailContent({ policy, isPinned, locale }: PolicyDetailCo
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting ? t('deleteDialog.deleting') : t('deleteDialog.confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Linked Policy Error Dialog */}
+      <AlertDialog open={!!linkedError} onOpenChange={() => setLinkedError(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('deleteDialog.linkedErrorTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {linkedError && (
+                linkedError.caseNames.split(',').length > 1
+                  ? t('deleteDialog.linkedErrorDescriptionMultiple', { caseNames: linkedError.caseNames })
+                  : t('deleteDialog.linkedErrorDescription', { caseName: linkedError.caseNames.replace(/"/g, '') })
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setLinkedError(null)}>
+              {t('deleteDialog.linkedErrorDismiss')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

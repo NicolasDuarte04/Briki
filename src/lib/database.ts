@@ -13,6 +13,7 @@ import {
   CurrencyCode
 } from './types';
 import { ORG_POLICIES_CONTAINER } from './helpers/getOrgPoliciesContainer';
+import { ORG_QUOTES_CONTAINER } from './helpers/getOrgQuotesContainer';
 import type {
   BrokerProfileParsed,
   CaseParsed,
@@ -362,12 +363,12 @@ export async function getCasesByOrg(orgId: string) {
   const cases = await prisma.case.findMany({
     where: { 
       orgId,
-      // ✅ FILTRO CRÍTICO: Excluir el case contenedor de pólizas standalone
-      // Este case especial tiene status y stage que NUNCA deben aparecer en listas normales
+      // ✅ FILTRO CRÍTICO: Excluir los cases contenedores de pólizas y quotes standalone
+      // Estos cases especiales tienen status y stage que NUNCA deben aparecer en listas normales
       NOT: {
-        AND: [
-          { status: ORG_POLICIES_CONTAINER.STATUS },
-          { stage: ORG_POLICIES_CONTAINER.STAGE },
+        OR: [
+          { AND: [{ status: ORG_POLICIES_CONTAINER.STATUS }, { stage: ORG_POLICIES_CONTAINER.STAGE }] },
+          { AND: [{ status: ORG_QUOTES_CONTAINER.STATUS }, { stage: ORG_QUOTES_CONTAINER.STAGE }] },
         ],
       },
     },
@@ -589,7 +590,7 @@ export async function assignClientToCase(caseId: string, clientId: string, orgId
 
 /**
  * Obtiene estadísticas de casos por organización.
- * NOTA: Excluye automáticamente el case contenedor de pólizas standalone.
+ * NOTA: Excluye automáticamente los cases contenedores de pólizas y quotes standalone.
  * 
  * @param orgId - El ID de la organización.
  * @returns Promise<object> - Estadísticas de casos.
@@ -600,11 +601,11 @@ export async function getCaseStatsByOrg(orgId: string) {
   const cases = await prisma.case.findMany({
     where: { 
       orgId,
-      // ✅ FILTRO CRÍTICO: Excluir el case contenedor de pólizas standalone
+      // ✅ FILTRO CRÍTICO: Excluir los cases contenedores de pólizas y quotes standalone
       NOT: {
-        AND: [
-          { status: ORG_POLICIES_CONTAINER.STATUS },
-          { stage: ORG_POLICIES_CONTAINER.STAGE },
+        OR: [
+          { AND: [{ status: ORG_POLICIES_CONTAINER.STATUS }, { stage: ORG_POLICIES_CONTAINER.STAGE }] },
+          { AND: [{ status: ORG_QUOTES_CONTAINER.STATUS }, { stage: ORG_QUOTES_CONTAINER.STAGE }] },
         ],
       },
     },

@@ -1504,32 +1504,43 @@ const en = {
     },
     zeroState: {
       welcome: "Welcome to Briki! 👋",
-      subtitle: "Let's set up your workspace in four simple steps. In a few minutes you'll be ready to manage your cases and policies.",
+      subtitle: "Let's set up your workspace in six simple steps. In a few minutes you'll be ready to manage your cases and policies.",
       step: "Step {number}",
       completed: "✓ Completed",
       progressLabel: "Step {step} {status}",
       needHelp: "Need help? Our team is here for you.",
       contactUs: "Contact us",
       steps: {
+        manageClients: {
+          title: "Create a client or company",
+          description: "To start with insurance analysis, create the profile of your client or company of interest.",
+          actionLabel: "Create client",
+          secondaryActionLabel: "Create company",
+        },
+        analyzePolicies: {
+          title: "Analyze your policies",
+          description: "To contribute to understanding the insurers you contact and start building an analysis, upload your policies to be analyzed.",
+          actionLabel: "Upload policies",
+        },
+        analyzeQuotes: {
+          title: "Analyze your quotes",
+          description: "To contribute to understanding the quotes from the insurers you contact and easily reference your clients' possible proposals, upload your quotes.",
+          actionLabel: "Upload quotes",
+        },
         createCase: {
           title: "Create your first case",
           description: "Navigate to the agent interface or click here to open it. We'll help you through a specialized form to study your clients' specific needs by extracting key information from the policies you consider relevant.",
           actionLabel: "Go to Agent chat",
-        },
-        manageClients: {
-          title: "Complete your client's details",
-          description: "Complement the basic information of the previously created client or create new clients from scratch with specific cases along with their detailed data to start organizing your cases.",
-          actionLabel: "View clients",
         },
         manageCases: {
           title: "Manage your organization's cases",
           description: "Within your organization you can create, delete, load historical conversations and view brief summaries of created cases. To load conversations you must use the 'Chats' section in the right panel.",
           actionLabel: "Case Manager",
         },
-        analyzePolicies: {
-          title: "Analyze your individual policies",
-          description: "You don't necessarily need a case to analyze policies. If you want a comprehensive analysis of policies individually and create your policy bank associated with your organization, you can do it here.",
-          actionLabel: "Upload policies",
+        manageOrganization: {
+          title: "Manage your organization",
+          description: "From the team dashboard you can add, remove, grant permissions and monitor the activity of members in your organization.",
+          actionLabel: "Team Dashboard",
         },
       },
     },
@@ -1860,6 +1871,10 @@ const en = {
       confirm: "Delete",
       deleting: "Deleting...",
       error: "Error deleting policy",
+      linkedErrorTitle: "Cannot delete this policy",
+      linkedErrorDescription: "This policy cannot be deleted because it is currently being used in the case \"{caseName}\". Remove this policy from the case or delete the case to safely delete this policy.",
+      linkedErrorDescriptionMultiple: "This policy cannot be deleted because it is currently being used in the following cases: {caseNames}. Remove this policy from those cases or delete the cases to safely delete this policy.",
+      linkedErrorDismiss: "Understood",
     },
     // Analysis List Page
     analysisPage: {
@@ -1962,6 +1977,10 @@ const en = {
         cancel: "Cancel",
         confirm: "Delete",
         deleting: "Deleting...",
+        linkedErrorTitle: "Cannot delete this policy",
+        linkedErrorDescription: "This policy cannot be deleted because it is currently being used in the case \"{caseName}\". Remove this policy from the case or delete the case to safely delete this policy.",
+        linkedErrorDescriptionMultiple: "This policy cannot be deleted because it is currently being used in the following cases: {caseNames}. Remove this policy from those cases or delete the cases to safely delete this policy.",
+        linkedErrorDismiss: "Understood",
       },
     },
     // Upload page

@@ -43,7 +43,7 @@ interface PromptData {
 }
 
 type EntityType = 'empresa' | 'persona';
-type OperationMode = 'brief_update' | 'baseline_analysis' | 'comparison' | 'qa' | 'guardrails';
+type OperationMode = 'brief_update' | 'baseline_analysis' | 'comparison' | 'qa' | 'guardrails' | 'individual_analysis';
 
 // ============================================================================
 // HELPERS DE INFERENCIA
@@ -120,6 +120,12 @@ function detectOperationMode(
   // ✅ FIX DEFECTO B: Priorizar detección por tag, independientemente de documentos cargados
   if (lowerMessage.includes('[brief_update]')) {
     return 'brief_update';
+  }
+  
+  // MODO 6: Individual Analysis - Tag explícito [POLICY_ANALYSIS] desde Policies.tsx
+  // Se activa al hacer clic en "Analizar PDF" o "Cargar Análisis" — resumen individual, sin comparar
+  if (lowerMessage.includes('[policy_analysis]')) {
+    return 'individual_analysis';
   }
   
   // MODO 1 (alternativo): Brief Update - Patrones de texto sobre actualización de formulario
@@ -336,46 +342,31 @@ Al final, invita: "¿Tienes cotizaciones de otras aseguradoras para comparar?"
 `,
 
   comparison: `
-**MODO 3: ANÁLISIS COMPARATIVO (CHALLENGER vs BASELINE)**
+**MODO 3: COMPARACIÓN BREVE (RESPUESTA CONVERSACIONAL)**
 
-El usuario quiere comparar propuestas contra la línea base.
+El usuario ha solicitado explícitamente comparar pólizas/cotizaciones en el chat.
 
-TU RESPUESTA DEBE INCLUIR:
+IMPORTANTE: La comparación DETALLADA y ESTRUCTURADA se realiza en el tab "Comparaciones" del panel derecho,
+con alineación semántica de coberturas, semáforos y ponderadores. Aquí solo das un vistazo rápido.
 
-📊 **RESUMEN EJECUTIVO**
-Indica cuántas opciones se comparan y de qué aseguradoras.
+TU RESPUESTA DEBE SER:
+- Un resumen comparativo BREVE (5-8 puntos clave máximo)
+- Mencionar aseguradoras, primas, y las 2-3 diferencias más relevantes
+- Con referencias [Ver en PDF] en los datos citados
+- SUGERIR EXPRESAMENTE ir al tab "Comparaciones" para ver la matriz detallada
 
-🆚 **MATRIZ COMPARATIVA**
+ESTRUCTURA:
 
-Presenta los datos en formato lista estructurada (NO tablas ASCII):
+📊 **Comparación rápida** (N opciones)
+- **[Aseguradora A]:** Prima $X, Deducible Y%, coberturas destacadas [Ver en PDF]
+- **[Aseguradora B]:** Prima $Z, Deducible W%, coberturas destacadas [Ver en PDF]
 
-**1. Aspecto Económico:**
-- Póliza Actual: Prima $X [Ver en PDF](#ref:premium:P:ID)
-- Propuesta A: Prima $Y [Ver en PDF](#ref:premium:P:ID) → Δ +/-Z%
-- Propuesta B: Prima $W [Ver en PDF](#ref:premium:P:ID) → Δ +/-V%
+⚡ **Diferencias clave:** 2-3 puntos más relevantes entre las opciones
 
-**2. Deducibles (SEMÁFORO):**
-- Póliza Actual: 5% 🟢
-- Propuesta A: 10% 🔴 (DESVENTAJA: +5 puntos)
-- Propuesta B: 5% 🟢 (Igual)
+💡 **Para un análisis completo:** "Te recomiendo ir al tab **'Comparaciones'** en el panel derecho, donde puedes generar una **matriz comparativa detallada** con alineación semántica de coberturas, semáforos y ponderadores personalizados."
 
-**3. Coberturas Clave:**
-- RC General:
-  · Actual: $500K [ref]
-  · Propuesta A: $750K ✅ [ref] (Ventaja +50%)
-  · Propuesta B: $400K ⚠️ [ref] (Inferior -20%)
-
-⚠️ **GAPS Y ADVERTENCIAS**
-- Lista diferencias críticas en exclusiones
-- Alertar sobre coberturas faltantes vs. requerimientos del brief
-
-📊 **MATRIZ DE DECISIÓN (RESUMEN FINAL)**
-
-Para cada opción presenta:
-- **[Aseguradora]:** Prima $X | Deducible Y% | Veredicto: [Recomendada/Con reservas/No recomendada]
-
-💡 **RECOMENDACIÓN FUNDAMENTADA**
-Indica cuál propuesta se ajusta mejor al perfil del cliente y POR QUÉ.
+NO generes matrices extensas, tablas ASCII, secciones tipo informe, ni análisis exhaustivo.
+La comparación detallada es responsabilidad exclusiva del tab "Comparaciones".
 `,
 
   qa: `
@@ -421,6 +412,34 @@ EJEMPLO:
 "Entiendo tu curiosidad, pero mi especialidad es el análisis de seguros y gestión de riesgos. ¿Hay algo sobre las pólizas que hemos revisado en lo que pueda ayudarte? Por ejemplo, puedo comparar coberturas o explicarte algún término técnico."
 
 NO intentes responder preguntas fuera de tu dominio.
+`,
+
+  individual_analysis: `
+**MODO 6: ANÁLISIS INDIVIDUAL DE DOCUMENTO**
+
+Se ha analizado o cargado un documento específico desde el tab "Pólizas".
+Tu tarea es dar un RESUMEN INDIVIDUAL breve de ESE documento únicamente.
+
+REGLAS ESTRICTAS:
+- Resumir ÚNICAMENTE el documento mencionado en el mensaje
+- NO comparar con ningún otro documento, póliza o cotización del caso
+- NO mencionar otras pólizas o cotizaciones aunque tengas sus datos
+- NO hacer comparaciones implícitas ni explícitas
+- NO usar formato de matriz comparativa
+- Ser conciso pero informativo (máximo 10-12 líneas de contenido)
+- Incluir [Ver en PDF] para datos extraídos del documento
+
+ESTRUCTURA:
+
+📄 **Resumen: "[nombre del documento]"**
+- **Aseguradora:** [nombre] [Ver en PDF]
+- **Vigencia:** [fechas] [Ver en PDF]
+- **Prima Total:** [monto] [Ver en PDF]
+- **Deducible(s):** [principales] [Ver en PDF]
+- **Coberturas clave:** 3-5 coberturas principales con sus límites
+- **Exclusiones relevantes:** Las más importantes (si las hay)
+
+💡 "Si deseas comparar este documento con otros del caso, puedes hacerlo desde el tab **'Comparaciones'** en el panel derecho."
 `
 };
 
@@ -477,9 +496,10 @@ export function formatInsurancePrompt(data: PromptData): string {
   const operationModeLabels: Record<OperationMode, string> = {
     brief_update: '1 - ACTUALIZACIÓN DE BRIEF',
     baseline_analysis: '2 - ANÁLISIS DE LÍNEA BASE',
-    comparison: '3 - ANÁLISIS COMPARATIVO',
+    comparison: '3 - COMPARACIÓN BREVE',
     qa: '4 - CONSULTA ESPECÍFICA',
-    guardrails: '5 - GUARDRAILS'
+    guardrails: '5 - GUARDRAILS',
+    individual_analysis: '6 - ANÁLISIS INDIVIDUAL'
   };
 
   console.log(`🎯 [Prompt] Modo detectado: ${operationModeLabels[operationMode]} | Entidad: ${entityType}`);

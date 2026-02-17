@@ -2,27 +2,40 @@
 /**
  * API para eliminar pólizas organizacionales (standalone)
  * 
- * Esta API elimina pólizas del contenedor virtual de la organización.
- * Incluye limpieza de:
- * - PolicyPageReference (referencias de página)
- * - CasePolicyLink (vínculos a casos reales)
+ * Flujo de eliminación:
+ * 1. Autenticación + verificación de pertenencia
+ * 2. GUARDIA: Bloquear si la póliza está vinculada a casos reales (HTTP 409)
+ * 3. Transacción BD: pageRefs → policyAnalysis → artifact huérfano
+ * 4. Post-transacción: Storage cleanup + pins cleanup + audit log
+ * 
+ * Limpieza integral:
+ * - PolicyPageReference (refs de página)
  * - PolicyAnalysis (análisis de póliza)
- * - Artifact (opcional, si no tiene otras referencias)
+ * - Artifact (si queda huérfano de otros análisis)
+ * - Archivo PDF en Supabase Storage
+ * - Pins del usuario que apunten a esta póliza
+ * - Registro de auditoría
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
+import { createServerSupabase } from '@/lib/supabase/server';
 import { prisma } from '@/lib/prisma';
 import { getOrgPoliciesContainerId } from '@/lib/helpers/getOrgPoliciesContainer';
+import { tryRecordAuditLog } from '@/lib/audit';
 
 export async function DELETE(request: NextRequest) {
   try {
     console.log('🗑️ [API/ORG-POLICIES/DELETE]: Petición de eliminación recibida.');
     
-    // 1. Autenticación y organización
+    // =========================================================================
+    // 1. AUTENTICACIÓN Y ORGANIZACIÓN
+    // =========================================================================
     const { user, currentOrg } = await getCurrentOrg();
     
-    // 2. Obtener policyId del body
+    // =========================================================================
+    // 2. VALIDAR BODY
+    // =========================================================================
     const body = await request.json();
     const { policyId } = body;
 
@@ -36,7 +49,9 @@ export async function DELETE(request: NextRequest) {
     
     console.log(`🗑️ [API/ORG-POLICIES/DELETE]: Solicitud para eliminar póliza ID: ${policyId} por usuario ${user.id} en Org ${currentOrg.id}`);
 
-    // 3. Obtener el contenedor de pólizas de la organización
+    // =========================================================================
+    // 3. VERIFICAR CONTENEDOR DE PÓLIZAS
+    // =========================================================================
     const containerId = await getOrgPoliciesContainerId(currentOrg.id);
     
     if (!containerId) {
@@ -47,7 +62,9 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 4. Verificar que la póliza existe y pertenece al contenedor de la org
+    // =========================================================================
+    // 4. VERIFICAR QUE LA PÓLIZA EXISTE Y PERTENECE A LA ORG
+    // =========================================================================
     const policyToDelete = await prisma.policyAnalysis.findFirst({
       where: {
         id: policyId,
@@ -56,14 +73,14 @@ export async function DELETE(request: NextRequest) {
       },
       include: {
         artifact: {
-          select: { id: true },
+          select: { id: true, fileId: true, fileName: true },
         },
         caseLinks: {
           select: { 
             id: true, 
             caseId: true,
             case: {
-              select: { caseName: true, clientName: true },
+              select: { id: true, caseName: true, clientName: true },
             },
           },
         },
@@ -78,20 +95,37 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // 5. Verificar si tiene vínculos activos a casos reales
+    // =========================================================================
+    // 5. GUARDIA: BLOQUEAR SI ESTÁ VINCULADA A CASOS REALES
+    // =========================================================================
     if (policyToDelete.caseLinks.length > 0) {
-      const linkedCaseNames = policyToDelete.caseLinks
-        .map(link => link.case?.caseName || link.case?.clientName || 'Caso sin nombre')
-        .join(', ');
+      const linkedCases = policyToDelete.caseLinks.map(link => ({
+        id: link.case?.id || link.caseId,
+        name: link.case?.caseName || link.case?.clientName || 'Caso sin nombre',
+      }));
       
-      console.warn(`🗑️ [API/ORG-POLICIES/DELETE]: La póliza ${policyId} está vinculada a ${policyToDelete.caseLinks.length} caso(s): ${linkedCaseNames}`);
+      console.warn(
+        `🗑️ [API/ORG-POLICIES/DELETE]: BLOQUEADO - Póliza ${policyId} vinculada a ${linkedCases.length} caso(s):`,
+        linkedCases.map(c => c.name).join(', ')
+      );
       
-      // Permitir eliminación pero advertir (los vínculos se eliminarán también)
-      console.log('🗑️ [API/ORG-POLICIES/DELETE]: Procediendo a eliminar vínculos y póliza...');
+      return NextResponse.json(
+        { 
+          error: 'POLICY_LINKED_TO_CASES',
+          linkedCases,
+          message: `Esta póliza está vinculada a ${linkedCases.length} caso(s) y no puede ser eliminada.`,
+        },
+        { status: 409 }
+      );
     }
 
-    // 6. Eliminar en transacción para garantizar consistencia
+    // =========================================================================
+    // 6. TRANSACCIÓN BD: ELIMINAR REGISTROS RELACIONADOS
+    // =========================================================================
     const artifactId = policyToDelete.artifact?.id;
+    const fileId = policyToDelete.artifact?.fileId;
+    const fileName = policyToDelete.artifact?.fileName;
+    let artifactDeleted = false;
     
     await prisma.$transaction(async (tx) => {
       // 6.1 Eliminar referencias de página (PolicyPageReference)
@@ -100,32 +134,96 @@ export async function DELETE(request: NextRequest) {
       });
       console.log(`🗑️ [API/ORG-POLICIES/DELETE]: Eliminadas ${deletedPageRefs.count} referencias de página.`);
 
-      // 6.2 Eliminar vínculos a casos (CasePolicyLink)
-      const deletedLinks = await tx.casePolicyLink.deleteMany({
-        where: { policyAnalysisId: policyId },
-      });
-      console.log(`🗑️ [API/ORG-POLICIES/DELETE]: Eliminados ${deletedLinks.count} vínculos a casos.`);
-
-      // 6.3 Eliminar el análisis de póliza
+      // 6.2 Eliminar el análisis de póliza
       await tx.policyAnalysis.delete({
         where: { id: policyId },
       });
       console.log(`🗑️ [API/ORG-POLICIES/DELETE]: PolicyAnalysis ${policyId} eliminado.`);
 
-      // 6.4 Verificar si el artifact quedó huérfano y eliminarlo
+      // 6.3 Verificar si el artifact quedó huérfano y eliminarlo
       if (artifactId) {
         const otherAnalyses = await tx.policyAnalysis.count({
           where: { artifactId: artifactId },
         });
         
         if (otherAnalyses === 0) {
-          // Artifact huérfano, eliminar
           await tx.artifact.delete({
             where: { id: artifactId },
           });
+          artifactDeleted = true;
           console.log(`🗑️ [API/ORG-POLICIES/DELETE]: Artifact huérfano ${artifactId} eliminado.`);
         }
       }
+    }, {
+      timeout: 30000, // ✅ 30s para evitar timeout en conexiones remotas
+      isolationLevel: 'ReadCommitted',
+    });
+
+    // =========================================================================
+    // 7. POST-TRANSACCIÓN: LIMPIEZA DE STORAGE
+    // =========================================================================
+    if (artifactDeleted && fileId) {
+      try {
+        const supabase = await createServerSupabase();
+        const { error: storageError } = await supabase.storage
+          .from('artifacts')
+          .remove([fileId]);
+        
+        if (storageError) {
+          console.warn('🗑️ [API/ORG-POLICIES/DELETE]: Error eliminando de Storage (non-blocking):', storageError.message);
+        } else {
+          console.log(`🗑️ [API/ORG-POLICIES/DELETE]: Archivo eliminado de Storage: ${fileId}`);
+        }
+      } catch (storageErr) {
+        console.warn('🗑️ [API/ORG-POLICIES/DELETE]: Error inesperado limpiando Storage:', storageErr);
+      }
+    }
+
+    // =========================================================================
+    // 8. POST-TRANSACCIÓN: LIMPIEZA DE PINS
+    // =========================================================================
+    try {
+      const supabase = await createServerSupabase();
+      
+      // Leer pins actuales del usuario
+      const { data: prefData } = await supabase
+        .from('user_preferences')
+        .select('ui_preferences')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      const uiPrefs = prefData?.ui_preferences as Record<string, unknown> | null;
+      const pins = uiPrefs?.pins as { policies?: string[] } | undefined;
+      
+      if (pins?.policies && Array.isArray(pins.policies) && pins.policies.includes(policyId)) {
+        const updatedPolicies = pins.policies.filter((id: string) => id !== policyId);
+        const updatedPins = { ...pins, policies: updatedPolicies };
+        const updatedUiPrefs = { ...uiPrefs, pins: updatedPins };
+        
+        await supabase
+          .from('user_preferences')
+          .update({ ui_preferences: updatedUiPrefs })
+          .eq('user_id', user.id);
+        
+        console.log(`🗑️ [API/ORG-POLICIES/DELETE]: Pin de póliza ${policyId} eliminado de preferencias del usuario.`);
+      }
+    } catch (pinErr) {
+      console.warn('🗑️ [API/ORG-POLICIES/DELETE]: Error limpiando pins (non-blocking):', pinErr);
+    }
+
+    // =========================================================================
+    // 9. AUDIT LOG
+    // =========================================================================
+    await tryRecordAuditLog({
+      caseId: containerId,
+      actor: user.email || user.id,
+      action: 'policy.delete',
+      payload: {
+        policyId,
+        fileName: fileName || null,
+        artifactDeleted,
+        orgId: currentOrg.id,
+      },
     });
 
     console.log('🗑️ [API/ORG-POLICIES/DELETE]: Póliza eliminada exitosamente.');
@@ -147,3 +245,4 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
+

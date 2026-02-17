@@ -167,7 +167,7 @@ async function DashboardContent({ locale }: { locale: Locale }) {
     id: continueItem.id,
     entity_type: 'case' as const,
     title: continueItem.title,
-    client_name: continueItem.title,
+    client_name: continueItem.clientName, // ✅ Usar clientName separado del título
     updated_at: continueItem.updatedAt,
     status: continueItem.stage,
   } : null;
