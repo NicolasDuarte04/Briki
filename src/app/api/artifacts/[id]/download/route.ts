@@ -3,6 +3,37 @@ import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { prisma } from '@/lib/prisma';
 import { createServerSupabase } from '@/lib/supabase/server';
 
+// ✅ Forzar Node.js runtime (hardening para binary streaming)
+export const runtime = 'nodejs';
+
+/**
+ * Sanitiza un fileName para uso seguro en headers HTTP Content-Disposition.
+ * 
+ * Problema: Los headers HTTP solo admiten caracteres ISO-8859-1 (0-255).
+ * Archivos con nombres Unicode (ej: "Cotización_Pérez.pdf" en NFD) contienen
+ * code points > 255 (combining accents) que rompen el constructor Headers.
+ * 
+ * Solución RFC 5987/6266:
+ * - filename="..." → fallback ASCII puro (compatible con todos los clientes)
+ * - filename*=UTF-8''... → nombre completo percent-encoded (navegadores modernos)
+ * 
+ * @param rawName - Nombre original del archivo (puede contener Unicode/NFD)
+ * @returns Objeto con ambas variantes del filename para Content-Disposition
+ */
+function sanitizeFileName(rawName: string | null | undefined): {
+  ascii: string;
+  utf8Encoded: string;
+} {
+  const name = (rawName || 'documento.pdf').normalize('NFC');
+  // Truncar a 200 chars para evitar headers excesivamente largos
+  const truncated = name.length > 200 ? name.slice(0, 196) + '.pdf' : name;
+  // ASCII fallback: solo caracteres imprimibles 0x20-0x7E, el resto → _
+  const ascii = truncated.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, "'");
+  // RFC 5987: percent-encode para filename*
+  const utf8Encoded = encodeURIComponent(truncated);
+  return { ascii, utf8Encoded };
+}
+
 /**
  * GET /api/artifacts/[id]/download
  * 
@@ -76,10 +107,14 @@ export async function GET(
     }
 
     // Return file as response
+    // ✅ FIX: Sanitizar fileName para Content-Disposition (RFC 5987/6266)
+    // Previene TypeError: ByteString con caracteres Unicode NFD (> 255)
+    const { ascii, utf8Encoded } = sanitizeFileName(artifact.fileName);
+
     return new NextResponse(data, {
       headers: {
         'Content-Type': artifact.contentType || 'application/pdf',
-        'Content-Disposition': `inline; filename="${artifact.fileName}"`,
+        'Content-Disposition': `inline; filename="${ascii}"; filename*=UTF-8''${utf8Encoded}`,
         'Cache-Control': 'private, max-age=3600',
       },
     });
