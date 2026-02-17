@@ -127,7 +127,7 @@ export async function createCaseIfNeeded(
                 // Continuar sin cliente si se cancela o falla
                 // El error de cancelación se propaga para que el componente lo maneje
                 if (error.message === 'CLIENT_CREATION_CANCELLED') {
-                    useUI.setState({ caseApproving: false });
+                    useUI.setState({ caseApproving: false, caseResolvingClient: false });
                     throw error;
                 }
             }
@@ -136,7 +136,7 @@ export async function createCaseIfNeeded(
         // 2. Obtener información del usuario
         const authResponse = await fetch('/api/auth/me');
         if (!authResponse.ok) {
-            useUI.setState({ caseApproving: false });
+            useUI.setState({ caseApproving: false, caseResolvingClient: false });
             throw new Error('No se pudo obtener información del usuario');
         }
         const { orgId, userId } = await authResponse.json();
@@ -203,7 +203,7 @@ export async function createCaseIfNeeded(
         });
 
         if (!response.ok) {
-            useUI.setState({ caseApproving: false });
+            useUI.setState({ caseApproving: false, caseResolvingClient: false });
 
             // ✅ CORRECCIÓN: Leer el error de la respuesta de manera segura
             let errorMessage = 'Error al crear el caso';
@@ -292,6 +292,9 @@ export async function createCaseIfNeeded(
             console.log('⏭️ [case-actions] Navegación omitida (skipNavigation=true)');
         }
 
+        // ✅ FIX DEFECTO C: Resetear caseResolvingClient en path de éxito
+        useUI.setState({ caseResolvingClient: false });
+
         // ✅ CORRECCIÓN: Retornar objeto con caseId Y clientId
         // Esto permite que los componentes usen el clientId sin re-validar
         return { caseId, clientId };
@@ -299,7 +302,7 @@ export async function createCaseIfNeeded(
     } catch (error: any) {
         // ✅ CORRECCIÓN: Resetear approvalPhase si hay error
         useUI.getState().setApprovalPhase('pending');
-        useUI.setState({ caseApproving: false });
+        useUI.setState({ caseApproving: false, caseResolvingClient: false });
         // Limpiar sessionStorage en caso de error
         if (typeof window !== 'undefined') {
             try { sessionStorage.removeItem('pendingCaseApproval'); } catch (e) { /* ignore */ }

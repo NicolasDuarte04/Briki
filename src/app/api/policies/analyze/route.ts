@@ -229,6 +229,13 @@ export async function POST(request: NextRequest) {
     console.error('❌ Error en POST /api/policies/analyze:', error);
 
     // Handle specific errors
+    if (error.message?.includes('encryption') || error.message?.includes('password') || error.message?.includes('decrypt')) {
+      return NextResponse.json(
+        { error: 'El PDF está protegido con encriptación no compatible. Por favor, sube una versión sin protección de contraseña.' },
+        { status: 422 } // Unprocessable Entity
+      );
+    }
+
     if (error.message?.includes('timed out')) {
       return NextResponse.json(
         { error: 'Analysis timed out. The document might be too large or complex.' },

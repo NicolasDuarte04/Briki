@@ -249,6 +249,10 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 max_budget: data.max_budget ?? null,
                 // ✅ CORRECCIÓN CRÍTICA: Incluir tempUploads para que generateInitialMessageFromBrief los incluya en el mensaje al agente
                 tempUploads: data.tempUploads || [],
+                // ✅ FIX DEFECTO F: Incluir linkedPolicyIds/linkedQuoteIds para que el brief en Zustand
+                // los preserve y generateInitialMessageFromBrief los cuente correctamente
+                ...(data.linkedPolicyIds?.length ? { linkedPolicyIds: data.linkedPolicyIds } : {}),
+                ...(data.linkedQuoteIds?.length ? { linkedQuoteIds: data.linkedQuoteIds } : {}),
             };
 
             console.log('📝 [CaseBriefForm] briefUpdate completo para mensaje al agente:', {
@@ -352,6 +356,12 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 await sendAutoMessage(autoMessageContent);
 
                 console.log('✅ [CaseBriefForm] Mensaje enviado al agente para responder a la información actualizada');
+
+                // ✅ FIX DEFECTO B: Forzar re-fetch de pólizas tras edición del caso
+                // policyAnalysesLoaded estaba en true desde el fetch inicial, impidiendo que
+                // Tabs.tsx re-dispare fetchPolicyAnalyses con los nuevos artifacts
+                useUI.setState({ policyAnalysesLoaded: false });
+                console.log('🔄 [CaseBriefForm] policyAnalysesLoaded reseteado para forzar re-fetch');
 
                 // ✅ CORRECCIÓN: Volver al resumen después de guardar exitosamente
                 // handleEditComplete en WorkspaceTabs recargará los datos del caso automáticamente

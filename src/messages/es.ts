@@ -1504,32 +1504,43 @@ const es = {
     },
     zeroState: {
       welcome: "¡Bienvenido a Briki! 👋",
-      subtitle: "Vamos a configurar tu espacio en cuatro pasos sencillos. En pocos minutos estarás listo para gestionar tus casos y pólizas.",
+      subtitle: "Vamos a configurar tu espacio en seis pasos sencillos. En pocos minutos estarás listo para gestionar tus casos y pólizas.",
       step: "Paso {number}",
       completed: "✓ Completado",
       progressLabel: "Paso {step} {status}",
       needHelp: "¿Necesitas ayuda? Nuestro equipo está aquí para ti.",
       contactUs: "Contáctanos",
       steps: {
+        manageClients: {
+          title: "Crea un cliente o empresa",
+          description: "Para empezar con los análisis de seguros crea el perfil de tu cliente o empresa de interés.",
+          actionLabel: "Crear cliente",
+          secondaryActionLabel: "Crear empresa",
+        },
+        analyzePolicies: {
+          title: "Analiza tus pólizas",
+          description: "Para contribuir a la comprensión de las aseguradoras que contactas y poder empezar a gestar un análisis, sube tus pólizas para ser analizadas.",
+          actionLabel: "Cargar pólizas",
+        },
+        analyzeQuotes: {
+          title: "Analiza tus cotizaciones",
+          description: "Para contribuir a la comprensión de las cotizaciones de las aseguradoras que contactas y referenciar fácilmente las posibles propuestas de tus clientes, carga tus cotizaciones.",
+          actionLabel: "Cargar cotizaciones",
+        },
         createCase: {
           title: "Crea tu primer caso",
           description: "Navega a la interfaz de agente o haz clic aquí para abrirla. Te ayudaremos a través de un formulario especializado a estudiar las necesidades específicas de tus clientes extrayendo la información clave de las pólizas que consideres pertinentes.",
           actionLabel: "Ir al chat con el Agente",
-        },
-        manageClients: {
-          title: "Complementa los detalles de tu cliente",
-          description: "Complementa la información básica del cliente creado anteriormente o crea nuevos clientes desde 0 con casos específicos junto con sus datos detallados para empezar a organizar tus casos.",
-          actionLabel: "Ver clientes",
         },
         manageCases: {
           title: "Gestiona los casos de tu organización",
           description: "Dentro de tu organización puedes crear, eliminar, cargar conversaciones históricas y visualizar resúmenes breves de los casos creados. Para cargar las conversaciones debes usar la sección de 'Chats' en el panel derecho.",
           actionLabel: "Gestor de Casos",
         },
-        analyzePolicies: {
-          title: "Analiza tus pólizas individuales",
-          description: "No debes tener necesariamente un caso para analizar pólizas. Si quieres tener un análisis integral de las pólizas de forma individual y crear tu banco de pólizas asociado a tu organización puedes hacerlo aquí.",
-          actionLabel: "Cargar pólizas",
+        manageOrganization: {
+          title: "Gestiona tu organización",
+          description: "Desde el panel de equipo puedes agregar, eliminar, otorgar permisos y monitorear la actividad de los miembros en tu organización.",
+          actionLabel: "Panel de equipo",
         },
       },
     },
@@ -1860,6 +1871,10 @@ const es = {
       confirm: "Eliminar",
       deleting: "Eliminando...",
       error: "Error al eliminar la póliza",
+      linkedErrorTitle: "No se puede eliminar esta póliza",
+      linkedErrorDescription: "Esta póliza no se puede eliminar puesto que está siendo trabajada en el caso \"{caseName}\". Elimina esta póliza del caso o elimina el caso para poder eliminar esta póliza seguramente.",
+      linkedErrorDescriptionMultiple: "Esta póliza no se puede eliminar puesto que está siendo trabajada en los siguientes casos: {caseNames}. Elimina esta póliza de los casos o elimina los casos para poder eliminar esta póliza seguramente.",
+      linkedErrorDismiss: "Entendido",
     },
     // Analysis List Page
     analysisPage: {
@@ -1962,6 +1977,10 @@ const es = {
         cancel: "Cancelar",
         confirm: "Eliminar",
         deleting: "Eliminando...",
+        linkedErrorTitle: "No se puede eliminar esta póliza",
+        linkedErrorDescription: "Esta póliza no se puede eliminar puesto que está siendo trabajada en el caso \"{caseName}\". Elimina esta póliza del caso o elimina el caso para poder eliminar esta póliza seguramente.",
+        linkedErrorDescriptionMultiple: "Esta póliza no se puede eliminar puesto que está siendo trabajada en los siguientes casos: {caseNames}. Elimina esta póliza de los casos o elimina los casos para poder eliminar esta póliza seguramente.",
+        linkedErrorDismiss: "Entendido",
       },
     },
     // Upload page

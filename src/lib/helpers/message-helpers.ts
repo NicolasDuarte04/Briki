@@ -153,7 +153,7 @@ export function generateWelcomeMessageFromBrief(
     brief: Partial<CaseBrief>, 
     artifactCount: number = 0,
     linkedPolicyCount: number = 0,
-    policyInfo?: { baselineCount: number; challengerCount: number; baselineFileName: string }
+    policyInfo?: { baselineCount: number; challengerCount: number; baselineFileName: string; linkedQuoteCount?: number }
 ): string {
     const clientName = brief.clientName || 'tu cliente';
     
@@ -161,6 +161,7 @@ export function generateWelcomeMessageFromBrief(
     const baselineCount = policyInfo?.baselineCount ?? 0;
     const challengerCount = policyInfo?.challengerCount ?? 0;
     const baselineFileName = policyInfo?.baselineFileName ?? '';
+    const linkedQuoteCount = policyInfo?.linkedQuoteCount ?? 0;
     
     let message = `¡Excelente! He creado un nuevo caso para **${clientName}**.\n\n`;
     
@@ -207,39 +208,45 @@ export function generateWelcomeMessageFromBrief(
     // ✅ FASE BASELINE vs CHALLENGERS: Sección de pólizas diferenciada
     // Ahora usa los parámetros pasados desde state.ts (datos reales de artifacts)
     const totalLocalPolicies = baselineCount + challengerCount;
-    const totalChallengers = challengerCount + linkedPolicyCount;
-    const totalPolicies = artifactCount + linkedPolicyCount;
+    const totalChallengers = challengerCount + linkedQuoteCount;
+    const totalPolicies = artifactCount + linkedPolicyCount + linkedQuoteCount;
     
     message += `---\n\n`;
     
-    // Indicar estado de baseline
+    // Indicar estado de baseline (local + org vinculadas)
     if (baselineCount > 0) {
         message += `🔵 **Póliza actual (baseline):** ${baselineFileName}\n`;
+        if (linkedPolicyCount > 0) {
+            message += `🔵 **Pólizas org vinculadas (baseline):** ${linkedPolicyCount} póliza(s)\n`;
+        }
+    } else if (linkedPolicyCount > 0) {
+        message += `🔵 **Pólizas de la organización (baseline):** ${linkedPolicyCount} póliza(s) vinculada(s)\n`;
     } else {
         message += `⚠️ **Sin póliza actual:** El cliente no tiene una póliza baseline adjuntada\n`;
     }
     
-    // Indicar challengers (locales + vinculadas)
+    // Indicar challengers (locales + cotizaciones org vinculadas)
     if (totalChallengers > 0) {
         message += `🟢 **Alternativas a comparar:**\n`;
         if (challengerCount > 0) {
             message += `  - ${challengerCount} cotización(es) local(es)\n`;
         }
-        if (linkedPolicyCount > 0) {
-            message += `  - ${linkedPolicyCount} póliza(s) de la organización\n`;
+        if (linkedQuoteCount > 0) {
+            message += `  - ${linkedQuoteCount} cotización(es) de la organización\n`;
         }
     }
     
     // ✅ CRÍTICO: SIEMPRE indicar ir al tab de Pólizas si hay documentos
+    const hasBaseline = baselineCount > 0 || linkedPolicyCount > 0;
     if (totalPolicies > 0) {
         message += `\n👉 **Siguiente paso:** Ve a la pestaña **"Pólizas"** en el panel derecho.\n`;
         
-        if (baselineCount > 0) {
+        if (hasBaseline) {
             message += `Te recomiendo analizar primero la **póliza baseline** para establecer el punto de referencia.\n`;
         }
         
-        if (linkedPolicyCount > 0 && challengerCount === 0) {
-            message += `Haz clic en **"Cargar Análisis"** para contextualizar las pólizas de la organización.`;
+        if ((linkedPolicyCount > 0 || linkedQuoteCount > 0) && totalLocalPolicies === 0) {
+            message += `Haz clic en **"Cargar Análisis"** para contextualizar los documentos de la organización.`;
         } else if (totalLocalPolicies > 0) {
             message += `Haz clic en **"Analizar PDF"** para iniciar el análisis de cada documento.`;
         }

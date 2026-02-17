@@ -7,7 +7,7 @@
  * @module hooks/useClientValidation
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useUI } from '@/lib/ui/state';
 
 /**
@@ -62,6 +62,20 @@ export interface ClientValidationModalState {
 export function useClientValidation(useModal: boolean = false) {
     const [isLoading, setIsLoading] = useState(false);
     const [modalState, setModalState] = useState<ClientValidationModalState | null>(null);
+
+    // ✅ FIX DEFECTO C: Safety cleanup — si el componente se desmonta durante validación,
+    // asegurar que caseResolvingClient se resetee para evitar spinner infinito
+    const isLoadingRef = useRef(false);
+    isLoadingRef.current = isLoading;
+
+    useEffect(() => {
+        return () => {
+            if (isLoadingRef.current) {
+                console.warn('⚠️ [useClientValidation] Componente desmontado durante validación — reseteando caseResolvingClient');
+                useUI.setState({ caseResolvingClient: false });
+            }
+        };
+    }, []);
 
     // Función real de validación y creación de clientes
     const validateAndResolveClient = useCallback(async (clientName?: string): Promise<string | null> => {

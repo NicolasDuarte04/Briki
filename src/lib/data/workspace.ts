@@ -14,6 +14,7 @@
 import { createServerSupabase } from '@/lib/supabase/server';
 import { prisma } from '@/lib/prisma';
 import { ORG_POLICIES_CONTAINER } from '@/lib/helpers/getOrgPoliciesContainer';
+import { ORG_QUOTES_CONTAINER } from '@/lib/helpers/getOrgQuotesContainer';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -25,6 +26,7 @@ import { ORG_POLICIES_CONTAINER } from '@/lib/helpers/getOrgPoliciesContainer';
 export interface ContinueItem {
   id: string;
   title: string;
+  clientName: string; // ✅ Nombre del cliente separado del título del caso
   description: string;
   stage: string;
   updatedAt: string;
@@ -149,7 +151,7 @@ export async function getContinueItem(
 
   const { data, error } = await supabase
     .from('cases')
-    .select('id, client_name, stage, status, updated_at')
+    .select('id, case_name, client_name, stage, status, updated_at')
     .eq('org_id', orgId)
     .in('stage', WORK_IN_PROGRESS_STAGES)
     .order('updated_at', { ascending: false })
@@ -162,7 +164,8 @@ export async function getContinueItem(
 
   return {
     id: data.id,
-    title: data.client_name || 'Sin nombre',
+    title: data.case_name || data.client_name || 'Caso sin nombre', // ✅ Priorizar case_name
+    clientName: data.client_name || 'Sin cliente', // ✅ Campo separado para cliente
     description: `${data.stage} • ${data.status}`,
     stage: data.stage,
     updatedAt: data.updated_at,
@@ -252,7 +255,7 @@ export async function getRecentCases(orgId: string): Promise<RecentCase[]> {
   // Obtener más registros para compensar el filtrado posterior
   const { data, error } = await supabase
     .from('cases')
-    .select('id, client_name, status, stage, updated_at')
+    .select('id, case_name, client_name, status, stage, updated_at')
     .eq('org_id', orgId)
     .order('updated_at', { ascending: false })
     .limit(5);
@@ -262,17 +265,18 @@ export async function getRecentCases(orgId: string): Promise<RecentCase[]> {
     return [];
   }
 
-  // ✅ Filtrar en JavaScript: excluir el caso contenedor de pólizas de organización
-  // El campo 'status' contiene '__org_policies_container__' para el caso especial
+  // ✅ Filtrar en JavaScript: excluir los casos contenedores de organización
+  // El campo 'status' contiene '__org_policies_container__' o '__org_quotes_container__' para casos especiales
   const filteredData = data.filter(item => 
-    item.status !== ORG_POLICIES_CONTAINER.STATUS
+    item.status !== ORG_POLICIES_CONTAINER.STATUS &&
+    item.status !== ORG_QUOTES_CONTAINER.STATUS
   );
 
   // Limitar a 3 resultados después del filtrado
   return filteredData.slice(0, 3).map((item) => ({
     id: item.id,
-    title: item.client_name ?? 'Caso sin nombre',
-    client_name: item.client_name ?? 'Sin nombre',
+    title: item.case_name ?? item.client_name ?? 'Caso sin nombre', // ✅ Priorizar case_name
+    client_name: item.client_name ?? 'Sin cliente', // ✅ Nombre del cliente separado
     status: item.status,
     updated_at: item.updated_at,
   }));
@@ -526,7 +530,7 @@ export async function getPinnedCases(
   const supabase = await createServerSupabase();
   const { data, error } = await supabase
     .from('cases')
-    .select('id, client_name, status, updated_at')
+    .select('id, case_name, client_name, status, updated_at')
     .in('id', pins.cases)
     .eq('org_id', orgId)
     .limit(MAX_PINS_PER_TYPE);
@@ -543,8 +547,8 @@ export async function getPinnedCases(
   return data.map((item) => ({
     id: item.id,
     caseId: item.id,
-    caseName: item.client_name ?? 'Sin nombre',
-    clientName: item.client_name ?? 'Sin nombre',
+    caseName: item.case_name ?? item.client_name ?? 'Sin nombre', // ✅ Priorizar case_name
+    clientName: item.client_name ?? 'Sin cliente', // ✅ Nombre del cliente separado
     createdAt: item.updated_at,
   }));
 }

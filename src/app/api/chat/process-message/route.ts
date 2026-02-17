@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     // ✅ FIX DEFECTO B: Separar tag [BRIEF_UPDATE] del mensaje visible
     // El tag se preserva para el prompt (detectOperationMode), pero se elimina del texto almacenado/mostrado
     const rawMessage = message || '';
-    const displayMessage = rawMessage.replace(/\[BRIEF_UPDATE\]\s*/i, '').trim();
+    const displayMessage = rawMessage.replace(/\[BRIEF_UPDATE\]\s*|\[POLICY_ANALYSIS\]\s*/gi, '').trim();
 
     console.log('🔄 API: Procesando mensaje:', displayMessage);
     console.log('📋 API: Brief recibido:', brief);
@@ -80,28 +80,128 @@ export async function POST(request: NextRequest) {
 
     console.log(`📊 API: ${previousAnalyses.length} análisis previos encontrados para contexto`);
 
+    // 1.6 ✅ FIX DEFECTO E: Obtener pólizas y cotizaciones vinculadas via CasePolicyLink/CaseQuoteLink
+    // Las pólizas de organización tienen su artifact/analysis en el contenedor de org (caseId diferente).
+    // Solo CasePolicyLink las conecta al caso actual. Replicamos el patrón de policies/analyses/route.ts.
+    const linkedPolicyLinks = await prisma.casePolicyLink.findMany({
+      where: { caseId: caseId, orgId: currentOrg.id },
+      include: {
+        policyAnalysis: {
+          include: {
+            artifact: {
+              select: { id: true, fileName: true, contentText: true, provenance: true }
+            },
+            pageReferences: {
+              select: { fieldName: true, fieldValue: true, pageNumber: true, confidence: true }
+            }
+          }
+        }
+      }
+    });
+
+    const linkedQuoteLinks = await prisma.caseQuoteLink.findMany({
+      where: { caseId: caseId, orgId: currentOrg.id },
+      include: {
+        quoteAnalysis: {
+          include: {
+            artifact: {
+              select: { id: true, fileName: true, contentText: true, provenance: true }
+            }
+          }
+        }
+      }
+    });
+
+    console.log(`🔗 API: ${linkedPolicyLinks.length} pólizas vinculadas, ${linkedQuoteLinks.length} cotizaciones vinculadas`);
+
+    // Deduplicar: si un artifact ya está en directos, no duplicar
+    const directArtifactIds = new Set(artifacts.map(a => a.id));
+    const directAnalysisIds = new Set(previousAnalyses.map(a => a.id));
+
+    // Construir documents y analyses de pólizas vinculadas
+    const linkedPolicyDocuments = linkedPolicyLinks
+      .filter(link => link.policyAnalysis.artifact && !directArtifactIds.has(link.policyAnalysis.artifact.id))
+      .map(link => {
+        const art = link.policyAnalysis.artifact!;
+        return {
+          fileName: art.fileName || 'Póliza de organización',
+          content: art.contentText,
+          ...(link.policyAnalysis.id ? { analysisId: link.policyAnalysis.id } : {}),
+          documentRole: 'baseline' as const, // Pólizas de org son condiciones actuales
+        };
+      });
+
+    const linkedPolicyAnalyses = linkedPolicyLinks
+      .filter(link => !directAnalysisIds.has(link.policyAnalysis.id))
+      .map(link => ({
+        id: link.policyAnalysis.id,
+        extractedData: link.policyAnalysis.extractedData,
+        artifact: link.policyAnalysis.artifact ? {
+          fileName: link.policyAnalysis.artifact.fileName,
+          provenance: link.policyAnalysis.artifact.provenance
+        } : null,
+        pageReferences: link.policyAnalysis.pageReferences,
+        documentRole: 'baseline' as const,
+      }));
+
+    // Construir documents y analyses de cotizaciones vinculadas
+    const linkedQuoteDocuments = linkedQuoteLinks
+      .filter(link => link.quoteAnalysis.artifact && !directArtifactIds.has(link.quoteAnalysis.artifact.id))
+      .map(link => {
+        const art = link.quoteAnalysis.artifact!;
+        return {
+          fileName: art.fileName || 'Cotización de organización',
+          content: art.contentText,
+          documentRole: 'challenger' as const, // Cotizaciones son alternativas
+        };
+      });
+
+    const linkedQuoteAnalyses = linkedQuoteLinks
+      .filter(link => !directAnalysisIds.has(link.quoteAnalysis.id))
+      .map(link => ({
+        id: link.quoteAnalysis.id,
+        extractedData: link.quoteAnalysis.extractedData,
+        artifact: link.quoteAnalysis.artifact ? {
+          fileName: link.quoteAnalysis.artifact.fileName,
+          provenance: link.quoteAnalysis.artifact.provenance
+        } : null,
+        pageReferences: [],
+        documentRole: 'challenger' as const,
+      }));
+
     // 2. Preparar la solicitud para el servicio OpenAI
     // ✅ FIX DEFECTO B: rawMessage conserva el tag [BRIEF_UPDATE] para detectOperationMode
     const analysisRequest: AnalysisRequest = {
       message: rawMessage,
-      brief: brief || {}, // Pasar el brief recibido del frontend
-      documents: artifacts.map(artifact => {
-        const prov = artifact.provenance as any;
-        return {
-          fileName: artifact.fileName || 'Unknown Document',
-          content: artifact.contentText, // Puede ser null si la extracción falló
-          ...(artifact.policyAnalyses?.[0]?.id ? { analysisId: artifact.policyAnalyses[0].id } : {}), // ✅ FASE 9
-          ...(prov?.documentRole ? { documentRole: prov.documentRole as 'baseline' | 'challenger' } : {}), // ✅ FIX: documentRole
-        };
-      }),
-      // ✅ FIX DEFECTO 3: Mapear documentRole desde artifact.provenance a cada análisis
-      previousAnalyses: previousAnalyses.map(analysis => {
-        const prov = analysis.artifact?.provenance as any;
-        return {
-          ...analysis,
-          ...(prov?.documentRole ? { documentRole: prov.documentRole as 'baseline' | 'challenger' } : {}),
-        };
-      })
+      brief: brief || {},
+      documents: [
+        // Documentos directos del caso
+        ...artifacts.map(artifact => {
+          const prov = artifact.provenance as any;
+          return {
+            fileName: artifact.fileName || 'Unknown Document',
+            content: artifact.contentText,
+            ...(artifact.policyAnalyses?.[0]?.id ? { analysisId: artifact.policyAnalyses[0].id } : {}),
+            ...(prov?.documentRole ? { documentRole: prov.documentRole as 'baseline' | 'challenger' } : {}),
+          };
+        }),
+        // ✅ FIX DEFECTO E: Documentos de pólizas y cotizaciones vinculadas de la organización
+        ...linkedPolicyDocuments,
+        ...linkedQuoteDocuments,
+      ],
+      previousAnalyses: [
+        // Análisis directos
+        ...previousAnalyses.map(analysis => {
+          const prov = analysis.artifact?.provenance as any;
+          return {
+            ...analysis,
+            ...(prov?.documentRole ? { documentRole: prov.documentRole as 'baseline' | 'challenger' } : {}),
+          };
+        }),
+        // ✅ FIX DEFECTO E: Análisis de pólizas y cotizaciones vinculadas de la organización
+        ...linkedPolicyAnalyses,
+        ...linkedQuoteAnalyses,
+      ]
     };
 
     // 3. Guardar mensaje del usuario en la tabla messages

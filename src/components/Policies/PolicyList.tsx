@@ -86,6 +86,7 @@ export function PolicyList({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [policyToDelete, setPolicyToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [linkedError, setLinkedError] = useState<{ caseNames: string } | null>(null);
   
   // Extract unique policy types for filter
   const uniqueTypes = useMemo(() => {
@@ -154,8 +155,19 @@ export function PolicyList({
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || tDelete('error'));
+        const errorData = await response.json();
+        
+        // ✅ Manejar error de póliza vinculada a casos
+        if (response.status === 409 && errorData.error === 'POLICY_LINKED_TO_CASES') {
+          const caseNames = (errorData.linkedCases as Array<{ name: string }>)
+            .map((c) => `"${c.name}"`)
+            .join(', ');
+          setDeleteDialogOpen(false);
+          setLinkedError({ caseNames });
+          return;
+        }
+        
+        throw new Error(errorData.error || tDelete('error'));
       }
       
       // Refresh the page to show changes
@@ -164,7 +176,6 @@ export function PolicyList({
       setPolicyToDelete(null);
     } catch (error) {
       console.error('Error deleting policy:', error);
-      // Could show a toast here
       alert(error instanceof Error ? error.message : tDelete('error'));
     } finally {
       setIsDeleting(false);
@@ -270,6 +281,27 @@ export function PolicyList({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting ? tDelete('deleting') : tDelete('confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Linked Policy Error Dialog */}
+      <AlertDialog open={!!linkedError} onOpenChange={() => setLinkedError(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{tDelete('linkedErrorTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {linkedError && (
+                linkedError.caseNames.split(',').length > 1
+                  ? tDelete('linkedErrorDescriptionMultiple', { caseNames: linkedError.caseNames })
+                  : tDelete('linkedErrorDescription', { caseName: linkedError.caseNames.replace(/"/g, '') })
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => { setLinkedError(null); setPolicyToDelete(null); }}>
+              {tDelete('linkedErrorDismiss')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

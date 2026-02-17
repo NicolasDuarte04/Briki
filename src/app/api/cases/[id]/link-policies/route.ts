@@ -366,10 +366,35 @@ export async function PATCH(
       whereClause.policyAnalysisId = policyAnalysisId;
     }
 
-    const link = await prisma.casePolicyLink.findFirst({
+    // ✅ FIX BUG R: Buscar primero en CasePolicyLink, luego en CaseQuoteLink
+    let link: { id: string; contextualizedAt: Date | null } | null = null;
+    let isQuoteLink = false;
+
+    link = await prisma.casePolicyLink.findFirst({
       where: whereClause,
       select: { id: true, contextualizedAt: true, policyAnalysisId: true },
     });
+
+    if (!link) {
+      // Fallback: buscar en CaseQuoteLink (cotizaciones vinculadas)
+      const quoteWhereClause: any = { caseId, orgId };
+      if (linkId) {
+        quoteWhereClause.id = linkId;
+      } else if (policyAnalysisId) {
+        // policyAnalysisId en este contexto puede ser un quoteAnalysisId
+        quoteWhereClause.quoteAnalysisId = policyAnalysisId;
+      }
+
+      const quoteLink = await prisma.caseQuoteLink.findFirst({
+        where: quoteWhereClause,
+        select: { id: true, contextualizedAt: true, quoteAnalysisId: true },
+      });
+
+      if (quoteLink) {
+        link = quoteLink;
+        isQuoteLink = true;
+      }
+    }
 
     if (!link) {
       return NextResponse.json(
@@ -389,28 +414,36 @@ export async function PATCH(
       });
     }
 
-    // Actualizar contextualizedAt
+    // Actualizar contextualizedAt en la tabla correcta
     const now = new Date();
-    const updatedLink = await prisma.casePolicyLink.update({
-      where: { id: link.id },
-      data: { contextualizedAt: now },
-    });
+    let updatedLink;
+    if (isQuoteLink) {
+      updatedLink = await prisma.caseQuoteLink.update({
+        where: { id: link.id },
+        data: { contextualizedAt: now },
+      });
+    } else {
+      updatedLink = await prisma.casePolicyLink.update({
+        where: { id: link.id },
+        data: { contextualizedAt: now },
+      });
+    }
 
     // Auditoría
     await recordAuditLog({
       caseId,
       actor: user.id,
-      action: 'policy_contextualized',
+      action: isQuoteLink ? 'quote_contextualized' : 'policy_contextualized',
       tool: 'link_policies_api',
       payload: {
         orgId,
         linkId: link.id,
-        policyAnalysisId: link.policyAnalysisId,
+        isQuoteLink,
         contextualizedAt: now.toISOString(),
       },
     });
 
-    console.log(`✅ [link-policies] Enlace ${link.id} marcado como contextualizado`);
+    console.log(`✅ [link-policies] Enlace ${link.id} (${isQuoteLink ? 'quote' : 'policy'}) marcado como contextualizado`);
 
     return NextResponse.json({
       success: true,
