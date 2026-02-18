@@ -688,13 +688,38 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   const handleCompanySearchChange = useCallback((value: string) => {
     setCompanySearchTerm(value);
 
-    // Actualizar estado global con el término de búsqueda
-    setBrief({ companyName: value, selectedCompanyId: null } as any);
+    // ✅ SELECTOR ESTRICTO: Solo actualizar el término de búsqueda visual para filtrar.
+    // NO actualizamos companyName/selectedCompanyId en el brief - esos solo cambian al seleccionar.
+    // Esto previene que texto libre se acepte como nombre de empresa.
 
     // Abrir dropdown cuando se escriba
     if (value.length > 0) {
       setIsCompanyComboboxOpen(true);
     }
+  }, []);
+
+  // ✅ SELECTOR ESTRICTO: Al perder foco, revertir al último valor seleccionado o vaciar
+  const handleCompanyBlur = useCallback(() => {
+    // Pequeño delay para permitir que el click en el dropdown se procese primero
+    setTimeout(() => {
+      if (selectedCompany) {
+        // Revertir al nombre de la empresa seleccionada
+        setCompanySearchTerm(selectedCompany.name);
+      } else {
+        // No hay empresa seleccionada: vaciar el campo
+        setCompanySearchTerm('');
+        setBrief({ companyName: undefined, selectedCompanyId: null } as any);
+      }
+      setIsCompanyComboboxOpen(false);
+    }, 200);
+  }, [selectedCompany, setBrief]);
+
+  // ✅ SELECTOR ESTRICTO: Limpiar selección de empresa
+  const handleCompanyClear = useCallback(() => {
+    setSelectedCompany(null);
+    setCompanySearchTerm('');
+    setBrief({ companyName: undefined, selectedCompanyId: null } as any);
+    setIsCompanyComboboxOpen(false);
   }, [setBrief]);
 
   // ✅ FASE CLIENTE/EMPRESA: Handler para cambio de tipo de sujeto
@@ -853,6 +878,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       return;
     }
 
+    // ✅ VALIDACIÓN EMPRESA: Prevenir envío sin empresa seleccionada cuando subjectType=company
+    if (subjectType === 'company' && !selectedCompany) {
+      console.warn('❌ [BriefForm] Intentando enviar con tipo empresa pero sin empresa seleccionada');
+      alert('Por favor selecciona una empresa existente de la lista para continuar.');
+      return;
+    }
+
     try {
       // ✅ CORRECCIÓN CRÍTICA: Capturar TODOS los datos del formulario en el momento del click
       // Esto incluye datos autollenados del Landing que pueden no haberse guardado en tiempo real
@@ -998,7 +1030,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       // Re-lanzar el error para que se maneje en el componente padre
       throw error;
     }
-  }, [onApprove, onSubmit, formData, tempUploads, selectedOrgPolicyIds, selectedOrgQuoteIds, setBrief, mode, formData.insurance_category, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId]);
+  }, [onApprove, onSubmit, formData, tempUploads, selectedOrgPolicyIds, selectedOrgQuoteIds, setBrief, mode, formData.insurance_category, router, validateAndResolveClient, setInitialMessage, setCurrentCaseId, currentCaseId, subjectType, selectedCompany]);
 
   // ✅ CORRECCIÓN UX: Estado combinado para mostrar overlay de procesamiento
   const isProcessing = isSubmitting || caseApproving || caseResolvingClient;
@@ -1265,26 +1297,46 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                   </div>
                 )}
 
-                {/* Combobox para Empresa */}
+                {/* Combobox para Empresa — ✅ SELECTOR ESTRICTO: Solo selección de empresas existentes */}
                 {subjectType === 'company' && (
                   <div className="relative company-combobox-container">
-                    <Input
-                      id="companyName"
-                      placeholder={tCaseBrief('form.companyNamePlaceholder')}
-                      value={companySearchTerm}
-                      onChange={(e) => handleCompanySearchChange(e.target.value)}
-                      onFocus={() => mode !== 'edit' && setIsCompanyComboboxOpen(true)}
-                      className="w-full"
-                      disabled={mode === 'edit'}
-                    />
+                    <div className="relative">
+                      <Input
+                        id="companyName"
+                        placeholder={tCaseBrief('form.companyNamePlaceholder')}
+                        value={companySearchTerm}
+                        onChange={(e) => handleCompanySearchChange(e.target.value)}
+                        onFocus={() => mode !== 'edit' && setIsCompanyComboboxOpen(true)}
+                        onBlur={handleCompanyBlur}
+                        className={cn("w-full pr-8", selectedCompany && "border-primary/50")}
+                        disabled={mode === 'edit'}
+                      />
+                      {/* Botón X para limpiar selección */}
+                      {selectedCompany && mode !== 'edit' && (
+                        <button
+                          type="button"
+                          onClick={handleCompanyClear}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          aria-label="Limpiar empresa seleccionada"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                     {isCompanyComboboxOpen && mode !== 'edit' && (
                       <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
                         {isCompanyListLoading ? (
                           <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingCompanies')}</div>
+                        ) : companyList.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-muted-foreground">
+                            No hay empresas registradas. Cree una empresa primero en el módulo de Empresas.
+                          </div>
                         ) : companyList.filter(company =>
                           company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
                         ).length === 0 ? (
-                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.noCompaniesFound')}</div>
+                          <div className="px-3 py-2 text-sm text-muted-foreground">
+                            {tCaseBrief('form.noCompaniesFound')}
+                          </div>
                         ) : (
                           companyList
                             .filter(company =>
@@ -1293,6 +1345,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                             .map((company) => (
                               <div
                                 key={company.id}
+                                onMouseDown={(e) => e.preventDefault()} // Prevenir blur antes del click
                                 onClick={() => handleCompanySelect(company)}
                                 className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
                               >

@@ -38,13 +38,23 @@ export function ComparisonTable({ comparison, analyses, baselineAnalysisId }: Co
         return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
     });
 
+    // ✅ FIX: Número fijo de columnas para mostrar TODAS las pólizas
+    const columnCount = comparison.analysisIds.length;
+    const gridTemplateColumns = `200px repeat(${columnCount}, minmax(220px, 1fr))`;
+
     return (
         <div className="flex flex-col h-full border rounded-lg overflow-hidden bg-background shadow-sm">
-            {/* Table Header */}
-            <div className="grid grid-cols-[200px_repeat(auto-fit,minmax(200px,1fr))] bg-muted/30 border-b border-border">
-                <div className="p-4 font-semibold text-sm text-muted-foreground flex items-center">
-                    Concepto
-                </div>
+            {/* ✅ Scroll horizontal container para ver todas las columnas */}
+            <div className="overflow-x-auto flex-1 flex flex-col">
+                {/* Table Header - min-w-max evita que se comprima */}
+                <div 
+                    className="grid bg-muted/30 border-b border-border min-w-max"
+                    style={{ gridTemplateColumns }}
+                >
+                    {/* ✅ Primera columna sticky para navegación */}
+                    <div className="p-4 font-semibold text-sm text-muted-foreground flex items-center sticky left-0 z-20 bg-muted/30 border-r border-border/50">
+                        Concepto
+                    </div>
                 {comparison.analysisIds.map((id) => {
                     const analysis = analyses.find(a => a.id === id);
                     const insurerName = (analysis?.extractedData as any)?.insurer?.name || 'Unknown Insurer';
@@ -95,34 +105,45 @@ export function ComparisonTable({ comparison, analyses, baselineAnalysisId }: Co
                 })}
             </div>
 
-            {/* Table Body */}
-            <ScrollArea className="flex-1">
-                <div className="flex flex-col">
-                    {sortedCategories.map((category) => (
-                        <div key={category} className="flex flex-col">
-                            {/* Category Header */}
-                            <div className="bg-muted/50 px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground border-y border-border/50 sticky top-0 z-10">
-                                {category === 'financial' ? 'Condiciones Financieras' :
-                                    category === 'coverage' ? 'Coberturas' :
-                                        category === 'deductible' ? 'Deducibles' :
-                                            category === 'exclusion' ? 'Exclusiones' :
-                                                category}
-                            </div>
+                {/* Table Body - scroll vertical interno */}
+                <ScrollArea className="flex-1">
+                    <div className="flex flex-col min-w-max">
+                        {sortedCategories.map((category) => (
+                            <div key={category} className="flex flex-col">
+                                {/* Category Header - sticky horizontal */}
+                                <div 
+                                    className="grid bg-muted/50 border-y border-border/50 min-w-max"
+                                    style={{ gridTemplateColumns }}
+                                >
+                                    <div className="px-4 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground sticky left-0 z-10 bg-muted/50">
+                                        {category === 'financial' ? 'Condiciones Financieras' :
+                                            category === 'coverage' ? 'Coberturas' :
+                                                category === 'deductible' ? 'Deducibles' :
+                                                    category === 'exclusion' ? 'Exclusiones' :
+                                                        category}
+                                    </div>
+                                    {/* Celdas vacías para mantener el grid alineado */}
+                                    {comparison.analysisIds.map((id) => (
+                                        <div key={id} className="border-l border-border/30" />
+                                    ))}
+                                </div>
 
-                            {/* Rows */}
-                            {(groupedRows[category] || []).map((row, index) => (
-                                <ComparisonRow
-                                    key={row.id}
-                                    row={row}
-                                    analysisIds={comparison.analysisIds}
-                                    isEven={index % 2 === 0}
-                                    {...(baselineAnalysisId && { baselineAnalysisId })}
-                                />
-                            ))}
-                        </div>
-                    ))}
-                </div>
-            </ScrollArea>
+                                {/* Rows */}
+                                {(groupedRows[category] || []).map((row, index) => (
+                                    <ComparisonRow
+                                        key={row.id}
+                                        row={row}
+                                        analysisIds={comparison.analysisIds}
+                                        columnCount={columnCount}
+                                        isEven={index % 2 === 0}
+                                        {...(baselineAnalysisId && { baselineAnalysisId })}
+                                    />
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+            </div>
         </div>
     );
 }

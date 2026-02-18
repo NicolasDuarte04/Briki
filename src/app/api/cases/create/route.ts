@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
       orgId: providedOrgId, // orgId puede venir del frontend
       userId,
       clientName,
+      companyName, // ✅ FASE CLIENTE/EMPRESA: Nombre de la empresa para generación de nombre de caso
       clientRef,
       selectedClientId, // ID del cliente seleccionado (para generar nombre)
       selectedCompanyId, // ✅ FASE CLIENTE/EMPRESA: ID de la empresa seleccionada
@@ -131,18 +132,22 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // clientName es opcional - usar valor por defecto si no se proporciona
-    const finalClientName = clientName || 'Cliente Nuevo';
+    // ✅ FASE CLIENTE/EMPRESA: Determinar nombre del sujeto según tipo
+    const isCompanyCase = subjectType === 'company';
+    const finalClientName = isCompanyCase
+      ? (companyName || 'Empresa Nueva')  // Usar nombre de empresa cuando subjectType=company
+      : (clientName || 'Cliente Nuevo');
     
-    // ✅ NUEVO: Generar nombre automático del caso
+    // ✅ NUEVO: Generar nombre automático del caso (soporta cliente y empresa)
     let generatedCaseName: string;
     try {
       generatedCaseName = await generateCaseName(
-        selectedClientId || null, 
+        isCompanyCase ? null : (selectedClientId || null),  // clientId solo si es cliente
         orgId, 
-        finalClientName
+        finalClientName,
+        isCompanyCase ? (selectedCompanyId || null) : null  // ✅ companyId solo si es empresa
       );
-      console.log('✅ [API/cases/create] Nombre de caso generado:', generatedCaseName);
+      console.log('✅ [API/cases/create] Nombre de caso generado:', generatedCaseName, '| subjectType:', subjectType);
     } catch (nameError) {
       console.warn('⚠️ [API/cases/create] Error generando nombre, usando fallback:', nameError);
       generatedCaseName = `Caso de ${finalClientName}`;
