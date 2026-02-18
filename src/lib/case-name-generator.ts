@@ -4,14 +4,15 @@
  * Sistema de generación automática de nombres para casos siguiendo
  * un patrón similar al del sistema de archivos de Windows/macOS.
  * 
- * Formato: "Caso de [Cliente] #N" o "Caso de [Cliente]" si es único
- * Para casos sin cliente: "Cliente vacío #N"
+ * Formato: "Caso de [Cliente/Empresa] #N" o "Caso de [Cliente/Empresa]" si es único
+ * Para casos sin cliente ni empresa: "Cliente vacío #N"
  * 
  * @module lib/case-name-generator
  */
 
 import { prisma } from './prisma';
 import { getClientById } from './clientsDb';
+import { getCompanyById } from './companiesDb';
 
 /**
  * Extrae los números usados de los nombres de casos existentes.
@@ -92,16 +93,31 @@ function generateBaseName(clientName: string | null): string {
  * // Segundo caso del mismo cliente
  * await generateCaseName('client-123', 'org-456')
  * // Returns: "Caso de Acme Corp #2" (y renumera el primero a #1)
+ *
+ * // Caso de empresa
+ * await generateCaseName(null, 'org-456', 'Seguros Bolívar', 'company-789')
+ * // Returns: "Caso de Seguros Bolívar"
  */
 export async function generateCaseName(
   clientId: string | null,
   orgId: string,
-  clientName?: string | null
+  clientName?: string | null,
+  companyId?: string | null
 ): Promise<string> {
-  // 1. Determinar nombre base del cliente
+  // 1. Determinar nombre base del sujeto (cliente o empresa)
   let baseName: string;
 
-  if (clientId) {
+  if (companyId) {
+    // ✅ FASE CLIENTE/EMPRESA: Intentar obtener nombre descifrado de la empresa
+    try {
+      const company = await getCompanyById(companyId, orgId);
+      const companyDisplayName = company?.tradeName || company?.legalName || clientName || null;
+      baseName = generateBaseName(companyDisplayName);
+    } catch (error) {
+      console.warn('[generateCaseName] Error obteniendo empresa, usando clientName como fallback:', error);
+      baseName = generateBaseName(clientName || null);
+    }
+  } else if (clientId) {
     // Intentar obtener nombre descifrado del cliente
     try {
       const client = await getClientById(clientId, orgId);

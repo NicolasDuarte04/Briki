@@ -163,9 +163,10 @@ export async function createCaseIfNeeded(
         }
         console.log('📝 [case-actions] freeText final que se enviará al API:', finalFreeText);
 
-        // ✅ FASE CLIENTE/EMPRESA: Determinar qué ID enviar según subjectType
+        // ✅ FASE CLIENTE/EMPRESA: Determinar qué ID y nombre enviar según subjectType
         const subjectType = (briefData as any).subjectType || 'client';
         const selectedCompanyId = (briefData as any).selectedCompanyId || null;
+        const companyName = (briefData as any).companyName || null;
 
         const response = await fetch('/api/cases/create', {
             method: 'POST',
@@ -174,6 +175,7 @@ export async function createCaseIfNeeded(
                 orgId,
                 userId,
                 clientName: briefData.clientName,
+                companyName: subjectType === 'company' ? companyName : null, // ✅ Nombre de empresa para generación de nombre de caso
                 selectedClientId: subjectType === 'client' ? clientId : null, // Solo si es cliente
                 selectedCompanyId: subjectType === 'company' ? selectedCompanyId : null, // ✅ Solo si es empresa
                 subjectType, // ✅ FASE CLIENTE/EMPRESA: Tipo de sujeto

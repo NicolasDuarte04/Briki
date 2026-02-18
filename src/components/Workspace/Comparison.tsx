@@ -274,42 +274,40 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
 function ComparisonSkeleton() {
   return (
     <div className="flex flex-col h-full border rounded-lg overflow-hidden bg-background shadow-sm">
-      {/* Header Skeleton */}
-      <div className="grid grid-cols-[200px_repeat(3,1fr)] bg-muted/30 border-b border-border">
-        <div className="p-4"><Skeleton className="h-4 w-24" /></div>
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="p-4 border-l border-border/50 flex flex-col gap-2">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-20" />
-          </div>
-        ))}
-      </div>
+      {/* ✅ Contenedor scrolleable para consistencia */}
+      <div className="overflow-x-auto flex-1 flex flex-col">
+        {/* Header Skeleton */}
+        <div className="grid min-w-max bg-muted/30 border-b border-border" style={{ gridTemplateColumns: '200px repeat(4, minmax(220px, 1fr))' }}>
+          <div className="p-4 sticky left-0 bg-muted/30 z-10"><Skeleton className="h-4 w-24" /></div>
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="p-4 border-l border-border/50 flex flex-col gap-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          ))}
+        </div>
 
-      {/* Body Skeleton */}
-      <div className="flex-1 p-0">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="flex flex-col">
-            <div className="bg-muted/50 px-4 py-2 border-y border-border/50">
-              <Skeleton className="h-3 w-32" />
+        {/* Body Skeleton */}
+        <div className="flex-1 p-0">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex flex-col">
+              <div className="grid min-w-max bg-muted/50 border-y border-border/50" style={{ gridTemplateColumns: '200px repeat(4, minmax(220px, 1fr))' }}>
+                <div className="px-4 py-2 sticky left-0 bg-muted/50 z-10"><Skeleton className="h-3 w-32" /></div>
+                {[1, 2, 3, 4].map((j) => (
+                  <div key={j} className="border-l border-border/30" />
+                ))}
+              </div>
+              <div className="grid min-w-max border-b border-border/50" style={{ gridTemplateColumns: '200px repeat(4, minmax(220px, 1fr))' }}>
+                <div className="p-4 sticky left-0 bg-background z-10"><Skeleton className="h-4 w-40" /></div>
+                {[1, 2, 3, 4].map((j) => (
+                  <div key={j} className="p-4 border-l border-border/50">
+                    <Skeleton className="h-4 w-full" />
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-[200px_repeat(3,1fr)] border-b border-border/50">
-              <div className="p-4"><Skeleton className="h-4 w-40" /></div>
-              {[1, 2, 3].map((j) => (
-                <div key={j} className="p-4 border-l border-border/50">
-                  <Skeleton className="h-4 w-full" />
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-[200px_repeat(3,1fr)] border-b border-border/50">
-              <div className="p-4"><Skeleton className="h-4 w-36" /></div>
-              {[1, 2, 3].map((j) => (
-                <div key={j} className="p-4 border-l border-border/50">
-                  <Skeleton className="h-4 w-full" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

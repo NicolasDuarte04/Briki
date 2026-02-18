@@ -32,14 +32,12 @@ export function useDeleteConfirmation({
     try {
       let requestBody = {};
       
-      if (deleteApiEndpoint.includes('clients')) {
-        // Para clientes, necesitamos obtener el orgId del contexto actual
-        // Por ahora usamos un valor placeholder que se manejará en el servidor
-        requestBody = { orgId: 'current' };
-      } else if (deleteApiEndpoint.includes('cases')) {
+      if (deleteApiEndpoint.includes('cases')) {
         requestBody = { caseId: itemToDelete };
       } else {
-        requestBody = { id: itemToDelete };
+        // Para companies, clients y otros recursos multi-tenant,
+        // enviar 'current' para resolver la org server-side
+        requestBody = { orgId: 'current' };
       }
 
       const response = await fetch(deleteApiEndpoint, {

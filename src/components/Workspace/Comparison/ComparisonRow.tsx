@@ -8,18 +8,28 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 interface ComparisonRowProps {
     row: IComparisonRow;
     analysisIds: string[];
+    columnCount: number; // ✅ FIX: Número explícito de columnas para grid fijo
     isEven: boolean;
     baselineAnalysisId?: string; // ✅ FASE BASELINE vs CHALLENGERS
 }
 
-export function ComparisonRow({ row, analysisIds, isEven, baselineAnalysisId }: ComparisonRowProps) {
+export function ComparisonRow({ row, analysisIds, columnCount, isEven, baselineAnalysisId }: ComparisonRowProps) {
+    // ✅ FIX: Grid con número fijo de columnas (no auto-fit que oculta columnas)
+    const gridTemplateColumns = `200px repeat(${columnCount}, minmax(220px, 1fr))`;
+
     return (
-        <div className={cn(
-            "grid grid-cols-[200px_repeat(auto-fit,minmax(200px,1fr))] border-b border-border/50 transition-colors",
-            isEven ? "bg-muted/10" : "bg-background"
-        )}>
-            {/* Row Header (Coverage Name) */}
-            <div className="flex flex-col justify-center p-3 border-r border-border/50">
+        <div 
+            className={cn(
+                "grid border-b border-border/50 transition-colors min-w-max",
+                isEven ? "bg-muted/10" : "bg-background"
+            )}
+            style={{ gridTemplateColumns }}
+        >
+            {/* Row Header (Coverage Name) - ✅ Sticky para scroll horizontal */}
+            <div className={cn(
+                "flex flex-col justify-center p-3 border-r border-border/50 sticky left-0 z-10",
+                isEven ? "bg-muted/10" : "bg-background" // ✅ Mismo color que la fila para continuidad visual
+            )}>
                 <div className="flex items-center gap-2">
                     <span className="font-medium text-sm">{row.coverageName}</span>
                     {row.isMandatory && (
