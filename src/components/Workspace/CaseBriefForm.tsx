@@ -26,6 +26,8 @@ interface CaseData {
     clientRef?: string;
     briefData?: any;
     artifacts?: any[];
+    companyId?: string; // ✅ CORRECCIÓN: FK a companies para rehidratación en modo edición
+    subjectType?: string; // ✅ CORRECCIÓN: 'client' | 'company' para propagación al brief
 }
 
 interface CaseBriefFormProps {
@@ -136,6 +138,12 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             freeText: (activeCaseData.briefData as any)?.freeText || '',
             coverage: (activeCaseData.briefData as any)?.coverage || '',
             selectedClientId: activeCaseData.clientRef || null,
+            // ✅ CORRECCIÓN: Incluir campos de empresa para que el brief global los tenga disponibles
+            ...(activeCaseData.subjectType && { subjectType: activeCaseData.subjectType }),
+            ...(activeCaseData.subjectType === 'company' && {
+                companyName: activeCaseData.clientName || '', // clientName almacena el nombre de empresa cuando subjectType=company
+                selectedCompanyId: activeCaseData.companyId || null,
+            }),
             // NO incluir tempUploads para casos históricos (PDFs vienen de artifacts)
         };
 

@@ -135,16 +135,26 @@ Tu tarea es MEJORAR esta comparación: agregar coberturas faltantes, corregir im
     : '';
 
   return `
-Analiza y alinea las siguientes ${analyses.length} pólizas de seguro para crear una tabla comparativa unificada.
+Analiza y alinea las siguientes ${analyses.length} pólizas de seguro para crear una tabla comparativa unificada y profesional.
 
 INPUT DATA:
 ${JSON.stringify(inputs, null, 2)}
 ${focusSection}${userInstructionsSection}${referenceSection}
 INSTRUCCIONES:
 1. **Normalización**: Identifica coberturas equivalentes que tengan nombres diferentes y agrúpalas bajo un nombre canónico estandarizado.
-2. **Estructura**: Genera una lista de filas ("rows"). Cada fila representa una cobertura o característica comparada.
+2. **Estructura Multi-Categoría**: Genera entre 7 y 12 filas ("rows") distribuidas en MÚLTIPLES categorías:
+   - "coverage" — Coberturas principales (RC, Gastos Médicos, Muerte Accidental, Daños Materiales, Robo, etc.): 4-6 filas
+   - "financial" — Condiciones económicas (Prima Total, Forma de Pago, Coaseguro, Vigencia): 2-3 filas
+   - "deductible" — Deducibles (Deducible General, Deducible por Evento): 1-2 filas
+   - "exclusion" — Exclusiones relevantes (si aplica): 0-1 filas
+   - "benefit" — Beneficios adicionales (si aplica): 0-1 filas
 3. **Valores**: Para cada fila, extrae el valor correspondiente de cada póliza.
-4. **Status**: Determina si una póliza es "better", "worse", o "equal" en comparación con las demás.
+4. **Status Comparativo**: Determina si una póliza es "better", "worse", o "equal" comparando los valores entre sí.
+5. **Descripciones OBLIGATORIAS**: El campo "description" es OBLIGATORIO en cada celda con valor. Debe contener 1-2 oraciones concisas que expliquen el valor comparativo:
+   - Para status "better": explica POR QUÉ es superior ("Límite 3x mayor que la alternativa más baja")
+   - Para status "worse": explica QUÉ le falta o es inferior ("Deducible 2x más alto que la competencia")
+   - Para status "equal": confirma la equivalencia ("Mismo nivel de cobertura estándar del mercado")
+   - Para status "missing": no aplica (value será null)
 
 FORMATO DE RESPUESTA (JSON):
 {
@@ -159,13 +169,50 @@ FORMATO DE RESPUESTA (JSON):
         "${analyses[0]?.id || 'analysis-1'}": {
           "value": {
             "name": "Responsabilidad Civil",
-            "limit Amount": 2000000,
+            "limitAmount": 2000000,
             "limitUnit": "MXN",
-            "description": "Cobertura de daños a terceros"
+            "description": "Límite competitivo de $2M MXN. Cobertura estándar para daños a terceros."
           },
           "reference": null,
-          "status": "equal",
-          "userNote": null
+          "status": "equal"
+        }
+      }
+    },
+    {
+      "id": "financial-prima",
+      "coverageName": "Prima Total Anual",
+      "category": "financial",
+      "isMandatory": true,
+      "status": "all_present",
+      "values": {
+        "${analyses[0]?.id || 'analysis-1'}": {
+          "value": {
+            "name": "Prima Total",
+            "limitAmount": 45000,
+            "limitUnit": "MXN",
+            "description": "Prima anual de $45,000 MXN. 15% inferior al promedio de las cotizaciones."
+          },
+          "reference": null,
+          "status": "better"
+        }
+      }
+    },
+    {
+      "id": "deductible-general",
+      "coverageName": "Deducible General",
+      "category": "deductible",
+      "isMandatory": true,
+      "status": "all_present",
+      "values": {
+        "${analyses[0]?.id || 'analysis-1'}": {
+          "value": {
+            "name": "Deducible General",
+            "deductibleAmount": 5000,
+            "deductibleUnit": "MXN",
+            "description": "Deducible fijo de $5,000 MXN por evento. Competitivo vs mercado."
+          },
+          "reference": null,
+          "status": "equal"
         }
       }
     }
@@ -177,6 +224,9 @@ REGLAS CRÍTICAS:
 - Normaliza los montos a una moneda común si es posible.
 - Agrupa inteligentemente: No crees filas duplicadas para la misma cobertura.
 - Prioriza las coberturas más importantes (RC, Gastos Médicos, Muerte Accidental) al principio.
+- La sección "financial" SIEMPRE debe incluir al menos "Prima Total Anual" y "Vigencia".
+- El campo "description" NUNCA debe quedar vacío ni genérico. Usa datos concretos del documento.
 - IMPORTANTE: En "values", usa los IDs exactos de los análisis: ${analysisIdsStr}
+- En "values", incluye TODOS los ${analyses.length} análisis para cada fila, no solo uno.
 `.trim();
 }
