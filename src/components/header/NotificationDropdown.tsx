@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/AuthProvider";
 import {
   getPendingInvitations,
@@ -31,7 +32,7 @@ import { useTranslations, useLocale } from "next-intl";
  * - Link a la página de perfil para ver más detalles
  */
 export function NotificationDropdown() {
-  const { status } = useAuth();
+  const { status, ready } = useAuth();
   const t = useTranslations('profile.notifications');
   const locale = useLocale();
   const [invitations, setInvitations] = useState<PendingInvitation[]>([]);
@@ -94,7 +95,14 @@ export function NotificationDropdown() {
     }
   };
 
-  // No renderizar si no está autenticado
+  // Show skeleton while loading OR while auth is not ready (prevents flash after redirect)
+  if (status === "loading" || !ready) {
+    return (
+      <Skeleton className="h-9 w-9 rounded-md" />
+    );
+  }
+
+  // No renderizar si no está autenticado (después de cargar)
   if (status !== "authenticated") {
     return null;
   }

@@ -6,8 +6,10 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import type { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { createBrowserSupabase } from "@/lib/supabase/client";
 
@@ -36,6 +38,14 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [ready, setReady] = useState(false);
+  const pathname = usePathname();
+  const previousPathRef = useRef<string | null>(null);
+  const statusRef = useRef<AuthStatus>(status);
+  
+  // Keep statusRef in sync
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   const updateAuthState = useCallback((newSession: Session | null) => {
     setSession(newSession);
@@ -43,6 +53,44 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     setStatus(newSession ? "authenticated" : "unauthenticated");
     setReady(true);
   }, []);
+
+  // Re-verify session on route changes (handles post-login redirect)
+  useEffect(() => {
+    // Skip on initial render
+    if (previousPathRef.current === null) {
+      previousPathRef.current = pathname;
+      return;
+    }
+
+    // Only re-verify if pathname actually changed
+    if (previousPathRef.current !== pathname) {
+      previousPathRef.current = pathname;
+      
+      // Re-verify session after route change, especially important when
+      // transitioning from auth pages (login/register) where session might have been created
+      const reVerifySession = async () => {
+        // Temporarily set to loading to show skeletons during re-verification
+        // Only do this if we're currently unauthenticated (possible post-login scenario)
+        if (statusRef.current === "unauthenticated") {
+          setReady(false);
+        }
+        
+        const supabase = createBrowserSupabase();
+        try {
+          const { data: { session: currentSession } } = await supabase.auth.getSession();
+          // Always update to ensure consistency
+          updateAuthState(currentSession);
+        } catch (error) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.error("[AuthProvider] Error re-verifying session:", error);
+          }
+          setReady(true); // Restore ready state on error
+        }
+      };
+      
+      reVerifySession();
+    }
+  }, [pathname, updateAuthState]);
 
   useEffect(() => {
     const supabase = createBrowserSupabase();
