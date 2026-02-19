@@ -92,6 +92,8 @@ interface CaseData {
   clientRef?: string;
   briefData?: any;
   artifacts?: any[];
+  companyId?: string; // ✅ CORRECCIÓN: FK a companies para propagación en modo edición
+  subjectType?: string; // ✅ CORRECCIÓN: 'client' | 'company' para propagación al brief
 }
 
 interface WorkspaceTabsProps {

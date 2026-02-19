@@ -803,8 +803,8 @@ export interface ComparisonRow {
   id: string;
   /** Nombre de la cobertura */
   coverageName: string;
-  /** Categoría (Cobertura, Exclusión, Deducible, etc.) */
-  category: 'coverage' | 'exclusion' | 'deductible' | 'benefit' | 'requirement';
+  /** Categoría (Cobertura, Exclusión, Deducible, Financiera, etc.) */
+  category: 'coverage' | 'exclusion' | 'deductible' | 'benefit' | 'financial' | 'requirement';
   /** Si es obligatoria según perfil del cliente */
   isMandatory: boolean;
   /** Valores por cada póliza analizada */

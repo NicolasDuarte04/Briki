@@ -608,9 +608,44 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         employees: initialData.employees || 0,
         coverage: initialData.briefData?.coverage || '',
         freeText: initialData.briefData?.freeText || '',
+        // ✅ CORRECCIÓN: Incluir campos de empresa para que persistan en el brief global durante edición
+        ...(initialData.subjectType && { subjectType: initialData.subjectType }),
+        ...(initialData.subjectType === 'company' && {
+          companyName: initialData.clientName || '', // clientName almacena nombre de empresa cuando subjectType=company
+          selectedCompanyId: initialData.companyId || null,
+        }),
       });
     }
   }, [mode, initialData, setBrief]); // Dependencias correctas
+
+  // ✅ CORRECCIÓN CRÍTICA: Rehidratar selectedCompany desde initialData en modo edición
+  // Sin esto, la validación en handleSubmit (subjectType=company && !selectedCompany) bloquea la actualización
+  // porque el campo empresa está disabled y el usuario no puede interactuar con el dropdown
+  useEffect(() => {
+    if (mode !== 'edit' || !initialData?.companyId || initialData?.subjectType !== 'company') return;
+    // Esperar a que companyList se cargue (race condition protegida por dependencia)
+    if (companyList.length === 0) return;
+    // Evitar sobrescribir si ya está rehidratado
+    if (selectedCompany?.id === initialData.companyId) return;
+
+    const matchedCompany = companyList.find(c => c.id === initialData.companyId);
+    if (matchedCompany) {
+      // Empresa encontrada en la lista de la org
+      setSelectedCompany(matchedCompany);
+      setCompanySearchTerm(matchedCompany.name);
+      console.log('✅ [BriefForm] Edit mode: selectedCompany rehidratado desde companyList:', matchedCompany.name);
+    } else {
+      // Fallback: empresa no está en la lista actual (posiblemente eliminada/migrada)
+      // Construir CompanyOption desde initialData para que la validación pase
+      const fallbackCompany: CompanyOption = {
+        id: initialData.companyId,
+        name: initialData.clientName || 'Empresa',
+      };
+      setSelectedCompany(fallbackCompany);
+      setCompanySearchTerm(fallbackCompany.name);
+      console.warn('⚠️ [BriefForm] Edit mode: empresa no encontrada en companyList, usando fallback:', fallbackCompany);
+    }
+  }, [mode, initialData?.companyId, initialData?.subjectType, initialData?.clientName, companyList, selectedCompany?.id]);
 
   // Efecto para cerrar el dropdown cuando se hace clic fuera
   useEffect(() => {

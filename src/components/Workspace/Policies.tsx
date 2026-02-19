@@ -1017,7 +1017,6 @@ function AnalyzeButton({
   documentRole?: 'baseline' | 'challenger' | undefined
 }) {
   const analyzePolicyArtifact = useUI((s) => s.analyzePolicyArtifact);
-  const setActiveTab = useUI((s) => s.setActiveTab);
   const _analyzingArtifactId = useUI((s) => s._analyzingArtifactId);
   const _analysisJobProgress = useUI((s) => s._analysisJobProgress);
   const _analysisJobMessage = useUI((s) => s._analysisJobMessage);
@@ -1066,10 +1065,7 @@ function AnalyzeButton({
       // 3. Enviar mensaje automáticamente y redirigir al chat
       const sendAutoMessage = useUI.getState().sendAutoMessage;
 
-      // Navegar primero para mejor UX
-      setActiveTab('case-brief');
-
-      // Enviar mensaje (esto disparará el loading en el chat)
+      // Enviar mensaje al agente (sin cambiar de tab — el usuario permanece en Pólizas)
       await sendAutoMessage(prompt);
 
     } catch (error: any) {
@@ -1147,8 +1143,6 @@ function LoadAnalysisButton({
   analysisId: string | undefined,
   linkId?: string | undefined 
 }) {
-  const setActiveTab = useUI((s) => s.setActiveTab);
-  const navigateToAnalysis = useUI((s) => s.navigateToAnalysis);
   const _analyzingArtifactId = useUI((s) => s._analyzingArtifactId);
   const currentCaseId = useUI((s) => s.currentCaseId);
   const fetchPolicyAnalyses = useUI((s) => s.fetchPolicyAnalyses);
@@ -1174,7 +1168,8 @@ function LoadAnalysisButton({
       
       // Si ya tiene analysisId, simplemente navegar a él
       if (analysisId) {
-        navigateToAnalysis(analysisId);
+        // Pre-seleccionar análisis para que "Ver en PDF" lo muestre cuando el usuario navegue
+        useUI.setState({ selectedPolicyAnalysisId: analysisId });
         
         // ✅ PROBLEMA 1 FIX: Marcar como contextualizado en la BD
         if (currentCaseId && (linkId || analysisId)) {
@@ -1207,9 +1202,8 @@ function LoadAnalysisButton({
         const sendAutoMessage = useUI.getState().sendAutoMessage;
         await sendAutoMessage(prompt);
       } else {
-        // Fallback: Si por alguna razón no tiene analysisId, ir al tab de pólizas
+        // Fallback: Si por alguna razón no tiene analysisId, log warning (ya estamos en Pólizas)
         console.warn('⚠️ [LoadAnalysisButton] Póliza vinculada sin analysisId');
-        setActiveTab('policies');
       }
 
     } catch (error) {
