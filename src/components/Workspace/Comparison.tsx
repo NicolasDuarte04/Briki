@@ -52,29 +52,39 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
   // ✅ Filter analyses to include both:
   // - Direct analyses (caseId matches current case)
   // - Linked analyses (linkType === 'linked' from org policies via CasePolicyLink)
+  // ✅ FIX: Include all link types (direct, linked, linked_quote) — consistent with Policies.tsx
   const validAnalyses = useMemo(() => {
     if (!currentCaseId) return [];
     return policyAnalyses.filter(a => 
-      a.caseId === currentCaseId || a.linkType === 'linked'
+      a.caseId === currentCaseId || a.linkType === 'linked' || a.linkType === 'linked_quote'
     );
   }, [policyAnalyses, currentCaseId]);
 
-  // ✅ FASE BASELINE vs CHALLENGERS: Identificar el análisis baseline
-  const baselineAnalysisId = useMemo(() => {
-    // ✅ FIX DEFECTO 2: Leer documentRole desde provenance (no metadata, que no existe en Artifact)
-    const baselineArtifact = caseData?.artifacts?.find(
-      (a: any) => {
-        const prov = typeof a.provenance === 'object' ? a.provenance : null;
-        return (prov as any)?.documentRole === 'baseline';
+  // ✅ FASE MULTI-BASELINE: Identificar TODOS los análisis baseline
+  // Fuente 1: Artifacts con provenance.documentRole === 'baseline' (subidos al caso)
+  // Fuente 2: Analyses con linkType === 'linked' (pólizas vinculadas desde org)
+  const baselineAnalysisIds = useMemo(() => {
+    const ids = new Set<string>();
+
+    // Fuente 1: Artifacts directos marcados como baseline
+    if (caseData?.artifacts) {
+      for (const artifact of caseData.artifacts) {
+        const prov = typeof (artifact as any).provenance === 'object' ? (artifact as any).provenance : null;
+        if ((prov as any)?.documentRole === 'baseline') {
+          const match = validAnalyses.find(a => a.artifactId === artifact.id);
+          if (match) ids.add(match.id);
+        }
       }
-    );
-    if (!baselineArtifact) return undefined;
-    
-    // Buscar el análisis correspondiente a ese artifact
-    const baselineAnalysis = validAnalyses.find(
-      analysis => analysis.artifactId === baselineArtifact.id
-    );
-    return baselineAnalysis?.id;
+    }
+
+    // Fuente 2: Pólizas vinculadas desde org (linkType === 'linked') — patrón de Policies.tsx
+    for (const analysis of validAnalyses) {
+      if (analysis.linkType === 'linked') {
+        ids.add(analysis.id);
+      }
+    }
+
+    return ids;
   }, [caseData, validAnalyses]);
 
   // Derived State - use validAnalyses instead of all policyAnalyses
@@ -223,8 +233,8 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
       </CardHeader>
 
       <CardContent className="flex min-h-0 flex-1 flex-col gap-6 px-0 pb-0">
-        {/* ✅ FASE BASELINE vs CHALLENGERS: Advertencia si no hay baseline */}
-        {activeComparison && !baselineAnalysisId && (
+        {/* ✅ FASE MULTI-BASELINE: Advertencia solo si cero baselines */}
+        {activeComparison && baselineAnalysisIds.size === 0 && (
           <Alert variant="default" className="mx-4 mb-2 bg-amber-50 dark:bg-amber-950/20 border-amber-200">
             <AlertTriangle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800 dark:text-amber-200">
@@ -239,7 +249,7 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
           <ComparisonTable
             comparison={activeComparison}
             analyses={policyAnalyses}
-            {...(baselineAnalysisId && { baselineAnalysisId })}
+            {...(baselineAnalysisIds.size > 0 && { baselineAnalysisIds })}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center p-8 border-2 border-dashed rounded-xl bg-muted/10">
@@ -273,11 +283,11 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
 
 function ComparisonSkeleton() {
   return (
-    <div className="flex flex-col h-full border rounded-lg overflow-hidden bg-background shadow-sm">
-      {/* ✅ Contenedor scrolleable para consistencia */}
-      <div className="overflow-x-auto flex-1 flex flex-col">
+    <div className="border rounded-lg overflow-x-auto bg-background shadow-sm">
+      {/* ✅ FIX: Estructura de scroll único, consistente con ComparisonTable */}
+      <div className="min-w-max">
         {/* Header Skeleton */}
-        <div className="grid min-w-max bg-muted/30 border-b border-border" style={{ gridTemplateColumns: '200px repeat(4, minmax(220px, 1fr))' }}>
+        <div className="grid bg-muted/30 border-b border-border" style={{ gridTemplateColumns: '200px repeat(4, minmax(220px, 1fr))' }}>
           <div className="p-4 sticky left-0 bg-muted/30 z-10"><Skeleton className="h-4 w-24" /></div>
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="p-4 border-l border-border/50 flex flex-col gap-2">
@@ -288,16 +298,16 @@ function ComparisonSkeleton() {
         </div>
 
         {/* Body Skeleton */}
-        <div className="flex-1 p-0">
+        <div>
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="flex flex-col">
-              <div className="grid min-w-max bg-muted/50 border-y border-border/50" style={{ gridTemplateColumns: '200px repeat(4, minmax(220px, 1fr))' }}>
+              <div className="grid bg-muted/50 border-y border-border/50" style={{ gridTemplateColumns: '200px repeat(4, minmax(220px, 1fr))' }}>
                 <div className="px-4 py-2 sticky left-0 bg-muted/50 z-10"><Skeleton className="h-3 w-32" /></div>
                 {[1, 2, 3, 4].map((j) => (
                   <div key={j} className="border-l border-border/30" />
                 ))}
               </div>
-              <div className="grid min-w-max border-b border-border/50" style={{ gridTemplateColumns: '200px repeat(4, minmax(220px, 1fr))' }}>
+              <div className="grid border-b border-border/50" style={{ gridTemplateColumns: '200px repeat(4, minmax(220px, 1fr))' }}>
                 <div className="p-4 sticky left-0 bg-background z-10"><Skeleton className="h-4 w-40" /></div>
                 {[1, 2, 3, 4].map((j) => (
                   <div key={j} className="p-4 border-l border-border/50">

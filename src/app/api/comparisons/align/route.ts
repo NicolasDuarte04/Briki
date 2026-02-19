@@ -63,42 +63,65 @@ export async function POST(request: NextRequest) {
 
         console.log(`📊 Comparing ${analysisIds.length} analyses for Case ${caseId} (${existingCount}/${MAX_COMPARISONS_PER_CASE} comparisons)`);
 
-        // 2. Fetch Policy Analyses
-        const analyses = await prisma.policyAnalysis.findMany({
+        // 2. Fetch analyses from BOTH tables (PolicyAnalysis + QuoteAnalysis)
+        // ✅ FIX: analysisIds can contain IDs from either policy_analyses or quote_analyses tables.
+        // Query policy_analyses first, then quote_analyses for any missing IDs.
+        const policyResults = await prisma.policyAnalysis.findMany({
             where: {
                 id: { in: analysisIds },
-                orgId: currentOrg.id // RLS
+                orgId: currentOrg.id // RLS — multi-tenant isolation
             },
             include: {
-                artifact: true // Include artifact for file names if needed
+                artifact: true
             }
         });
 
-        console.log(`✅ Found ${analyses.length} analyses out of ${analysisIds.length} requested`);
+        const foundPolicyIds = new Set(policyResults.map(a => a.id));
+        const missingFromPolicies = analysisIds.filter(id => !foundPolicyIds.has(id));
 
-        // ✅ RESILIENCE: Log missing IDs but continue if we have at least 2 valid analyses
+        // ✅ Query quote_analyses only for IDs not found in policy_analyses (avoid unnecessary DB call)
+        let quoteResults: Awaited<ReturnType<typeof prisma.quoteAnalysis.findMany>> = [];
+        if (missingFromPolicies.length > 0) {
+            quoteResults = await prisma.quoteAnalysis.findMany({
+                where: {
+                    id: { in: missingFromPolicies },
+                    orgId: currentOrg.id // RLS — same multi-tenant constraint
+                },
+                include: {
+                    artifact: true
+                }
+            });
+            console.log(`📋 Found ${quoteResults.length} quote analyses for ${missingFromPolicies.length} IDs not in policy_analyses`);
+        }
+
+        // ✅ Unify both result sets — they share identical field structure
+        const analyses = [...policyResults, ...quoteResults];
+        console.log(`✅ Found ${analyses.length} analyses (${policyResults.length} policies + ${quoteResults.length} quotes) out of ${analysisIds.length} requested`);
+
+        // ✅ RESILIENCE: Log truly missing IDs (not in either table)
         if (analyses.length !== analysisIds.length) {
-            const foundIds = analyses.map(a => a.id);
-            const missingIds = analysisIds.filter(id => !foundIds.includes(id));
-            console.warn(`⚠️  ${missingIds.length} analyses not found (possibly from other org or deleted)`);
-            console.warn(`   Missing: ${missingIds.join(', ')}`);
-            console.warn(`   Found: ${foundIds.join(', ')}`);
-            console.warn(`   Current orgId filter: ${currentOrg.id}`);
+            const allFoundIds = analyses.map(a => a.id);
+            const trulyMissingIds = analysisIds.filter(id => !allFoundIds.includes(id));
+            if (trulyMissingIds.length > 0) {
+                console.warn(`⚠️  ${trulyMissingIds.length} analyses not found in either table (possibly from other org or deleted)`);
+                console.warn(`   Missing: ${trulyMissingIds.join(', ')}`);
+                console.warn(`   Current orgId filter: ${currentOrg.id}`);
+            }
 
             // Only fail if we don't have enough valid analyses
             if (analyses.length < 2) {
                 return NextResponse.json(
                     {
                         error: 'At least 2 valid analyses are required for comparison',
-                        message: 'Algunas pólizas no están disponibles. Recarga la página para actualizar.',
-                        missing: missingIds,
-                        found: foundIds.length
+                        message: 'Algunos análisis no están disponibles. Recarga la página para actualizar.',
+                        missing: trulyMissingIds,
+                        found: allFoundIds.length
                     },
                     { status: 400 }
                 );
             }
 
-            console.log(`📊 Proceeding with ${analyses.length} available analyses (${missingIds.length} skipped)`);
+            console.log(`📊 Proceeding with ${analyses.length} available analyses (${trulyMissingIds.length} skipped)`);
         }
 
         // 3. ✅ REFORMULATION: Fetch reference comparison rows if provided

@@ -1487,6 +1487,10 @@ export const useUI = create<UIState>()(
             budget_currency: updatedBrief.budget_currency ?? 'COP',
             coverage: updatedBrief.coverage ?? null,
             freeText: updatedBrief.freeText ?? null,
+            // ✅ FASE CLIENTE/EMPRESA: Preservar campos de empresa para aprobación
+            subjectType: updatedBrief.subjectType ?? 'client',
+            companyName: updatedBrief.companyName ?? null,
+            selectedCompanyId: updatedBrief.selectedCompanyId ?? null,
           };
 
           console.log('🚀 Calling /api/cases/approve with:', { caseId: currentCaseId, briefData: completeBriefData });

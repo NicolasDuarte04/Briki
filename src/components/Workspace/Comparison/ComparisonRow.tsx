@@ -10,10 +10,10 @@ interface ComparisonRowProps {
     analysisIds: string[];
     columnCount: number; // ✅ FIX: Número explícito de columnas para grid fijo
     isEven: boolean;
-    baselineAnalysisId?: string; // ✅ FASE BASELINE vs CHALLENGERS
+    baselineAnalysisIds?: Set<string>; // ✅ MULTI-BASELINE
 }
 
-export function ComparisonRow({ row, analysisIds, columnCount, isEven, baselineAnalysisId }: ComparisonRowProps) {
+export function ComparisonRow({ row, analysisIds, columnCount, isEven, baselineAnalysisIds }: ComparisonRowProps) {
     // ✅ FIX: Grid con número fijo de columnas (no auto-fit que oculta columnas)
     const gridTemplateColumns = `200px repeat(${columnCount}, minmax(220px, 1fr))`;
 
@@ -51,7 +51,7 @@ export function ComparisonRow({ row, analysisIds, columnCount, isEven, baselineA
             {/* Cells */}
             {analysisIds.map((id) => {
                 const cell = row.values[id];
-                const isBaseline = id === baselineAnalysisId; // ✅ FASE BASELINE vs CHALLENGERS
+                const isBaseline = baselineAnalysisIds?.has(id) ?? false; // ✅ MULTI-BASELINE
 
                 // Handle missing cells gracefully
                 // Note: userNote is omitted intentionally to comply with exactOptionalPropertyTypes

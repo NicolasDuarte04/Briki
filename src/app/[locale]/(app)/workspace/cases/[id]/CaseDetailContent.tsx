@@ -56,7 +56,7 @@ export function CaseDetailContent({ caseData, caseId, orgId }: CaseDetailContent
         </Link>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">
-            {caseData.clientName || 'Caso sin nombre'}
+            {caseData.caseName || caseData.clientName || 'Caso sin nombre'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             ID: {caseData.id}
