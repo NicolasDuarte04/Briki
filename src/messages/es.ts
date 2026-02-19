@@ -901,7 +901,7 @@ const es = {
       semantic: {
         description: "Comparación semántica impulsada por IA. Analiza coberturas, exclusiones y beneficios.",
         generateButton: "Generar Comparativa con IA",
-        regenerateButton: "Regenerar Comparación ({count} pólizas)",
+        regenerateButton: "Regenerar Comparación ({count} análisis)",
         aligning: "Alineando...",
         regenerating: "Regenerando...",
         readyToCompare: "Listo para comparar",
@@ -1049,6 +1049,7 @@ const es = {
         title: "Resumen del Caso",
         approved: "Aprobado",
         clientInfo: "Información del Cliente",
+        companyInfo: "Información de la Empresa",
         name: "Nombre:",
         profile: "Perfil:",
         businessInfo: "Información del Negocio",

@@ -901,7 +901,7 @@ const en = {
       semantic: {
         description: "AI-powered semantic comparison. Analyzes coverages, exclusions, and benefits.",
         generateButton: "Generate AI Comparison",
-        regenerateButton: "Regenerate Comparison ({count} policies)",
+        regenerateButton: "Regenerate Comparison ({count} analyses)",
         aligning: "Aligning...",
         regenerating: "Regenerating...",
         readyToCompare: "Ready to compare",
@@ -1049,6 +1049,7 @@ const en = {
         title: "Case Summary",
         approved: "Approved",
         clientInfo: "Client Information",
+        companyInfo: "Company Information",
         name: "Name:",
         profile: "Profile:",
         businessInfo: "Business Information",

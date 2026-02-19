@@ -1,7 +1,6 @@
 
 import { PolicyComparison, PolicyAnalysis } from "@/lib/types";
 import { ComparisonRow } from "./ComparisonRow";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Shield } from "lucide-react";
@@ -43,12 +42,12 @@ export function ComparisonTable({ comparison, analyses, baselineAnalysisId }: Co
     const gridTemplateColumns = `200px repeat(${columnCount}, minmax(220px, 1fr))`;
 
     return (
-        <div className="flex flex-col h-full border rounded-lg overflow-hidden bg-background shadow-sm">
-            {/* ✅ Scroll horizontal container para ver todas las columnas */}
-            <div className="overflow-x-auto flex-1 flex flex-col">
-                {/* Table Header - min-w-max evita que se comprima */}
+        <div className="border rounded-lg overflow-x-auto bg-background shadow-sm">
+            {/* ✅ FIX: Contenedor único de scroll horizontal — header y body se desplazan juntos */}
+            <div className="min-w-max">
+                {/* Table Header */}
                 <div 
-                    className="grid bg-muted/30 border-b border-border min-w-max"
+                    className="grid bg-muted/30 border-b border-border"
                     style={{ gridTemplateColumns }}
                 >
                     {/* ✅ Primera columna sticky para navegación */}
@@ -105,9 +104,8 @@ export function ComparisonTable({ comparison, analyses, baselineAnalysisId }: Co
                 })}
             </div>
 
-                {/* Table Body - scroll vertical interno */}
-                <ScrollArea className="flex-1">
-                    <div className="flex flex-col min-w-max">
+                {/* Table Body — sin overflow propio, el scroll vertical lo gestiona Tabs.tsx */}
+                <div>
                         {sortedCategories.map((category) => (
                             <div key={category} className="flex flex-col">
                                 {/* Category Header - sticky horizontal */}
@@ -141,8 +139,7 @@ export function ComparisonTable({ comparison, analyses, baselineAnalysisId }: Co
                                 ))}
                             </div>
                         ))}
-                    </div>
-                </ScrollArea>
+                </div>
             </div>
         </div>
     );

@@ -41,6 +41,7 @@ export function CaseList({ cases, orgId, pinnedCaseIds = new Set() }: CaseListPr
   // Filtrar casos
   const filteredCases = cases.filter(caseItem => {
     const matchesSearch = !searchTerm || 
+      caseItem.caseName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       caseItem.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       caseItem.clientRef?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       caseItem.businessType?.toLowerCase().includes(searchTerm.toLowerCase());

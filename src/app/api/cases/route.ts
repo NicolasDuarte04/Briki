@@ -42,6 +42,9 @@ export async function GET(request: NextRequest) {
       clientId: dbCase.clientId || null,
       clientName: dbCase.clientName || null,
       customer: dbCase.customer || null,
+      // ✅ FASE CLIENTE/EMPRESA: Campos de empresa
+      subjectType: dbCase.subjectType || 'client',
+      companyId: dbCase.companyId || null,
       // Nuevos campos del Brief detallado
       insurance_category: dbCase.insurance_category,
       max_budget: dbCase.max_budget,

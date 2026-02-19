@@ -49,11 +49,12 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
           ? caseItem.brief.freeText.substring(0, 50) + (caseItem.brief.freeText.length > 50 ? '...' : '')
           : `Caso #${caseItem.id.substring(0, 8)}`);
 
-      // Información secundaria del cliente
+      // Información secundaria del sujeto (cliente o empresa)
       const lastMessage = caseItem.clientName
         || caseItem.customer?.name
         || caseItem.brief?.clientName
-        || "Sin información de cliente";
+        || caseItem.brief?.companyName
+        || "Sin información del sujeto";
 
       return {
         id: caseItem.id,

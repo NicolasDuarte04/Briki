@@ -50,6 +50,12 @@ export async function PUT(request: NextRequest) {
             }
         }
         
+        // ✅ FASE CLIENTE/EMPRESA: Determinar nombre del sujeto según tipo
+        const isCompanyCase = briefData.subjectType === 'company';
+        const resolvedClientName = isCompanyCase
+            ? (briefData.companyName || briefData.clientName || null)
+            : (briefData.clientName || null);
+
         const updateData: any = {
             // La acción principal: cambiar el estado y la etapa
             status: 'active',
@@ -57,7 +63,7 @@ export async function PUT(request: NextRequest) {
             
             // ✅ FASE 1: Asignación explícita de TODOS los campos del brief
             // Campos de nivel superior (directos en la tabla cases)
-            clientName: briefData.clientName ?? null,
+            clientName: resolvedClientName, // ✅ Usa companyName cuando subjectType=company
             clientRef: briefData.selectedClientId ?? null,
             insurance_category: briefData.insurance_category ?? null,
             max_budget: normalizedMaxBudget, // ✅ Validado y normalizado
@@ -66,12 +72,15 @@ export async function PUT(request: NextRequest) {
             client_profile: briefData.client_profile ?? null,
             businessType: briefData.businessType ?? null,
             employees: briefData.employees ?? null,
+            // ✅ FASE CLIENTE/EMPRESA: Persistir subjectType y companyId
+            subjectType: briefData.subjectType ?? 'client',
+            companyId: isCompanyCase ? (briefData.selectedCompanyId ?? null) : null,
             
             // Actualizar el briefData JSON también con todos los campos
             briefData: {
                 ...briefData, // Incluir todos los campos del briefData
                 // Forzar valores limpios si son nulos/undefined en el objeto principal
-                clientName: briefData.clientName ?? null,
+                clientName: resolvedClientName,
                 selectedClientId: briefData.selectedClientId ?? null,
                 insurance_category: briefData.insurance_category ?? null,
                 max_budget: briefData.max_budget ?? null,

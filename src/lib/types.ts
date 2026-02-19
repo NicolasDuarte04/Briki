@@ -687,8 +687,8 @@ export interface PolicyAnalysis {
   /** Last update timestamp */
   updatedAt: string;
   // ✅ FASE POLICY_LINKS: Fields for linked organization policies
-  /** Type of link: 'direct' (artifact belongs to case) or 'linked' (via CasePolicyLink) */
-  linkType?: 'direct' | 'linked';
+  /** Type of link: 'direct' (artifact belongs to case), 'linked' (via CasePolicyLink), or 'linked_quote' (via CaseQuoteLink) */
+  linkType?: 'direct' | 'linked' | 'linked_quote';
   /** CasePolicyLink ID (only for linked policies) */
   linkId?: string | null;
   /** When the policy was linked to the case */

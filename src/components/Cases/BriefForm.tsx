@@ -381,18 +381,28 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         coverage: formData.coverage || '',
         freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
         tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
+        // ✅ FASE CLIENTE/EMPRESA: Preservar campos de empresa en sincronización
+        subjectType: subjectType,
+        companyName: selectedCompany?.name || undefined,
+        selectedCompanyId: selectedCompany?.id || null,
       };
 
       console.log('📝 [BriefForm] Sincronizando brief global con TODOS los datos del formulario:', {
         ...briefUpdate,
         freeText: briefUpdate.freeText?.substring(0, 50) + '...',
-        tempUploadsCount: briefUpdate.tempUploads?.length || 0
+        tempUploadsCount: briefUpdate.tempUploads?.length || 0,
+        subjectType: briefUpdate.subjectType,
+        companyName: briefUpdate.companyName,
       });
 
       // Sincronizar con el estado global
       setBrief(briefUpdate);
     }
-  }, [caseApproving, caseResolvingClient, formData, tempUploads, setBrief]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // ✅ SOLO los flags booleanos como triggers. formData, tempUploads, subjectType, selectedCompany
+    // se leen como valores capturados por closure, NO como triggers de re-ejecución.
+    // Incluirlos causaba un loop infinito: formData cambia referencia → effect → setBrief → re-render → loop.
+  }, [caseApproving, caseResolvingClient]);
 
   // ✅ CORRECCIÓN CRÍTICA FASE 2.2: useEffect para sincronizar cuando artifacts cambian
   // FORZAR conversión inmediatamente cuando mode === 'edit' y hay artifacts
@@ -907,6 +917,10 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
         linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org seleccionadas
         linkedQuoteIds: selectedOrgQuoteIds || [], // ✅ FASE ORG_DOCUMENTS: Incluir cotizaciones de org seleccionadas
+        // ✅ FASE CLIENTE/EMPRESA: Preservar campos de empresa en sincronización
+        subjectType: subjectType,
+        companyName: selectedCompany?.name || undefined,
+        selectedCompanyId: selectedCompany?.id || null,
       };
 
       console.log('📝 [BriefForm] Actualizando brief global con TODOS los datos del formulario:', {

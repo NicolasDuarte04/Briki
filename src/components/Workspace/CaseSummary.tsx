@@ -5,7 +5,7 @@ import { CaseBrief } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, User, Building, DollarSign, Shield, MessageSquare } from 'lucide-react';
+import { FileText, User, Building, Building2, DollarSign, Shield, MessageSquare } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface CaseSummaryProps {
@@ -19,8 +19,11 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
     // ✅ FASE 2: CORRECCIÓN DE FUENTE DE VERDAD
     // Prioriza los datos frescos de la BD (activeCaseData).
     // Usa el 'brief' de Zustand solo como fallback.
+    const isCompanyCase = (activeCaseData?.subjectType || (brief as any)?.subjectType) === 'company';
     const displayData = activeCaseData ? {
-        clientName: activeCaseData.clientName ?? brief.clientName ?? 'N/A',
+        clientName: isCompanyCase
+            ? (activeCaseData.clientName ?? (brief as any)?.companyName ?? brief.clientName ?? 'N/A')
+            : (activeCaseData.clientName ?? brief.clientName ?? 'N/A'),
         client_profile: activeCaseData.client_profile ?? brief.client_profile ?? 'N/A',
         businessType: activeCaseData.businessType ?? brief.businessType ?? 'N/A',
         employees: activeCaseData.employees ?? brief.employees ?? 'N/A',
@@ -45,8 +48,8 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
                 <Card>
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <User className="w-4 h-4" />
-                            {t('clientInfo')}
+                            {isCompanyCase ? <Building2 className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                            {isCompanyCase ? t('companyInfo') : t('clientInfo')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
