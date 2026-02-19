@@ -21,7 +21,7 @@ export default function LoginPage(): ReactElement {
               {/* Back Button */}
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-colors"
+                className="inline-flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -41,10 +41,10 @@ export default function LoginPage(): ReactElement {
 
               {/* Heading */}
               <div className="space-y-3">
-                <h1 className="text-[44px] font-semibold leading-tight tracking-tight text-slate-900">
+                <h1 className="text-[44px] font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-100">
                   Welcome back
                 </h1>
-                <p className="text-base text-slate-600">
+                <p className="text-base text-slate-600 dark:text-slate-400">
                   Sign in to keep your policy workflows organized and in sync.
                 </p>
               </div>

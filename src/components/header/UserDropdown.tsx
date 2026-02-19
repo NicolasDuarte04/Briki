@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/components/AuthProvider";
 import { signOut } from "@/app/[locale]/(auth)/actions";
 import { useLocale } from "next-intl";
@@ -29,12 +30,22 @@ import { useLocale } from "next-intl";
  * Reuses the existing signOut server action from auth/actions.
  */
 export function UserDropdown() {
-  const { user, status } = useAuth();
+  const { user, status, ready } = useAuth();
   const router = useRouter();
   const locale = useLocale();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
-  // Don't render if not authenticated
+  // Show skeleton while loading OR while auth is not ready (prevents flash after redirect)
+  if (status === "loading" || !ready) {
+    return (
+      <div className="flex items-center gap-2 p-1 pr-2">
+        <Skeleton className="h-8 w-8 rounded-full" />
+        <Skeleton className="h-4 w-4 hidden sm:block" />
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (after loading completes)
   if (status !== "authenticated" || !user) {
     return null;
   }

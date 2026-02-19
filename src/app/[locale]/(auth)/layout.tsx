@@ -19,10 +19,10 @@ export default function AuthLayout({
       <header className="absolute top-0 left-0 right-0 z-10 px-6 pt-6 sm:px-8 sm:pt-8 lg:px-16 lg:pt-10">
         <Link
           href="/"
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm font-semibold text-slate-600 transition hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-md border border-transparent px-2 py-1 text-sm font-semibold text-slate-600 dark:text-slate-400 transition hover:text-slate-900 dark:hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
           aria-label="Back to Briki homepage"
         >
-          <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 text-sky-600">
+          <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-sky-50 dark:bg-sky-950 text-sky-600 dark:text-sky-400">
             <Image
               src="/brand/briki-logo-2.png"
               alt=""
