@@ -10,98 +10,16 @@
  * @module pdf/extraction
  */
 
-import PDFParser from 'pdf2json';
+// ✅ FIX: Reemplazado pdf2json (fork antiguo de pdfjs, no soporta AES-256/V=5)
+// por pdfjs-dist@5.4.624 que soporta V=1, V=2, V=4 y V=5 (AES-256)
+// @ts-ignore - legacy build path sin type declarations, API verificada manualmente
+import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
 
-/**
- * Decodifica texto de pdf2json de forma segura con múltiples estrategias de fallback.
- * 
- * pdf2json devuelve texto URL-encoded, pero a veces el encoding está malformado
- * (especialmente con caracteres especiales como % que no están correctamente escaped).
- * 
- * Estrategias de decodificación (en orden):
- * 1. decodeURIComponent() - Decodificación estándar
- * 2. decodeURI() - Menos estricto, para encoding parcial
- * 3. Reemplazo manual de secuencias comunes - Para casos específicos
- * 4. Texto raw - Fallback final
- * 
- * @param encodedText - Texto potencialmente URL-encoded de pdf2json
- * @returns Texto decodificado lo mejor posible
- * 
- * @example
- * ```typescript
- * safeDecodeText("Pol%C3%ADza%2015%25") // → "Póliza 15%"
- * safeDecodeText("15%")                  // → "15%" (ya decodificado)
- * safeDecodeText("15%2")                 // → "15%2" (malformado, usa raw)
- * ```
- */
-function safeDecodeText(encodedText: string): string {
-  if (!encodedText) return '';
-
-  // Estrategia 1: Intentar decodeURIComponent (estándar)
-  try {
-    return decodeURIComponent(encodedText);
-  } catch (e) {
-    // Falló, continuar con siguiente estrategia
-  }
-
-  // Estrategia 2: Intentar decodeURI (menos estricto)
-  try {
-    return decodeURI(encodedText);
-  } catch (e) {
-    // Falló, continuar con siguiente estrategia
-  }
-
-  // Estrategia 3: Reemplazo manual de secuencias comunes
-  try {
-    let decoded = encodedText
-      // Espacios
-      .replace(/\+/g, ' ')
-      .replace(/%20/g, ' ')
-      // Caracteres especiales comunes
-      .replace(/%C3%A1/g, 'á')
-      .replace(/%C3%A9/g, 'é')
-      .replace(/%C3%AD/g, 'í')
-      .replace(/%C3%B3/g, 'ó')
-      .replace(/%C3%BA/g, 'ú')
-      .replace(/%C3%B1/g, 'ñ')
-      .replace(/%C3%81/g, 'Á')
-      .replace(/%C3%89/g, 'É')
-      .replace(/%C3%8D/g, 'Í')
-      .replace(/%C3%93/g, 'Ó')
-      .replace(/%C3%9A/g, 'Ú')
-      .replace(/%C3%91/g, 'Ñ')
-      // Porcentaje encodificado
-      .replace(/%25/g, '%')
-      // Paréntesis
-      .replace(/%28/g, '(')
-      .replace(/%29/g, ')')
-      // Otros comunes
-      .replace(/%2C/g, ',')
-      .replace(/%2F/g, '/')
-      .replace(/%3A/g, ':');
-
-    // Si después del reemplazo manual aún hay secuencias % sospechosas,
-    // intentar decodeURIComponent de nuevo
-    if (decoded.includes('%') && /%([\dA-F]{2})/i.test(decoded)) {
-      try {
-        return decodeURIComponent(decoded);
-      } catch (e) {
-        // Aún falla, usar el resultado parcial del reemplazo manual
-      }
-    }
-
-    return decoded;
-  } catch (e) {
-    // Falló incluso el reemplazo manual, usar raw
-  }
-
-  // Estrategia 4: Fallback final - retornar texto raw
-  // Solo loggear en desarrollo para no contaminar logs de producción
-  if (process.env.NODE_ENV === 'development') {
-    console.warn('⚠️  All decoding strategies failed for text:', encodedText.substring(0, 50));
-  }
-  return encodedText;
-}
+// ✅ FIX: Registrar WorkerMessageHandler en globalThis ANTES de getDocument()
+// pdf.worker.mjs hace self-registration: globalThis.pdfjsWorker = { WorkerMessageHandler }
+// Esto evita que pdfjs intente import() dinámico (que Turbopack reescribe a [project]/...)
+// @ts-ignore - side-effect import del worker para Node.js server-side
+import 'pdfjs-dist/legacy/build/pdf.worker.mjs';
 
 /**
  * Coordinate information for a text block in a PDF
@@ -170,96 +88,86 @@ export interface LegacyExtractionResult {
 export async function extractWithCoordinates(
   buffer: Buffer
 ): Promise<ExtractionResult> {
-  return new Promise((resolve, reject) => {
-    // Inicializar el parser de PDF
-    const pdfParser = new (PDFParser as any)(null, true);
+  try {
+    // Convertir Buffer a Uint8Array para pdfjs-dist
+    const data = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
 
-    // Manejar errores de parsing
-    pdfParser.on('pdfParser_dataError', (errData: any) => {
-      const errorMessage = errData?.parserError || 'Failed to parse PDF';
-      console.error('❌ PDF parsing error:', errorMessage);
-      reject(new Error(errorMessage));
+    // Cargar el documento PDF con pdfjs-dist
+    // ✅ isEvalSupported: false → seguridad (sin eval para compilación de fuentes)
+    // ✅ useSystemFonts: false → no depender de fuentes del sistema en Vercel serverless
+    const loadingTask = getDocument({
+      data,
+      isEvalSupported: false,
+      useSystemFonts: false,
     });
 
-    // Procesar el PDF cuando esté listo
-    pdfParser.on('pdfParser_dataReady', (pdfData: any) => {
-      try {
-        let fullText = '';
-        const coordinates: TextCoordinate[] = [];
+    const pdfDocument = await loadingTask.promise;
+    const totalPages = pdfDocument.numPages;
 
-        // Verificar que tenemos páginas
-        if (!pdfData.Pages || !Array.isArray(pdfData.Pages)) {
-          throw new Error('Invalid PDF structure: no pages found');
-        }
+    let fullText = '';
+    const coordinates: TextCoordinate[] = [];
 
-        // Iterar sobre cada página
-        pdfData.Pages.forEach((page: any, pageIndex: number) => {
-          // Verificar que la página tiene textos
-          if (!page.Texts || !Array.isArray(page.Texts)) {
-            console.warn(`⚠️  Página ${pageIndex + 1} no tiene textos`);
-            return;
-          }
+    // Iterar sobre cada página
+    for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
+      const page = await pdfDocument.getPage(pageNum);
+      const textContent = await page.getTextContent();
 
-          // Añadir marcador de página explícito para la IA
-          fullText += `[[PAGE_${pageIndex + 1}]]\n`;
+      // Añadir marcador de página explícito para la IA
+      fullText += `[[PAGE_${pageNum}]]\n`;
 
-          // Iterar sobre cada bloque de texto en la página
-          page.Texts.forEach((textBlock: any) => {
-            // textBlock tiene: x, y, w (width), h (height), y R (runs de texto)
-            if (!textBlock.R || !Array.isArray(textBlock.R)) {
-              return;
-            }
+      // Procesar cada item de texto
+      for (const item of textContent.items) {
+        // Filtrar TextItem (tiene 'str') vs TextMarkedContent (no tiene 'str')
+        if (!('str' in item) || !item.str) continue;
 
-            // Procesar cada "run" de texto dentro del bloque
-            textBlock.R.forEach((run: any) => {
-              // ✅ FASE 1 CORREGIDO: Decodificación robusta con múltiples estrategias
-              // Usar safeDecodeText() que maneja casos edge (%, caracteres especiales malformados)
-              const decodedText = safeDecodeText(run.T);
+        const text = item.str;
 
-              // Añadir al texto completo
-              fullText += decodedText + ' ';
+        // pdfjs-dist devuelve texto ya decodificado en UTF-8 limpio
+        // (no requiere safeDecodeText como pdf2json)
+        fullText += text + ' ';
 
-              // Guardar coordenadas del bloque de texto
-              coordinates.push({
-                text: decodedText,
-                page: pageIndex + 1, // 1-indexed para el usuario
-                x: textBlock.x || 0,
-                y: textBlock.y || 0,
-                width: textBlock.w || 0,
-                height: textBlock.h || 0 // ⚠️ Nota: pdf2json a menudo devuelve h=0 (limitación conocida)
-              });
-            });
-          });
-
-          // Añadir salto de línea entre páginas
-          fullText += '\n';
+        // transform es una matriz [scaleX, skewY, skewX, scaleY, translateX, translateY]
+        // transform[4] = x, transform[5] = y (coordenadas PDF nativas)
+        coordinates.push({
+          text,
+          page: pageNum,
+          x: item.transform?.[4] ?? 0,
+          y: item.transform?.[5] ?? 0,
+          width: item.width ?? 0,
+          height: item.height ?? 0, // ✅ pdfjs-dist provee height real (pdf2json devolvía 0)
         });
-
-        // Obtener número de páginas de los metadatos
-        const totalPages = pdfData.Meta?.Pages || pdfData.Pages.length;
-
-        console.log(`✅ PDF extraído: ${totalPages} páginas, ${coordinates.length} bloques de texto`);
-
-        // Resolver con el resultado
-        resolve({
-          text: fullText.trim(),
-          pages: totalPages,
-          coordinates
-        });
-      } catch (processingError: any) {
-        console.error('❌ Error processing PDF data:', processingError);
-        reject(new Error(`Error processing PDF: ${processingError.message}`));
       }
-    });
 
-    // Iniciar el parsing
-    try {
-      pdfParser.parseBuffer(buffer);
-    } catch (parseError: any) {
-      console.error('❌ Error starting PDF parse:', parseError);
-      reject(new Error(`Failed to parse PDF buffer: ${parseError.message}`));
+      // Añadir salto de línea entre páginas
+      fullText += '\n';
     }
-  });
+
+    // Liberar recursos del documento
+    pdfDocument.destroy();
+
+    console.log(`✅ PDF extraído: ${totalPages} páginas, ${coordinates.length} bloques de texto`);
+
+    return {
+      text: fullText.trim(),
+      pages: totalPages,
+      coordinates,
+    };
+  } catch (error: any) {
+    // ✅ PDFs protegidos con contraseña de usuario (requieren password para abrir)
+    if (error?.name === 'PasswordException' || error?.message?.includes('password')) {
+      console.error('🔒 PDF requiere contraseña:', error.message);
+      throw new Error('El PDF requiere contraseña para abrirse. Por favor, suba una versión sin protección.');
+    }
+
+    // ✅ Errores de encriptación no soportada (no debería ocurrir con pdfjs-dist v5, pero por seguridad)
+    if (error?.message?.includes('encryption')) {
+      console.error('🔐 Error de encriptación PDF:', error.message);
+      throw new Error(`El PDF tiene encriptación no compatible: ${error.message}`);
+    }
+
+    console.error('❌ PDF parsing error:', error);
+    throw new Error(`Failed to parse PDF: ${error.message || 'Unknown error'}`);
+  }
 }
 
 /**

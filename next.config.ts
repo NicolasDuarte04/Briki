@@ -60,6 +60,11 @@ const nextConfig: NextConfig = {
     // Esto permite que Next.js maneje mejor módulos como pdfjs-dist que son ES modules puros
     esmExternals: true,
   },
+  // ✅ FIX: Externalizar pdfjs-dist del bundle del servidor
+  // pdfjs-dist necesita que pdf.worker.mjs exista en el filesystem para crear su "fake worker"
+  // Sin esto, Webpack empaqueta pdf.mjs pero NO incluye pdf.worker.mjs, causando
+  // "Setting up fake worker failed" en Node.js (API routes)
+  serverExternalPackages: ['pdfjs-dist'],
 };
 
 export default withNextIntl(nextConfig);
