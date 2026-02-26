@@ -12,6 +12,7 @@
 
 import OpenAI from 'openai';
 import { detectCoordinateSystem, type CoordinateSystemInfo, getCoordinateSystemDescription } from '@/lib/pdf/coordinateUtils';
+import { resolveStrategy } from '@/lib/prompts/strategies';
 
 /**
  * Get OpenAI client instance
@@ -171,6 +172,8 @@ export interface AnalysisInput {
   coordinates: TextCoordinate[];
   /** Extraction method used */
   extractionMethod: 'manual' | 'ocr' | 'hybrid';
+  /** Insurance category selected by the user at upload time */
+  insuranceCategory?: string;
 }
 
 /**
@@ -318,6 +321,9 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
   console.log(`   Texto: ${input.text.length} caracteres`);
   console.log(`   Coordenadas: ${input.coordinates.length} bloques`);
   console.log(`   Método: ${input.extractionMethod}`);
+  if (input.insuranceCategory) {
+    console.log(`   Categoría de seguro: ${input.insuranceCategory}`);
+  }
 
   // ✅ NUEVO: Detectar sistema de coordenadas del PDF
   const coordinateSystemInfo = detectCoordinateSystem(input.coordinates);
@@ -472,9 +478,36 @@ function buildAnalysisPrompt(input: AnalysisInput): string {
     y: Math.round(c.y)
   }));
 
+  // ── Strategy injection (domain-specific knowledge) ──────────────────
+  const strategy = resolveStrategy(input.insuranceCategory);
+  const domainContext = strategy.getDomainContext();
+  const checklist = strategy.getAnalysisChecklist();
+  const infraseguro = strategy.getInfraseguroRules();
+  const regulatory = strategy.getRegulatoryNotes();
+
+  const strategyBlock = input.insuranceCategory
+    ? `
+═══════════════════════════════════════════════════════════
+CONTEXTO ESPECIALIZADO — ${strategy.categoryLabel.toUpperCase()}
+═══════════════════════════════════════════════════════════
+
+${domainContext}
+
+**Checklist de análisis obligatorio:**
+${checklist.map((item, i) => `${i + 1}. ${item}`).join('\n')}
+
+**Reglas de infraseguro / gaps de cobertura:**
+${infraseguro}
+
+**Marco regulatorio aplicable:**
+${regulatory}
+
+`
+    : '';
+
   return `
 Analiza el siguiente texto extraído de un PDF de póliza de seguros y extrae los datos estructurados.
-
+${strategyBlock}
 ═══════════════════════════════════════════════════════════
 TEXTO DEL PDF:
 ═══════════════════════════════════════════════════════════

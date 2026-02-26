@@ -1235,7 +1235,6 @@ const es = {
         companyNamePlaceholder: "Escribir razón social de la empresa...",
         loadingCompanies: "Cargando empresas...",
         noCompaniesFound: "No se encontraron empresas.",
-        employeesCount: "Número de Empleados",
         additionalNotes: "Notas Adicionales",
         additionalNotesPlaceholder: "Cualquier información adicional que consideres relevante...",
         attachedDocs: "Documentos Adjuntos",
@@ -2078,6 +2077,13 @@ const es = {
         complete: "¡Análisis completo!",
         error: "Error al analizar póliza",
       },
+      category: {
+        label: "Categoría de seguro",
+        placeholder: "Seleccionar categoría (opcional)",
+        autoDetect: "Si no seleccionas categoría, se usará análisis genérico",
+        companyBadge: "Empresarial",
+        clientBadge: "Personal",
+      },
       dropzone: {
         title: "Subir Póliza",
         subtitle: "Arrastra y suelta tu PDF aquí, o haz clic para seleccionar",
@@ -2450,6 +2456,13 @@ const es = {
       viewAnalysis: "Ver Análisis",
       uploadAnother: "Subir otra cotización",
       retry: "Reintentar",
+      category: {
+        label: "Categoría de seguro",
+        placeholder: "Seleccionar categoría (opcional)",
+        autoDetect: "Si no seleccionas categoría, se usará análisis genérico",
+        companyBadge: "Empresarial",
+        clientBadge: "Personal",
+      },
       dropzone: {
         title: "Subir Cotización",
         subtitle: "Arrastra y suelta tu PDF aquí, o haz clic para seleccionar",

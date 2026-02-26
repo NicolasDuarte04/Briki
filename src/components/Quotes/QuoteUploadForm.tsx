@@ -17,6 +17,16 @@ import { useDropzone } from 'react-dropzone';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { 
   Upload, 
   Receipt, 
@@ -26,7 +36,10 @@ import {
   Loader2,
   FileSearch,
   ArrowRight,
+  Building2,
+  User,
 } from 'lucide-react';
+import { COMPANY_CATEGORIES, CLIENT_CATEGORIES } from '@/lib/insurance-categories';
 import type { Locale } from '@/lib/routes/workspace';
 
 // ============================================================================
@@ -61,9 +74,12 @@ export function QuoteUploadForm({
   const router = useRouter();
   const t = useTranslations('quotes.upload');
   const tForm = useTranslations('quotes.form');
+  const tCat = useTranslations('workspace.caseBrief.categories');
+  const tUploadCat = useTranslations('quotes.upload.category');
   
   // State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [insuranceCategory, setInsuranceCategory] = useState<string>('');
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({
     status: 'idle',
     progress: 0,
@@ -169,6 +185,7 @@ export function QuoteUploadForm({
           artifactId: uploadData.artifact.id,
           extractionMethod: 'hybrid',
           force: false,
+          ...(insuranceCategory ? { insuranceCategory } : {}),
         }),
       });
 
@@ -239,12 +256,14 @@ export function QuoteUploadForm({
 
   const handleCancel = () => {
     setSelectedFile(null);
+    setInsuranceCategory('');
     setUploadProgress({ status: 'idle', progress: 0, message: '' });
     setResult(null);
   };
 
   const handleUploadAnother = () => {
     setSelectedFile(null);
+    setInsuranceCategory('');
     setUploadProgress({ status: 'idle', progress: 0, message: '' });
     setResult(null);
   };
@@ -313,6 +332,42 @@ export function QuoteUploadForm({
           <Button variant="ghost" size="icon" onClick={handleCancel}>
             <X className="h-4 w-4" />
           </Button>
+        </div>
+
+        {/* Insurance Category Selector */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">{tUploadCat('label')}</label>
+          <Select value={insuranceCategory} onValueChange={setInsuranceCategory}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={tUploadCat('placeholder')} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectLabel className="flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" />
+                  {tUploadCat('companyBadge')}
+                </SelectLabel>
+                {COMPANY_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {tCat(cat)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+              <SelectSeparator />
+              <SelectGroup>
+                <SelectLabel className="flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5" />
+                  {tUploadCat('clientBadge')}
+                </SelectLabel>
+                {CLIENT_CATEGORIES.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {tCat(cat)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{tUploadCat('autoDetect')}</p>
         </div>
 
         <div className="flex gap-3">

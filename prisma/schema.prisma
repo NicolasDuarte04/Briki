@@ -693,11 +693,12 @@ model PolicyAnalysis {
   caseId            String   @map("case_id") @db.Uuid
   orgId             String   @map("org_id") @db.Uuid
   extractedData     Json     @map("extracted_data")
-  extractionMethod  String   @default("hybrid") @map("extraction_method")
-  overallConfidence Decimal  @default(0.00) @map("overall_confidence") @db.Decimal(3, 2)
-  extractedAt       DateTime @map("extracted_at") @db.Timestamptz(6)
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  extractionMethod    String   @default("hybrid") @map("extraction_method")
+  insuranceCategory   String?  @map("insurance_category") @db.VarChar(30)
+  overallConfidence   Decimal  @default(0.00) @map("overall_confidence") @db.Decimal(3, 2)
+  extractedAt         DateTime @map("extracted_at") @db.Timestamptz(6)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   artifact          Artifact              @relation(fields: [artifactId], references: [id], onDelete: Cascade)
   case              Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)
@@ -783,11 +784,12 @@ model QuoteAnalysis {
   caseId            String   @map("case_id") @db.Uuid
   orgId             String   @map("org_id") @db.Uuid
   extractedData     Json     @map("extracted_data")
-  extractionMethod  String   @default("hybrid") @map("extraction_method")
-  overallConfidence Decimal  @default(0.00) @map("overall_confidence") @db.Decimal(3, 2)
-  extractedAt       DateTime @map("extracted_at") @db.Timestamptz(6)
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  extractionMethod    String   @default("hybrid") @map("extraction_method")
+  insuranceCategory   String?  @map("insurance_category") @db.VarChar(30)
+  overallConfidence   Decimal  @default(0.00) @map("overall_confidence") @db.Decimal(3, 2)
+  extractedAt         DateTime @map("extracted_at") @db.Timestamptz(6)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   artifact          Artifact              @relation(fields: [artifactId], references: [id], onDelete: Cascade)
   case              Case                  @relation(fields: [caseId], references: [id], onDelete: Cascade)

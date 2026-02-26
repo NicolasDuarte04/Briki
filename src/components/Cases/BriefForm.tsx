@@ -165,8 +165,8 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     notes: initialNotes || (brief?.freeText && brief.freeText.trim() !== '' ? brief.freeText : ''),
     // initialNotes viene del primer mensaje de landing
     clientName: initialData?.clientName || (shouldUseBriefFallback ? brief?.clientName : '') || '',
-    employees: initialData?.employees ?? (shouldUseBriefFallback ? brief?.employees : null) ?? null,
-    freeText: initialData?.briefData?.freeText || (shouldUseBriefFallback ? brief?.freeText : '') || '',
+    employees: null,
+    freeText: initialData?.briefData?.freeText || (shouldUseBriefFallback ? brief?.freeText : '') || '',    
     categoryData: initialData?.briefData?.categoryData || (shouldUseBriefFallback ? brief?.categoryData : {}) || {},
   });
 
@@ -185,7 +185,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         client_profile: initialData.client_profile || '',
         notes: initialData.briefData?.freeText || '',
         clientName: initialData.clientName || '',
-        employees: initialData.employees ?? null,
+        employees: null,
         freeText: initialData.briefData?.freeText || '',
         categoryData: initialData.briefData?.categoryData || {},
       };
@@ -345,8 +345,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       formData.max_budget !== initialFormSnapshot.max_budget ||
       formData.budget_currency !== initialFormSnapshot.budget_currency ||
       formData.client_profile !== initialFormSnapshot.client_profile ||
-      formData.notes !== initialFormSnapshot.notes ||
-      formData.employees !== initialFormSnapshot.employees;
+      formData.notes !== initialFormSnapshot.notes;
     
     // Detectar si se añadieron nuevos tempUploads (pólizas)
     // Los tempUploads nuevos NO tienen isExistingArtifact = true
@@ -373,7 +372,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         budget_currency: formData.budget_currency || 'COP',
         client_profile: formData.client_profile || '',
         clientName: formData.clientName || '',
-        employees: formData.employees ?? null,
+        employees: null,
         freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
         tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
         // ✅ FASE CLIENTE/EMPRESA: Preservar campos de empresa en sincronización
@@ -598,7 +597,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       setBrief({
         insurance_category: initialData.insurance_category || '',
         clientName: initialData.clientName || '',
-        employees: initialData.employees || 0,
+        employees: null,
         freeText: initialData.briefData?.freeText || '',
         // ✅ CORRECCIÓN: Incluir campos de empresa para que persistan en el brief global durante edición
         ...(initialData.subjectType && { subjectType: initialData.subjectType }),
@@ -943,7 +942,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         budget_currency: formData.budget_currency || 'COP',
         client_profile: formData.client_profile || '',
         clientName: formData.clientName || '',
-        employees: formData.employees ?? null,
+        employees: null,
         freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
         tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
         linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org seleccionadas
@@ -1278,20 +1277,6 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 </div>
               )}
             </div>
-
-            {/* Empleados — Solo visible para empresas */}
-            {subjectType === 'company' && (
-              <div className="space-y-2">
-                <Label htmlFor="employees">{tCaseBrief('form.employeesCount')}</Label>
-                <Input
-                  id="employees"
-                  type="number"
-                  placeholder="0"
-                  value={formData.employees || ''}
-                  onChange={(e) => updateField('employees', e.target.value ? Number(e.target.value) : null)}
-                />
-              </div>
-            )}
 
             {/* Perfil del Cliente — Último en sección de Información del Sujeto */}
             <div className="space-y-2">
