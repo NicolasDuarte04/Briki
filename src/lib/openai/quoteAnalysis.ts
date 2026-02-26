@@ -15,6 +15,7 @@
 import OpenAI from 'openai';
 import { detectCoordinateSystem, type CoordinateSystemInfo, getCoordinateSystemDescription } from '@/lib/pdf/coordinateUtils';
 import { getOpenAIClient, parseAIResponse } from './policyAnalysis';
+import { resolveStrategy } from '@/lib/prompts/strategies';
 
 // Re-exportamos utilidades comunes
 export { getOpenAIClient, parseAIResponse };
@@ -36,6 +37,8 @@ export interface QuoteAnalysisInput {
   }>;
   /** Extraction method used */
   extractionMethod?: 'manual' | 'ocr' | 'hybrid';
+  /** Insurance category selected by the user at upload time */
+  insuranceCategory?: string;
 }
 
 /**
@@ -264,9 +267,36 @@ function buildQuoteAnalysisPrompt(input: QuoteAnalysisInput): string {
     y: Math.round(c.y)
   }));
 
+  // ── Strategy injection (domain-specific knowledge) ──────────────────
+  const strategy = resolveStrategy(input.insuranceCategory);
+  const domainContext = strategy.getDomainContext();
+  const checklist = strategy.getAnalysisChecklist();
+  const infraseguro = strategy.getInfraseguroRules();
+  const regulatory = strategy.getRegulatoryNotes();
+
+  const strategyBlock = input.insuranceCategory
+    ? `
+═══════════════════════════════════════════════════════════
+CONTEXTO ESPECIALIZADO — ${strategy.categoryLabel.toUpperCase()}
+═══════════════════════════════════════════════════════════
+
+${domainContext}
+
+**Checklist de análisis obligatorio:**
+${checklist.map((item, i) => `${i + 1}. ${item}`).join('\n')}
+
+**Reglas de infraseguro / gaps de cobertura:**
+${infraseguro}
+
+**Marco regulatorio aplicable:**
+${regulatory}
+
+`
+    : '';
+
   return `
 Analiza el siguiente texto extraído de un PDF de COTIZACIÓN de seguros (propuesta comercial, NO póliza emitida).
-
+${strategyBlock}
 ═══════════════════════════════════════════════════════════
 TEXTO DEL PDF:
 ═══════════════════════════════════════════════════════════
@@ -481,7 +511,9 @@ export async function analyzeQuoteWithAI(input: QuoteAnalysisInput): Promise<Quo
   console.log(`   Texto: ${input.text.length} caracteres`);
   console.log(`   Coordenadas: ${input.coordinates.length} bloques`);
   console.log(`   Método: ${input.extractionMethod || 'hybrid'}`);
-
+  if (input.insuranceCategory) {
+    console.log(`   Categoría de seguro: ${input.insuranceCategory}`);
+  }
   // Detectar sistema de coordenadas del PDF
   const coordinateSystemInfo = detectCoordinateSystem(input.coordinates);
   console.log(`📐 Sistema de coordenadas detectado: ${coordinateSystemInfo.system}`);

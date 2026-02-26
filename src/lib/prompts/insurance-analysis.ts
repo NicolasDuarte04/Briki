@@ -67,7 +67,6 @@ function inferEntityType(brief: Partial<CaseBrief>): EntityType {
   
   // Criterio 2: Indicadores de empresa
   const hasCompanyIndicators = 
-    (brief.employees && brief.employees > 1) ||
     (brief.businessType && /empresa|corporat|sas|s\.a\.|ltda|industri|comerci/i.test(brief.businessType)) ||
     (brief.selectedCompanyId !== undefined && brief.selectedCompanyId !== null);
   

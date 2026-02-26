@@ -33,6 +33,7 @@ interface AnalyzeQuoteRequest {
   artifactId: string;
   extractionMethod?: 'manual' | 'ocr' | 'hybrid';
   force?: boolean;
+  insuranceCategory?: string; // Category selected by user at upload
 }
 
 export async function POST(request: NextRequest) {
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
     // =========================================================================
 
     const body = await request.json() as AnalyzeQuoteRequest;
-    const { artifactId, extractionMethod = 'hybrid', force = false } = body;
+    const { artifactId, extractionMethod = 'hybrid', force = false, insuranceCategory } = body;
 
     if (!artifactId) {
       return NextResponse.json(
@@ -199,7 +200,8 @@ export async function POST(request: NextRequest) {
     const analysisPromise = analyzeQuoteWithAI({
       text: extractionResult.text,
       coordinates: extractionResult.coordinates,
-      extractionMethod
+      extractionMethod,
+      insuranceCategory,
     });
 
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -232,6 +234,7 @@ export async function POST(request: NextRequest) {
         extractionMethod,
         overallConfidence: analysisResult.confidence,
         extractedAt: new Date(),
+        ...(insuranceCategory ? { insuranceCategory } : {}),
         
         // Page references
         pageReferences: {

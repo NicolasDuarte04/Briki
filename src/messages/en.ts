@@ -1235,7 +1235,6 @@ const en = {
         companyNamePlaceholder: "Enter company legal name...",
         loadingCompanies: "Loading companies...",
         noCompaniesFound: "No companies found.",
-        employeesCount: "Number of Employees",
         additionalNotes: "Additional Notes",
         additionalNotesPlaceholder: "Any additional information you consider relevant...",
         attachedDocs: "Attached Documents",
@@ -2078,6 +2077,13 @@ const en = {
         complete: "Analysis complete!",
         error: "Error analyzing policy",
       },
+      category: {
+        label: "Insurance category",
+        placeholder: "Select category (optional)",
+        autoDetect: "If no category is selected, generic analysis will be used",
+        companyBadge: "Corporate",
+        clientBadge: "Personal",
+      },
       dropzone: {
         title: "Upload Policy",
         subtitle: "Drag and drop your PDF here, or click to select",
@@ -2450,6 +2456,13 @@ const en = {
       viewAnalysis: "View Analysis",
       uploadAnother: "Upload another quote",
       retry: "Retry",
+      category: {
+        label: "Insurance category",
+        placeholder: "Select category (optional)",
+        autoDetect: "If no category is selected, generic analysis will be used",
+        companyBadge: "Corporate",
+        clientBadge: "Personal",
+      },
       dropzone: {
         title: "Upload Quote",
         subtitle: "Drag and drop your PDF here, or click to select",
