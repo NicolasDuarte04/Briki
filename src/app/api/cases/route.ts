@@ -49,7 +49,6 @@ export async function GET(request: NextRequest) {
       insurance_category: dbCase.insurance_category,
       max_budget: dbCase.max_budget,
       budget_currency: dbCase.budget_currency || 'COP',
-      required_coverages: dbCase.required_coverages || [],
       client_profile: dbCase.client_profile,
     }));
     

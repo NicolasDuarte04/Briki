@@ -213,18 +213,18 @@ export default function Proposal() {
                 <p className="text-xs text-muted-foreground/70">{t("briefCard.subtitle")}</p>
               </header>
               <dl className="space-y-3 text-sm text-foreground/90">
-                <div className="grid gap-1">
-                  <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("briefCard.fields.business")}</dt>
-                  <dd className="font-medium leading-snug break-words">{brief.businessType ?? "—"}</dd>
-                </div>
+                {brief.employees != null && (
                 <div className="grid gap-1">
                   <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("briefCard.fields.employees")}</dt>
                   <dd className="font-medium leading-snug break-words">{brief.employees ?? "—"}</dd>
                 </div>
+                )}
+                {brief.insurance_category && (
                 <div className="grid gap-1">
-                  <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("briefCard.fields.lines")}</dt>
-                  <dd className="font-medium leading-snug break-words">{formatLines(brief.coverage)}</dd>
+                  <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("briefCard.fields.category")}</dt>
+                  <dd className="font-medium leading-snug break-words">{brief.insurance_category}</dd>
                 </div>
+                )}
                 {brief.freeText?.trim() && brief.freeText !== "Por definir..." ? (
                   <div className="grid gap-1">
                     <dt className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{t("briefCard.notesLabel")}</dt>
@@ -461,14 +461,7 @@ function normalizeKey(key?: string) {
   return key;
 }
 
-function formatLines(value?: string) {
-  if (!value) return "—";
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .join(", ");
-}
+// formatLines removed — coverage field deprecated
 
 function formatMoneyRange(values: Money[], locale: string): string | null {
   const filtered = values.filter((value): value is Money => Boolean(value) && Number.isFinite(value.amountMinor));

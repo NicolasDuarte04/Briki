@@ -14,6 +14,10 @@ interface ClientEditContentProps {
 }
 
 export function ClientEditContent({ client, clientId, orgId }: ClientEditContentProps) {
+  const displayName = client.personType !== 'juridica' && client.lastName
+    ? `${client.name} ${client.lastName}`
+    : client.name;
+    
   return (
     <div className="container mx-auto py-8 px-4 max-w-3xl">
       {/* Header */}
@@ -25,7 +29,7 @@ export function ClientEditContent({ client, clientId, orgId }: ClientEditContent
         </Link>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">
-            Editar Cliente: {client.name}
+            Editar Cliente: {displayName}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             ID: {client.id}

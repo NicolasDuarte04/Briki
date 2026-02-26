@@ -9,11 +9,19 @@
  * - MODO 4: Consultas Específicas (Q&A Natural)
  * - MODO 5: Guardrails (Fuera de Contexto)
  * 
- * @version 2.0 - Refactorización Matriz Comparativa Profesional
+ * @version 3.0 - Dispatcher & Strategy Pattern (Category-Specific Analysis)
  * @date Febrero 2026
  */
 
 import { CaseBrief } from '@/lib/types';
+import { getCategoryDef } from '@/lib/insurance-categories';
+import {
+  resolveStrategy,
+  ANALYSIS_REASON_CONTEXTS,
+  sanitizeCategoryData,
+  serializeBriefDataToYaml,
+  summarizeBriefData,
+} from './strategies';
 
 // ============================================================================
 // TIPOS E INTERFACES
@@ -248,13 +256,39 @@ CONTEXTO DEL CASO
 ═══════════════════════════════════════════════════════════════════════════════
 
 **Tipo de Entidad:** {entityTypeLabel}
-**Tipo de Negocio:** {businessType}
-**Empleados:** {employees}
 **Categoría de Seguro:** {insurance_category}
 **Presupuesto Máximo:** {max_budget} {budget_currency}
-**Coberturas Imprescindibles:** {required_coverages}
+**Coberturas Seleccionadas:** {selected_coverages}
 **Perfil del Cliente:** {client_profile}
 **Notas Adicionales:** {freeText}
+
+{analysisReasonContext}
+
+═══════════════════════════════════════════════════════════════════════════════
+CONOCIMIENTO ESPECÍFICO DEL RAMO
+═══════════════════════════════════════════════════════════════════════════════
+
+{categoryDomainContext}
+
+═══════════════════════════════════════════════════════════════════════════════
+DATOS DEL FORMULARIO (Brief del Cliente)
+═══════════════════════════════════════════════════════════════════════════════
+
+{formattedCategoryData}
+
+═══════════════════════════════════════════════════════════════════════════════
+CHECKLIST DE ANÁLISIS
+═══════════════════════════════════════════════════════════════════════════════
+
+{analysisChecklist}
+
+═══════════════════════════════════════════════════════════════════════════════
+REGLAS DE INFRASEGURO Y REGULACIÓN
+═══════════════════════════════════════════════════════════════════════════════
+
+{infraseguroRules}
+
+{regulatoryNotes}
 
 ═══════════════════════════════════════════════════════════════════════════════
 DATOS DE LÍNEA BASE (Condiciones Actuales)
@@ -504,6 +538,61 @@ export function formatInsurancePrompt(data: PromptData): string {
 
   console.log(`🎯 [Prompt] Modo detectado: ${operationModeLabels[operationMode]} | Entidad: ${entityType}`);
 
+  // ── Strategy Resolution ─────────────────────────────────────────────────
+  const strategy = resolveStrategy(brief.insurance_category);
+
+  // Analysis reason context (all modes except guardrails)
+  let analysisReasonContext = '';
+  if (operationMode !== 'guardrails' && brief.analysis_reason) {
+    analysisReasonContext = ANALYSIS_REASON_CONTEXTS[brief.analysis_reason] || '';
+  }
+
+  // Domain knowledge injection (full for analysis modes, empty for guardrails/brief_update)
+  let categoryDomainContext = '';
+  let analysisChecklist = '';
+  let infraseguroRules = '';
+  let regulatoryNotes = '';
+
+  const fullInjectionModes: OperationMode[] = ['baseline_analysis', 'comparison', 'qa', 'individual_analysis'];
+  if (fullInjectionModes.includes(operationMode)) {
+    categoryDomainContext = strategy.getDomainContext();
+    analysisChecklist = strategy.getAnalysisChecklist()
+      .map((item, i) => `${i + 1}. ${item}`)
+      .join('\n');
+    infraseguroRules = strategy.getInfraseguroRules();
+    regulatoryNotes = strategy.getRegulatoryNotes();
+  }
+
+  // Category data serialization (all modes except guardrails)
+  let formattedCategoryData = 'No hay datos específicos del ramo en el formulario.';
+  if (operationMode !== 'guardrails' && brief.categoryData && Object.keys(brief.categoryData).length > 0) {
+    const piiClassification = strategy.getPiiClassification();
+    const fieldLabels = strategy.getFieldLabels();
+    const sanitizedData = sanitizeCategoryData(brief.categoryData, piiClassification);
+
+    // Determine which fields are monetary from category definition
+    const catDef = getCategoryDef(brief.insurance_category || '');
+    const currencyFields = new Set(
+      catDef?.fields.filter(f => f.isCurrency).map(f => f.id) || []
+    );
+
+    const serializerOpts = {
+      currency: brief.budget_currency || 'COP',
+      currencyFields,
+    };
+
+    if (operationMode === 'brief_update') {
+      // Brief update: compact one-line summary
+      formattedCategoryData = summarizeBriefData(sanitizedData, fieldLabels, serializerOpts);
+    } else {
+      // Full YAML for analysis modes
+      formattedCategoryData = serializeBriefDataToYaml(sanitizedData, fieldLabels, serializerOpts)
+        || 'No hay datos específicos del ramo en el formulario.';
+    }
+  }
+
+  console.log(`📋 [Prompt] Estrategia: ${strategy.categoryId} (${strategy.categoryLabel}) | Datos del ramo: ${formattedCategoryData !== 'No hay datos específicos del ramo en el formulario.' ? 'Sí' : 'No'}`);
+
   // 3. Procesar documentos con rol inferido
   const processedDocs = documents.map(doc => ({
     ...doc,
@@ -606,14 +695,20 @@ Coberturas: ${(extractedData.coverages || []).map((c: any) => c.name).slice(0, 4
     .replace('{entityContext}', entityContext)
     .replace('{operationMode}', operationModeLabels[operationMode])
     .replace('{modeInstructions}', modeInstructions)
-    .replace('{businessType}', brief.businessType || 'No especificado')
-    .replace('{employees}', brief.employees?.toString() || 'No especificado')
     .replace('{insurance_category}', brief.insurance_category || 'No especificado')
     .replace('{max_budget}', brief.max_budget?.toString() || 'No especificado')
     .replace('{budget_currency}', brief.budget_currency || 'COP')
-    .replace('{required_coverages}', (brief.required_coverages || []).join(', ') || 'Ninguna especificada')
+    .replace('{selected_coverages}', ((brief.categoryData?.selected_coverages as string[]) || []).join(', ') || 'Ninguna especificada')
     .replace('{client_profile}', brief.client_profile || 'No especificado')
     .replace('{freeText}', brief.freeText || 'Ninguna')
+    // ── New strategy-injected sections ──
+    .replace('{analysisReasonContext}', analysisReasonContext)
+    .replace('{categoryDomainContext}', categoryDomainContext || 'Análisis genérico — sin contexto especializado del ramo.')
+    .replace('{formattedCategoryData}', formattedCategoryData)
+    .replace('{analysisChecklist}', analysisChecklist || 'Usar criterios generales de análisis de seguros.')
+    .replace('{infraseguroRules}', infraseguroRules || 'Aplicar reglas generales de detección de infraseguro.')
+    .replace('{regulatoryNotes}', regulatoryNotes)
+    // ── Existing sections ──
     .replace('{baselineContent}', baselineContent)
     .replace('{challengersContent}', challengersContent)
     .replace('{referencesContent}', referencesContent)

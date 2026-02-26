@@ -87,7 +87,6 @@ interface CaseData {
   insurance_category?: string;
   max_budget?: number | string;
   budget_currency?: string;
-  required_coverages?: string[];
   client_profile?: string;
   clientRef?: string;
   briefData?: any;

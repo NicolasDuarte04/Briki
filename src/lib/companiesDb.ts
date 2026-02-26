@@ -62,6 +62,10 @@ export interface DecryptedCompany {
   legalRepEmail: string | null;
   legalRepPhone: string | null;
   legalRepStartDate: Date | null;
+  notificationEmail: string | null;   // ✅ Email notificación judicial
+  headquartersAddress: string | null; // ✅ Dirección sede principal
+  department: string | null;          // ✅ Departamento/Estado
+  website: string | null;             // ✅ Website corporativo
   
   // Sección C: Información Financiera
   annualRevenue: string | null;
@@ -69,6 +73,9 @@ export interface DecryptedCompany {
   totalLiabilities: string | null;
   totalEquity: string | null;
   financialYear: number | null;
+  financialCutDate: Date | null;    // ✅ Fecha corte info financiera
+  annualPayroll: string | null;     // ✅ Nómina anual estimada
+  employeeCount: number | null;     // ✅ Total empleados directos
   currency: string;
   riskClassification: RiskClassification;
   
@@ -78,6 +85,7 @@ export interface DecryptedCompany {
   
   // Sección E: Datos de Riesgo
   ciiuCode: string | null;
+  activityDescription: string | null; // ✅ Descripción actividad económica
   isPep: boolean;
   isObligatedSubject: boolean;
   lastSarlaftUpdate: Date | null;
@@ -119,6 +127,10 @@ export interface CreateCompanyInput {
   legalRepEmail?: string;
   legalRepPhone?: string;
   legalRepStartDate?: Date;
+  notificationEmail?: string;   // ✅ Email notificación judicial
+  headquartersAddress?: string; // ✅ Dirección sede principal
+  department?: string;          // ✅ Departamento/Estado
+  website?: string;             // ✅ Website corporativo
   
   // Sección C: Información Financiera
   annualRevenue?: string;
@@ -126,6 +138,9 @@ export interface CreateCompanyInput {
   totalLiabilities?: string;
   totalEquity?: string;
   financialYear?: number;
+  financialCutDate?: Date;    // ✅ Fecha corte info financiera
+  annualPayroll?: string;     // ✅ Nómina anual estimada
+  employeeCount?: number;     // ✅ Total empleados directos
   currency?: string;
   riskClassification?: RiskClassification;
   
@@ -135,6 +150,7 @@ export interface CreateCompanyInput {
   
   // Sección E: Datos de Riesgo
   ciiuCode?: string;
+  activityDescription?: string; // ✅ Descripción actividad económica
   isPep?: boolean;
   isObligatedSubject?: boolean;
   lastSarlaftUpdate?: Date;
@@ -202,16 +218,24 @@ export async function createCompany(
         legal_rep_email_enc,
         legal_rep_phone_enc,
         legal_rep_start_date,
+        notification_email_enc,
+        headquarters_address_enc,
+        department,
+        website,
         annual_revenue_enc,
         total_assets_enc,
         total_liabilities_enc,
         total_equity_enc,
         financial_year,
+        financial_cut_date,
+        annual_payroll_enc,
+        employee_count,
         currency,
         risk_classification,
         shareholders_enc,
         beneficial_owners_enc,
         ciiu_code,
+        activity_description_enc,
         is_pep,
         is_obligated_subject,
         last_sarlaft_update,
@@ -232,16 +256,24 @@ export async function createCompany(
         ${data.legalRepEmail ? Prisma.sql`public.encrypt_pii(${data.legalRepEmail})` : Prisma.sql`NULL`},
         ${data.legalRepPhone ? Prisma.sql`public.encrypt_pii(${data.legalRepPhone})` : Prisma.sql`NULL`},
         ${data.legalRepStartDate || null}::date,
+        ${data.notificationEmail ? Prisma.sql`public.encrypt_pii(${data.notificationEmail})` : Prisma.sql`NULL`},
+        ${data.headquartersAddress ? Prisma.sql`public.encrypt_pii(${data.headquartersAddress})` : Prisma.sql`NULL`},
+        ${data.department || null},
+        ${data.website || null},
         ${data.annualRevenue ? Prisma.sql`public.encrypt_pii(${data.annualRevenue})` : Prisma.sql`NULL`},
         ${data.totalAssets ? Prisma.sql`public.encrypt_pii(${data.totalAssets})` : Prisma.sql`NULL`},
         ${data.totalLiabilities ? Prisma.sql`public.encrypt_pii(${data.totalLiabilities})` : Prisma.sql`NULL`},
         ${data.totalEquity ? Prisma.sql`public.encrypt_pii(${data.totalEquity})` : Prisma.sql`NULL`},
         ${data.financialYear || null},
+        ${data.financialCutDate || null}::date,
+        ${data.annualPayroll ? Prisma.sql`public.encrypt_pii(${data.annualPayroll})` : Prisma.sql`NULL`},
+        ${data.employeeCount || null},
         ${data.currency || 'COP'},
         ${data.riskClassification || 'bajo'}::public.risk_classification_enum,
         ${shareholdersJson ? Prisma.sql`public.encrypt_pii(${shareholdersJson})` : Prisma.sql`NULL`},
         ${beneficialOwnersJson ? Prisma.sql`public.encrypt_pii(${beneficialOwnersJson})` : Prisma.sql`NULL`},
         ${data.ciiuCode || null},
+        ${data.activityDescription ? Prisma.sql`public.encrypt_pii(${data.activityDescription})` : Prisma.sql`NULL`},
         ${data.isPep ?? false},
         ${data.isObligatedSubject ?? false},
         ${data.lastSarlaftUpdate || null}::date,
@@ -470,16 +502,24 @@ export async function getCompanyById(
         public.decrypt_pii(legal_rep_email_enc) as "legalRepEmail",
         public.decrypt_pii(legal_rep_phone_enc) as "legalRepPhone",
         legal_rep_start_date as "legalRepStartDate",
+        public.decrypt_pii(notification_email_enc) as "notificationEmail",
+        public.decrypt_pii(headquarters_address_enc) as "headquartersAddress",
+        department,
+        website,
         public.decrypt_pii(annual_revenue_enc) as "annualRevenue",
         public.decrypt_pii(total_assets_enc) as "totalAssets",
         public.decrypt_pii(total_liabilities_enc) as "totalLiabilities",
         public.decrypt_pii(total_equity_enc) as "totalEquity",
         financial_year as "financialYear",
+        financial_cut_date as "financialCutDate",
+        public.decrypt_pii(annual_payroll_enc) as "annualPayroll",
+        employee_count as "employeeCount",
         currency,
         risk_classification as "riskClassification",
         public.decrypt_pii(shareholders_enc) as "shareholdersRaw",
         public.decrypt_pii(beneficial_owners_enc) as "beneficialOwnersRaw",
         ciiu_code as "ciiuCode",
+        public.decrypt_pii(activity_description_enc) as "activityDescription",
         is_pep as "isPep",
         is_obligated_subject as "isObligatedSubject",
         last_sarlaft_update as "lastSarlaftUpdate",
@@ -613,6 +653,26 @@ export async function updateCompany(
         ? `compliance_notes_enc = public.encrypt_pii('${data.complianceNotes.replace(/'/g, "''")}')`
         : `compliance_notes_enc = NULL`);
     }
+    if (data.notificationEmail !== undefined) {
+      updateParts.push(data.notificationEmail
+        ? `notification_email_enc = public.encrypt_pii('${data.notificationEmail.replace(/'/g, "''")}')`
+        : `notification_email_enc = NULL`);
+    }
+    if (data.headquartersAddress !== undefined) {
+      updateParts.push(data.headquartersAddress
+        ? `headquarters_address_enc = public.encrypt_pii('${data.headquartersAddress.replace(/'/g, "''")}')`
+        : `headquarters_address_enc = NULL`);
+    }
+    if (data.annualPayroll !== undefined) {
+      updateParts.push(data.annualPayroll
+        ? `annual_payroll_enc = public.encrypt_pii('${data.annualPayroll.replace(/'/g, "''")}')`
+        : `annual_payroll_enc = NULL`);
+    }
+    if (data.activityDescription !== undefined) {
+      updateParts.push(data.activityDescription
+        ? `activity_description_enc = public.encrypt_pii('${data.activityDescription.replace(/'/g, "''")}')`
+        : `activity_description_enc = NULL`);
+    }
     
     // Campos no encriptados
     if (data.companyType !== undefined) {
@@ -656,6 +716,26 @@ export async function updateCompany(
       updateParts.push(data.ciiuCode
         ? `ciiu_code = '${data.ciiuCode}'`
         : `ciiu_code = NULL`);
+    }
+    if (data.department !== undefined) {
+      updateParts.push(data.department
+        ? `department = '${data.department.replace(/'/g, "''")}'`
+        : `department = NULL`);
+    }
+    if (data.website !== undefined) {
+      updateParts.push(data.website
+        ? `website = '${data.website.replace(/'/g, "''")}'`
+        : `website = NULL`);
+    }
+    if (data.financialCutDate !== undefined) {
+      updateParts.push(data.financialCutDate
+        ? `financial_cut_date = '${data.financialCutDate.toISOString().split('T')[0]}'::date`
+        : `financial_cut_date = NULL`);
+    }
+    if (data.employeeCount !== undefined) {
+      updateParts.push(data.employeeCount !== null
+        ? `employee_count = ${data.employeeCount}`
+        : `employee_count = NULL`);
     }
     if (data.isPep !== undefined) {
       updateParts.push(`is_pep = ${data.isPep}`);

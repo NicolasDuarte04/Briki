@@ -19,10 +19,17 @@ export interface DecryptedClient {
   email: string | null;
   phone: string | null;
   address: string | null;
-  // ✅ NUEVO: Campos de identificación
+  // Campos de identificación
   idType: string | null;     // Tipo de documento (CC, NIT, PASSPORT, etc.)
   idNumber: string | null;   // Número de identificación (descifrado)
   idCountry: string | null;  // Código ISO del país emisor
+  // Campos actuariales / persona natural vs jurídica
+  personType: string;          // 'natural' | 'juridica'
+  lastName: string | null;     // Apellidos (solo persona natural, descifrado)
+  birthDate: Date | null;      // Fecha de nacimiento (actuarial)
+  gender: string | null;       // Género (actuarial)
+  occupation: string | null;   // Ocupación (descifrado, riesgo Vida/AP)
+  maritalStatus: string | null; // Estado civil (pólizas familiares)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,10 +41,17 @@ export interface CreateClientInput {
   email?: string;
   phone?: string;
   address?: string;
-  // ✅ NUEVO: Campos de identificación
-  idType?: string;     // Tipo de documento
-  idNumber?: string;   // Número de identificación
-  idCountry?: string;  // Código ISO del país
+  // Campos de identificación
+  idType?: string;
+  idNumber?: string;
+  idCountry?: string;
+  // Campos actuariales
+  personType?: string;    // 'natural' | 'juridica' (default: 'natural')
+  lastName?: string;      // Apellidos (PII, persona natural)
+  birthDate?: Date;       // Fecha de nacimiento
+  gender?: string;        // Género
+  occupation?: string;    // Ocupación (PII)
+  maritalStatus?: string; // Estado civil
 }
 
 // Tipo para actualizar un cliente
@@ -46,10 +60,17 @@ export interface UpdateClientInput {
   email?: string;
   phone?: string;
   address?: string;
-  // ✅ NUEVO: Campos de identificación
+  // Campos de identificación
   idType?: string;
   idNumber?: string;
   idCountry?: string;
+  // Campos actuariales
+  personType?: string;
+  lastName?: string;
+  birthDate?: Date | null;  // null para limpiar
+  gender?: string;
+  occupation?: string;
+  maritalStatus?: string;
 }
 
 // La función 'setEncryptionKey' ya no es necesaria y debe ser eliminada.
@@ -73,10 +94,15 @@ export async function createClient(orgId: string, clientData: {
   email?: string;
   phone?: string;
   address?: string;
-  // ✅ NUEVO: Campos de identificación
   idType?: string;
   idNumber?: string;
   idCountry?: string;
+  personType?: string;
+  lastName?: string;
+  birthDate?: Date;
+  gender?: string;
+  occupation?: string;
+  maritalStatus?: string;
 }): Promise<string> {
   const encryptionKey = process.env.APP_ENCRYPTION_KEY;
 
@@ -96,7 +122,11 @@ export async function createClient(orgId: string, clientData: {
     
     // Paso 2: Ejecutar la inserción usando la función de cifrado de la BD.
     return tx.$queryRaw<Array<{ id: string }>>`
-      INSERT INTO public.clients (org_id, name_enc, email_enc, phone_enc, address_enc, id_type, id_number_enc, id_country)
+      INSERT INTO public.clients (
+        org_id, name_enc, email_enc, phone_enc, address_enc,
+        id_type, id_number_enc, id_country,
+        person_type, last_name_enc, birth_date, gender, occupation_enc, marital_status
+      )
       VALUES (
         ${orgId}::uuid,
         public.encrypt_pii(${clientData.name}),
@@ -105,7 +135,13 @@ export async function createClient(orgId: string, clientData: {
         ${clientData.address ? Prisma.sql`public.encrypt_pii(${clientData.address})` : Prisma.sql`NULL`},
         ${clientData.idType || null},
         ${clientData.idNumber ? Prisma.sql`public.encrypt_pii(${clientData.idNumber})` : Prisma.sql`NULL`},
-        ${clientData.idCountry || null}
+        ${clientData.idCountry || null},
+        ${clientData.personType || 'natural'},
+        ${clientData.lastName ? Prisma.sql`public.encrypt_pii(${clientData.lastName})` : Prisma.sql`NULL`},
+        ${clientData.birthDate ? Prisma.sql`${clientData.birthDate}::date` : Prisma.sql`NULL`},
+        ${clientData.gender || null},
+        ${clientData.occupation ? Prisma.sql`public.encrypt_pii(${clientData.occupation})` : Prisma.sql`NULL`},
+        ${clientData.maritalStatus || null}
       )
       RETURNING id
     `;
@@ -145,7 +181,6 @@ export async function getClientsByOrg(orgId: string): Promise<DecryptedClient[]>
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
     
-    // Obtener y descifrar clientes usando raw SQL
     return tx.$queryRaw<DecryptedClient[]>`
       SELECT 
         id::text,
@@ -157,6 +192,12 @@ export async function getClientsByOrg(orgId: string): Promise<DecryptedClient[]>
         id_type as "idType",
         public.decrypt_pii(id_number_enc) as "idNumber",
         id_country as "idCountry",
+        person_type as "personType",
+        public.decrypt_pii(last_name_enc) as "lastName",
+        birth_date as "birthDate",
+        gender,
+        public.decrypt_pii(occupation_enc) as occupation,
+        marital_status as "maritalStatus",
         created_at as "createdAt",
         updated_at as "updatedAt"
       FROM public.clients
@@ -203,11 +244,14 @@ export async function getClientsForCombobox(orgId: string): Promise<{ id: string
   const clients = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.encryption_key', ${encryptionKey}, true)`;
     
-    // Solo descifrar el nombre para el Combobox con límite de resultados
+    // Descifrar nombre + apellido concatenado para el Combobox
     return tx.$queryRaw<{ id: string; name: string }[]>`
       SELECT 
         id::text,
-        public.decrypt_pii(name_enc) as name
+        CONCAT(
+          public.decrypt_pii(name_enc),
+          COALESCE(' ' || public.decrypt_pii(last_name_enc), '')
+        ) as name
       FROM public.clients
       WHERE org_id = ${orgId}::uuid
       ORDER BY created_at DESC
@@ -259,6 +303,12 @@ export async function getClientById(
         id_type as "idType",
         public.decrypt_pii(id_number_enc) as "idNumber",
         id_country as "idCountry",
+        person_type as "personType",
+        public.decrypt_pii(last_name_enc) as "lastName",
+        birth_date as "birthDate",
+        gender,
+        public.decrypt_pii(occupation_enc) as occupation,
+        marital_status as "maritalStatus",
         created_at as "createdAt",
         updated_at as "updatedAt"
       FROM public.clients
@@ -331,7 +381,7 @@ export async function updateClient(
         } else {
           updateParts.push('address_enc = NULL');
         }
-      }      // ✅ NUEVO: Campos de identificación
+      }      // ✅ Campos de identificación
       if (updateData.idType !== undefined) {
         if (updateData.idType) {
           updateParts.push(`id_type = '${updateData.idType.replace(/'/g, "''")}'`);
@@ -352,7 +402,53 @@ export async function updateClient(
         } else {
           updateParts.push('id_country = NULL');
         }
-      }      
+      }
+      // Campos actuariales / persona
+      if (updateData.personType !== undefined) {
+        if (updateData.personType) {
+          updateParts.push(`person_type = '${updateData.personType.replace(/'/g, "''")}'`);
+        } else {
+          updateParts.push(`person_type = 'natural'`);
+        }
+      }
+      if (updateData.lastName !== undefined) {
+        if (updateData.lastName) {
+          updateParts.push(`last_name_enc = public.encrypt_pii('${updateData.lastName.replace(/'/g, "''")}')`);
+        } else {
+          updateParts.push('last_name_enc = NULL');
+        }
+      }
+      if (updateData.birthDate !== undefined) {
+        if (updateData.birthDate) {
+          const dateStr = updateData.birthDate instanceof Date
+            ? updateData.birthDate.toISOString().split('T')[0]
+            : String(updateData.birthDate);
+          updateParts.push(`birth_date = '${dateStr}'::date`);
+        } else {
+          updateParts.push('birth_date = NULL');
+        }
+      }
+      if (updateData.gender !== undefined) {
+        if (updateData.gender) {
+          updateParts.push(`gender = '${updateData.gender.replace(/'/g, "''")}'`);
+        } else {
+          updateParts.push('gender = NULL');
+        }
+      }
+      if (updateData.occupation !== undefined) {
+        if (updateData.occupation) {
+          updateParts.push(`occupation_enc = public.encrypt_pii('${updateData.occupation.replace(/'/g, "''")}')`);
+        } else {
+          updateParts.push('occupation_enc = NULL');
+        }
+      }
+      if (updateData.maritalStatus !== undefined) {
+        if (updateData.maritalStatus) {
+          updateParts.push(`marital_status = '${updateData.maritalStatus.replace(/'/g, "''")}'`);
+        } else {
+          updateParts.push('marital_status = NULL');
+        }
+      }
       updateQuery += updateParts.join(', ') + ', updated_at = NOW()';
       updateQuery += ` WHERE id = '${clientId}'::uuid AND org_id = '${orgId}'::uuid`;
       
@@ -417,9 +513,11 @@ export async function searchClientsByName(
   
   return allClients.filter(client => 
     client.name.toLowerCase().includes(lowerSearchTerm) ||
+    client.lastName?.toLowerCase().includes(lowerSearchTerm) ||
     client.email?.toLowerCase().includes(lowerSearchTerm) ||
     client.phone?.toLowerCase().includes(lowerSearchTerm) ||
-    client.idNumber?.toLowerCase().includes(lowerSearchTerm) // ✅ NUEVO: Buscar por número de ID
+    client.idNumber?.toLowerCase().includes(lowerSearchTerm) ||
+    client.occupation?.toLowerCase().includes(lowerSearchTerm)
   );
 }
 

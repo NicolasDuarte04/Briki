@@ -5,7 +5,7 @@ import { CaseBrief } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileText, User, Building, Building2, DollarSign, Shield, MessageSquare } from 'lucide-react';
+import { FileText, User, Building2, DollarSign, Shield, MessageSquare } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 interface CaseSummaryProps {
@@ -25,13 +25,10 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
             ? (activeCaseData.clientName ?? (brief as any)?.companyName ?? brief.clientName ?? 'N/A')
             : (activeCaseData.clientName ?? brief.clientName ?? 'N/A'),
         client_profile: activeCaseData.client_profile ?? brief.client_profile ?? 'N/A',
-        businessType: activeCaseData.businessType ?? brief.businessType ?? 'N/A',
         employees: activeCaseData.employees ?? brief.employees ?? 'N/A',
         insurance_category: activeCaseData.insurance_category ?? brief.insurance_category ?? 'N/A',
-        coverage: (activeCaseData.briefData as any)?.coverage ?? brief.coverage ?? 'N/A',
         max_budget: activeCaseData.max_budget ? Number(activeCaseData.max_budget) : (brief.max_budget ?? 'N/A'),
         budget_currency: activeCaseData.budget_currency ?? brief.budget_currency ?? 'COP',
-        required_coverages: activeCaseData.required_coverages ?? brief.required_coverages ?? [],
         freeText: (activeCaseData.briefData as any)?.freeText ?? brief.freeText ?? 'N/A',
     } : brief; // Fallback al 'brief' de Zustand si no hay activeCaseData
     return (
@@ -44,7 +41,7 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
             </div>
 
             <div className="grid gap-4">
-                {/* Información del Cliente */}
+                {/* Información del Sujeto */}
                 <Card>
                     <CardHeader className="pb-3">
                         <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -57,32 +54,16 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
                             <span className="text-sm text-muted-foreground">{t('name')}</span>
                             <span className="text-sm font-medium">{displayData.clientName || 'N/A'}</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">{t('profile')}</span>
-                            <span className="text-sm font-medium whitespace-pre-wrap">{displayData.client_profile || 'N/A'}</span>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Información del Negocio */}
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CardTitle className="text-sm font-medium flex items-center gap-2">
-                            <Building className="w-4 h-4" />
-                            {t('businessInfo')}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">{t('businessType')}</span>
-                            <span className="text-sm font-medium">{displayData.businessType || 'N/A'}</span>
-                        </div>
-                        {displayData.employees !== null && displayData.employees !== undefined && displayData.employees !== 'N/A' && (
+                        {isCompanyCase && displayData.employees !== null && displayData.employees !== undefined && displayData.employees !== 'N/A' && (
                             <div className="flex justify-between">
                                 <span className="text-sm text-muted-foreground">{t('employees')}</span>
                                 <span className="text-sm font-medium">{displayData.employees}</span>
                             </div>
                         )}
+                        <div className="flex justify-between">
+                            <span className="text-sm text-muted-foreground">{t('profile')}</span>
+                            <span className="text-sm font-medium whitespace-pre-wrap">{displayData.client_profile || 'N/A'}</span>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -99,10 +80,6 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
                             <span className="text-sm text-muted-foreground">{t('category')}</span>
                             <span className="text-sm font-medium">{displayData.insurance_category || 'N/A'}</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-sm text-muted-foreground">{t('coverage')}</span>
-                            <span className="text-sm font-medium">{displayData.coverage || 'N/A'}</span>
-                        </div>
                         {displayData.max_budget !== null && displayData.max_budget !== undefined && displayData.max_budget !== 'N/A' && (
                             <div className="flex justify-between">
                                 <span className="text-sm text-muted-foreground">{t('budget')}</span>
@@ -111,18 +88,6 @@ export function CaseSummary({ brief, activeCaseData, onEdit }: CaseSummaryProps)
                                         ? `${displayData.max_budget} ${displayData.budget_currency || 'COP'}` 
                                         : displayData.max_budget}
                                 </span>
-                            </div>
-                        )}
-                        {displayData.required_coverages && Array.isArray(displayData.required_coverages) && displayData.required_coverages.length > 0 && (
-                            <div className="mt-2">
-                                <span className="text-sm text-muted-foreground block mb-2">{t('requiredCoverages')}</span>
-                                <div className="flex flex-wrap gap-2">
-                                    {displayData.required_coverages.map((coverage: string, idx: number) => (
-                                        <Badge key={idx} variant="secondary" className="text-xs">
-                                            {coverage}
-                                        </Badge>
-                                    ))}
-                                </div>
                             </div>
                         )}
                     </CardContent>

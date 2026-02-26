@@ -179,24 +179,22 @@ export async function createCaseIfNeeded(
                 selectedClientId: subjectType === 'client' ? clientId : null, // Solo si es cliente
                 selectedCompanyId: subjectType === 'company' ? selectedCompanyId : null, // ✅ Solo si es empresa
                 subjectType, // ✅ FASE CLIENTE/EMPRESA: Tipo de sujeto
-                businessType: briefData.businessType,
                 employees: briefData.employees,
                 status: 'draft',
                 stage: 'initial',
                 priority: 'medium',
                 briefData: {
                     freeText: finalFreeText,
-                    businessType: briefData.businessType,
                     employees: briefData.employees,
-                    coverage: briefData.coverage,
                     selectedClientId: subjectType === 'client' ? clientId : null,
                     selectedCompanyId: subjectType === 'company' ? selectedCompanyId : null,
                     subjectType, // ✅ También en briefData para el agente
+                    categoryData: briefData.categoryData || {}, // ✅ FASE CATEGORÍAS: Datos dinámicos
                 },
                 insurance_category: briefData.insurance_category,
+                analysis_reason: briefData.analysis_reason, // ✅ FASE CATEGORÍAS: Motivo del análisis
                 max_budget: briefData.max_budget,
                 budget_currency: briefData.budget_currency,
-                required_coverages: briefData.required_coverages,
                 client_profile: briefData.client_profile,
                 tempUploads: tempUploads,
                 linkedPolicyIds: linkedPolicyIds,

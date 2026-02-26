@@ -128,11 +128,8 @@ export default function SidebarChatPanel({ cases }: SidebarChatPanelProps) {
       insurance_category: '',
       max_budget: null,         // ✅ FASE 3: Explícitamente null (no undefined)
       budget_currency: 'COP',
-      required_coverages: [],
       client_profile: '',
-      businessType: '',
       employees: null,          // ✅ FASE 3: Explícitamente null (no undefined)
-      coverage: '',
       tempUploads: []
     });
     setInitialMessage('');

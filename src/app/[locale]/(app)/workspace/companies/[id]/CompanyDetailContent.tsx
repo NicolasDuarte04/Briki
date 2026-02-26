@@ -22,7 +22,8 @@ import {
   AlertTriangle,
   DollarSign,
   TrendingUp,
-  FileCheck
+  FileCheck,
+  Globe
 } from 'lucide-react';
 import Link from 'next/link';
 import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation';
@@ -270,6 +271,19 @@ export function CompanyDetailContent({ company, companyId }: CompanyDetailConten
                     </div>
                   </div>
                 )}
+
+                {/* Activity Description */}
+                {company.activityDescription && (
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                      <FileText className="h-5 w-5 text-gray-600" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">{t('detail.activityDescription')} 🔒</div>
+                      <div className="font-medium">{company.activityDescription}</div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -367,6 +381,69 @@ export function CompanyDetailContent({ company, companyId }: CompanyDetailConten
                 )}
               </CardContent>
             </Card>
+
+            {/* Contact & Location sub-card */}
+            {(company.notificationEmail || company.headquartersAddress || company.department || company.website) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="h-5 w-5" />
+                    {t('detail.contactInfo')}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {company.notificationEmail && (
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+                        <Mail className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">{t('detail.notificationEmail')} 🔒</div>
+                        <div className="font-medium">{company.notificationEmail}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {company.headquartersAddress && (
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <MapPin className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">{t('detail.headquartersAddress')} 🔒</div>
+                        <div className="font-medium">{company.headquartersAddress}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {company.department && (
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                        <MapPin className="h-5 w-5 text-purple-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">{t('detail.department')}</div>
+                        <div className="font-medium">{company.department}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {company.website && (
+                    <div className="flex items-start gap-3">
+                      <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                        <Globe className="h-5 w-5 text-indigo-600" />
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">{t('detail.website')}</div>
+                        <a href={company.website} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">
+                          {company.website}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Tab: Financial Information */}
@@ -442,6 +519,45 @@ export function CompanyDetailContent({ company, companyId }: CompanyDetailConten
                         <div>
                           <div className="text-sm text-muted-foreground">{t('detail.financialYear')}</div>
                           <div className="font-medium">{company.financialYear}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Financial Cut Date */}
+                    {company.financialCutDate && (
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center">
+                          <Calendar className="h-5 w-5 text-gray-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm text-muted-foreground">{t('detail.financialCutDate')}</div>
+                          <div className="font-medium">{formatDate(company.financialCutDate)}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Annual Payroll */}
+                    {company.annualPayroll && (
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center">
+                          <DollarSign className="h-5 w-5 text-teal-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm text-muted-foreground">{t('detail.annualPayroll')} 🔒</div>
+                          <div className="font-medium">{company.annualPayroll} {company.currency}</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Employee Count */}
+                    {company.employeeCount && (
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                          <Users className="h-5 w-5 text-indigo-600" />
+                        </div>
+                        <div>
+                          <div className="text-sm text-muted-foreground">{t('detail.employeeCount')}</div>
+                          <div className="font-medium">{company.employeeCount}</div>
                         </div>
                       </div>
                     )}

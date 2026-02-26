@@ -13,7 +13,7 @@ interface EditCompanyPageProps {
 }
 
 export default async function EditCompanyPage({ params }: EditCompanyPageProps) {
-  const { currentOrg, userId } = await getCurrentOrg();
+  const { currentOrg, user } = await getCurrentOrg();
   const { id } = await params;
   
   // Obtener la empresa (los datos ya vienen descifrados)
@@ -28,7 +28,7 @@ export default async function EditCompanyPage({ params }: EditCompanyPageProps) 
       company={company}
       companyId={id}
       orgId={currentOrg.id}
-      userId={userId}
+      userId={user.id}
     />
   );
 }

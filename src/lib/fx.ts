@@ -221,7 +221,7 @@ export async function getRenewalStats(caseId?: string): Promise<any> {
 export async function setRenewalReminder(id: string, reminderSet: boolean, reminderDate?: string): Promise<any> {
   return updateRenewal(id, { 
     reminderSet, 
-    reminderDate: reminderDate || undefined 
+    ...(reminderDate ? { reminderDate } : {}),
   });
 }
 

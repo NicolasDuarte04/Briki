@@ -1,17 +1,12 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useUI } from "@/lib/ui/state";
 import { useTranslations } from "next-intl";
 
 export default function CaseBrief() {
   const { brief } = useUI();
   const t = useTranslations("workspace.caseBrief");
-  const lines = (brief.coverage ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
   const placeholder = "—";
 
   return (
@@ -31,14 +26,7 @@ export default function CaseBrief() {
           </CardHeader>
           <CardContent>
             <dl className="space-y-4 text-sm">
-              <div className="grid gap-x-6 gap-y-1 pb-2 last:pb-0 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-start">
-                <dt className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/70 sm:text-right">
-                  {t("fields.business")}
-                </dt>
-                <dd className="text-sm font-medium leading-6 text-foreground/90 break-words">
-                  {brief.businessType ?? placeholder}
-                </dd>
-              </div>
+              {brief.employees != null && (
               <div className="grid gap-x-6 gap-y-1 pb-2 last:pb-0 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-start">
                 <dt className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/70 sm:text-right">
                   {t("fields.employees")}
@@ -47,28 +35,17 @@ export default function CaseBrief() {
                   {brief.employees ?? placeholder}
                 </dd>
               </div>
-              <div className="grid gap-x-6 gap-y-2 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-start">
+              )}
+              {brief.insurance_category && (
+              <div className="grid gap-x-6 gap-y-1 pb-2 last:pb-0 sm:grid-cols-[160px_minmax(0,1fr)] sm:items-start">
                 <dt className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground/70 sm:text-right">
-                  {t("fields.lines")}
+                  {t("fields.category")}
                 </dt>
-                <dd>
-                  {lines.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {lines.map((line) => (
-                        <Badge
-                          key={line}
-                          variant="secondary"
-                          className="rounded-full border border-border/50 bg-background px-2.5 py-1 text-[11px] font-medium leading-tight text-foreground/80 shadow-none"
-                        >
-                          {line}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-sm font-medium text-foreground/50">{placeholder}</span>
-                  )}
+                <dd className="text-sm font-medium leading-6 text-foreground/90 break-words">
+                  {brief.insurance_category}
                 </dd>
               </div>
+              )}
             </dl>
           </CardContent>
         </Card>

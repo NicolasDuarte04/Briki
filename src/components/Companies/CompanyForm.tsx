@@ -66,6 +66,14 @@ interface CompanyDefaultValues {
   currency?: string;
   riskClassification?: string;
   ciiuCode?: string;
+  activityDescription?: string;
+  notificationEmail?: string;
+  headquartersAddress?: string;
+  department?: string;
+  website?: string;
+  financialCutDate?: string;
+  annualPayroll?: string;
+  employeeCount?: number;
   isPep?: boolean;
   isObligatedSubject?: boolean;
   lastSarlaftUpdate?: string;
@@ -144,6 +152,8 @@ export function CompanyForm({ orgId, userId, companyId, defaultValues }: Company
           nit: formData.get('nit'),
           constitutionDate: formData.get('constitutionDate') || undefined,
           registrationCity: formData.get('registrationCity') || undefined,
+          ciiuCode: formData.get('ciiuCode') || undefined,
+          activityDescription: formData.get('activityDescription') || undefined,
           // Sección B: Representante Legal
           legalRepName: formData.get('legalRepName') || undefined,
           legalRepIdType: legalRepIdType || undefined,
@@ -151,16 +161,22 @@ export function CompanyForm({ orgId, userId, companyId, defaultValues }: Company
           legalRepEmail: formData.get('legalRepEmail') || undefined,
           legalRepPhone: formData.get('legalRepPhone') || undefined,
           legalRepStartDate: formData.get('legalRepStartDate') || undefined,
+          notificationEmail: formData.get('notificationEmail') || undefined,
+          headquartersAddress: formData.get('headquartersAddress') || undefined,
+          department: formData.get('department') || undefined,
+          website: formData.get('website') || undefined,
           // Sección C: Financiera
           annualRevenue: formData.get('annualRevenue') || undefined,
           totalAssets: formData.get('totalAssets') || undefined,
           totalLiabilities: formData.get('totalLiabilities') || undefined,
           totalEquity: formData.get('totalEquity') || undefined,
           financialYear: formData.get('financialYear') ? Number(formData.get('financialYear')) : undefined,
+          financialCutDate: formData.get('financialCutDate') || undefined,
+          annualPayroll: formData.get('annualPayroll') || undefined,
+          employeeCount: formData.get('employeeCount') ? Number(formData.get('employeeCount')) : undefined,
           currency,
           riskClassification,
           // Sección E: Riesgo
-          ciiuCode: formData.get('ciiuCode') || undefined,
           isPep,
           isObligatedSubject,
           lastSarlaftUpdate: formData.get('lastSarlaftUpdate') || undefined,
@@ -337,6 +353,28 @@ export function CompanyForm({ orgId, userId, companyId, defaultValues }: Company
                   />
                 </div>
               </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ciiuCode">{t('ciiuCode')}</Label>
+                  <Input
+                    id="ciiuCode"
+                    name="ciiuCode"
+                    placeholder={t('ciiuCodePlaceholder')}
+                    defaultValue={defaultValues?.ciiuCode}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="activityDescription">🔒 {t('activityDescription')}</Label>
+                  <Input
+                    id="activityDescription"
+                    name="activityDescription"
+                    placeholder={t('activityDescriptionPlaceholder')}
+                    defaultValue={defaultValues?.activityDescription}
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -425,6 +463,56 @@ export function CompanyForm({ orgId, userId, companyId, defaultValues }: Company
                   defaultValue={defaultValues?.legalRepStartDate}
                 />
               </div>
+              
+              {/* Información de Contacto y Ubicación */}
+              <div className="border-t pt-4 mt-4">
+                <h4 className="text-sm font-medium text-muted-foreground mb-3">{t('notificationEmail')}</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="notificationEmail">🔒 {t('notificationEmail')}</Label>
+                    <Input
+                      id="notificationEmail"
+                      name="notificationEmail"
+                      type="email"
+                      placeholder={t('notificationEmailPlaceholder')}
+                      defaultValue={defaultValues?.notificationEmail}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="website">{t('website')}</Label>
+                    <Input
+                      id="website"
+                      name="website"
+                      type="url"
+                      placeholder={t('websitePlaceholder')}
+                      defaultValue={defaultValues?.website}
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="headquartersAddress">🔒 {t('headquartersAddress')}</Label>
+                    <Input
+                      id="headquartersAddress"
+                      name="headquartersAddress"
+                      placeholder={t('headquartersAddressPlaceholder')}
+                      defaultValue={defaultValues?.headquartersAddress}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="department">{t('department')}</Label>
+                    <Input
+                      id="department"
+                      name="department"
+                      placeholder={t('departmentPlaceholder')}
+                      defaultValue={defaultValues?.department}
+                    />
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -482,6 +570,40 @@ export function CompanyForm({ orgId, userId, companyId, defaultValues }: Company
                     name="totalEquity"
                     placeholder={t('totalEquityPlaceholder')}
                     defaultValue={defaultValues?.totalEquity}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="annualPayroll">🔒 {t('annualPayroll')}</Label>
+                  <Input
+                    id="annualPayroll"
+                    name="annualPayroll"
+                    placeholder={t('annualPayrollPlaceholder')}
+                    defaultValue={defaultValues?.annualPayroll}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="employeeCount">{t('employeeCount')}</Label>
+                  <Input
+                    id="employeeCount"
+                    name="employeeCount"
+                    type="number"
+                    min="0"
+                    placeholder={t('employeeCountPlaceholder')}
+                    defaultValue={defaultValues?.employeeCount}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="financialCutDate">{t('financialCutDate')}</Label>
+                  <Input
+                    id="financialCutDate"
+                    name="financialCutDate"
+                    type="date"
+                    defaultValue={defaultValues?.financialCutDate}
                   />
                 </div>
               </div>
@@ -586,26 +708,14 @@ export function CompanyForm({ orgId, userId, companyId, defaultValues }: Company
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ciiuCode">{t('ciiuCode')}</Label>
-                  <Input
-                    id="ciiuCode"
-                    name="ciiuCode"
-                    placeholder={t('ciiuCodePlaceholder')}
-                    defaultValue={defaultValues?.ciiuCode}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="lastSarlaftUpdate">{t('lastSarlaftUpdate')}</Label>
-                  <Input
-                    id="lastSarlaftUpdate"
-                    name="lastSarlaftUpdate"
-                    type="date"
-                    defaultValue={defaultValues?.lastSarlaftUpdate}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastSarlaftUpdate">{t('lastSarlaftUpdate')}</Label>
+                <Input
+                  id="lastSarlaftUpdate"
+                  name="lastSarlaftUpdate"
+                  type="date"
+                  defaultValue={defaultValues?.lastSarlaftUpdate}
+                />
               </div>
               
               <div className="space-y-4">

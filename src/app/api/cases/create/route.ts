@@ -50,7 +50,6 @@ export async function POST(request: NextRequest) {
       selectedClientId, // ID del cliente seleccionado (para generar nombre)
       selectedCompanyId, // ✅ FASE CLIENTE/EMPRESA: ID de la empresa seleccionada
       subjectType, // ✅ FASE CLIENTE/EMPRESA: 'client' | 'company'
-      businessType,
       employees,
       status,
       stage,
@@ -61,9 +60,9 @@ export async function POST(request: NextRequest) {
       linkedQuoteIds = [], // FASE ORG_DOCUMENTS: IDs de cotizaciones de org a vincular
       // Nuevos campos del Brief detallado
       insurance_category,
+      analysis_reason, // ✅ FASE CATEGORÍAS: Motivo del análisis
       max_budget: rawMaxBudget, // Validar antes de usar
       budget_currency,
-      required_coverages,
       client_profile,
     } = body;
     
@@ -193,15 +192,14 @@ export async function POST(request: NextRequest) {
           subjectType?: string;  // ✅ FASE CLIENTE/EMPRESA
           caseName?: string;
           clientRef?: string;
-          businessType?: string;
           employees?: number;
           status?: 'draft' | 'active' | 'completed' | 'archived';
           stage?: 'initial' | 'sourcing' | 'analysis' | 'proposal' | 'negotiation' | 'closed';
           priority?: 'low' | 'medium' | 'high' | 'urgent';
           insurance_category?: string;
+          analysis_reason?: string; // ✅ FASE CATEGORÍAS
           max_budget?: number;
           budget_currency?: 'COP' | 'USD';
-          required_coverages?: string[];
           client_profile?: string;
         } = {};
         
@@ -213,15 +211,14 @@ export async function POST(request: NextRequest) {
         if (subjectType !== undefined) additionalData.subjectType = subjectType;
         if (generatedCaseName !== undefined) additionalData.caseName = generatedCaseName; // ✅ NUEVO
         if (clientRef !== undefined) additionalData.clientRef = clientRef;
-        if (businessType !== undefined) additionalData.businessType = businessType;
         if (employees !== undefined) additionalData.employees = employees;
         if (status !== undefined) additionalData.status = status;
         if (stage !== undefined) additionalData.stage = stage;
         if (priority !== undefined) additionalData.priority = priority;
         if (insurance_category !== undefined) additionalData.insurance_category = insurance_category;
+        if (analysis_reason !== undefined) additionalData.analysis_reason = analysis_reason;
         if (max_budget !== undefined) additionalData.max_budget = max_budget;
         if (budget_currency !== undefined) additionalData.budget_currency = budget_currency;
-        if (required_coverages !== undefined) additionalData.required_coverages = required_coverages;
         if (client_profile !== undefined) additionalData.client_profile = client_profile;
         
         newCase = await createCaseWithOrg(

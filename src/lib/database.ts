@@ -34,7 +34,6 @@ export interface CreateCaseInput {
   brief: CaseBrief;
   clientRef?: string;
   clientName?: string;
-  businessType?: string;
   employees?: number;
   status?: 'draft' | 'pending' | 'quoted' | 'active' | 'closed';
   stage?: 'initial' | 'brief' | 'sourcing' | 'quoted' | 'policy_issued';
@@ -114,7 +113,6 @@ export async function createCase(input: CreateCaseInput) {
       data: {
         clientRef: input.clientRef || null,
         clientName: input.clientName || null,
-        businessType: input.businessType || input.brief.businessType || null,
         employees: input.employees || input.brief.employees || null,
         status: input.status || 'draft',
         stage: input.stage || 'initial',
@@ -228,123 +226,6 @@ export async function getCaseWithArtifacts(caseId: string): Promise<CaseWithArti
 // ============================================================================
 // BUSINESS LOGIC - Agent Processing
 // ============================================================================
-
-/**
- * @deprecated Esta función crea un caso NUEVO por cada mensaje (comportamiento legacy).
- * Para el nuevo flujo, usar:
- * - /api/chat/start para crear el caso inicial
- * - /api/chat/process-message para mensajes subsecuentes del mismo caso
- * 
- * Processes a chat message and creates case, artifacts, and audit logs
- * @param userMessage - The user's message content
- * @param userId - Optional user ID for tracking
- * @param existingBrief - Optional existing brief from the UI state
- * @returns Promise<{caseId: string, response: string}> - Created case ID and agent response
- */
-export async function processChatMessage(userMessage: string, userId?: string, existingBrief?: any) {
-  try {
-    console.log('🔄 Procesando mensaje:', userMessage);
-    console.log('📋 Brief existente:', existingBrief);
-    
-    // Combinar el brief existente con el nuevo mensaje
-    const brief: CaseBrief = {
-      freeText: userMessage
-    };
-    
-    // Si hay un brief existente, usar esos datos como base
-    if (existingBrief) {
-      if (existingBrief.businessType) brief.businessType = existingBrief.businessType;
-      if (existingBrief.employees) brief.employees = existingBrief.employees;
-      if (existingBrief.coverage) brief.coverage = existingBrief.coverage;
-      // Si ya había un freeText previo, combinarlo
-      if (existingBrief.freeText) {
-        brief.freeText = `${existingBrief.freeText} | Usuario pregunta: ${userMessage}`;
-      }
-    }
-    
-    console.log('📝 Brief combinado:', brief);
-    
-    const newCase = await createCase({
-      brief,
-      clientName: `Cliente ${new Date().getTime()}`, // Temporal
-      status: 'draft',
-      stage: 'initial'
-    });
-    
-    console.log('✅ Caso creado:', newCase.id);
-
-    // Generar respuesta contextual que combine ambos
-    const agentResponse = generateContextualResponse(userMessage, existingBrief);
-
-    console.log('🤖 Respuesta generada:', agentResponse);
-
-    return {
-      caseId: newCase.id,
-      response: agentResponse
-    };
-
-  } catch (error) {
-    console.error('❌ Error procesando mensaje:', error);
-    throw new DatabaseError(`Failed to process chat message: ${error}`);
-  }
-}
-
-/**
- * Genera una respuesta contextual basada en el mensaje y el brief existente
- */
-function generateContextualResponse(userMessage: string, existingBrief?: any): string {
-  const hasExistingContext = existingBrief && (existingBrief.businessType || existingBrief.employees || existingBrief.coverage);
-  
-  if (hasExistingContext) {
-    // Si hay contexto previo, hacer referencia a él
-    const businessInfo = existingBrief.businessType ? `tu ${existingBrief.businessType}` : 'tu negocio';
-    const employeeInfo = existingBrief.employees ? `con ${existingBrief.employees} empleados` : '';
-    
-    return `Perfecto, entiendo tu consulta sobre ${businessInfo} ${employeeInfo}. Basándome en la información que ya tenía y tu nueva pregunta: "${userMessage}", he creado un caso para buscar las mejores opciones de seguros que se adapten a tus necesidades específicas.`;
-  } else {
-    // Si no hay contexto previo, respuesta estándar
-    return `Gracias por tu consulta: "${userMessage}". He registrado tu caso y comenzaré a buscar las mejores opciones de seguros para ti.`;
-  }
-}
-
-// ============================================================================
-// HELPER FUNCTIONS - Simple AI simulation
-// ============================================================================
-
-function extractBusinessType(message: string): string | undefined {
-  const lowerMessage = message.toLowerCase();
-  if (lowerMessage.includes('restaurant') || lowerMessage.includes('comida')) return 'Restaurant';
-  if (lowerMessage.includes('tienda') || lowerMessage.includes('shop')) return 'Retail';
-  if (lowerMessage.includes('consultoria') || lowerMessage.includes('consulting')) return 'Consulting';
-  return undefined;
-}
-
-function extractEmployeeCount(message: string): number | undefined {
-  const numbers = message.match(/\d+/g);
-  if (numbers) {
-    const num = parseInt(numbers[0]);
-    if (num > 0 && num < 10000) return num;
-  }
-  return undefined;
-}
-
-function extractCoverage(message: string): string | undefined {
-  const lowerMessage = message.toLowerCase();
-  if (lowerMessage.includes('seguro') || lowerMessage.includes('insurance')) return 'General Insurance';
-  if (lowerMessage.includes('salud') || lowerMessage.includes('health')) return 'Health Insurance';
-  return undefined;
-}
-
-function generateAgentResponse(message: string): string {
-  const responses = [
-    "Entiendo que necesitas asesoría en seguros. He registrado tu caso y comenzaré a buscar las mejores opciones para ti.",
-    "Perfecto, he creado un caso para tu consulta. Te ayudaré a encontrar la cobertura más adecuada.",
-    "Gracias por tu mensaje. He guardado la información y procederé a analizar las mejores opciones de seguros para tu situación."
-  ];
-  
-  const randomIndex = Math.floor(Math.random() * responses.length);
-  return responses[randomIndex]!; // El ! asegura que existe
-}
 
 // ============================================================================
 // CRUD OPERATIONS - EXTENDED (Multi-tenant support)
@@ -476,16 +357,15 @@ export async function createCaseWithOrg(
     companyId?: string;          // ✅ FASE CLIENTE/EMPRESA: FK a companies (persona jurídica)
     subjectType?: string;        // ✅ FASE CLIENTE/EMPRESA: 'client' | 'company'
     caseName?: string;           // Nombre descriptivo del caso
-    businessType?: string;
     employees?: number;
     status?: 'draft' | 'active' | 'completed' | 'archived';
     stage?: 'initial' | 'sourcing' | 'analysis' | 'proposal' | 'negotiation' | 'closed';
     priority?: 'low' | 'medium' | 'high' | 'urgent';
     // Nuevos campos del Brief detallado
     insurance_category?: string;
+    analysis_reason?: string; // ✅ FASE CATEGORÍAS: Motivo del análisis
     max_budget?: number;
     budget_currency?: 'COP' | 'USD';
-    required_coverages?: string[];
     client_profile?: string;
   } = {} // <-- Añadir valor por defecto para seguridad
 ) {
@@ -506,7 +386,6 @@ export async function createCaseWithOrg(
     stage: additionalData.stage || 'initial',
     priority: additionalData.priority || 'medium',
     budget_currency: additionalData.budget_currency || 'COP',
-    required_coverages: additionalData.required_coverages || [],
     subjectType: additionalData.subjectType || 'client', // ✅ FASE CLIENTE/EMPRESA: default 'client'
   };
   
@@ -516,9 +395,9 @@ export async function createCaseWithOrg(
   if (additionalData.clientId !== undefined) caseData.clientId = additionalData.clientId;
   if (additionalData.companyId !== undefined) caseData.companyId = additionalData.companyId; // ✅ FASE CLIENTE/EMPRESA
   if (additionalData.caseName !== undefined) caseData.caseName = additionalData.caseName;
-  if (additionalData.businessType !== undefined) caseData.businessType = additionalData.businessType;
   if (additionalData.employees !== undefined) caseData.employees = additionalData.employees;
   if (additionalData.insurance_category !== undefined) caseData.insurance_category = additionalData.insurance_category;
+  if (additionalData.analysis_reason !== undefined) caseData.analysis_reason = additionalData.analysis_reason; // ✅ FASE CATEGORÍAS
   if (normalizedMaxBudget !== null) caseData.max_budget = normalizedMaxBudget;
   if (additionalData.client_profile !== undefined) caseData.client_profile = additionalData.client_profile;
   

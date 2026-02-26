@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { CaseStatusBadge } from './CaseStatusBadge';
 import { CaseNameEditor } from './CaseNameEditor';
 import { PinButton } from '@/components/Workspace/PinButton';
-import { Clock, FileText, Briefcase, Trash2, Pencil } from 'lucide-react';
+import { Clock, FileText, Trash2, Pencil } from 'lucide-react';
 
 interface CaseCardProps {
   caseData: any;
@@ -116,13 +116,6 @@ export function CaseCard({ caseData, onDelete, isPinned = false }: CaseCardProps
           </CardHeader>
           
           <CardContent className="space-y-3">
-            {caseData.businessType && (
-              <div className="flex items-center gap-2 text-sm">
-                <Briefcase className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">{caseData.businessType}</span>
-              </div>
-            )}
-            
             {caseData.employees && (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-muted-foreground">

@@ -59,20 +59,18 @@ export async function PUT(request: NextRequest) {
         // Mapea los datos del formulario a los campos de la base de datos.
         const caseUpdatePayload: any = {
             insurance_category: updateData.insurance_category,
+            analysis_reason: updateData.analysis_reason, // ✅ FASE CATEGORÍAS: Motivo del análisis
             max_budget: normalizedMaxBudget, // ✅ Validado y normalizado
             budget_currency: updateData.budget_currency,
-            required_coverages: updateData.required_coverages || [],
             client_profile: updateData.client_profile || '',
             clientName: updateData.clientName,
-            businessType: updateData.businessType,
             employees: updateData.employees,
             // ✅ CORRECCIÓN CRÍTICA: Preservar el status actual - NUNCA cambiar 'active' a 'draft'
             status: existingCase.status, // Preservar el status original
             briefData: { // También actualizamos el JSON por coherencia
                 freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que incluye notes como fallback
-                businessType: updateData.businessType,
                 employees: updateData.employees,
-                coverage: updateData.coverage || '',
+                categoryData: updateData.categoryData || {}, // ✅ FASE CATEGORÍAS: Datos dinámicos
             }
         };
         

@@ -16,18 +16,16 @@ interface CaseData {
     id: string;
     status: string;
     clientName?: string;
-    businessType?: string;
     employees?: number;
     insurance_category?: string;
     max_budget?: number | string;
     budget_currency?: string;
-    required_coverages?: string[];
     client_profile?: string;
     clientRef?: string;
     briefData?: any;
     artifacts?: any[];
     companyId?: string; // ✅ CORRECCIÓN: FK a companies para rehidratación en modo edición
-    subjectType?: string; // ✅ CORRECCIÓN: 'client' | 'company' para propagación al brief
+    subjectType?: 'client' | 'company'; // ✅ CORRECCIÓN: Union literal estricto para propagación al brief
 }
 
 interface CaseBriefFormProps {
@@ -122,7 +120,6 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
         // ✅ FASE 3: Mapear todos los campos desde activeCaseData (caso histórico)
         const mappedBrief: Partial<CaseBrief> = {
             clientName: activeCaseData.clientName || '',
-            businessType: activeCaseData.businessType || '',
             ...(activeCaseData.employees !== undefined && activeCaseData.employees !== null && {
                 employees: activeCaseData.employees
             }),
@@ -131,12 +128,8 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 max_budget: Number(activeCaseData.max_budget)
             }),
             budget_currency: (activeCaseData.budget_currency as 'COP' | 'USD') || 'COP',
-            required_coverages: Array.isArray(activeCaseData.required_coverages)
-                ? activeCaseData.required_coverages
-                : [],
             client_profile: activeCaseData.client_profile || '',
             freeText: (activeCaseData.briefData as any)?.freeText || '',
-            coverage: (activeCaseData.briefData as any)?.coverage || '',
             selectedClientId: activeCaseData.clientRef || null,
             // ✅ CORRECCIÓN: Incluir campos de empresa para que el brief global los tenga disponibles
             ...(activeCaseData.subjectType && { subjectType: activeCaseData.subjectType }),
@@ -183,11 +176,8 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 insurance_category: '',
                 max_budget: null,         // ✅ FASE 3: Explícitamente null
                 budget_currency: 'COP',
-                required_coverages: [],
                 client_profile: '',
-                businessType: '',
                 employees: null,          // ✅ FASE 3: Explícitamente null
-                coverage: '',
                 tempUploads: [] // ✅ CORRECCIÓN: Limpiar PDFs residuales
             });
         }
@@ -244,12 +234,9 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             // ✅ CORRECCIÓN CRÍTICA: Incluir TODOS los campos del formulario en briefUpdate
             // Esto asegura que generateInitialMessageFromBrief incluya TODA la información
             const briefUpdate: Partial<CaseBrief> = {
-                businessType: data.businessType || '',
-                coverage: data.coverage || '',
                 freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que incluye notes como fallback
                 insurance_category: data.insurance_category || '',
                 budget_currency: data.budget_currency || 'COP',
-                required_coverages: data.required_coverages || [],
                 client_profile: data.client_profile || '',
                 clientName: data.clientName || '',
                 // ✅ CORRECCIÓN CRÍTICA: Incluir campos numéricos (null es válido)
@@ -268,7 +255,6 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
                 insurance_category: briefUpdate.insurance_category,
                 clientName: briefUpdate.clientName,
                 max_budget: briefUpdate.max_budget,
-                required_coverages: briefUpdate.required_coverages?.length || 0,
                 tempUploadsCount: (briefUpdate as any).tempUploads?.length || 0
             });
 

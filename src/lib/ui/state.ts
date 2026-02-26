@@ -1398,8 +1398,8 @@ export const useUI = create<UIState>()(
       // Función de validación unificada del brief
       isBriefValid: () => {
         const { brief } = get();
-        // Solo la categoría de seguro es obligatoria
-        return !!(brief.insurance_category?.trim());
+        // ✅ FASE CATEGORÍAS: Motivo del análisis y categoría de seguro son obligatorios
+        return !!(brief.insurance_category?.trim()) && !!(brief.analysis_reason?.trim());
       },
       setInitialMessage: (message: string) => set({ initialMessage: message }),  // ✅ Implementación
       clearInitialMessage: () => set({ initialMessage: "" }),                  // ✅ Implementación simple
@@ -1478,14 +1478,11 @@ export const useUI = create<UIState>()(
             ...updatedBrief,
             selectedClientId: clientId ?? updatedBrief.selectedClientId ?? null,
             clientName: updatedBrief.clientName ?? null,
-            businessType: updatedBrief.businessType ?? null,
             insurance_category: updatedBrief.insurance_category ?? null,
             max_budget: updatedBrief.max_budget ?? null,
             employees: updatedBrief.employees ?? null,
             client_profile: updatedBrief.client_profile ?? null,
-            required_coverages: updatedBrief.required_coverages ?? [],
             budget_currency: updatedBrief.budget_currency ?? 'COP',
-            coverage: updatedBrief.coverage ?? null,
             freeText: updatedBrief.freeText ?? null,
             // ✅ FASE CLIENTE/EMPRESA: Preservar campos de empresa para aprobación
             subjectType: updatedBrief.subjectType ?? 'client',
