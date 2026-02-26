@@ -327,7 +327,11 @@ export const CaseBriefSchema = z
     // ✅ FASE 29: Campos faltantes agregados para sincronización completa
     clientName: z.string().optional(),
     selectedClientId: z.string().nullable().optional(),
-    insurance_category: z.string().optional(),
+    insurance_category: z.union([
+      z.enum(['trdm', 'rce', 'transporte', 'riesgos_financieros', 'flota',
+              'vehiculos_livianos', 'accidentes_personales', 'hogar', 'salud', 'vida']),
+      z.literal(''),
+    ]).optional(), // ✅ Validación enum — solo IDs válidos o string vacío (no seleccionado)
     max_budget: z.number().nullable().optional(),
     budget_currency: z.enum(['COP', 'USD', 'MXN', 'EUR']).optional(), // ✅ FASE 31.3: Alineado con CurrencyCode
     client_profile: z.string().optional(),
@@ -380,7 +384,11 @@ export const CaseSchema = z
     createdAt: IsoDateTimeStringSchema,
     updatedAt: IsoDateTimeStringSchema,
     // Nuevos campos del Brief detallado
-    insurance_category: z.string().optional(),
+    insurance_category: z.union([
+      z.enum(['trdm', 'rce', 'transporte', 'riesgos_financieros', 'flota',
+              'vehiculos_livianos', 'accidentes_personales', 'hogar', 'salud', 'vida']),
+      z.literal(''),
+    ]).optional(), // ✅ Validación enum — solo IDs válidos o string vacío
     max_budget: z.number().optional(),
     budget_currency: z.enum(['COP', 'USD']).optional().default('COP'),
     client_profile: z.string().optional(),

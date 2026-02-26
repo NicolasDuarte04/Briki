@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { moveTempToPersistent } from '@/lib/storage/moveTempToPersistent';
 import { findDuplicateArtifact } from '@/lib/storage/findDuplicateArtifact';
+import { isValidInsuranceCategory } from '@/lib/insurance-categories';
 
 export async function PUT(request: NextRequest) {
     try {
@@ -56,9 +57,18 @@ export async function PUT(request: NextRequest) {
           finalFreeText: finalFreeText.substring(0, 50) + '...'
         });
         
+        // ✅ Validar insurance_category contra enum de categorías válidas
+        if (updateData.insurance_category && !isValidInsuranceCategory(updateData.insurance_category)) {
+            console.warn(`⚠️ [API/cases/update] Categoría inválida rechazada: '${updateData.insurance_category}'`);
+            return NextResponse.json(
+                { error: `Invalid insurance category: '${updateData.insurance_category}'` },
+                { status: 400 }
+            );
+        }
+
         // Mapea los datos del formulario a los campos de la base de datos.
         const caseUpdatePayload: any = {
-            insurance_category: updateData.insurance_category,
+            insurance_category: updateData.insurance_category || null,
             analysis_reason: updateData.analysis_reason, // ✅ FASE CATEGORÍAS: Motivo del análisis
             max_budget: normalizedMaxBudget, // ✅ Validado y normalizado
             budget_currency: updateData.budget_currency,

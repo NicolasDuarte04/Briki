@@ -334,3 +334,23 @@ export function isCategoryValidForSubjectType(
   const validCategories = getCategoriesForSubjectType(subjectType);
   return validCategories.includes(categoryId);
 }
+
+// ─── Validation Helpers ──────────────────────────────────────────────────────
+
+/**
+ * All valid insurance category IDs (both company and client).
+ * Useful for server-side enum validation.
+ */
+export const VALID_CATEGORY_IDS: readonly string[] = [
+  ...COMPANY_CATEGORIES,
+  ...CLIENT_CATEGORIES,
+] as const;
+
+/**
+ * Checks if a string is a valid insurance category ID.
+ * Use for server-side validation before persisting.
+ */
+export function isValidInsuranceCategory(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return (VALID_CATEGORY_IDS as readonly string[]).includes(value);
+}

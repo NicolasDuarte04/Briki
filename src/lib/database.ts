@@ -392,8 +392,10 @@ export async function createCaseWithOrg(
   // Solo agregar campos si tienen valor (evitar undefined)
   if (additionalData.clientRef !== undefined) caseData.clientRef = additionalData.clientRef;
   if (additionalData.clientName !== undefined) caseData.clientName = additionalData.clientName;
-  if (additionalData.clientId !== undefined) caseData.clientId = additionalData.clientId;
-  if (additionalData.companyId !== undefined) caseData.companyId = additionalData.companyId; // ✅ FASE CLIENTE/EMPRESA
+  // ✅ FIX PRISMA 6.19: Usar sintaxis relacional connect en vez de FK escalar
+  // CaseCreateInput no acepta clientId/companyId como escalares — requiere client/company: { connect: { id } }
+  if (additionalData.clientId) caseData.client = { connect: { id: additionalData.clientId } };
+  if (additionalData.companyId) caseData.company = { connect: { id: additionalData.companyId } };
   if (additionalData.caseName !== undefined) caseData.caseName = additionalData.caseName;
   if (additionalData.employees !== undefined) caseData.employees = additionalData.employees;
   if (additionalData.insurance_category !== undefined) caseData.insurance_category = additionalData.insurance_category;
