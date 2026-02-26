@@ -50,9 +50,10 @@ export function generateInitialMessageFromBrief(brief: Partial<CaseBrief>): stri
         parts.push(`Presupuesto máximo: ${brief.max_budget.toLocaleString()} ${currency}`);
     }
     
-    // Coberturas imprescindibles
-    if (brief.required_coverages && brief.required_coverages.length > 0) {
-        parts.push(`Coberturas imprescindibles: ${brief.required_coverages.join(', ')}`);
+    // Coberturas seleccionadas (desde categoryData)
+    const selectedCoverages = (brief.categoryData?.selected_coverages as string[]) || [];
+    if (selectedCoverages.length > 0) {
+        parts.push(`Coberturas seleccionadas: ${selectedCoverages.join(', ')}`);
     }
     
     // Perfil del cliente
@@ -60,12 +61,7 @@ export function generateInitialMessageFromBrief(brief: Partial<CaseBrief>): stri
         parts.push(`Perfil del cliente: ${brief.client_profile}`);
     }
     
-    // Tipo de negocio
-    if (brief.businessType) {
-        parts.push(`Tipo de negocio: ${brief.businessType}`);
-    }
-    
-    // Número de empleados
+    // Número de empleados (solo empresas)
     if (brief.employees) {
         parts.push(`Número de empleados: ${brief.employees}`);
     }
@@ -172,10 +168,6 @@ export function generateWelcomeMessageFromBrief(
         details.push(`📋 **Categoría:** ${brief.insurance_category}`);
     }
     
-    if (brief.businessType) {
-        details.push(`🏢 **Tipo de negocio:** ${brief.businessType}`);
-    }
-    
     if (brief.employees) {
         details.push(`👥 **Empleados:** ${brief.employees}`);
     }
@@ -185,8 +177,9 @@ export function generateWelcomeMessageFromBrief(
         details.push(`💰 **Presupuesto:** ${brief.max_budget.toLocaleString()} ${currency}`);
     }
     
-    if (brief.required_coverages && brief.required_coverages.length > 0) {
-        details.push(`🛡️ **Coberturas requeridas:** ${brief.required_coverages.join(', ')}`);
+    const selectedCoverages2 = (brief.categoryData?.selected_coverages as string[]) || [];
+    if (selectedCoverages2.length > 0) {
+        details.push(`🛡️ **Coberturas seleccionadas:** ${selectedCoverages2.join(', ')}`);
     }
     
     if (brief.client_profile) {

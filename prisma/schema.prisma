@@ -394,6 +394,7 @@ model Case {
   budget_currency    String?          @default("COP") @map("budget_currency") @db.VarChar(3)
   client_profile     String?          @map("client_profile")
   insurance_category String?
+  analysis_reason    String?          @map("analysis_reason") @db.VarChar(30) // Motivo: primera_vez, renovacion, benchmarking, reclamo, auditoria
   max_budget         Decimal?         @map("max_budget") @db.Decimal(10, 2)
   required_coverages String[]         @default([]) @map("required_coverages")
   
@@ -483,24 +484,33 @@ model Message {
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model clients {
-  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  org_id        String        @db.Uuid
-  name_enc      Bytes
-  email_enc     Bytes?
-  phone_enc     Bytes?
-  address_enc   Bytes?
-  // ✅ NUEVO: Campos de identificación del cliente
-  id_type       String?       @db.VarChar(50) // Tipo de documento: CC, NIT, CE, PASSPORT, etc. (no cifrado - valor catálogo)
-  id_number_enc Bytes?        // Número de identificación cifrado con pgcrypto
-  id_country    String?       @db.VarChar(3)  // Código ISO 3166-1 alpha-2 del país emisor (no cifrado)
-  created_at    DateTime?     @default(now()) @db.Timestamptz(6)
-  updated_at    DateTime?     @default(now()) @db.Timestamptz(6)
-  organizations organizations @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  cases         Case[]        // ✅ NUEVO: Relación inversa con casos
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id         String        @db.Uuid
+  name_enc       Bytes
+  email_enc      Bytes?
+  phone_enc      Bytes?
+  address_enc    Bytes?
+  // Campos de identificación del cliente
+  id_type        String?       @db.VarChar(50) // Tipo de documento: CC, NIT, CE, PASSPORT, etc.
+  id_number_enc  Bytes?        // Número de identificación cifrado con pgcrypto
+  id_country     String?       @db.VarChar(3)  // Código ISO 3166-1 alpha-2 del país emisor
+  // Discriminador persona natural / jurídica
+  person_type    String?       @default("natural") @db.VarChar(20) // 'natural' | 'juridica'
+  // Datos actuariales (persona natural)
+  last_name_enc  Bytes?        // Apellidos completos (cifrado PII)
+  birth_date     DateTime?     @db.Date // Fecha de nacimiento (cálculo actuarial)
+  gender         String?       @db.VarChar(20) // masculino, femenino, otro, no_especifica
+  occupation_enc Bytes?        // Profesión/Ocupación (cifrado PII)
+  marital_status String?       @db.VarChar(20) // soltero, casado, union_libre, divorciado, viudo
+  created_at     DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?     @default(now()) @db.Timestamptz(6)
+  organizations  organizations @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cases          Case[]        // Relación inversa con casos
 
   @@index([created_at(sort: Desc)], map: "idx_clients_created_at")
   @@index([org_id], map: "idx_clients_org_id")
-  @@index([id_type], map: "idx_clients_id_type") // ✅ Índice para filtros por tipo de documento
+  @@index([id_type], map: "idx_clients_id_type")
+  @@index([person_type], map: "idx_clients_person_type")
   @@schema("public")
 }
 
@@ -1295,6 +1305,10 @@ model Company {
   legalRepEmailEnc        Bytes?              @map("legal_rep_email_enc")
   legalRepPhoneEnc        Bytes?              @map("legal_rep_phone_enc")
   legalRepStartDate       DateTime?           @map("legal_rep_start_date") @db.Date
+  notificationEmailEnc    Bytes?              @map("notification_email_enc")    // ✅ Email notificación judicial (PII)
+  headquartersAddressEnc  Bytes?              @map("headquarters_address_enc")  // ✅ Dirección sede principal (PII)
+  department              String?             @map("department") @db.VarChar(100) // ✅ Departamento/Estado sede
+  website                 String?             @map("website") @db.VarChar(500)   // ✅ Website corporativo (público)
   
   // SECCIÓN C: Información Financiera (SARLAFT)
   annualRevenueEnc        Bytes?              @map("annual_revenue_enc")
@@ -1302,6 +1316,9 @@ model Company {
   totalLiabilitiesEnc     Bytes?              @map("total_liabilities_enc")
   totalEquityEnc          Bytes?              @map("total_equity_enc")
   financialYear           Int?                @map("financial_year")
+  financialCutDate        DateTime?           @map("financial_cut_date") @db.Date // ✅ Fecha corte info financiera
+  annualPayrollEnc        Bytes?              @map("annual_payroll_enc")          // ✅ Nómina anual (PII)
+  employeeCount           Int?                @map("employee_count")              // ✅ Total empleados directos
   currency                String              @default("COP") @db.VarChar(3)
   riskClassification      RiskClassification  @default(bajo) @map("risk_classification")
   
@@ -1311,6 +1328,7 @@ model Company {
   
   // SECCIÓN E: Datos de Riesgo y Compliance
   ciiuCode                String?             @map("ciiu_code") @db.VarChar(10)
+  activityDescriptionEnc  Bytes?              @map("activity_description_enc") // ✅ Descripción actividad económica (PII)
   isPep                   Boolean             @default(false) @map("is_pep")
   isObligatedSubject      Boolean             @default(false) @map("is_obligated_subject")
   lastSarlaftUpdate       DateTime?           @map("last_sarlaft_update") @db.Date

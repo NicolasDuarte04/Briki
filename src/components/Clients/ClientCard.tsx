@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Phone, MapPin, User, Shield, CreditCard } from 'lucide-react';
+import { Mail, Phone, MapPin, User, Shield, CreditCard, Building2 } from 'lucide-react';
 import { PinButton } from '@/components/Workspace/PinButton';
 import type { DecryptedClient } from '@/lib/clientsDb';
 
@@ -37,6 +37,12 @@ export function ClientCard({ client, isPinned = false }: ClientCardProps) {
     });
   };
   
+  const isNatural = client.personType !== 'juridica';
+  const displayName = isNatural && client.lastName
+    ? `${client.name} ${client.lastName}`
+    : client.name;
+  const PersonIcon = isNatural ? User : Building2;
+  
   return (
     <Card className="hover:shadow-lg transition-shadow h-full relative group overflow-hidden">
       <Link href={`/${locale}/workspace/clients/${client.id}`} className="block h-full">
@@ -44,15 +50,20 @@ export function ClientCard({ client, isPinned = false }: ClientCardProps) {
           <div className="flex items-start justify-between gap-2 w-full overflow-hidden">
             <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <User className="h-5 w-5 text-primary" />
+                <PersonIcon className="h-5 w-5 text-primary" />
               </div>
               <div className="flex-1 min-w-0 overflow-hidden">
-                <h3 className="font-semibold text-lg truncate max-w-full" title={client.name}>
-                  {client.name}
+                <h3 className="font-semibold text-lg truncate max-w-full" title={displayName}>
+                  {displayName}
                 </h3>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Shield className="h-3 w-3 shrink-0" />
-                  <span>{t('encryptedData')}</span>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Shield className="h-3 w-3 shrink-0" />
+                    <span>{t('encryptedData')}</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    {isNatural ? t('personNatural') : t('personJuridica')}
+                  </Badge>
                 </div>
               </div>
             </div>

@@ -3,8 +3,9 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Edit, Trash2, Shield, Mail, Phone, MapPin, Calendar, CreditCard, Globe } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Shield, Mail, Phone, MapPin, Calendar, CreditCard, Globe, User, Building2, Heart, Briefcase, Users } from 'lucide-react';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation';
 import { DeleteConfirmationDialog } from '@/components/ui/DeleteConfirmationDialog';
 import { DecryptedClient } from '@/lib/clientsDb';
@@ -78,6 +79,49 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
     });
   };
   
+  const isNatural = client.personType !== 'juridica';
+  const displayName = isNatural && client.lastName
+    ? `${client.name} ${client.lastName}`
+    : client.name;
+  
+  const calculateAge = (date: Date | string): number | null => {
+    const birth = new Date(date);
+    if (isNaN(birth.getTime())) return null;
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age >= 0 ? age : null;
+  };
+  
+  // Translation helpers for gender and marital status
+  const getGenderLabel = (gender: string | null): string => {
+    if (!gender) return t('notRegistered');
+    const map: Record<string, string> = {
+      male: locale === 'es' ? 'Masculino' : 'Male',
+      female: locale === 'es' ? 'Femenino' : 'Female',
+      other: locale === 'es' ? 'Otro' : 'Other',
+      preferNotSay: locale === 'es' ? 'Prefiere no decir' : 'Prefer not to say',
+    };
+    return map[gender] || gender;
+  };
+  
+  const getMaritalStatusLabel = (status: string | null): string => {
+    if (!status) return t('notRegistered');
+    const map: Record<string, string> = {
+      single: locale === 'es' ? 'Soltero/a' : 'Single',
+      married: locale === 'es' ? 'Casado/a' : 'Married',
+      divorced: locale === 'es' ? 'Divorciado/a' : 'Divorced',
+      widowed: locale === 'es' ? 'Viudo/a' : 'Widowed',
+      freeUnion: locale === 'es' ? 'Unión Libre' : 'Common-law',
+      separated: locale === 'es' ? 'Separado/a' : 'Separated',
+      other: locale === 'es' ? 'Otro' : 'Other',
+    };
+    return map[status] || status;
+  };
+  
   return (
     <>
       <div className="container mx-auto py-8 px-4 max-w-4xl">
@@ -89,12 +133,21 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
             </Button>
           </Link>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight">
-              {client.name}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold tracking-tight">
+                {displayName}
+              </h1>
+              <Badge variant="outline" className="text-xs">
+                {isNatural ? (
+                  <><User className="h-3 w-3 mr-1" />{t('personNatural')}</>
+                ) : (
+                  <><Building2 className="h-3 w-3 mr-1" />{t('personJuridica')}</>
+                )}
+              </Badge>
+            </div>
             <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
               <Shield className="h-3 w-3" />
-              Información cifrada en la base de datos
+              {t('encryptedInfo')}
             </p>
           </div>
           <div className="flex gap-2">
@@ -176,6 +229,75 @@ export function ClientDetailContent({ client, clientId, orgId }: ClientDetailCon
               )}
             </CardContent>
           </Card>
+          
+          {/* Personal Data Card (only for natural persons) */}
+          {isNatural && (client.birthDate || client.gender || client.occupation || client.maritalStatus) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Heart className="h-5 w-5" />
+                  {t('personalDataInfo')}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {client.birthDate && (
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-pink-100 dark:bg-pink-950/30 flex items-center justify-center">
+                      <Calendar className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">{t('birthDate')}</div>
+                      <div className="font-medium">
+                        {new Date(client.birthDate).toLocaleDateString(locale === 'es' ? 'es-ES' : 'en-US', {
+                          year: 'numeric', month: 'long', day: 'numeric'
+                        })}
+                        {(() => {
+                          const age = calculateAge(client.birthDate!);
+                          return age !== null ? ` (${t('ageYears', { years: age })})` : '';
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {client.gender && (
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-indigo-100 dark:bg-indigo-950/30 flex items-center justify-center">
+                      <User className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">{t('gender')}</div>
+                      <div className="font-medium">{getGenderLabel(client.gender)}</div>
+                    </div>
+                  </div>
+                )}
+                
+                {client.occupation && (
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center">
+                      <Briefcase className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">{t('occupation')} 🔒</div>
+                      <div className="font-medium">{client.occupation}</div>
+                    </div>
+                  </div>
+                )}
+                
+                {client.maritalStatus && (
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-rose-100 dark:bg-rose-950/30 flex items-center justify-center">
+                      <Users className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">{t('maritalStatus')}</div>
+                      <div className="font-medium">{getMaritalStatusLabel(client.maritalStatus)}</div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
           
           {/* Información de Contacto */}
           <Card>

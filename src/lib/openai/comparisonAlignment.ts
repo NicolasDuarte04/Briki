@@ -1,5 +1,6 @@
 import { getOpenAIClient, parseAIResponse } from './policyAnalysis';
 import { PolicyAnalysis, ComparisonRow, ReformulationOptions } from '@/lib/types';
+import { resolveStrategy } from '@/lib/prompts/strategies';
 
 // ✅ SEGURIDAD: Límite máximo de comparaciones por caso (prevención crecimiento ilimitado)
 export const MAX_COMPARISONS_PER_CASE = 20;
@@ -41,17 +42,19 @@ export function sanitizeUserPrompt(raw: string): string {
  * 
  * @param analyses - List of policy analyses to compare
  * @param options - Optional reformulation parameters (focusAspects, userPrompt, referenceRows)
+ * @param insuranceCategory - Insurance category from the case brief (e.g. 'trdm', 'salud')
  * @returns List of normalized comparison rows
  */
 export async function alignPoliciesWithAI(
   analyses: PolicyAnalysis[],
-  options?: ReformulationOptions & { referenceRows?: ComparisonRow[] }
+  options?: ReformulationOptions & { referenceRows?: ComparisonRow[] },
+  insuranceCategory?: string | null
 ): Promise<ComparisonRow[]> {
   const isReformulation = !!(options?.focusAspects?.length || options?.userPrompt || options?.referenceRows?.length);
-  console.log(`🤖 ${isReformulation ? 'Reformulating' : 'Aligning'} ${analyses.length} policies with AI...`);
+  console.log(`🤖 ${isReformulation ? 'Reformulating' : 'Aligning'} ${analyses.length} policies with AI (category: ${insuranceCategory || 'generic'})...`);
 
   const openai = getOpenAIClient();
-  const prompt = buildAlignmentPrompt(analyses, options);
+  const prompt = buildAlignmentPrompt(analyses, options, insuranceCategory);
 
   try {
     const response = await openai.chat.completions.create({
@@ -59,7 +62,7 @@ export async function alignPoliciesWithAI(
       messages: [
         {
           role: 'system',
-          content: 'Eres un actuario experto y analista de seguros. Tu tarea es comparar múltiples pólizas de seguros, normalizar sus coberturas a una ontología común y resaltar las diferencias clave.'
+          content: buildSystemPrompt(insuranceCategory)
         },
         {
           role: 'user',
@@ -96,9 +99,34 @@ export async function alignPoliciesWithAI(
   }
 }
 
+/**
+ * Builds the system prompt with category-specific expertise when available.
+ * Falls back to generic actuarial expertise when no category is specified.
+ */
+function buildSystemPrompt(insuranceCategory?: string | null): string {
+  const strategy = resolveStrategy(insuranceCategory);
+  const isSpecific = strategy.categoryId !== 'generic';
+
+  const base = `Eres un actuario experto y analista de seguros especializado en el ramo de **${strategy.categoryLabel}**.`;
+  const task = ' Tu tarea es comparar múltiples pólizas de seguros, normalizar sus coberturas a una ontología común y resaltar las diferencias clave.';
+
+  if (!isSpecific) {
+    return 'Eres un actuario experto y analista de seguros. Tu tarea es comparar múltiples pólizas de seguros, normalizar sus coberturas a una ontología común y resaltar las diferencias clave.';
+  }
+
+  // Inject comparison priorities from the strategy as expert guidance
+  const priorities = strategy.getComparisonPriorities();
+  const prioritiesBlock = priorities.length > 0
+    ? `\n\nPRIORIDADES DE COMPARACIÓN PARA ${strategy.categoryLabel.toUpperCase()}:\n${priorities.map((p, i) => `${i + 1}. ${p}`).join('\n')}\n\nEstas prioridades deben guiar el ORDEN e IMPORTANCIA de las filas que generes. Las primeras prioridades deben aparecer como filas obligatorias (isMandatory: true).`
+    : '';
+
+  return `${base}${task}${prioritiesBlock}`;
+}
+
 function buildAlignmentPrompt(
   analyses: PolicyAnalysis[],
-  options?: ReformulationOptions & { referenceRows?: ComparisonRow[] }
+  options?: ReformulationOptions & { referenceRows?: ComparisonRow[] },
+  insuranceCategory?: string | null
 ): string {
   // Prepare simplified input for the LLM to save tokens
   const inputs = analyses.map(a => ({
@@ -134,9 +162,17 @@ Coberturas ya identificadas: ${options.referenceRows.map(r => r.coverageName).jo
 Tu tarea es MEJORAR esta comparación: agregar coberturas faltantes, corregir imprecisiones, y profundizar en las categorías priorizadas.\n`
     : '';
 
+  // ── Strategy-Resolved Category Context ──
+  const strategy = resolveStrategy(insuranceCategory);
+  const isSpecific = strategy.categoryId !== 'generic';
+
+  const categoryContextSection = isSpecific
+    ? `\nRAMO DE SEGURO: ${strategy.categoryLabel}\nLas coberturas, deducibles y condiciones deben interpretarse según la terminología y práctica del ramo ${strategy.categoryLabel} en el mercado colombiano.\n`
+    : '';
+
   return `
 Analiza y alinea las siguientes ${analyses.length} pólizas de seguro para crear una tabla comparativa unificada y profesional.
-
+${categoryContextSection}
 INPUT DATA:
 ${JSON.stringify(inputs, null, 2)}
 ${focusSection}${userInstructionsSection}${referenceSection}

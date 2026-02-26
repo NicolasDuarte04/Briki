@@ -1,7 +1,7 @@
 // /src/components/Clients/ClientForm.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,14 +15,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Shield, CreditCard } from 'lucide-react';
+import { Loader2, Shield, CreditCard, User, Building2, Heart } from 'lucide-react';
 import type { DecryptedClient } from '@/lib/clientsDb';
 import { useLocale, useTranslations } from 'next-intl';
 
-// ✅ Tipos de identificación soportados
-const ID_TYPES = ['CC', 'CE', 'NIT', 'PASSPORT', 'TI', 'RUT', 'DNI', 'RFC', 'OTHER'] as const;
+// Tipos de identificación por tipo de persona
+const ID_TYPES_NATURAL = ['CC', 'CE', 'PASSPORT', 'TI', 'DNI', 'OTHER'] as const;
+const ID_TYPES_JURIDICA = ['NIT', 'RUT', 'RFC', 'OTHER'] as const;
+const ALL_ID_TYPES = ['CC', 'CE', 'NIT', 'PASSPORT', 'TI', 'RUT', 'DNI', 'RFC', 'OTHER'] as const;
 
-// ✅ Países más comunes (se puede expandir)
+// Opciones de género
+const GENDER_OPTIONS = ['male', 'female', 'other', 'preferNotSay'] as const;
+
+// Opciones de estado civil
+const MARITAL_STATUS_OPTIONS = ['single', 'married', 'divorced', 'widowed', 'freeUnion', 'separated', 'other'] as const;
+
+// Países más comunes
 const COUNTRIES = [
   { code: 'CO', name: 'Colombia', flag: '🇨🇴' },
   { code: 'MX', name: 'México', flag: '🇲🇽' },
@@ -51,19 +59,72 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
-  // ✅ NUEVO: Estado para campos de identificación (Select no usa name nativo)
+  // State for Select fields (Select doesn't use native name)
+  const [personType, setPersonType] = useState<string>(client?.personType || 'natural');
   const [idType, setIdType] = useState<string>(client?.idType || '');
   const [idCountry, setIdCountry] = useState<string>(client?.idCountry || '');
+  const [gender, setGender] = useState<string>(client?.gender || '');
+  const [maritalStatus, setMaritalStatus] = useState<string>(client?.maritalStatus || '');
   
   const isEditMode = !!client;
+  const isNatural = personType === 'natural';
+  
+  // Filter ID types based on person type
+  const filteredIdTypes = useMemo(() => {
+    return isNatural ? ID_TYPES_NATURAL : ID_TYPES_JURIDICA;
+  }, [isNatural]);
+  
+  // Calculate age from birth date
+  const calculateAge = (dateStr: string): number | null => {
+    if (!dateStr) return null;
+    const birth = new Date(dateStr);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age >= 0 ? age : null;
+  };
+  
+  const [calculatedAge, setCalculatedAge] = useState<number | null>(() => {
+    if (client?.birthDate) {
+      const d = client.birthDate instanceof Date ? client.birthDate : new Date(client.birthDate);
+      return calculateAge(d.toISOString().split('T')[0]!);
+    }
+    return null;
+  });
+  
+  const handleBirthDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCalculatedAge(calculateAge(e.target.value));
+  };
+  
+  // When personType changes, reset idType if it's not valid for the new type
+  const handlePersonTypeChange = (value: string) => {
+    setPersonType(value);
+    const newValidTypes = value === 'natural' ? ID_TYPES_NATURAL : ID_TYPES_JURIDICA;
+    if (idType && !(newValidTypes as readonly string[]).includes(idType)) {
+      setIdType('');
+    }
+    // Clear natural-only fields when switching to juridica
+    if (value === 'juridica') {
+      setGender('');
+      setMaritalStatus('');
+      setCalculatedAge(null);
+    }
+  };
   
   const resetForm = () => {
     const form = document.getElementById('client-form') as HTMLFormElement;
     if (form) {
       form.reset();
     }
+    setPersonType('natural');
     setIdType('');
     setIdCountry('');
+    setGender('');
+    setMaritalStatus('');
+    setCalculatedAge(null);
     setError(null);
     setSuccess(null);
   };
@@ -75,6 +136,7 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
     setSuccess(null);
     
     const formData = new FormData(e.currentTarget);
+    const birthDateStr = formData.get('birthDate') as string;
     
     try {
       const endpoint = isEditMode 
@@ -92,10 +154,15 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
           email: formData.get('email') || undefined,
           phone: formData.get('phone') || undefined,
           address: formData.get('address') || undefined,
-          // ✅ NUEVO: Campos de identificación
           idType: idType || undefined,
           idNumber: formData.get('idNumber') || undefined,
           idCountry: idCountry || undefined,
+          personType: personType,
+          lastName: isNatural ? (formData.get('lastName') || undefined) : undefined,
+          birthDate: isNatural && birthDateStr ? birthDateStr : undefined,
+          gender: isNatural ? (gender || undefined) : undefined,
+          occupation: isNatural ? (formData.get('occupation') || undefined) : undefined,
+          maritalStatus: isNatural ? (maritalStatus || undefined) : undefined,
         }),
       });
       
@@ -139,53 +206,99 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
       )}
       
       {/* Security Notice */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-950/30 dark:border-blue-800">
         <div className="flex gap-3">
-          <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
+          <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5" />
           <div>
-            <h3 className="font-semibold text-blue-900 text-sm">Cifrado Automático</h3>
-            <p className="text-xs text-blue-700 mt-1">
-              Todos los datos que ingreses serán automáticamente cifrados antes de ser almacenados en la base de datos.
+            <h3 className="font-semibold text-blue-900 dark:text-blue-100 text-sm">{t('autoEncryption')}</h3>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+              {t('encryptionNote')}
             </p>
           </div>
         </div>
       </div>
       
+      {/* Card 1: Person Type + Identity */}
       <Card>
         <CardHeader>
           <CardTitle>{t('clientInfo')}</CardTitle>
           <CardDescription>
-            Los campos marcados con * son obligatorios
+            {t('encryptionNote')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Person Type Selector */}
           <div className="space-y-2">
-            <Label htmlFor="name">{t('fullName')} *</Label>
-            <Input
-              id="name"
-              name="name"
-              placeholder={t('fullNamePlaceholder')}
-              defaultValue={client?.name}
-              required
-              autoFocus={!isEditMode}
-            />
-            <p className="text-xs text-muted-foreground">
-              Nombre completo del cliente o empresa
-            </p>
+            <Label>{t('personTypeLabel')}</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant={isNatural ? 'default' : 'outline'}
+                className="w-full justify-start gap-2"
+                onClick={() => handlePersonTypeChange('natural')}
+              >
+                <User className="h-4 w-4" />
+                {t('personTypeNatural')}
+              </Button>
+              <Button
+                type="button"
+                variant={!isNatural ? 'default' : 'outline'}
+                className="w-full justify-start gap-2"
+                onClick={() => handlePersonTypeChange('juridica')}
+              >
+                <Building2 className="h-4 w-4" />
+                {t('personTypeJuridica')}
+              </Button>
+            </div>
           </div>
+          
+          {/* Name fields */}
+          {isNatural ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">{t('namesLabel')} * 🔒</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  placeholder={t('namesPlaceholder')}
+                  defaultValue={client?.name}
+                  required
+                  autoFocus={!isEditMode}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">{t('lastNameLabel')} 🔒</Label>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  placeholder={t('lastNamePlaceholder')}
+                  defaultValue={client?.lastName || ''}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="name">{t('businessNameLabel')} * 🔒</Label>
+              <Input
+                id="name"
+                name="name"
+                placeholder={t('businessNamePlaceholder')}
+                defaultValue={client?.name}
+                required
+                autoFocus={!isEditMode}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
       
-      {/* ✅ NUEVO: Sección de Identificación */}
+      {/* Card 2: Identification */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-muted-foreground" />
             <CardTitle>{t('identificationSection')}</CardTitle>
           </div>
-          <CardDescription>
-            Información del documento de identidad del cliente
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -196,7 +309,7 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
                   <SelectValue placeholder={t('idTypePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {ID_TYPES.map((type) => (
+                  {filteredIdTypes.map((type) => (
                     <SelectItem key={type} value={type}>
                       {t(`idTypes.${type}`)}
                     </SelectItem>
@@ -230,24 +343,107 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
               placeholder={t('idNumberPlaceholder')}
               defaultValue={client?.idNumber || ''}
             />
-            <p className="text-xs text-muted-foreground">
-              Este campo se cifra automáticamente
-            </p>
           </div>
         </CardContent>
       </Card>
       
-      {/* Información de Contacto */}
+      {/* Card 3: Personal Data (only for natural persons) */}
+      {isNatural && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Heart className="h-5 w-5 text-muted-foreground" />
+              <CardTitle>{t('personalDataSection')}</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Birth Date + Age */}
+              <div className="space-y-2">
+                <Label htmlFor="birthDate">{t('birthDateLabel')}</Label>
+                <div className="flex gap-2 items-end">
+                  <Input
+                    id="birthDate"
+                    name="birthDate"
+                    type="date"
+                    className="flex-1"
+                    defaultValue={
+                      client?.birthDate
+                        ? (client.birthDate instanceof Date
+                            ? client.birthDate.toISOString().split('T')[0]
+                            : new Date(client.birthDate).toISOString().split('T')[0])
+                        : ''
+                    }
+                    onChange={handleBirthDateChange}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                  {calculatedAge !== null && (
+                    <span className="text-sm text-muted-foreground whitespace-nowrap pb-2">
+                      {t('calculatedAge', { years: calculatedAge })}
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              {/* Gender */}
+              <div className="space-y-2">
+                <Label htmlFor="gender">{t('genderLabel')}</Label>
+                <Select value={gender} onValueChange={setGender}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('genderPlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GENDER_OPTIONS.map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {t(`genderOptions.${opt}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Occupation */}
+              <div className="space-y-2">
+                <Label htmlFor="occupation">{t('occupationLabel')} 🔒</Label>
+                <Input
+                  id="occupation"
+                  name="occupation"
+                  placeholder={t('occupationPlaceholder')}
+                  defaultValue={client?.occupation || ''}
+                />
+              </div>
+              
+              {/* Marital Status */}
+              <div className="space-y-2">
+                <Label htmlFor="maritalStatus">{t('maritalStatusLabel')}</Label>
+                <Select value={maritalStatus} onValueChange={setMaritalStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('maritalStatusPlaceholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MARITAL_STATUS_OPTIONS.map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {t(`maritalStatusOptions.${opt}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Card 4: Contact Information */}
       <Card>
         <CardHeader>
-          <CardTitle>Información de Contacto</CardTitle>
-          <CardDescription>
-            Datos de contacto del cliente
-          </CardDescription>
+          <CardTitle>{t('emailLabel').replace(/Email/i, '') ? 'Información de Contacto' : 'Contact Information'}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">{t('emailLabel')}</Label>
+            <Label htmlFor="email">{t('emailLabel')} 🔒</Label>
             <Input
               id="email"
               name="email"
@@ -255,13 +451,10 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
               placeholder={t('emailPlaceholder')}
               defaultValue={client?.email || ''}
             />
-            <p className="text-xs text-muted-foreground">
-              Email principal de contacto
-            </p>
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="phone">{t('phoneLabel')}</Label>
+            <Label htmlFor="phone">{t('phoneLabel')} 🔒</Label>
             <Input
               id="phone"
               name="phone"
@@ -269,13 +462,10 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
               placeholder={t('phonePlaceholder')}
               defaultValue={client?.phone || ''}
             />
-            <p className="text-xs text-muted-foreground">
-              Número de teléfono con código de país
-            </p>
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="address">{t('addressLabel')}</Label>
+            <Label htmlFor="address">{t('addressLabel')} 🔒</Label>
             <Textarea
               id="address"
               name="address"
@@ -283,9 +473,6 @@ export function ClientForm({ orgId, client }: ClientFormProps) {
               rows={3}
               defaultValue={client?.address || ''}
             />
-            <p className="text-xs text-muted-foreground">
-              Dirección completa del cliente
-            </p>
           </div>
         </CardContent>
       </Card>

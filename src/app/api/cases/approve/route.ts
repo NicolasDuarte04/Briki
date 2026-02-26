@@ -68,7 +68,6 @@ export async function PUT(request: NextRequest) {
             insurance_category: briefData.insurance_category ?? null,
             max_budget: normalizedMaxBudget, // ✅ Validado y normalizado
             budget_currency: briefData.budget_currency ?? 'COP',
-            required_coverages: briefData.required_coverages ?? [],
             client_profile: briefData.client_profile ?? null,
             businessType: briefData.businessType ?? null,
             employees: briefData.employees ?? null,
@@ -87,7 +86,6 @@ export async function PUT(request: NextRequest) {
                 employees: briefData.employees ?? null,
                 businessType: briefData.businessType ?? null,
                 client_profile: briefData.client_profile ?? null,
-                required_coverages: briefData.required_coverages ?? [],
                 budget_currency: briefData.budget_currency ?? 'COP',
                 freeText: briefData.freeText ?? null,
                 coverage: briefData.coverage ?? null,

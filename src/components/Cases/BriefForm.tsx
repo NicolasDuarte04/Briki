@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield, LinkIcon, Building2 } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield, LinkIcon, Building2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PdfUploader } from '@/components/Upload/PdfUploader';
 import { OrgDocumentSelector } from '@/components/Common/OrgDocumentSelector';
@@ -22,6 +22,8 @@ import { createCaseIfNeeded } from '@/lib/case-actions';
 import { ClientValidationModal } from '@/components/Workspace/ClientValidationModal';
 import { useRouter } from 'next/navigation';
 import type { CaseBrief } from '@/lib/types';
+import { DynamicCategoryFields } from '@/components/Cases/DynamicCategoryFields';
+import { ANALYSIS_REASONS, getCategoriesForSubjectType, isCategoryValidForSubjectType } from '@/lib/insurance-categories';
 
 // Define el tipo para uploads temporales
 export type TempUpload = {
@@ -55,19 +57,21 @@ export type SubjectType = 'client' | 'company';
 
 // Define la interfaz de los datos que el formulario manejará
 export type CaseBriefData = {
+  // ✅ FASE CATEGORÍAS: Motivo del análisis (obligatorio)
+  analysis_reason: string;
   // Nuevos campos del Brief detallado
   insurance_category: string;
   max_budget: number | null;
   budget_currency: 'COP' | 'USD';
-  required_coverages: string[];
   client_profile: string;
   notes: string;
   // Campos existentes que se mantendrán
   clientName: string;
-  businessType: string;
   employees: number | null;
-  coverage: string;
   freeText: string;
+  // ✅ FASE CATEGORÍAS: Datos dinámicos de la categoría seleccionada
+  // Incluye selected_coverages: string[] para coberturas sugeridas por categoría
+  categoryData: Record<string, string | number | boolean | string[] | null>;
   // Uploads temporales
   tempUploads?: TempUpload[];
   // ✅ FASE POLICY_LINKS: Pólizas de organización a vincular
@@ -86,21 +90,23 @@ interface BriefFormProps {
   orgId?: string;
 }
 
-// Insurance category values - labels come from translations
-const INSURANCE_CATEGORY_VALUES = ['salud', 'vida', 'auto', 'hogar', 'empresarial', 'otro'] as const;
-type InsuranceCategoryValue = typeof INSURANCE_CATEGORY_VALUES[number];
+// ✅ FASE CATEGORÍAS: Las categorías ahora son dinámicas basadas en subjectType
+// Se importan desde insurance-categories.ts: getCategoriesForSubjectType()
 
 // ✅ CORRECCIÓN CRÍTICA: Memoizar categorías para evitar re-renders
-// Now accepts a translation function as prop
-const MemoizedSelectItems = React.memo(({ t }: { t: (key: string) => string }) => (
-  <>
-    {INSURANCE_CATEGORY_VALUES.map((value) => (
-      <SelectItem key={value} value={value}>
-        {t(`categories.${value}`)}
-      </SelectItem>
-    ))}
-  </>
-));
+// Ahora recibe subjectType además de t para renderizar categorías condicionales
+const MemoizedSelectItems = React.memo(({ t, subjectType }: { t: (key: string) => string; subjectType: SubjectType }) => {
+  const categories = getCategoriesForSubjectType(subjectType);
+  return (
+    <>
+      {categories.map((value) => (
+        <SelectItem key={value} value={value}>
+          {t(`categories.${value}`)}
+        </SelectItem>
+      ))}
+    </>
+  );
+});
 
 // ✅ CORRECCIÓN: Función de comparación para BriefForm
 const briefFormAreEqual = (prevProps: BriefFormProps, nextProps: BriefFormProps): boolean => {
@@ -149,20 +155,19 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     // Prioridad 1: initialData (cargado de BD en modo 'edit')
     // Prioridad 2: brief global (si estamos en un caso existente)
     // Prioridad 3: Valor por defecto vacío (si es 'new-thread-placeholder')
+    analysis_reason: initialData?.analysis_reason || (shouldUseBriefFallback ? brief?.analysis_reason : '') || '',
     insurance_category: initialData?.insurance_category || (shouldUseBriefFallback ? brief?.insurance_category : '') || '',
     max_budget: initialData?.max_budget ?? (shouldUseBriefFallback ? brief?.max_budget : null) ?? null,
     budget_currency: initialData?.budget_currency || (shouldUseBriefFallback ? brief?.budget_currency : 'COP') || 'COP',
-    required_coverages: initialData?.required_coverages || (shouldUseBriefFallback ? brief?.required_coverages : []) || [],
     client_profile: initialData?.client_profile || (shouldUseBriefFallback ? brief?.client_profile : '') || '',
     // ✅ SIMPLIFICACIÓN: Cargar freeText desde brief para autocompletar "Notas Adicionales" (desde LandingPage)
     // Prioridad: initialNotes > brief.freeText > ''
     notes: initialNotes || (brief?.freeText && brief.freeText.trim() !== '' ? brief.freeText : ''),
     // initialNotes viene del primer mensaje de landing
     clientName: initialData?.clientName || (shouldUseBriefFallback ? brief?.clientName : '') || '',
-    businessType: initialData?.businessType || (shouldUseBriefFallback ? brief?.businessType : '') || '',
     employees: initialData?.employees ?? (shouldUseBriefFallback ? brief?.employees : null) ?? null,
-    coverage: (shouldUseBriefFallback ? brief?.coverage : '') || '',
     freeText: initialData?.briefData?.freeText || (shouldUseBriefFallback ? brief?.freeText : '') || '',
+    categoryData: initialData?.briefData?.categoryData || (shouldUseBriefFallback ? brief?.categoryData : {}) || {},
   });
 
   // ✅ CORRECCIÓN: Estado para guardar datos iniciales en modo edición (para detección de cambios)
@@ -173,17 +178,16 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   useEffect(() => {
     if (mode === 'edit' && initialData && !initialFormSnapshot) {
       const snapshot: CaseBriefData = {
+        analysis_reason: initialData.analysis_reason || '',
         insurance_category: initialData.insurance_category || '',
         max_budget: initialData.max_budget ?? null,
         budget_currency: initialData.budget_currency || 'COP',
-        required_coverages: initialData.required_coverages || [],
         client_profile: initialData.client_profile || '',
         notes: initialData.briefData?.freeText || '',
         clientName: initialData.clientName || '',
-        businessType: initialData.businessType || '',
         employees: initialData.employees ?? null,
-        coverage: '',
         freeText: initialData.briefData?.freeText || '',
+        categoryData: initialData.briefData?.categoryData || {},
       };
       setInitialFormSnapshot(snapshot);
       setInitialArtifactCount(initialData.artifacts?.length || 0);
@@ -209,17 +213,16 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       }
 
       setFormData({
+        analysis_reason: '',
         insurance_category: '',
         max_budget: null,
         budget_currency: 'COP',
-        required_coverages: [],
         client_profile: '',
         notes: '',
         clientName: '',
-        businessType: '',
         employees: null,
-        coverage: '',
         freeText: '',
+        categoryData: {},
       });
     }
   }, [currentCaseId]);
@@ -270,9 +273,6 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // Esto asegura sincronización perfecta con los otros botones
   // La función isBriefValid() del estado global lee brief.insurance_category
   // IMPORTANTE: brief.insurance_category se actualiza en tiempo real cuando se selecciona
-
-  // Estado para el input de coberturas
-  const [currentCoverage, setCurrentCoverage] = useState('');
 
   // ✅ CORRECCIÓN CRÍTICA: Convertir artifacts a tempUploads INMEDIATAMENTE al inicializar el estado
   // Esto evita que se muestren los artifacts en su formato original antes de la conversión
@@ -344,10 +344,8 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     const editableFieldsChanged = 
       formData.max_budget !== initialFormSnapshot.max_budget ||
       formData.budget_currency !== initialFormSnapshot.budget_currency ||
-      JSON.stringify(formData.required_coverages) !== JSON.stringify(initialFormSnapshot.required_coverages) ||
       formData.client_profile !== initialFormSnapshot.client_profile ||
       formData.notes !== initialFormSnapshot.notes ||
-      formData.businessType !== initialFormSnapshot.businessType ||
       formData.employees !== initialFormSnapshot.employees;
     
     // Detectar si se añadieron nuevos tempUploads (pólizas)
@@ -373,17 +371,14 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         insurance_category: formData.insurance_category,
         max_budget: formData.max_budget ?? null,
         budget_currency: formData.budget_currency || 'COP',
-        required_coverages: formData.required_coverages || [],
         client_profile: formData.client_profile || '',
         clientName: formData.clientName || '',
-        businessType: formData.businessType || '',
         employees: formData.employees ?? null,
-        coverage: formData.coverage || '',
         freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
         tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
         // ✅ FASE CLIENTE/EMPRESA: Preservar campos de empresa en sincronización
         subjectType: subjectType,
-        companyName: selectedCompany?.name || undefined,
+        companyName: selectedCompany?.name || '',
         selectedCompanyId: selectedCompany?.id || null,
       };
 
@@ -484,17 +479,16 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     if (!currentCaseId) {
       console.log('🧹 [BriefForm] Limpiando estado local para new-thread-placeholder');
       setFormData({
+        analysis_reason: '',
         insurance_category: '',
         max_budget: null,
         budget_currency: 'COP',
-        required_coverages: [],
         client_profile: '',
         notes: '', // ✅ CORRECCIÓN QUIRÚRGICA: Limpiar notes completamente
         clientName: '',
-        businessType: '',
         employees: null,
-        coverage: '',
         freeText: '',
+        categoryData: {},
       });
       setTempUploads([]);
 
@@ -604,9 +598,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       setBrief({
         insurance_category: initialData.insurance_category || '',
         clientName: initialData.clientName || '',
-        businessType: initialData.businessType || '',
         employees: initialData.employees || 0,
-        coverage: initialData.briefData?.coverage || '',
         freeText: initialData.briefData?.freeText || '',
         // ✅ CORRECCIÓN: Incluir campos de empresa para que persistan en el brief global durante edición
         ...(initialData.subjectType && { subjectType: initialData.subjectType }),
@@ -678,7 +670,15 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     // Todos los botones usan isBriefValid() que lee brief.insurance_category del estado global
     if (field === 'insurance_category') {
       setBrief({ insurance_category: value } as Partial<CaseBrief>);
+      // ✅ FASE CATEGORÍAS: Resetear datos dinámicos cuando cambia la categoría
+      setFormData(prev => ({ ...prev, categoryData: {} }));
       console.log('✅ [BriefForm] insurance_category actualizado en brief global para sincronización de botones:', value);
+    }
+
+    // ✅ FASE CATEGORÍAS: Sincronizar analysis_reason en brief global (necesario para isBriefValid)
+    if (field === 'analysis_reason') {
+      setBrief({ analysis_reason: value } as Partial<CaseBrief>);
+      console.log('✅ [BriefForm] analysis_reason actualizado en brief global:', value);
     }
 
     // ❌ ELIMINADO: Actualización en tiempo real del resto de campos en brief global
@@ -770,6 +770,15 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
   // ✅ FASE CLIENTE/EMPRESA: Handler para cambio de tipo de sujeto
   const handleSubjectTypeChange = useCallback((newType: SubjectType) => {
     setSubjectType(newType);
+
+    // ✅ FASE CATEGORÍAS: Resetear categoría y datos dinámicos al cambiar tipo
+    // Las categorías son diferentes por tipo (corporate vs personal)
+    const currentCategory = formData.insurance_category;
+    if (currentCategory && !isCategoryValidForSubjectType(currentCategory, newType)) {
+      setFormData(prev => ({ ...prev, insurance_category: '', categoryData: {} }));
+      setBrief({ insurance_category: '' } as Partial<CaseBrief>);
+      console.log('🔄 [BriefForm] Categoría reseteada: no válida para nuevo subjectType:', newType);
+    }
     
     // Limpiar selecciones al cambiar de tipo
     if (newType === 'client') {
@@ -783,18 +792,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       setBrief({ subjectType: 'company', clientName: undefined, selectedClientId: null } as any);
     }
     console.log('🔄 [BriefForm] Tipo de sujeto cambiado a:', newType);
-  }, [setBrief, updateField]);
-
-  const handleAddCoverage = useCallback(() => {
-    if (currentCoverage.trim() !== '' && !formData.required_coverages.includes(currentCoverage.trim())) {
-      updateField('required_coverages', [...formData.required_coverages, currentCoverage.trim()]);
-      setCurrentCoverage('');
-    }
-  }, [currentCoverage, formData.required_coverages, updateField]);
-
-  const handleRemoveCoverage = useCallback((coverageToRemove: string) => {
-    updateField('required_coverages', formData.required_coverages.filter(c => c !== coverageToRemove));
-  }, [formData.required_coverages, updateField]);
+  }, [setBrief, updateField, formData.insurance_category]);
 
   // ✅ CORRECCIÓN CRÍTICA: Ref para almacenar onUploadComplete de PdfUploader
   // Esto permite llamar a onUploadComplete desde handleFileUpload para que PdfUploader limpie selectedFile
@@ -902,19 +900,19 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     });
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAddCoverage();
-    }
-  };
-
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
 
     console.log('🚀 [BriefForm] handleSubmit triggered. Mode:', mode);
     console.log('📦 [BriefForm] formData completo:', formData);
     console.log('📎 [BriefForm] tempUploads:', tempUploads);
+
+    // ✅ VALIDACIÓN TEMPRANA: Prevenir envío sin motivo de análisis
+    if (!formData.analysis_reason?.trim()) {
+      console.warn('❌ [BriefForm] Intentando enviar sin motivo de análisis');
+      alert('Por favor selecciona un motivo del análisis para continuar.');
+      return;
+    }
 
     // ✅ VALIDACIÓN TEMPRANA: Prevenir envío sin categoría de seguro
     if (!formData.insurance_category?.trim()) {
@@ -939,23 +937,23 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       // ✅ ACTUALIZAR brief explícitamente con TODOS los datos del formulario
       // Esto se hace SOLO cuando el usuario hace click en los botones sincronizados
       const briefUpdate: Partial<CaseBrief> = {
+        analysis_reason: formData.analysis_reason,
         insurance_category: formData.insurance_category,
         max_budget: formData.max_budget ?? null,
         budget_currency: formData.budget_currency || 'COP',
-        required_coverages: formData.required_coverages || [],
         client_profile: formData.client_profile || '',
         clientName: formData.clientName || '',
-        businessType: formData.businessType || '',
         employees: formData.employees ?? null,
-        coverage: formData.coverage || '',
         freeText: finalFreeText, // ✅ CORRECCIÓN: Usar finalFreeText que prioriza notes
         tempUploads: tempUploads || [], // ✅ CRÍTICO: Incluir tempUploads (pueden venir del Landing)
         linkedPolicyIds: selectedOrgPolicyIds || [], // ✅ FASE POLICY_LINKS: Incluir pólizas de org seleccionadas
         linkedQuoteIds: selectedOrgQuoteIds || [], // ✅ FASE ORG_DOCUMENTS: Incluir cotizaciones de org seleccionadas
         // ✅ FASE CLIENTE/EMPRESA: Preservar campos de empresa en sincronización
         subjectType: subjectType,
-        companyName: selectedCompany?.name || undefined,
+        companyName: selectedCompany?.name || '',
         selectedCompanyId: selectedCompany?.id || null,
+        // ✅ FASE CATEGORÍAS: Datos dinámicos de la categoría seleccionada
+        categoryData: formData.categoryData || {},
       };
 
       console.log('📝 [BriefForm] Actualizando brief global con TODOS los datos del formulario:', {
@@ -1109,145 +1107,13 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Categoría de Seguro */}
-          <div className="space-y-2">
-            <Label htmlFor="insurance_category" className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              {tCaseBrief('form.categoryLabel')} *
-              {/* ✅ CORRECCIÓN: Indicar que no es editable en modo edición */}
-              {mode === 'edit' && (
-                <span className="text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
-              )}
-            </Label>
-            <Select
-              value={formData.insurance_category}
-              onValueChange={(value) => updateField('insurance_category', value)}
-              disabled={mode === 'edit'} // ✅ CORRECCIÓN: Bloquear en modo edición
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={tCaseBrief('form.categoryPlaceholder')} />
-              </SelectTrigger>
-              <SelectContent>
-                <MemoizedSelectItems t={tCaseBrief} />
-              </SelectContent>
-            </Select>
-          </div>
+          {/* ═══════════════════════════════════════════════════════════════
+              SECCIÓN 1: INFORMACIÓN DEL SUJETO
+              Toggle → Nombre → Empleados (solo empresa) → Perfil
+              ═══════════════════════════════════════════════════════════════ */}
 
-          {/* Presupuesto Máximo */}
-          <div className="space-y-2">
-            <Label htmlFor="max_budget" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
-              {tCaseBrief('form.maxBudget')}
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id="max_budget"
-                type="number"
-                placeholder="0"
-                min="0"
-                max="99999999.99"
-                step="0.01"
-                value={formData.max_budget || ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value || value === '') {
-                    updateField('max_budget', null);
-                    return;
-                  }
-                  const numValue = parseFloat(value);
-                  if (isNaN(numValue) || !isFinite(numValue)) {
-                    return; // Ignorar valores inválidos
-                  }
-                  // Limitar al rango permitido para DECIMAL(10,2): máximo 99,999,999.99
-                  const MAX_BUDGET = 99999999.99;
-                  const normalizedValue = Math.min(Math.max(0, numValue), MAX_BUDGET);
-                  // Redondear a 2 decimales
-                  const roundedValue = Math.round(normalizedValue * 100) / 100;
-                  updateField('max_budget', roundedValue);
-                }}
-                className="flex-1"
-              />
-              <div className="flex">
-                <Button
-                  type="button"
-                  variant={formData.budget_currency === 'COP' ? 'default' : 'outline'}
-                  onClick={() => updateField('budget_currency', 'COP')}
-                  className="rounded-r-none"
-                >
-                  COP
-                </Button>
-                <Button
-                  type="button"
-                  variant={formData.budget_currency === 'USD' ? 'default' : 'outline'}
-                  onClick={() => updateField('budget_currency', 'USD')}
-                  className="rounded-l-none border-l-0"
-                >
-                  USD
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Coberturas Imprescindibles */}
-          <div className="space-y-2">
-            <Label htmlFor="required_coverages">{tCaseBrief('form.requiredCoverages')}</Label>
-            <div className="flex gap-2">
-              <Input
-                id="required_coverages"
-                placeholder={tCaseBrief('form.requiredCoveragesPlaceholder')}
-                value={currentCoverage}
-                onChange={(e) => setCurrentCoverage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                onClick={handleAddCoverage}
-                disabled={!currentCoverage.trim()}
-                size="icon"
-                variant="outline"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {formData.required_coverages.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {formData.required_coverages.map((coverage, index) => (
-                  <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                    {coverage}
-                    <Button
-                      type="button"
-                      onClick={() => handleRemoveCoverage(coverage)}
-                      size="icon"
-                      variant="ghost"
-                      className="h-4 w-4 p-0 hover:bg-destructive hover:text-destructive-foreground"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Perfil del Cliente */}
-          <div className="space-y-2">
-            <Label htmlFor="client_profile" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              {tCaseBrief('form.clientProfile')}
-            </Label>
-            <Textarea
-              id="client_profile"
-              placeholder={tCaseBrief('form.clientProfilePlaceholder')}
-              value={formData.client_profile}
-              onChange={(e) => updateField('client_profile', e.target.value)}
-              rows={3}
-            />
-          </div>
-
-          {/* ✅ FASE CLIENTE/EMPRESA: Toggle para tipo de sujeto + Campo de nombre */}
+          {/* Toggle Cliente/Empresa — PRIMERO en el formulario */}
           <div className="space-y-4">
-            {/* Toggle Cliente/Empresa */}
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 {subjectType === 'client' ? <User className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
@@ -1287,165 +1153,304 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               </div>
             </div>
 
-            {/* Campo de nombre dinámico según tipo de sujeto */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor={subjectType === 'client' ? 'clientName' : 'companyName'}>
-                  {subjectType === 'client' 
-                    ? tCaseBrief('form.clientName')
-                    : tCaseBrief('form.companyName')
-                  }
-                  {mode === 'edit' && (
-                    <span className="ml-2 text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
-                  )}
-                </Label>
-                
-                {/* Combobox para Cliente */}
-                {subjectType === 'client' && (
-                  <div className="relative client-combobox-container">
-                    <Input
-                      id="clientName"
-                      placeholder={tCaseBrief('form.clientNamePlaceholder')}
-                      value={clientSearchTerm}
-                      onChange={(e) => handleClientSearchChange(e.target.value)}
-                      onFocus={() => mode !== 'edit' && setIsClientComboboxOpen(true)}
-                      className="w-full"
-                      disabled={mode === 'edit'}
-                    />
-                    {isClientComboboxOpen && mode !== 'edit' && (
-                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
-                        {isClientListLoading ? (
-                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingClients')}</div>
-                        ) : clientList.filter(client =>
-                          client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
-                        ).length === 0 ? (
-                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.noClientsFound')}</div>
-                        ) : (
-                          clientList
-                            .filter(client =>
-                              client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
-                            )
-                            .map((client) => (
-                              <div
-                                key={client.id}
-                                onClick={() => handleClientSelect(client)}
-                                className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedClient?.id === client.id ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {client.name}
-                              </div>
-                            ))
-                        )}
-                      </div>
-                    )}
-                  </div>
+            {/* Nombre del Cliente / Empresa — ancho completo */}
+            <div className="space-y-2">
+              <Label htmlFor={subjectType === 'client' ? 'clientName' : 'companyName'}>
+                {subjectType === 'client' 
+                  ? tCaseBrief('form.clientName')
+                  : tCaseBrief('form.companyName')
+                }
+                {mode === 'edit' && (
+                  <span className="ml-2 text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
                 )}
-
-                {/* Combobox para Empresa — ✅ SELECTOR ESTRICTO: Solo selección de empresas existentes */}
-                {subjectType === 'company' && (
-                  <div className="relative company-combobox-container">
-                    <div className="relative">
-                      <Input
-                        id="companyName"
-                        placeholder={tCaseBrief('form.companyNamePlaceholder')}
-                        value={companySearchTerm}
-                        onChange={(e) => handleCompanySearchChange(e.target.value)}
-                        onFocus={() => mode !== 'edit' && setIsCompanyComboboxOpen(true)}
-                        onBlur={handleCompanyBlur}
-                        className={cn("w-full pr-8", selectedCompany && "border-primary/50")}
-                        disabled={mode === 'edit'}
-                      />
-                      {/* Botón X para limpiar selección */}
-                      {selectedCompany && mode !== 'edit' && (
-                        <button
-                          type="button"
-                          onClick={handleCompanyClear}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                          aria-label="Limpiar empresa seleccionada"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
+              </Label>
+              
+              {/* Combobox para Cliente */}
+              {subjectType === 'client' && (
+                <div className="relative client-combobox-container">
+                  <Input
+                    id="clientName"
+                    placeholder={tCaseBrief('form.clientNamePlaceholder')}
+                    value={clientSearchTerm}
+                    onChange={(e) => handleClientSearchChange(e.target.value)}
+                    onFocus={() => mode !== 'edit' && setIsClientComboboxOpen(true)}
+                    className="w-full"
+                    disabled={mode === 'edit'}
+                  />
+                  {isClientComboboxOpen && mode !== 'edit' && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+                      {isClientListLoading ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingClients')}</div>
+                      ) : clientList.filter(client =>
+                        client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
+                      ).length === 0 ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.noClientsFound')}</div>
+                      ) : (
+                        clientList
+                          .filter(client =>
+                            client.name.toLowerCase().includes(clientSearchTerm.toLowerCase())
+                          )
+                          .map((client) => (
+                            <div
+                              key={client.id}
+                              onClick={() => handleClientSelect(client)}
+                              className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedClient?.id === client.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {client.name}
+                            </div>
+                          ))
                       )}
                     </div>
-                    {isCompanyComboboxOpen && mode !== 'edit' && (
-                      <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
-                        {isCompanyListLoading ? (
-                          <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingCompanies')}</div>
-                        ) : companyList.length === 0 ? (
-                          <div className="px-3 py-2 text-sm text-muted-foreground">
-                            No hay empresas registradas. Cree una empresa primero en el módulo de Empresas.
-                          </div>
-                        ) : companyList.filter(company =>
-                          company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
-                        ).length === 0 ? (
-                          <div className="px-3 py-2 text-sm text-muted-foreground">
-                            {tCaseBrief('form.noCompaniesFound')}
-                          </div>
-                        ) : (
-                          companyList
-                            .filter(company =>
-                              company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
-                            )
-                            .map((company) => (
-                              <div
-                                key={company.id}
-                                onMouseDown={(e) => e.preventDefault()} // Prevenir blur antes del click
-                                onClick={() => handleCompanySelect(company)}
-                                className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    selectedCompany?.id === company.id ? "opacity-100" : "opacity-0"
-                                  )}
-                                />
-                                {company.name}
-                              </div>
-                            ))
-                        )}
-                      </div>
+                  )}
+                </div>
+              )}
+
+              {/* Combobox para Empresa — SELECTOR ESTRICTO: Solo selección de empresas existentes */}
+              {subjectType === 'company' && (
+                <div className="relative company-combobox-container">
+                  <div className="relative">
+                    <Input
+                      id="companyName"
+                      placeholder={tCaseBrief('form.companyNamePlaceholder')}
+                      value={companySearchTerm}
+                      onChange={(e) => handleCompanySearchChange(e.target.value)}
+                      onFocus={() => mode !== 'edit' && setIsCompanyComboboxOpen(true)}
+                      onBlur={handleCompanyBlur}
+                      className={cn("w-full pr-8", selectedCompany && "border-primary/50")}
+                      disabled={mode === 'edit'}
+                    />
+                    {/* Botón X para limpiar selección */}
+                    {selectedCompany && mode !== 'edit' && (
+                      <button
+                        type="button"
+                        onClick={handleCompanyClear}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Limpiar empresa seleccionada"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     )}
                   </div>
-                )}
-              </div>
+                  {isCompanyComboboxOpen && mode !== 'edit' && (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+                      {isCompanyListLoading ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">{tCaseBrief('form.loadingCompanies')}</div>
+                      ) : companyList.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          No hay empresas registradas. Cree una empresa primero en el módulo de Empresas.
+                        </div>
+                      ) : companyList.filter(company =>
+                        company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
+                      ).length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          {tCaseBrief('form.noCompaniesFound')}
+                        </div>
+                      ) : (
+                        companyList
+                          .filter(company =>
+                            company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
+                          )
+                          .map((company) => (
+                            <div
+                              key={company.id}
+                              onMouseDown={(e) => e.preventDefault()} // Prevenir blur antes del click
+                              onClick={() => handleCompanySelect(company)}
+                              className="flex items-center px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedCompany?.id === company.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {company.name}
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Empleados — Solo visible para empresas */}
+            {subjectType === 'company' && (
               <div className="space-y-2">
-                <Label htmlFor="businessType">{tCaseBrief('form.businessType')}</Label>
+                <Label htmlFor="employees">{tCaseBrief('form.employeesCount')}</Label>
                 <Input
-                  id="businessType"
-                  placeholder={tCaseBrief('form.businessTypePlaceholder')}
-                  value={formData.businessType}
-                  onChange={(e) => updateField('businessType', e.target.value)}
+                  id="employees"
+                  type="number"
+                  placeholder="0"
+                  value={formData.employees || ''}
+                  onChange={(e) => updateField('employees', e.target.value ? Number(e.target.value) : null)}
                 />
+              </div>
+            )}
+
+            {/* Perfil del Cliente — Último en sección de Información del Sujeto */}
+            <div className="space-y-2">
+              <Label htmlFor="client_profile" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                {tCaseBrief('form.clientProfile')}
+              </Label>
+              <Textarea
+                id="client_profile"
+                placeholder={tCaseBrief('form.clientProfilePlaceholder')}
+                value={formData.client_profile}
+                onChange={(e) => updateField('client_profile', e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════════
+              SECCIÓN 2: INFORMACIÓN DEL SEGURO
+              Motivo → Categoría → Campos dinámicos → Presupuesto → Coberturas
+              ═══════════════════════════════════════════════════════════════ */}
+
+          {/* Motivo del Análisis (obligatorio) */}
+          <div className="space-y-2">
+            <Label htmlFor="analysis_reason" className="flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              {tCaseBrief('form.analysisReasonLabel')} *
+              {mode === 'edit' && (
+                <span className="text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
+              )}
+            </Label>
+            <Select
+              value={formData.analysis_reason}
+              onValueChange={(value) => updateField('analysis_reason', value)}
+              disabled={mode === 'edit'}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={tCaseBrief('form.analysisReasonPlaceholder')} />
+              </SelectTrigger>
+              <SelectContent>
+                {ANALYSIS_REASONS.map((reason) => (
+                  <SelectItem key={reason} value={reason}>
+                    {tCaseBrief(`analysisReasons.${reason}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Categoría de Seguro (condicional al subjectType) */}
+          <div className="space-y-2">
+            <Label htmlFor="insurance_category" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              {tCaseBrief('form.categoryLabel')} *
+              {mode === 'edit' && (
+                <span className="text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
+              )}
+            </Label>
+            <Select
+              value={formData.insurance_category}
+              onValueChange={(value) => updateField('insurance_category', value)}
+              disabled={mode === 'edit'}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={tCaseBrief('form.categoryPlaceholder')} />
+              </SelectTrigger>
+              <SelectContent>
+                <MemoizedSelectItems t={tCaseBrief} subjectType={subjectType} />
+              </SelectContent>
+            </Select>
+            {formData.insurance_category && (
+              <p className="text-xs text-muted-foreground mt-1 pl-1">
+                {tCaseBrief(`categoryDescriptions.${formData.insurance_category}`)}
+              </p>
+            )}
+          </div>
+
+          {/* Campos dinámicos según la categoría seleccionada */}
+          {formData.insurance_category && (
+            <DynamicCategoryFields
+              categoryId={formData.insurance_category}
+              values={formData.categoryData || {}}
+              onChange={(fieldId, value) => {
+                setFormData(prev => ({
+                  ...prev,
+                  categoryData: { ...(prev.categoryData || {}), [fieldId]: value },
+                }));
+              }}
+              disabled={isProcessing}
+              selectedCoverages={(formData.categoryData?.selected_coverages as string[]) || []}
+              onToggleCoverage={(coverage) => {
+                const current = (formData.categoryData?.selected_coverages as string[]) || [];
+                const updatedCoverages = current.includes(coverage)
+                  ? current.filter(c => c !== coverage)
+                  : [...current, coverage];
+                setFormData(prev => ({
+                  ...prev,
+                  categoryData: { ...(prev.categoryData || {}), selected_coverages: updatedCoverages },
+                }));
+              }}
+            />
+          )}
+
+          {/* Presupuesto Máximo */}
+          <div className="space-y-2">
+            <Label htmlFor="max_budget" className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              {tCaseBrief('form.maxBudget')}
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="max_budget"
+                type="number"
+                placeholder="0"
+                min="0"
+                max="99999999.99"
+                step="0.01"
+                value={formData.max_budget || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (!value || value === '') {
+                    updateField('max_budget', null);
+                    return;
+                  }
+                  const numValue = parseFloat(value);
+                  if (isNaN(numValue) || !isFinite(numValue)) {
+                    return;
+                  }
+                  const MAX_BUDGET = 99999999.99;
+                  const normalizedValue = Math.min(Math.max(0, numValue), MAX_BUDGET);
+                  const roundedValue = Math.round(normalizedValue * 100) / 100;
+                  updateField('max_budget', roundedValue);
+                }}
+                className="flex-1"
+              />
+              <div className="flex">
+                <Button
+                  type="button"
+                  variant={formData.budget_currency === 'COP' ? 'default' : 'outline'}
+                  onClick={() => updateField('budget_currency', 'COP')}
+                  className="rounded-r-none"
+                >
+                  COP
+                </Button>
+                <Button
+                  type="button"
+                  variant={formData.budget_currency === 'USD' ? 'default' : 'outline'}
+                  onClick={() => updateField('budget_currency', 'USD')}
+                  className="rounded-l-none border-l-0"
+                >
+                  USD
+                </Button>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="employees">{tCaseBrief('form.employeesCount')}</Label>
-              <Input
-                id="employees"
-                type="number"
-                placeholder="0"
-                value={formData.employees || ''}
-                onChange={(e) => updateField('employees', e.target.value ? Number(e.target.value) : null)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="coverage">{tCaseBrief('form.requiredCoverage')}</Label>
-              <Input
-                id="coverage"
-                placeholder={tCaseBrief('form.requiredCoveragePlaceholder')}
-                value={formData.coverage}
-                onChange={(e) => updateField('coverage', e.target.value)}
-              />
-            </div>
-          </div>
+          {/* ═══════════════════════════════════════════════════════════════
+              SECCIÓN 3: NOTAS (siempre antes de documentos)
+              ═══════════════════════════════════════════════════════════════ */}
 
           {/* Notas Adicionales */}
           <div className="space-y-2">

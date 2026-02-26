@@ -242,12 +242,10 @@ export type Case = CaseParsed;
 export interface CaseBrief {
   /** Subject type: 'client' (persona física) or 'company' (persona jurídica) */
   subjectType?: 'client' | 'company';
-  /** Business type description */
+  /** Business type description (legacy — no longer written, kept for historical data) */
   businessType?: string;
   /** Number of employees */
   employees?: number | null;
-  /** Coverage types needed */
-  coverage?: string;
   /** Free text notes */
   freeText?: string;
   /** Client name (for display and search) - used when subjectType = 'client' */
@@ -258,16 +256,18 @@ export interface CaseBrief {
   companyName?: string;
   /** Selected company ID (if from existing company) - used when subjectType = 'company' */
   selectedCompanyId?: string | null;
-  /** Insurance category */
+  /** Insurance category (e.g. 'trdm', 'rce', 'salud', 'vida', etc.) */
   insurance_category?: string;
+  /** Analysis reason: primera_vez, renovacion, benchmarking, reclamo, auditoria */
+  analysis_reason?: string;
   /** Maximum budget for insurance */
   max_budget?: number | null;
   /** Budget currency */
   budget_currency?: CurrencyCode;
-  /** Required coverages list */
-  required_coverages?: string[];
   /** Client profile description */
   client_profile?: string;
+  /** Category-specific dynamic field data (stored in briefData JSON) */
+  categoryData?: Record<string, string | number | boolean | string[] | null>;
   /** Temporary uploads from Landing (PDFs pending to be saved as artifacts) */
   tempUploads?: Array<{
     id: string;

@@ -157,7 +157,7 @@ export function PolicyUploadForm({
 
       if (!analyzeResponse.ok) {
         const errorData = await analyzeResponse.json();
-        throw new Error(errorData.error || 'Error al analizar la póliza');
+        throw new Error(errorData.error || t('upload.progress.error'));
       }
 
       const analyzeData = await analyzeResponse.json();
@@ -165,17 +165,22 @@ export function PolicyUploadForm({
       setUploadProgress({
         status: 'success',
         progress: 100,
-        message: 'Póliza analizada exitosamente',
+        message: t('upload.progress.complete'),
       });
 
-      setResult({
-        artifactId: uploadData.artifact.id,
-        analysisId: analyzeData.analysis?.id,
-        fileName: uploadData.artifact.fileName,
-        confidence: analyzeData.analysis?.overallConfidence 
-          ? Number(analyzeData.analysis.overallConfidence) * 100 
-          : undefined,
-      });
+      // Build result object incrementally to satisfy exactOptionalPropertyTypes
+      const confidence = analyzeData.analysis?.overallConfidence
+        ? Number(analyzeData.analysis.overallConfidence) * 100
+        : undefined;
+
+      const resultObj: typeof result = {
+        artifactId: uploadData.artifact.id as string,
+        analysisId: analyzeData.analysis?.id as string,
+        fileName: uploadData.artifact.fileName as string,
+      };
+      if (confidence !== undefined) resultObj.confidence = confidence;
+
+      setResult(resultObj);
 
       // Redirect after success (optional delay)
       if (redirectUrl) {
@@ -190,7 +195,7 @@ export function PolicyUploadForm({
       setUploadProgress({
         status: 'error',
         progress: 0,
-        message: error instanceof Error ? error.message : 'Error desconocido',
+        message: error instanceof Error ? error.message : t('form.unknownError'),
       });
     }
   };
@@ -270,10 +275,10 @@ export function PolicyUploadForm({
         <div className="flex gap-3">
           <Button onClick={handleUpload} className="flex-1">
             <FileSearch className="h-4 w-4 mr-2" />
-            Subir y Analizar
+            {t('form.uploadAndAnalyze')}
           </Button>
           <Button variant="outline" onClick={handleCancel}>
-            Cancelar
+            {t('form.cancel')}
           </Button>
         </div>
       </div>
@@ -299,7 +304,7 @@ export function PolicyUploadForm({
           <p className="font-medium">{uploadProgress.message}</p>
           <Progress value={uploadProgress.progress} className="h-2" />
           <p className="text-sm text-muted-foreground">
-            {uploadProgress.progress}% completado
+            {t('form.percentComplete', { percent: uploadProgress.progress })}
           </p>
         </div>
 
@@ -327,9 +332,9 @@ export function PolicyUploadForm({
         </div>
 
         <div className="text-center">
-          <h3 className="text-xl font-semibold mb-2">¡Análisis Completado!</h3>
+          <h3 className="text-xl font-semibold mb-2">{t('form.analysisComplete')}</h3>
           <p className="text-muted-foreground">
-            La póliza se ha procesado correctamente
+            {t('form.policyProcessed')}
           </p>
         </div>
 
@@ -341,7 +346,7 @@ export function PolicyUploadForm({
                 <p className="font-medium text-green-900 truncate">{result.fileName}</p>
                 {result.confidence !== undefined && (
                   <p className="text-sm text-green-700">
-                    Confianza: {result.confidence.toFixed(0)}%
+                    {t('form.confidence', { percent: result.confidence.toFixed(0) })}
                   </p>
                 )}
               </div>
@@ -351,14 +356,14 @@ export function PolicyUploadForm({
 
         <div className="flex gap-3">
           <Button onClick={handleUploadAnother} variant="outline" className="flex-1">
-            Subir otra póliza
+            {t('form.uploadAnother')}
           </Button>
           {redirectUrl && (
             <Button 
               onClick={() => router.push(redirectUrl)} 
               className="flex-1"
             >
-              Ver Análisis
+              {t('form.viewAnalysis')}
             </Button>
           )}
         </div>
@@ -380,13 +385,13 @@ export function PolicyUploadForm({
         </div>
 
         <div className="text-center">
-          <h3 className="text-xl font-semibold mb-2 text-red-600">Error</h3>
+          <h3 className="text-xl font-semibold mb-2 text-red-600">{t('form.errorTitle')}</h3>
           <p className="text-muted-foreground">{uploadProgress.message}</p>
         </div>
 
         <div className="flex gap-3">
           <Button onClick={handleCancel} variant="outline" className="flex-1">
-            Intentar de nuevo
+            {t('form.tryAgain')}
           </Button>
         </div>
       </div>

@@ -86,14 +86,22 @@ export async function POST(
       legalRepEmail,
       legalRepPhone,
       legalRepStartDate,
+      notificationEmail,
+      headquartersAddress,
+      department,
+      website,
       annualRevenue,
       totalAssets,
       totalLiabilities,
       totalEquity,
       financialYear,
+      financialCutDate,
+      annualPayroll,
+      employeeCount,
       currency,
       riskClassification,
       ciiuCode,
+      activityDescription,
       isPep,
       isObligatedSubject,
       lastSarlaftUpdate,
@@ -141,14 +149,22 @@ export async function POST(
     if (legalRepEmail !== undefined) updateData.legalRepEmail = legalRepEmail?.trim() || undefined;
     if (legalRepPhone !== undefined) updateData.legalRepPhone = legalRepPhone?.trim() || undefined;
     if (legalRepStartDate !== undefined && legalRepStartDate) updateData.legalRepStartDate = new Date(legalRepStartDate);
+    if (notificationEmail !== undefined) updateData.notificationEmail = notificationEmail?.trim() || undefined;
+    if (headquartersAddress !== undefined) updateData.headquartersAddress = headquartersAddress?.trim() || undefined;
+    if (department !== undefined) updateData.department = department?.trim() || undefined;
+    if (website !== undefined) updateData.website = website?.trim() || undefined;
     if (annualRevenue !== undefined) updateData.annualRevenue = annualRevenue?.trim() || undefined;
     if (totalAssets !== undefined) updateData.totalAssets = totalAssets?.trim() || undefined;
     if (totalLiabilities !== undefined) updateData.totalLiabilities = totalLiabilities?.trim() || undefined;
     if (totalEquity !== undefined) updateData.totalEquity = totalEquity?.trim() || undefined;
     if (financialYear !== undefined && financialYear) updateData.financialYear = Number(financialYear);
+    if (financialCutDate !== undefined && financialCutDate) updateData.financialCutDate = new Date(financialCutDate);
+    if (annualPayroll !== undefined) updateData.annualPayroll = annualPayroll?.trim() || undefined;
+    if (employeeCount !== undefined && employeeCount !== null) updateData.employeeCount = Number(employeeCount);
     if (currency !== undefined) updateData.currency = currency || 'COP';
     if (riskClassification !== undefined) updateData.riskClassification = riskClassification as RiskClassification;
     if (ciiuCode !== undefined) updateData.ciiuCode = ciiuCode?.trim() || undefined;
+    if (activityDescription !== undefined) updateData.activityDescription = activityDescription?.trim() || undefined;
     if (isPep !== undefined) updateData.isPep = isPep;
     if (isObligatedSubject !== undefined) updateData.isObligatedSubject = isObligatedSubject;
     if (lastSarlaftUpdate !== undefined && lastSarlaftUpdate) updateData.lastSarlaftUpdate = new Date(lastSarlaftUpdate);

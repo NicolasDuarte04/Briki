@@ -327,11 +327,21 @@ export const CaseBriefSchema = z
     // ✅ FASE 29: Campos faltantes agregados para sincronización completa
     clientName: z.string().optional(),
     selectedClientId: z.string().nullable().optional(),
-    insurance_category: z.string().optional(),
+    insurance_category: z.union([
+      z.enum(['trdm', 'rce', 'transporte', 'riesgos_financieros', 'flota',
+              'vehiculos_livianos', 'accidentes_personales', 'hogar', 'salud', 'vida']),
+      z.literal(''),
+    ]).optional(), // ✅ Validación enum — solo IDs válidos o string vacío (no seleccionado)
     max_budget: z.number().nullable().optional(),
     budget_currency: z.enum(['COP', 'USD', 'MXN', 'EUR']).optional(), // ✅ FASE 31.3: Alineado con CurrencyCode
-    required_coverages: z.array(z.string()).optional(),
     client_profile: z.string().optional(),
+    // ✅ FASE CLIENTE/EMPRESA: Campos de sujeto y empresa
+    subjectType: z.enum(['client', 'company']).optional(),
+    companyName: z.string().optional(),
+    selectedCompanyId: z.string().nullable().optional(),
+    // ✅ FASE CATEGORÍAS: Motivo de análisis y datos dinámicos de categoría
+    analysis_reason: z.string().optional(),
+    categoryData: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.array(z.string()), z.null()])).optional(),
     tempUploads: z.array(z.object({
       id: z.string(),
       storagePath: z.string(),
@@ -374,10 +384,13 @@ export const CaseSchema = z
     createdAt: IsoDateTimeStringSchema,
     updatedAt: IsoDateTimeStringSchema,
     // Nuevos campos del Brief detallado
-    insurance_category: z.string().optional(),
+    insurance_category: z.union([
+      z.enum(['trdm', 'rce', 'transporte', 'riesgos_financieros', 'flota',
+              'vehiculos_livianos', 'accidentes_personales', 'hogar', 'salud', 'vida']),
+      z.literal(''),
+    ]).optional(), // ✅ Validación enum — solo IDs válidos o string vacío
     max_budget: z.number().optional(),
     budget_currency: z.enum(['COP', 'USD']).optional().default('COP'),
-    required_coverages: z.array(z.string()).optional().default([]),
     client_profile: z.string().optional(),
   })
   .strict();

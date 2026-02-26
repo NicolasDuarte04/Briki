@@ -110,11 +110,8 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
         insurance_category: '',
         max_budget: null,
         budget_currency: 'COP',
-        required_coverages: [],
         client_profile: '',
-        businessType: '',
         employees: null,
-        coverage: '',
         tempUploads: [] // ✅ Limpiar PDFs residuales
       });
 
@@ -141,11 +138,8 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
           insurance_category: '',
           max_budget: null,
           budget_currency: 'COP',
-          required_coverages: [],
           client_profile: '',
-          businessType: '',
           employees: null,
-          coverage: '',
         });
         console.log('✅ [HomeClient] Datos de Landing cargados temporalmente al brief (landingDataPending NO se limpia aquí)');
       } else {
@@ -370,22 +364,18 @@ export default function HomeClient({ initialStep = "landing", threadId, orgId }:
           userId: userData.userId,
           // Mapear los datos del BriefForm a la estructura que espera la API
           clientName: data.clientName,
-          businessType: data.businessType,
           employees: data.employees,
           status: 'draft',
           stage: 'initial',
           priority: 'medium',
           briefData: {
             freeText: data.notes,
-            businessType: data.businessType,
             employees: data.employees,
-            coverage: data.coverage,
           },
           // Nuevos campos del Brief detallado
           insurance_category: data.insurance_category,
           max_budget: data.max_budget,
           budget_currency: data.budget_currency,
-          required_coverages: data.required_coverages,
           client_profile: data.client_profile,
         }),
       });

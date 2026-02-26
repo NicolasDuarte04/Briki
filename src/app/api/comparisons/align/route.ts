@@ -41,6 +41,22 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // ── Fetch insurance_category from the Case for strategy-aware comparison ──
+        const caseRecord = await prisma.case.findUnique({
+            where: { id: caseId },
+            select: { insurance_category: true, orgId: true },
+        });
+
+        // Security: Verify case belongs to current org (defense-in-depth with RLS)
+        if (!caseRecord || caseRecord.orgId !== currentOrg.id) {
+            return NextResponse.json(
+                { error: 'Case not found or access denied' },
+                { status: 404 }
+            );
+        }
+
+        const insuranceCategory = caseRecord.insurance_category;
+
         // ✅ LÍMITE DE COMPARACIONES: Prevenir crecimiento ilimitado
         const existingCount = await prisma.comparison.count({
             where: { caseId }
@@ -80,9 +96,8 @@ export async function POST(request: NextRequest) {
         const missingFromPolicies = analysisIds.filter(id => !foundPolicyIds.has(id));
 
         // ✅ Query quote_analyses only for IDs not found in policy_analyses (avoid unnecessary DB call)
-        let quoteResults: Awaited<ReturnType<typeof prisma.quoteAnalysis.findMany>> = [];
-        if (missingFromPolicies.length > 0) {
-            quoteResults = await prisma.quoteAnalysis.findMany({
+        const quoteResults = missingFromPolicies.length > 0
+            ? await prisma.quoteAnalysis.findMany({
                 where: {
                     id: { in: missingFromPolicies },
                     orgId: currentOrg.id // RLS — same multi-tenant constraint
@@ -90,11 +105,14 @@ export async function POST(request: NextRequest) {
                 include: {
                     artifact: true
                 }
-            });
+            })
+            : [];
+
+        if (missingFromPolicies.length > 0) {
             console.log(`📋 Found ${quoteResults.length} quote analyses for ${missingFromPolicies.length} IDs not in policy_analyses`);
         }
 
-        // ✅ Unify both result sets — they share identical field structure
+        // ✅ Unify both result sets — both include { artifact: true }
         const analyses = [...policyResults, ...quoteResults];
         console.log(`✅ Found ${analyses.length} analyses (${policyResults.length} policies + ${quoteResults.length} quotes) out of ${analysisIds.length} requested`);
 
@@ -143,7 +161,10 @@ export async function POST(request: NextRequest) {
 
         // 4. Align with AI
         // Cast Prisma type to application type (Json -> PolicyExtractedData, Date -> string, Decimal -> number)
-        const typedAnalyses = analyses.map(a => ({
+        // Both PolicyAnalysis and QuoteAnalysis queries include { artifact: true }
+        // Type the callback as policyResults element to access the artifact relation
+        type AnalysisWithArtifact = (typeof policyResults)[number];
+        const typedAnalyses = analyses.map((a: AnalysisWithArtifact) => ({
             id: a.id,
             artifactId: a.artifactId,
             caseId: a.caseId,
@@ -170,7 +191,7 @@ export async function POST(request: NextRequest) {
         if (sanitizedUserPrompt) alignOptions.userPrompt = sanitizedUserPrompt;
         if (referenceRows) alignOptions.referenceRows = referenceRows;
 
-        const comparisonRows = await alignPoliciesWithAI(typedAnalyses, alignOptions);
+        const comparisonRows = await alignPoliciesWithAI(typedAnalyses, alignOptions, insuranceCategory);
 
         // 5. Save to Database — ✅ ACUMULACIÓN: NO deleteMany, simplemente crear nueva
         const defaultFilters: ComparisonFilters = {
