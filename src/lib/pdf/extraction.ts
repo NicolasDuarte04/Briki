@@ -10,6 +10,10 @@
  * @module pdf/extraction
  */
 
+// ✅ FIX: Polyfills de DOMMatrix/Path2D/ImageData para Node.js serverless (Vercel/Lambda)
+// DEBE importarse ANTES de pdfjs-dist — pdf.mjs ejecuta `new DOMMatrix()` a nivel de módulo
+import './node-polyfills';
+
 // ✅ FIX: Reemplazado pdf2json (fork antiguo de pdfjs, no soporta AES-256/V=5)
 // por pdfjs-dist@5.4.624 que soporta V=1, V=2, V=4 y V=5 (AES-256)
 // @ts-ignore - legacy build path sin type declarations, API verificada manualmente
