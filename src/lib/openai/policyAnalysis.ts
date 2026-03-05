@@ -13,6 +13,7 @@
 import OpenAI from 'openai';
 import { detectCoordinateSystem, type CoordinateSystemInfo, getCoordinateSystemDescription } from '@/lib/pdf/coordinateUtils';
 import { resolveStrategy } from '@/lib/prompts/strategies';
+import { isMultiAgentEnabled, runMultiAgentPipeline } from '@/lib/ai/orchestrator';
 
 /**
  * Get OpenAI client instance
@@ -334,6 +335,27 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
     coordinateSystemInfo.warnings.forEach(w => console.warn(`   - ${w}`));
   }
 
+  // ✅ Multi-Agent Pipeline (feature flag: MULTI_AGENT_PIPELINE=true)
+  if (isMultiAgentEnabled()) {
+    console.log('🔀 [Multi-Agent] Pipeline multi-agente activado');
+    try {
+      const { result, telemetry } = await runMultiAgentPipeline(input);
+
+      // Reuse existing normalization + coordinate mapping
+      const normalized = normalizeAnalysisResult(result, input.coordinates);
+      normalized.coordinateSystem = coordinateSystemInfo;
+
+      console.log(`✅ [Multi-Agent] Análisis completado - Confianza: ${normalized.confidence.toFixed(2)}`);
+      console.log(`   Pipeline: ${telemetry.totalDurationMs}ms | Agentes: ${telemetry.agents.filter(a => a.success).length}/${telemetry.agents.length}`);
+
+      return normalized;
+    } catch (multiAgentError: unknown) {
+      const msg = multiAgentError instanceof Error ? multiAgentError.message : 'Unknown error';
+      console.warn(`⚠️ [Multi-Agent] Pipeline failed, falling back to monolithic: ${msg}`);
+      // Fall through to monolithic pipeline below
+    }
+  }
+
   const openai = getOpenAIClient();
 
   // Build specialized prompt
@@ -342,7 +364,7 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
   try {
     // Call OpenAI API
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_POLICY_MODEL || 'gpt-4o', // Modelo potente para análisis estructurado
+      model: process.env.OPENAI_POLICY_MODEL || 'gpt-4.1', // Modelo potente para análisis estructurado (fallback monolítico)
       messages: [
         {
           role: 'system',
@@ -353,7 +375,7 @@ export async function analyzeWithAI(input: AnalysisInput): Promise<AnalysisOutpu
           content: prompt
         }
       ],
-      max_tokens: 4000,
+      max_tokens: 8192, // ✅ R6: Incrementado de 4000 a 8192 para pólizas complejas (TRDM ~60 coberturas)
       temperature: 0.3, // Baja temperatura para mayor precisión
       response_format: { type: 'json_object' } // Forzar respuesta JSON
     });

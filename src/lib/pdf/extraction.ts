@@ -10,6 +10,8 @@
  * @module pdf/extraction
  */
 
+import path from 'node:path';
+
 // ✅ FIX: Polyfills de DOMMatrix/Path2D/ImageData para Node.js serverless (Vercel/Lambda)
 // DEBE importarse ANTES de pdfjs-dist — pdf.mjs ejecuta `new DOMMatrix()` a nivel de módulo
 import './node-polyfills';
@@ -18,6 +20,29 @@ import './node-polyfills';
 // por pdfjs-dist@5.4.624 que soporta V=1, V=2, V=4 y V=5 (AES-256)
 // @ts-ignore - legacy build path sin type declarations, API verificada manualmente
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs';
+
+// ✅ FIX D5: Resolver ruta de fuentes estándar para eliminar warnings de pdfjs-dist
+// Turbopack reescribe require.resolve() a rutas virtuales ([externals]/...),
+// así que usamos process.cwd() + ruta estática que funciona tanto en dev como en
+// producción (Vercel serverless: process.cwd() = /var/task).
+const STANDARD_FONT_DATA_URL = (() => {
+  const candidate = path.join(
+    process.cwd(),
+    'node_modules',
+    'pdfjs-dist',
+    'standard_fonts',
+  ) + '/';
+  try {
+    // Verificar que el directorio existe de forma síncrona
+    const fs = require('node:fs') as typeof import('node:fs');
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  } catch {
+    // En edge/serverless sin acceso a fs, omitimos silenciosamente
+  }
+  return undefined;
+})();
 
 // ✅ FIX: Registrar WorkerMessageHandler en globalThis ANTES de getDocument()
 // pdf.worker.mjs hace self-registration: globalThis.pdfjsWorker = { WorkerMessageHandler }
@@ -103,6 +128,7 @@ export async function extractWithCoordinates(
       data,
       isEvalSupported: false,
       useSystemFonts: false,
+      ...(STANDARD_FONT_DATA_URL ? { standardFontDataUrl: STANDARD_FONT_DATA_URL } : {}),
     });
 
     const pdfDocument = await loadingTask.promise;

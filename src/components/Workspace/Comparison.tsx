@@ -10,7 +10,7 @@ import { ComparisonTable } from "./Comparison/ComparisonTable";
 import { ComparisonSelector } from "./Comparison/ComparisonSelector";
 import { ReformulateDialog } from "./Comparison/ReformulateDialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loader2, Sparkles, FileText, RefreshCw, AlertTriangle, IterationCw } from "lucide-react";
+import { Loader2, Sparkles, FileText, RefreshCw, AlertTriangle, IterationCw, Download } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { ReformulationOptions } from "@/lib/types";
 
@@ -44,6 +44,10 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
   // Reformulation dialog state
   const [reformulateOpen, setReformulateOpen] = useState(false);
   
+  // Excel export state
+  const [exporting, setExporting] = useState(false);
+  const exportComparison = useUI((state) => state.exportComparison);
+
   // Selection state - Set<string> from store
   const selectedAnalysisIds = useUI((state) => state.selectedAnalysisIds);
   const selectionCount = selectedAnalysisIds.size;
@@ -122,6 +126,31 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
     await handleAlign(options);
   };
 
+  const handleDownloadMatrix = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const blob = await exportComparison({
+        format: 'excel',
+        title: activeComparison?.id ?? '',
+        includeReferences: false,
+        version: 'technical',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `comparison-matrix-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      // Error toast is handled inside exportComparison (state.ts)
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // ✅ FASE 30.4: Cargar comparaciones existentes al montar
   useEffect(() => {
     if (currentCaseId && comparisons.length === 0 && !comparisonLoading) {
@@ -160,6 +189,28 @@ export default function Comparison({ caseData }: ComparisonProps = {}) {
               >
                 <IterationCw className="mr-2 h-4 w-4" />
                 {t("semantic.reformulateButton")}
+              </Button>
+            )}
+
+            {activeComparison && (
+              <Button
+                variant="outline"
+                onClick={handleDownloadMatrix}
+                disabled={exporting || comparisonLoading}
+                title={t("semantic.exportTooltip")}
+                className="border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+              >
+                {exporting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t("semantic.exportLoading")}
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    {t("semantic.downloadMatrix")}
+                  </>
+                )}
               </Button>
             )}
 

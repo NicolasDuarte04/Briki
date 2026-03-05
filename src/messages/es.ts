@@ -933,6 +933,9 @@ const es = {
         },
         downloadMatrix: "Descargar Matriz (.xlsx)",
         exportTooltip: "Exportar tabla comparativa a Excel",
+        exportLoading: "Generando Excel...",
+        exportError: "Error al exportar la matriz",
+        exportSuccess: "Matriz descargada exitosamente",
         comparisonStatus: {
           better: "Mejor que la actual",
           equal: "Igual a la actual",
