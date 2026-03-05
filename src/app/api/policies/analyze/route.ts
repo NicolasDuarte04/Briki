@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Parse request body
     const body = await request.json() as AnalyzeRequest;
-    const { artifactId, extractionMethod = 'hybrid', force = false, insuranceCategory } = body;
+    const { artifactId, extractionMethod = 'hybrid', force = false, insuranceCategory: bodyCategory } = body;
 
     if (!artifactId) {
       return NextResponse.json(
@@ -86,6 +86,12 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Artifact encontrado: ${artifact.fileName}`);
     console.log(`📁 Caso: ${artifact.caseId}`);
+
+    // ✅ FIX D3: Resolver insuranceCategory del body O del caso (defensa en profundidad)
+    const insuranceCategory = bodyCategory || artifact.case.insurance_category || undefined;
+    if (insuranceCategory) {
+      console.log(`📂 Categoría de seguro resuelta: ${insuranceCategory}${!bodyCategory ? ' (desde caso)' : ''}`);
+    }
 
     // 4. Verify artifact is a PDF
     if (artifact.sourceType !== 'pdf' && artifact.contentType !== 'application/pdf') {
@@ -163,11 +169,11 @@ export async function POST(request: NextRequest) {
       text: extractionResult.text,
       coordinates: extractionResult.coordinates,
       extractionMethod,
-      insuranceCategory,
+      ...(insuranceCategory ? { insuranceCategory } : {}),
     });
 
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => reject(new Error('AI analysis timed out after 50s')), TIMEOUT_MS);
+      setTimeout(() => reject(new Error(`AI analysis timed out after ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS);
     });
 
     const analysisResult = await Promise.race([analysisPromise, timeoutPromise]);

@@ -2921,9 +2921,31 @@ export const useUI = create<UIState>()(
       },
 
       exportComparison: async (format) => {
-        // TODO: FASE 30.4 - Implementar endpoint real
-        console.log('Exporting comparison:', format);
-        return new Blob(['Mock PDF Content'], { type: 'application/pdf' });
+        const state = get();
+        const comparisonId = state.activeComparisonId;
+
+        if (!comparisonId) {
+          throw new Error('No active comparison to export');
+        }
+
+        if (format.format === 'excel') {
+          const response = await fetch(`/api/comparisons/${comparisonId}/export`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
+
+          if (!response.ok) {
+            const err = await response.json().catch(() => ({ error: 'Export failed' }));
+            throw new Error(err.error || 'Export failed');
+          }
+
+          const blob = await response.blob();
+          return blob;
+        }
+
+        // Fallback for other formats (future)
+        console.warn(`Export format '${format.format}' not yet implemented`);
+        return new Blob([], { type: 'application/octet-stream' });
       },
 
       alignCoveragesSemantically: async (caseId, analysisIds, reformulationOptions) => {
@@ -3547,12 +3569,15 @@ export const useUI = create<UIState>()(
             console.log('🔄 [analyzePolicyArtifact] Using sync fallback');
             set({ _analysisJobMessage: 'Analizando (modo síncrono)...' });
             
+            // ✅ FIX D3: Enviar insuranceCategory del caso para activar estrategias especializadas
+            const caseCategory = get().brief?.insurance_category;
             const response = await fetch('/api/policies/analyze', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 artifactId,
-                extractionMethod: 'hybrid'
+                extractionMethod: 'hybrid',
+                ...(caseCategory ? { insuranceCategory: caseCategory } : {})
               })
             });
 

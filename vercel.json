@@ -15,6 +15,12 @@
     "src/app/api/policies/analyze/route.ts": {
       "maxDuration": 120
     },
+    "src/app/api/comparisons/align/route.ts": {
+      "maxDuration": 120
+    },
+    "src/app/api/comparisons/[id]/export/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/jobs/analyze/route.ts": {
       "maxDuration": 60
     },
