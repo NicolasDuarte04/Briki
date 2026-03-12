@@ -1,4 +1,4 @@
-export type JurisdictionCode = "co" | "mx" | "cl" | "br";
+export type JurisdictionCode = "co" | "mx" | "ec" | "br";
 
 export type ComplianceChecklistMap = Record<JurisdictionCode, readonly string[]>;
 
@@ -17,12 +17,12 @@ export const complianceChecklistItems: ComplianceChecklistMap = {
     "mx_item_infonavit",
     "mx_item_beneficiary",
   ],
-  cl: [
-    "cl_item_kyc",
-    "cl_item_rut",
-    "cl_item_afp",
-    "cl_item_previred",
-    "cl_item_beneficiary",
+  ec: [
+    "ec_item_kyc",
+    "ec_item_ruc",
+    "ec_item_sri",
+    "ec_item_iess",
+    "ec_item_beneficiary",
   ],
   br: [
     "br_item_kyc",
@@ -34,4 +34,12 @@ export const complianceChecklistItems: ComplianceChecklistMap = {
 } as const;
 
 export const complianceJurisdictions = Object.keys(complianceChecklistItems) as JurisdictionCode[];
+
+/** Flag emojis for jurisdiction display */
+export const JURISDICTION_FLAGS: Record<JurisdictionCode, string> = {
+  co: '🇨🇴',
+  mx: '🇲🇽',
+  ec: '🇪🇨',
+  br: '🇧🇷',
+};
 

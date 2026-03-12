@@ -4,8 +4,13 @@ import { getCurrentOrg } from '@/lib/helpers/getCurrentOrg';
 import { prisma } from '@/lib/prisma';
 import { alignPoliciesWithAI, sanitizeUserPrompt, MAX_COMPARISONS_PER_CASE } from '@/lib/openai/comparisonAlignment';
 import { PolicyAnalysis, PolicyComparison, ComparisonFilters, ComparisonRow, ReformulationOptions } from '@/lib/types';
+import { resolveStrategy } from '@/lib/prompts/strategies';
+import { sanitizeCategoryData } from '@/lib/prompts/strategies/pii-sanitizer';
+import { serializeBriefDataToYaml } from '@/lib/prompts/strategies/yaml-serializer';
+import { getCategoryDef } from '@/lib/insurance-categories';
 
 export const runtime = 'nodejs';
+export const maxDuration = 120; // 2 minutos para alineación AI con múltiples pólizas
 
 interface AlignRequest {
     analysisIds: string[];
@@ -41,10 +46,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // ── Fetch insurance_category from the Case for strategy-aware comparison ──
+        // ── Fetch insurance_category + brief data from the Case for strategy-aware comparison ──
         const caseRecord = await prisma.case.findUnique({
             where: { id: caseId },
-            select: { insurance_category: true, orgId: true },
+            select: { insurance_category: true, orgId: true, briefData: true, budget_currency: true, max_budget: true },
         });
 
         // Security: Verify case belongs to current org (defense-in-depth with RLS)
@@ -56,6 +61,26 @@ export async function POST(request: NextRequest) {
         }
 
         const insuranceCategory = caseRecord.insurance_category;
+
+        // ── Serialize brief data for comparison context ──
+        let briefContext: string | undefined;
+        const categoryData = caseRecord.briefData as Record<string, string | number | boolean | string[] | null> | null;
+        if (insuranceCategory && categoryData && Object.keys(categoryData).length > 0) {
+            const strategy = resolveStrategy(insuranceCategory);
+            const sanitizedData = sanitizeCategoryData(categoryData, strategy.getPiiClassification());
+            const fieldLabels = strategy.getFieldLabels();
+            const catDef = getCategoryDef(insuranceCategory);
+            const currencyFields = new Set(
+                catDef?.fields.filter(f => f.isCurrency).map(f => f.id) ?? []
+            );
+            const yamlStr = serializeBriefDataToYaml(sanitizedData, fieldLabels, {
+                currency: caseRecord.budget_currency || 'COP',
+                currencyFields,
+            });
+            if (yamlStr) {
+                briefContext = yamlStr;
+            }
+        }
 
         // ✅ LÍMITE DE COMPARACIONES: Prevenir crecimiento ilimitado
         const existingCount = await prisma.comparison.count({
@@ -191,7 +216,7 @@ export async function POST(request: NextRequest) {
         if (sanitizedUserPrompt) alignOptions.userPrompt = sanitizedUserPrompt;
         if (referenceRows) alignOptions.referenceRows = referenceRows;
 
-        const comparisonRows = await alignPoliciesWithAI(typedAnalyses, alignOptions, insuranceCategory);
+        const comparisonRows = await alignPoliciesWithAI(typedAnalyses, alignOptions, insuranceCategory, briefContext);
 
         // 5. Save to Database — ✅ ACUMULACIÓN: NO deleteMany, simplemente crear nueva
         const defaultFilters: ComparisonFilters = {

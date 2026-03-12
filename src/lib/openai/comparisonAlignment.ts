@@ -76,7 +76,8 @@ interface PolicyInput {
 export async function alignPoliciesWithAI(
   analyses: PolicyAnalysis[],
   options?: ReformulationOptions & { referenceRows?: ComparisonRow[] },
-  insuranceCategory?: string | null
+  insuranceCategory?: string | null,
+  briefContext?: string,
 ): Promise<ComparisonRow[]> {
   const isReformulation = !!(options?.focusAspects?.length || options?.userPrompt || options?.referenceRows?.length);
   console.log(`🤖 ${isReformulation ? 'Reformulating' : 'Aligning'} ${analyses.length} policies with AI (category: ${insuranceCategory || 'generic'})...`);
@@ -88,11 +89,11 @@ export async function alignPoliciesWithAI(
 
   if (matrixDef) {
     // ✅ SECTION-CHUNKED PARALLEL ALIGNMENT — 1:1 matrix coverage
-    return alignWithMatrixChunks(analyses, policyInputs, matrixDef, insuranceCategory, options);
+    return alignWithMatrixChunks(analyses, policyInputs, matrixDef, insuranceCategory, options, briefContext);
   }
 
   // Fallback: free-form alignment (generic categories without matrix)
-  return alignFreeForm(analyses, policyInputs, insuranceCategory, options);
+  return alignFreeForm(analyses, policyInputs, insuranceCategory, options, briefContext);
 }
 
 // ─── Policy Input Builder ────────────────────────────────────────────────────
@@ -137,6 +138,7 @@ async function alignWithMatrixChunks(
   matrixDef: MatrixDefinition,
   insuranceCategory?: string | null,
   options?: ReformulationOptions & { referenceRows?: ComparisonRow[] },
+  briefContext?: string,
 ): Promise<ComparisonRow[]> {
   const sections = Object.entries(matrixDef.secciones);
   const systemPrompt = buildSystemPrompt(insuranceCategory);
@@ -154,6 +156,7 @@ async function alignWithMatrixChunks(
       systemPrompt,
       insuranceCategory,
       options,
+      briefContext,
     )
   );
 
@@ -191,6 +194,7 @@ async function alignSingleSection(
   systemPrompt: string,
   insuranceCategory?: string | null,
   options?: ReformulationOptions & { referenceRows?: ComparisonRow[] },
+  briefContext?: string,
 ): Promise<ComparisonRow[]> {
   const openai = getOpenAIClient();
 
@@ -201,6 +205,7 @@ async function alignSingleSection(
     analysisIds,
     insuranceCategory,
     options,
+    briefContext,
   );
 
   // Estimate max_tokens based on section size: ~300 tokens per item × N policies
@@ -245,6 +250,7 @@ function buildSectionChunkPrompt(
   analysisIds: string[],
   insuranceCategory?: string | null,
   options?: ReformulationOptions & { referenceRows?: ComparisonRow[] },
+  briefContext?: string,
 ): string {
   const strategy = resolveStrategy(insuranceCategory);
   const analysisIdsStr = analysisIds.join('", "');
@@ -260,6 +266,24 @@ function buildSectionChunkPrompt(
     ? `\nINSTRUCCIONES DEL ANALISTA: ${options.userPrompt}\n`
     : '';
 
+  // Brief context injection: client's declared values for benchmarking
+  let briefBlock = '';
+  if (briefContext) {
+    const infraseguroRules = strategy.getInfraseguroRules();
+    briefBlock = `
+CONTEXTO DEL BRIEF DEL CLIENTE (valores declarados por el asegurado):
+${briefContext}
+
+${infraseguroRules}
+
+INSTRUCCIÓN DE BENCHMARKING:
+- Compara los montos/límites de cada póliza contra los valores de referencia del brief.
+- Si un valor asegurado es inferior al valor declarado por el cliente, marca "status": "worse" e incluye en "description" la diferencia porcentual y el impacto (ej: "Límite $3.000M vs valor declarado $5.000M (-40%). Riesgo de infraseguro.").
+- Si un valor asegurado es superior o igual al declarado, menciónalo positivamente en "description".
+- La moneda del brief es la referencia; si la póliza usa otra moneda, señálalo.
+`;
+  }
+
   return `
 RAMO: ${strategy.categoryLabel}
 SECCIÓN DE MATRIZ: ${sectionKey}
@@ -271,7 +295,7 @@ ${itemsList}
 
 DATOS DE LAS PÓLIZAS:
 ${JSON.stringify(policyInputs, null, 2)}
-${focusNote}${userInstructionsNote}
+${focusNote}${userInstructionsNote}${briefBlock}
 INSTRUCCIONES:
 1. Para CADA ítem de la lista anterior, genera una fila comparativa.
 2. Para cada fila, evalúa CADA una de las ${policyInputs.length} pólizas.
@@ -332,11 +356,12 @@ async function alignFreeForm(
   policyInputs: PolicyInput[],
   insuranceCategory?: string | null,
   options?: ReformulationOptions & { referenceRows?: ComparisonRow[] },
+  briefContext?: string,
 ): Promise<ComparisonRow[]> {
   const openai = getOpenAIClient();
   const isReformulation = !!(options?.focusAspects?.length || options?.userPrompt || options?.referenceRows?.length);
   const systemPrompt = buildSystemPrompt(insuranceCategory);
-  const userPrompt = buildFreeFormPrompt(analyses, policyInputs, insuranceCategory, options);
+  const userPrompt = buildFreeFormPrompt(analyses, policyInputs, insuranceCategory, options, briefContext);
 
   try {
     const response = await openai.chat.completions.create({
@@ -384,6 +409,7 @@ function buildFreeFormPrompt(
   policyInputs: PolicyInput[],
   insuranceCategory?: string | null,
   options?: ReformulationOptions & { referenceRows?: ComparisonRow[] },
+  briefContext?: string,
 ): string {
   const analysisIdsStr = analyses.map(a => a.id).join('", "');
   const strategy = resolveStrategy(insuranceCategory);
@@ -405,12 +431,29 @@ function buildFreeFormPrompt(
     ? `\nCOMPARACIONES PREVIAS (MEJORAR, no repetir): ${options.referenceRows.length} filas anteriores. Coberturas: ${options.referenceRows.map(r => r.coverageName).join(', ')}.\n`
     : '';
 
+  // Brief context injection for free-form mode
+  let briefBlock = '';
+  if (briefContext) {
+    const infraseguroRules = strategy.getInfraseguroRules();
+    briefBlock = `
+CONTEXTO DEL BRIEF DEL CLIENTE (valores declarados por el asegurado):
+${briefContext}
+
+${infraseguroRules}
+
+INSTRUCCIÓN DE BENCHMARKING:
+- Compara los montos/límites de cada póliza contra los valores de referencia del brief.
+- Si un valor asegurado es inferior al valor declarado, marca "status": "worse" e incluye la diferencia en "description".
+- Si un valor asegurado es superior o igual, menciónalo positivamente.
+`;
+  }
+
   return `
 Analiza y alinea las siguientes ${analyses.length} pólizas de seguro para crear una tabla comparativa unificada.
 ${categoryContext}
 DATOS DE LAS PÓLIZAS:
 ${JSON.stringify(policyInputs, null, 2)}
-${focusSection}${userInstructions}${referenceSection}
+${focusSection}${userInstructions}${referenceSection}${briefBlock}
 INSTRUCCIONES:
 1. Genera entre **20 y 60 filas** distribuidas en múltiples categorías: coverage, financial, deductible, exclusion, benefit, requirement.
 2. Para cada fila, evalúa CADA una de las ${analyses.length} pólizas.

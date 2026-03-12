@@ -504,7 +504,7 @@ function mapAnalysisToRenewal(analysis: PolicyAnalysis): RenewalRecord | null {
   }
   
   const currencyValue = data.currency || data.moneda || data.financials?.currency;
-  if (currencyValue && typeof currencyValue === 'string' && ['COP', 'USD', 'MXN', 'EUR'].includes(currencyValue)) {
+  if (currencyValue && typeof currencyValue === 'string' && ['COP', 'USD', 'BRL'].includes(currencyValue)) {
     currency = currencyValue as CurrencyCode;
   }
 
@@ -2362,6 +2362,10 @@ export const useUI = create<UIState>()(
           persistState(newState);
           return newState;
         });
+        // ✅ Propagar jurisdicción del brief al módulo de cumplimiento
+        if (brief.jurisdiction && brief.jurisdiction !== get().complianceJurisdiction) {
+          get().setComplianceJurisdiction(brief.jurisdiction);
+        }
       },
       setFollowupCadenceDays: (days) =>
         set((state) => {

@@ -3,7 +3,7 @@ import { z } from "zod";
 const IsoDateTimeStringSchema = z.string().datetime({ offset: true });
 const UnknownRecordSchema = z.record(z.string(), z.unknown());
 
-export const CurrencyCodeSchema = z.enum(["COP", "USD", "MXN", "EUR"]);
+export const CurrencyCodeSchema = z.enum(["COP", "USD", "BRL"]);
 export type CurrencyCodeParsed = z.infer<typeof CurrencyCodeSchema>;
 
 export const MoneySchema = z
@@ -333,7 +333,8 @@ export const CaseBriefSchema = z
       z.literal(''),
     ]).optional(), // ✅ Validación enum — solo IDs válidos o string vacío (no seleccionado)
     max_budget: z.number().nullable().optional(),
-    budget_currency: z.enum(['COP', 'USD', 'MXN', 'EUR']).optional(), // ✅ FASE 31.3: Alineado con CurrencyCode
+    budget_currency: z.enum(['COP', 'USD', 'BRL']).optional(),
+    jurisdiction: z.enum(['co', 'mx', 'ec', 'br']).optional(),
     client_profile: z.string().optional(),
     // ✅ FASE CLIENTE/EMPRESA: Campos de sujeto y empresa
     subjectType: z.enum(['client', 'company']).optional(),
@@ -390,7 +391,7 @@ export const CaseSchema = z
       z.literal(''),
     ]).optional(), // ✅ Validación enum — solo IDs válidos o string vacío
     max_budget: z.number().optional(),
-    budget_currency: z.enum(['COP', 'USD']).optional().default('COP'),
+    budget_currency: z.enum(['COP', 'USD', 'BRL']).optional().default('COP'),
     client_profile: z.string().optional(),
   })
   .strict();

@@ -78,7 +78,7 @@ FORMATO DE RESPUESTA (JSON):
   "effective_from": "2025-01-01T00:00:00Z",
   "effective_to": "2026-01-01T00:00:00Z",
   "jurisdiction": "co",
-  "currency": "COP",
+  "currency": "COP|USD|BRL",
   "financials": {
     "premium_net": 5000000,
     "taxes": 950000,

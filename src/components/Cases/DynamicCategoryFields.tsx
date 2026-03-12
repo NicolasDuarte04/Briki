@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Info, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getCategoryDef } from '@/lib/insurance-categories';
+import { getCurrencyInfo } from '@/lib/types';
+import type { CurrencyCode } from '@/lib/types';
 import type { CategoryFieldDef } from '@/lib/insurance-categories';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -18,11 +20,13 @@ interface DynamicCategoryFieldsProps {
   /** Currently selected insurance category id (e.g. 'trdm', 'salud') */
   categoryId: string;
   /** Current values of all dynamic fields for this category */
-  values: Record<string, string | number | boolean | null>;
+  values: Record<string, string | number | boolean | string[] | null>;
   /** Called when any field value changes */
   onChange: (fieldId: string, value: string | number | boolean | null) => void;
   /** Whether the form is in a disabled / processing state */
   disabled?: boolean;
+  /** The currency selected for the case (applies to all isCurrency fields) */
+  currency?: CurrencyCode;
   /** Currently selected coverages (from categoryData.selected_coverages) */
   selectedCoverages: string[];
   /** Called to toggle a suggested coverage on/off */
@@ -38,6 +42,7 @@ const CategoryField = React.memo(({
   disabled,
   t,
   categoryId,
+  currencySymbol,
 }: {
   field: CategoryFieldDef;
   value: string | number | boolean | null;
@@ -45,6 +50,7 @@ const CategoryField = React.memo(({
   disabled?: boolean;
   t: (key: string) => string;
   categoryId: string;
+  currencySymbol?: string;
 }) => {
   const labelKey = `categoryFields.${categoryId}.${field.id}`;
   const placeholderKey = `categoryFields.${categoryId}.${field.id}_placeholder`;
@@ -56,27 +62,34 @@ const CategoryField = React.memo(({
       return (
         <div className="space-y-2">
           <Label className="text-sm">{label}</Label>
-          <Input
-            type="number"
-            placeholder={placeholder}
-            min={field.min}
-            max={field.max}
-            step={field.step ?? (field.isCurrency ? 0.01 : 1)}
-            value={value !== null && value !== undefined ? String(value) : ''}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (!v || v === '') {
-                onChange(field.id, null);
-                return;
-              }
-              const num = parseFloat(v);
-              if (!isNaN(num) && isFinite(num)) {
-                onChange(field.id, num);
-              }
-            }}
-            disabled={disabled}
-            className={cn(field.isCurrency && 'font-mono')}
-          />
+          <div className={cn(field.isCurrency && currencySymbol && 'relative')}>
+            {field.isCurrency && currencySymbol && (
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-mono pointer-events-none">
+                {currencySymbol}
+              </span>
+            )}
+            <Input
+              type="number"
+              placeholder={placeholder}
+              min={field.min}
+              max={field.max}
+              step={field.step ?? (field.isCurrency ? 0.01 : 1)}
+              value={value !== null && value !== undefined ? String(value) : ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v || v === '') {
+                  onChange(field.id, null);
+                  return;
+                }
+                const num = parseFloat(v);
+                if (!isNaN(num) && isFinite(num)) {
+                  onChange(field.id, num);
+                }
+              }}
+              disabled={disabled}
+              className={cn(field.isCurrency && 'font-mono', field.isCurrency && currencySymbol && 'pl-10')}
+            />
+          </div>
         </div>
       );
 
@@ -181,12 +194,14 @@ export const DynamicCategoryFields = React.memo(({
   values,
   onChange,
   disabled,
+  currency,
   selectedCoverages,
   onToggleCoverage,
 }: DynamicCategoryFieldsProps) => {
   const tCaseBrief = useTranslations('workspace.caseBrief');
 
   const categoryDef = useMemo(() => getCategoryDef(categoryId), [categoryId]);
+  const currencySymbol = useMemo(() => currency ? getCurrencyInfo(currency).symbol : undefined, [currency]);
 
   if (!categoryDef) return null;
 
@@ -217,7 +232,10 @@ export const DynamicCategoryFields = React.memo(({
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {categoryDef.fields.map((field) => (
+            {categoryDef.fields.map((field) => {
+              const raw = values[field.id];
+              const fieldValue: string | number | boolean | null = Array.isArray(raw) ? null : (raw ?? null);
+              return (
               <div
                 key={field.id}
                 className={cn(
@@ -227,14 +245,16 @@ export const DynamicCategoryFields = React.memo(({
               >
                 <CategoryField
                   field={field}
-                  value={values[field.id] ?? null}
+                  value={fieldValue}
                   onChange={onChange}
                   disabled={disabled ?? false}
                   t={tCaseBrief}
                   categoryId={categoryId}
+                  {...(currencySymbol !== undefined ? { currencySymbol } : {})}
                 />
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

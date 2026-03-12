@@ -5,7 +5,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUI } from '@/lib/ui/state';
 import { BriefForm, CaseBriefData } from '@/components/Cases/BriefForm';
-import { CaseBrief } from '@/lib/types';
+import { CaseBrief, CurrencyCode } from '@/lib/types';
+import type { InsuranceCategoryId } from '@/lib/insurance-categories';
+import type { JurisdictionCode } from '@/lib/compliance';
 import { Button } from '@/components/ui/button';
 import { useTranslations, useLocale } from 'next-intl';
 import { useClientValidation } from '@/hooks/useClientValidation';
@@ -123,11 +125,15 @@ export default function CaseBriefForm({ initialData, activeCaseData, onEditCompl
             ...(activeCaseData.employees !== undefined && activeCaseData.employees !== null && {
                 employees: activeCaseData.employees
             }),
-            insurance_category: activeCaseData.insurance_category || '',
+            insurance_category: (activeCaseData.insurance_category || '') as InsuranceCategoryId | '',
             ...(activeCaseData.max_budget !== undefined && activeCaseData.max_budget !== null && {
                 max_budget: Number(activeCaseData.max_budget)
             }),
-            budget_currency: (activeCaseData.budget_currency as 'COP' | 'USD') || 'COP',
+            budget_currency: (activeCaseData.budget_currency as CurrencyCode) || 'COP',
+            // ✅ Propagar jurisdicción desde briefData del caso histórico
+            ...((activeCaseData.briefData as any)?.jurisdiction && {
+                jurisdiction: (activeCaseData.briefData as any).jurisdiction as JurisdictionCode
+            }),
             client_profile: activeCaseData.client_profile || '',
             freeText: (activeCaseData.briefData as any)?.freeText || '',
             selectedClientId: activeCaseData.clientRef || null,

@@ -1154,7 +1154,7 @@ model ComplianceRecord {
   policyAnalysisId String?  @map("policy_analysis_id") @db.Uuid
   orgId            String   @map("org_id") @db.Uuid
   userId           String   @map("user_id") @db.Uuid
-  jurisdiction     String   @db.VarChar(2)
+  jurisdiction     String   @db.VarChar(2) // 'co', 'mx', 'ec', 'br'
   insuranceType    String?  @map("insurance_type") @db.VarChar(50)
   checklistData    Json     @default("{}") @map("checklist_data")
   kycStatus        String?  @default("pending") @map("kyc_status") @db.VarChar(20)

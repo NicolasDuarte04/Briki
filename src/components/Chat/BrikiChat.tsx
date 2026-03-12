@@ -104,7 +104,7 @@ interface BrikiChatProps {
 export function BrikiChat({ mode, className }: BrikiChatProps) {
     const [value, setValue] = useState("");
     const { user } = useAuth();
-    const { setStep, setBrief, brief, isSourcing, startSourcing, initialMessage, clearInitialMessage, setInitialMessage } = useUI();
+    const { setStep, setBrief, brief, initialMessage, clearInitialMessage, setInitialMessage } = useUI();
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 90,
         maxHeight: 200,
@@ -394,10 +394,6 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
                 agent: { label: chatTranslations("agents.sourcing") },
             });
             setIsTyping(false);
-            
-            if (!isSourcing) {
-                startSourcing();
-            }
         } catch (error) {
             console.error('Error processing message:', error);
             appendMessage(conversationId, {
@@ -409,7 +405,7 @@ export function BrikiChat({ mode, className }: BrikiChatProps) {
             });
             setIsTyping(false);
         }
-    }, [activeConversationId, appendMessage, brief, chatTranslations, conversations, createConversation, isNearBottom, isSourcing, router, setActiveConversation, startSourcing, value]);
+    }, [activeConversationId, appendMessage, brief, chatTranslations, conversations, createConversation, isNearBottom, router, setActiveConversation, value]);
 
     // ✅ FUSIÓN CRÍTICA: Landing mode submit handler (del LandingChatInput original)
     const handleLandingSubmit = async () => {
