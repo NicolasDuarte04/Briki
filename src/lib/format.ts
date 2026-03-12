@@ -5,8 +5,7 @@ const DEFAULT_LOCALE = "en-US" as const;
 const CURRENCY_FRACTION_DIGITS: Record<CurrencyCode, number> = {
   COP: 2,
   USD: 2,
-  MXN: 2,
-  EUR: 2,
+  BRL: 2,
 };
 
 export interface FormatMoneyOptions {

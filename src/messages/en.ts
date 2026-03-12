@@ -1011,6 +1011,12 @@ const en = {
         reclamo: "Claim",
         auditoria: "Audit",
       },
+      jurisdictions: {
+        co: "Colombia",
+        mx: "Mexico",
+        ec: "Ecuador",
+        br: "Brazil",
+      },
       categoryDescriptions: {
         trdm: "Comprehensive coverage to protect the company's physical assets against fire, earthquake, theft, water damage, and machinery breakdown.",
         rce: "Protection against third-party claims for property damage or personal injury arising from business operations.",
@@ -1227,6 +1233,10 @@ const en = {
         booleanNo: "No",
         notEditable: "(Not editable)",
         maxBudget: "Maximum Monthly Budget",
+        currencyLabel: "Currency",
+        currencyHint: "The selected currency will apply to all subsequent monetary fields",
+        jurisdictionLabel: "Jurisdiction",
+        jurisdictionPlaceholder: "Select jurisdiction",
         clientProfile: "Client Profile",
         clientProfilePlaceholder: "Describe the client profile: age, profession, marital status, children, etc.",
         subjectType: "Subject Type",
@@ -1505,14 +1515,14 @@ const en = {
             mx_item_beneficiary: "Update beneficiary roster",
           },
         },
-        cl: {
-          title: "Chile",
+        ec: {
+          title: "Ecuador",
           items: {
-            cl_item_kyc: "Complete KYC interview",
-            cl_item_rut: "Confirm RUT certificate",
-            cl_item_afp: "Validate AFP contributions",
-            cl_item_previred: "Download Previred receipts",
-            cl_item_beneficiary: "Update beneficiary roster",
+            ec_item_kyc: "Complete KYC interview",
+            ec_item_ruc: "Confirm RUC certificate",
+            ec_item_sri: "Verify SRI tax compliance",
+            ec_item_iess: "Validate IESS enrollment",
+            ec_item_beneficiary: "Update beneficiary roster",
           },
         },
         br: {

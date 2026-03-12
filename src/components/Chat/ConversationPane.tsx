@@ -6,7 +6,7 @@ import { useUI, type UIState } from "@/lib/ui/state";
 import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { SendHorizonal, ArrowDown, Loader2, Info } from "lucide-react";
+import { SendHorizonal, ArrowDown, Loader2, Info, Search } from "lucide-react";
 import Message, { type MessageRole, type MessageAgentMeta } from "@/components/Chat/Message";
 import { useTranslations, useLocale } from "next-intl";
 import { useClientValidation } from "@/hooks/useClientValidation";

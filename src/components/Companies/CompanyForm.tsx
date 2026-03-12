@@ -42,7 +42,7 @@ const RISK_CLASSIFICATIONS = ['bajo', 'medio', 'alto', 'muy_alto'] as const;
 const ID_TYPES = ['CC', 'CE', 'PASSPORT', 'TI'] as const;
 
 // Monedas
-const CURRENCIES = ['COP', 'USD', 'EUR'] as const;
+const CURRENCIES = ['COP', 'USD', 'BRL'] as const;
 
 /** Valores por defecto para modo edición */
 interface CompanyDefaultValues {

@@ -42,6 +42,14 @@ const COLORS = {
 const DEFAULT_COL_WIDTH = 35;
 const CONCEPT_COL_WIDTH = 50;
 
+/** Row heights in points — centralized for easy tuning */
+const ROW_HEIGHT = {
+  title: 40,
+  header: 36,
+  section: 32,
+  data: 44,
+} as const;
+
 // ─── CSV Injection Guard ─────────────────────────────────────────────────────
 
 const INJECTION_PREFIXES = ['=', '+', '-', '@', '\t', '\r', '\n'];
@@ -223,7 +231,7 @@ export async function buildComparisonMatrix(
 
   const titleRow = worksheet.addRow([titleText]);
   worksheet.mergeCells(1, 1, 1, totalCols);
-  titleRow.height = 32;
+  titleRow.height = ROW_HEIGHT.title;
   titleRow.getCell(1).font = { name: 'Calibri', size: 14, bold: true, color: { argb: COLORS.headerText } };
   titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.brandDark } };
   titleRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
@@ -242,7 +250,7 @@ export async function buildComparisonMatrix(
   }
 
   const headerRow = worksheet.addRow(headerLabels);
-  headerRow.height = 28;
+  headerRow.height = ROW_HEIGHT.header;
   headerRow.eachCell((cell) => {
     cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: COLORS.headerText } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.brandPrimary } };
@@ -272,7 +280,7 @@ export async function buildComparisonMatrix(
       const sectionLabel = resolveSectionLabel(sectionKey, locale);
       const sectionRow = worksheet.addRow([sectionLabel]);
       worksheet.mergeCells(sectionRow.number, 1, sectionRow.number, totalCols);
-      sectionRow.height = 24;
+      sectionRow.height = ROW_HEIGHT.section;
       sectionRow.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: COLORS.brandDark } };
       sectionRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.sectionBg } };
       sectionRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
@@ -299,7 +307,7 @@ export async function buildComparisonMatrix(
         }
 
         const dataRow = worksheet.addRow(rowData);
-        dataRow.height = 22;
+        dataRow.height = ROW_HEIGHT.data;
 
         // Style concept column
         dataRow.getCell(1).font = { name: 'Calibri', size: 10 };
@@ -323,7 +331,7 @@ export async function buildComparisonMatrix(
       const extraLabel = locale === 'es' ? 'Hallazgos Adicionales de la IA' : 'Additional AI Findings';
       const extraSectionRow = worksheet.addRow([extraLabel]);
       worksheet.mergeCells(extraSectionRow.number, 1, extraSectionRow.number, totalCols);
-      extraSectionRow.height = 24;
+      extraSectionRow.height = ROW_HEIGHT.section;
       extraSectionRow.getCell(1).font = { name: 'Calibri', size: 11, bold: true, italic: true, color: { argb: COLORS.brandDark } };
       extraSectionRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: COLORS.sectionBg } };
       extraSectionRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left' };
@@ -339,7 +347,7 @@ export async function buildComparisonMatrix(
         }
 
         const dataRow = worksheet.addRow(rowData);
-        dataRow.height = 22;
+        dataRow.height = ROW_HEIGHT.data;
         dataRow.getCell(1).font = { name: 'Calibri', size: 10 };
         dataRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
         dataRow.getCell(1).border = {
@@ -365,7 +373,7 @@ export async function buildComparisonMatrix(
       }
 
       const dataRow = worksheet.addRow(rowData);
-      dataRow.height = 22;
+      dataRow.height = ROW_HEIGHT.data;
       dataRow.getCell(1).font = { name: 'Calibri', size: 10 };
       dataRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
 

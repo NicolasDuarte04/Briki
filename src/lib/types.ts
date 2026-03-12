@@ -28,15 +28,38 @@ import type {
   RenewalAlertTypeParsed,
   AlertSeverityParsed,
 } from "./validation";
+import type { InsuranceCategoryId } from "./insurance-categories";
 
 // ============================================================================
 // Currency & Money Types
 // ============================================================================
 
 /**
- * Supported currency codes in the system
+ * Supported currency codes in the system.
+ * COP = Colombia, USD = USA/Ecuador, BRL = Brazil
  */
-export type CurrencyCode = 'COP' | 'USD' | 'MXN' | 'EUR';
+export type CurrencyCode = 'COP' | 'USD' | 'BRL';
+
+/** Metadata for a supported currency */
+export interface CurrencyInfo {
+  code: CurrencyCode;
+  symbol: string;
+  flag: string;
+  labelEs: string;
+  labelEn: string;
+}
+
+/** Canonical list of currencies supported across the entire application */
+export const SUPPORTED_CURRENCIES: readonly CurrencyInfo[] = [
+  { code: 'COP', symbol: '$',  flag: '🇨🇴', labelEs: 'Peso Colombiano',         labelEn: 'Colombian Peso' },
+  { code: 'USD', symbol: '$',  flag: '🇺🇸', labelEs: 'Dólar Estadounidense',    labelEn: 'US Dollar' },
+  { code: 'BRL', symbol: 'R$', flag: '🇧🇷', labelEs: 'Real Brasileño',           labelEn: 'Brazilian Real' },
+] as const;
+
+/** Helper: get CurrencyInfo by code */
+export function getCurrencyInfo(code: CurrencyCode): CurrencyInfo {
+  return SUPPORTED_CURRENCIES.find(c => c.code === code) ?? SUPPORTED_CURRENCIES[0] as CurrencyInfo;
+}
 
 /**
  * Money representation using minor units (cents)
@@ -126,7 +149,7 @@ export type PricingBandType = 'standard' | 'preferred' | 'premium' | 'custom';
 /**
  * Jurisdiction codes
  */
-export type JurisdictionCode = 'co' | 'mx' | 'cl' | 'br';
+export type JurisdictionCode = 'co' | 'mx' | 'ec' | 'br';
 
 /**
  * Share channels
@@ -246,6 +269,8 @@ export interface CaseBrief {
   businessType?: string;
   /** Number of employees */
   employees?: number | null;
+  /** Coverage description (legacy — set by Composer chat input) */
+  coverage?: string;
   /** Free text notes */
   freeText?: string;
   /** Client name (for display and search) - used when subjectType = 'client' */
@@ -257,13 +282,15 @@ export interface CaseBrief {
   /** Selected company ID (if from existing company) - used when subjectType = 'company' */
   selectedCompanyId?: string | null;
   /** Insurance category (e.g. 'trdm', 'rce', 'salud', 'vida', etc.) */
-  insurance_category?: string;
+  insurance_category?: InsuranceCategoryId | '';
   /** Analysis reason: primera_vez, renovacion, benchmarking, reclamo, auditoria */
   analysis_reason?: string;
   /** Maximum budget for insurance */
   max_budget?: number | null;
   /** Budget currency */
   budget_currency?: CurrencyCode;
+  /** Jurisdiction for compliance (co, mx, ec, br) */
+  jurisdiction?: JurisdictionCode;
   /** Client profile description */
   client_profile?: string;
   /** Category-specific dynamic field data (stored in briefData JSON) */

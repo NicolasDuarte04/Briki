@@ -365,7 +365,7 @@ export async function createCaseWithOrg(
     insurance_category?: string;
     analysis_reason?: string; // ✅ FASE CATEGORÍAS: Motivo del análisis
     max_budget?: number;
-    budget_currency?: 'COP' | 'USD';
+    budget_currency?: 'COP' | 'USD' | 'BRL';
     client_profile?: string;
   } = {} // <-- Añadir valor por defecto para seguridad
 ) {

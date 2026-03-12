@@ -109,42 +109,42 @@ export const mxComplianceContext: ComplianceContextMap = {
 };
 
 /**
- * Contexto para items de Chile (cl)
+ * Contexto para items de Ecuador (ec)
  */
-export const clComplianceContext: ComplianceContextMap = {
-  cl_item_kyc: {
-    description: 'Identificación y verificación de clientes según normativa antilavado.',
-    legalReference: 'Ley 19.913 - UAF Chile',
-    requiredDocs: ['Cédula de identidad', 'Declaración jurada de PEP', 'Certificado de vigencia (empresas)'],
-    consequences: 'Multas de hasta 5.000 UTM y sanciones penales.',
+export const ecComplianceContext: ComplianceContextMap = {
+  ec_item_kyc: {
+    description: 'Identificación y verificación de clientes según normativa antilavado ecuatoriana.',
+    legalReference: 'Ley Orgánica de Prevención de Lavado de Activos (2016) - UAFE',
+    requiredDocs: ['Cédula de ciudadanía o pasaporte', 'Declaración de origen lícito de fondos', 'Certificado de cumplimiento tributario'],
+    consequences: 'Multas de hasta 20 SBU y sanciones administrativas.',
     criticality: 'critical',
   },
-  cl_item_rut: {
-    description: 'Verificación del RUT empresarial o personal.',
-    legalReference: 'Código Tributario Art. 66',
-    requiredDocs: ['Certificado de RUT vigente del SII'],
-    consequences: 'Problemas de facturación y tributación.',
+  ec_item_ruc: {
+    description: 'Verificación del Registro Único de Contribuyentes.',
+    legalReference: 'Ley del RUC - Decreto 2044',
+    requiredDocs: ['Certificado de RUC vigente del SRI'],
+    consequences: 'Impedimento de facturación y sanciones tributarias.',
     criticality: 'high',
   },
-  cl_item_afp: {
-    description: 'Validación de cotizaciones previsionales en AFP.',
-    legalReference: 'DL 3500 - Sistema de AFP',
-    requiredDocs: ['Cartola AFP últimos 12 meses', 'Certificado de cotizaciones'],
-    consequences: 'Exclusión de beneficios previsionales asociados.',
+  ec_item_sri: {
+    description: 'Verificación del cumplimiento tributario ante el Servicio de Rentas Internas.',
+    legalReference: 'Código Tributario Ecuatoriano y Ley de Régimen Tributario Interno',
+    requiredDocs: ['Certificado de cumplimiento tributario del SRI', 'Últimas declaraciones de IVA e Impuesto a la Renta'],
+    consequences: 'Multas, clausura del establecimiento y prohibición de contratar con el Estado.',
     criticality: 'high',
   },
-  cl_item_previred: {
-    description: 'Descarga y verificación de comprobantes de pago Previred.',
-    legalReference: 'Ley 17.322 sobre Cobranza Judicial de Cotizaciones',
-    requiredDocs: ['Planillas Previred últimos 3 meses'],
-    consequences: 'Multas y recargos por morosidad.',
-    criticality: 'medium',
+  ec_item_iess: {
+    description: 'Validación de afiliación y pagos al Instituto Ecuatoriano de Seguridad Social.',
+    legalReference: 'Ley de Seguridad Social (2001) y sus reformas',
+    requiredDocs: ['Certificado de cumplimiento de obligaciones patronales IESS', 'Historial de aportes'],
+    consequences: 'Responsabilidad patronal, glosas y coactivas del IESS.',
+    criticality: 'high',
   },
-  cl_item_beneficiary: {
-    description: 'Actualización de beneficiarios según normativa de seguros.',
-    legalReference: 'DFL 251 - Ley de Seguros Chile',
-    requiredDocs: ['Formulario de beneficiarios firmado', 'Cédulas de beneficiarios'],
-    consequences: 'Litigios en liquidación de siniestros.',
+  ec_item_beneficiary: {
+    description: 'Actualización de beneficiarios según normativa de seguros ecuatoriana.',
+    legalReference: 'Ley General de Seguros - Superintendencia de Compañías',
+    requiredDocs: ['Formulario de designación de beneficiarios firmado', 'Cédulas de beneficiarios'],
+    consequences: 'Disputas legales en la liquidación de siniestros.',
     criticality: 'medium',
   },
 };
@@ -196,7 +196,7 @@ export const brComplianceContext: ComplianceContextMap = {
 export const complianceContextByJurisdiction: Record<string, ComplianceContextMap> = {
   co: coComplianceContext,
   mx: mxComplianceContext,
-  cl: clComplianceContext,
+  ec: ecComplianceContext,
   br: brComplianceContext,
 };
 

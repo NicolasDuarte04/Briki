@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield, LinkIcon, Building2, Info } from 'lucide-react';
+import { Check, ChevronsUpDown, Plus, X, DollarSign, User, FileText, Shield, LinkIcon, Building2, Info, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PdfUploader } from '@/components/Upload/PdfUploader';
 import { OrgDocumentSelector } from '@/components/Common/OrgDocumentSelector';
@@ -21,9 +21,12 @@ import { useCompanyValidation } from '@/hooks/useCompanyValidation';
 import { createCaseIfNeeded } from '@/lib/case-actions';
 import { ClientValidationModal } from '@/components/Workspace/ClientValidationModal';
 import { useRouter } from 'next/navigation';
-import type { CaseBrief } from '@/lib/types';
+import type { CaseBrief, CurrencyCode } from '@/lib/types';
+import { SUPPORTED_CURRENCIES } from '@/lib/types';
 import { DynamicCategoryFields } from '@/components/Cases/DynamicCategoryFields';
 import { ANALYSIS_REASONS, getCategoriesForSubjectType, isCategoryValidForSubjectType } from '@/lib/insurance-categories';
+import type { InsuranceCategoryId } from '@/lib/insurance-categories';
+import { complianceJurisdictions, JURISDICTION_FLAGS, type JurisdictionCode } from '@/lib/compliance';
 
 // Define el tipo para uploads temporales
 export type TempUpload = {
@@ -60,9 +63,11 @@ export type CaseBriefData = {
   // ✅ FASE CATEGORÍAS: Motivo del análisis (obligatorio)
   analysis_reason: string;
   // Nuevos campos del Brief detallado
-  insurance_category: string;
+  insurance_category: InsuranceCategoryId | '';
   max_budget: number | null;
-  budget_currency: 'COP' | 'USD';
+  budget_currency: CurrencyCode;
+  // Jurisdicción para cumplimiento regulatorio
+  jurisdiction: JurisdictionCode | '';
   client_profile: string;
   notes: string;
   // Campos existentes que se mantendrán
@@ -159,6 +164,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
     insurance_category: initialData?.insurance_category || (shouldUseBriefFallback ? brief?.insurance_category : '') || '',
     max_budget: initialData?.max_budget ?? (shouldUseBriefFallback ? brief?.max_budget : null) ?? null,
     budget_currency: initialData?.budget_currency || (shouldUseBriefFallback ? brief?.budget_currency : 'COP') || 'COP',
+    jurisdiction: initialData?.briefData?.jurisdiction || (shouldUseBriefFallback ? brief?.jurisdiction : '') || '',
     client_profile: initialData?.client_profile || (shouldUseBriefFallback ? brief?.client_profile : '') || '',
     // ✅ SIMPLIFICACIÓN: Cargar freeText desde brief para autocompletar "Notas Adicionales" (desde LandingPage)
     // Prioridad: initialNotes > brief.freeText > ''
@@ -182,6 +188,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         insurance_category: initialData.insurance_category || '',
         max_budget: initialData.max_budget ?? null,
         budget_currency: initialData.budget_currency || 'COP',
+        jurisdiction: initialData.briefData?.jurisdiction || '',
         client_profile: initialData.client_profile || '',
         notes: initialData.briefData?.freeText || '',
         clientName: initialData.clientName || '',
@@ -217,6 +224,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         insurance_category: '',
         max_budget: null,
         budget_currency: 'COP',
+        jurisdiction: '',
         client_profile: '',
         notes: '',
         clientName: '',
@@ -293,6 +301,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
           fileHash: provenance.fileHash || undefined,
           extractedText: artifact.contentText || undefined,
           isExistingArtifact: true, // ✅ CORRECCIÓN: Marcar como póliza existente (no eliminable)
+          documentRole: provenance.documentRole || undefined, // ✅ FIX: Preservar rol (baseline/challenger) desde DB
         };
       });
   }, []);
@@ -482,6 +491,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         insurance_category: '',
         max_budget: null,
         budget_currency: 'COP',
+        jurisdiction: '',
         client_profile: '',
         notes: '', // ✅ CORRECCIÓN QUIRÚRGICA: Limpiar notes completamente
         clientName: '',
@@ -940,6 +950,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
         insurance_category: formData.insurance_category,
         max_budget: formData.max_budget ?? null,
         budget_currency: formData.budget_currency || 'COP',
+        ...(formData.jurisdiction ? { jurisdiction: formData.jurisdiction as JurisdictionCode } : {}),
         client_profile: formData.client_profile || '',
         clientName: formData.clientName || '',
         employees: null,
@@ -1296,62 +1307,114 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
 
           {/* ═══════════════════════════════════════════════════════════════
               SECCIÓN 2: INFORMACIÓN DEL SEGURO
-              Motivo → Categoría → Campos dinámicos → Presupuesto → Coberturas
+              Grid 2-col: [Motivo | Divisa] → [Categoría | Jurisdicción]
+              → Campos dinámicos (full) → Presupuesto (full)
               ═══════════════════════════════════════════════════════════════ */}
 
-          {/* Motivo del Análisis (obligatorio) */}
-          <div className="space-y-2">
-            <Label htmlFor="analysis_reason" className="flex items-center gap-2">
-              <Info className="h-4 w-4" />
-              {tCaseBrief('form.analysisReasonLabel')} *
-              {mode === 'edit' && (
-                <span className="text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
-              )}
-            </Label>
-            <Select
-              value={formData.analysis_reason}
-              onValueChange={(value) => updateField('analysis_reason', value)}
-              disabled={mode === 'edit'}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={tCaseBrief('form.analysisReasonPlaceholder')} />
-              </SelectTrigger>
-              <SelectContent>
-                {ANALYSIS_REASONS.map((reason) => (
-                  <SelectItem key={reason} value={reason}>
-                    {tCaseBrief(`analysisReasons.${reason}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* ── Fila 1 Col 1: Motivo del Análisis ── */}
+            <div className="space-y-2">
+              <Label htmlFor="analysis_reason" className="flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                {tCaseBrief('form.analysisReasonLabel')} *
+                {mode === 'edit' && (
+                  <span className="text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
+                )}
+              </Label>
+              <Select
+                value={formData.analysis_reason}
+                onValueChange={(value) => updateField('analysis_reason', value)}
+                disabled={mode === 'edit'}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={tCaseBrief('form.analysisReasonPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {ANALYSIS_REASONS.map((reason) => (
+                    <SelectItem key={reason} value={reason}>
+                      {tCaseBrief(`analysisReasons.${reason}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Categoría de Seguro (condicional al subjectType) */}
-          <div className="space-y-2">
-            <Label htmlFor="insurance_category" className="flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              {tCaseBrief('form.categoryLabel')} *
-              {mode === 'edit' && (
-                <span className="text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
-              )}
-            </Label>
-            <Select
-              value={formData.insurance_category}
-              onValueChange={(value) => updateField('insurance_category', value)}
-              disabled={mode === 'edit'}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={tCaseBrief('form.categoryPlaceholder')} />
-              </SelectTrigger>
-              <SelectContent>
-                <MemoizedSelectItems t={tCaseBrief} subjectType={subjectType} />
-              </SelectContent>
-            </Select>
-            {formData.insurance_category && (
-              <p className="text-xs text-muted-foreground mt-1 pl-1">
-                {tCaseBrief(`categoryDescriptions.${formData.insurance_category}`)}
+            {/* ── Fila 1 Col 2: Divisa ── */}
+            <div className="space-y-2">
+              <Label htmlFor="budget_currency" className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4" />
+                {tCaseBrief('form.currencyLabel')}
+              </Label>
+              <Select
+                value={formData.budget_currency}
+                onValueChange={(val) => updateField('budget_currency', val as CurrencyCode)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_CURRENCIES.map((cur) => (
+                    <SelectItem key={cur.code} value={cur.code}>
+                      {cur.flag} {cur.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground pl-1">
+                {tCaseBrief('form.currencyHint')}
               </p>
-            )}
+            </div>
+
+            {/* ── Fila 2 Col 1: Categoría de Seguro ── */}
+            <div className="space-y-2">
+              <Label htmlFor="insurance_category" className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                {tCaseBrief('form.categoryLabel')} *
+                {mode === 'edit' && (
+                  <span className="text-xs text-muted-foreground font-normal">{tCaseBrief('form.notEditable')}</span>
+                )}
+              </Label>
+              <Select
+                value={formData.insurance_category}
+                onValueChange={(value) => updateField('insurance_category', value)}
+                disabled={mode === 'edit'}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={tCaseBrief('form.categoryPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <MemoizedSelectItems t={tCaseBrief} subjectType={subjectType} />
+                </SelectContent>
+              </Select>
+              {formData.insurance_category && (
+                <p className="text-xs text-muted-foreground mt-1 pl-1">
+                  {tCaseBrief(`categoryDescriptions.${formData.insurance_category}`)}
+                </p>
+              )}
+            </div>
+
+            {/* ── Fila 2 Col 2: Jurisdicción ── */}
+            <div className="space-y-2">
+              <Label htmlFor="jurisdiction" className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                {tCaseBrief('form.jurisdictionLabel')}
+              </Label>
+              <Select
+                value={formData.jurisdiction}
+                onValueChange={(value) => updateField('jurisdiction', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={tCaseBrief('form.jurisdictionPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {complianceJurisdictions.map((j) => (
+                    <SelectItem key={j} value={j}>
+                      {JURISDICTION_FLAGS[j]} {tCaseBrief(`jurisdictions.${j}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Campos dinámicos según la categoría seleccionada */}
@@ -1366,6 +1429,7 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
                 }));
               }}
               disabled={isProcessing}
+              currency={formData.budget_currency}
               selectedCoverages={(formData.categoryData?.selected_coverages as string[]) || []}
               onToggleCoverage={(coverage) => {
                 const current = (formData.categoryData?.selected_coverages as string[]) || [];
@@ -1386,51 +1450,30 @@ const BriefForm = React.memo(({ onSubmit, onApprove, initialNotes = '', isSubmit
               <DollarSign className="h-4 w-4" />
               {tCaseBrief('form.maxBudget')}
             </Label>
-            <div className="flex gap-2">
-              <Input
-                id="max_budget"
-                type="number"
-                placeholder="0"
-                min="0"
-                max="99999999.99"
-                step="0.01"
-                value={formData.max_budget || ''}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (!value || value === '') {
-                    updateField('max_budget', null);
-                    return;
-                  }
-                  const numValue = parseFloat(value);
-                  if (isNaN(numValue) || !isFinite(numValue)) {
-                    return;
-                  }
-                  const MAX_BUDGET = 99999999.99;
-                  const normalizedValue = Math.min(Math.max(0, numValue), MAX_BUDGET);
-                  const roundedValue = Math.round(normalizedValue * 100) / 100;
-                  updateField('max_budget', roundedValue);
-                }}
-                className="flex-1"
-              />
-              <div className="flex">
-                <Button
-                  type="button"
-                  variant={formData.budget_currency === 'COP' ? 'default' : 'outline'}
-                  onClick={() => updateField('budget_currency', 'COP')}
-                  className="rounded-r-none"
-                >
-                  COP
-                </Button>
-                <Button
-                  type="button"
-                  variant={formData.budget_currency === 'USD' ? 'default' : 'outline'}
-                  onClick={() => updateField('budget_currency', 'USD')}
-                  className="rounded-l-none border-l-0"
-                >
-                  USD
-                </Button>
-              </div>
-            </div>
+            <Input
+              id="max_budget"
+              type="number"
+              placeholder="0"
+              min="0"
+              max="99999999.99"
+              step="0.01"
+              value={formData.max_budget || ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (!value || value === '') {
+                  updateField('max_budget', null);
+                  return;
+                }
+                const numValue = parseFloat(value);
+                if (isNaN(numValue) || !isFinite(numValue)) {
+                  return;
+                }
+                const MAX_BUDGET = 99999999.99;
+                const normalizedValue = Math.min(Math.max(0, numValue), MAX_BUDGET);
+                const roundedValue = Math.round(normalizedValue * 100) / 100;
+                updateField('max_budget', roundedValue);
+              }}
+            />
           </div>
 
           {/* ═══════════════════════════════════════════════════════════════

@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
       text: extractionResult.text,
       coordinates: extractionResult.coordinates,
       extractionMethod,
-      insuranceCategory,
+      ...(insuranceCategory !== undefined && { insuranceCategory }),
     });
 
     const timeoutPromise = new Promise<never>((_, reject) => {

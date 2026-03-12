@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
           insurance_category?: string;
           analysis_reason?: string; // ✅ FASE CATEGORÍAS
           max_budget?: number;
-          budget_currency?: 'COP' | 'USD';
+          budget_currency?: 'COP' | 'USD' | 'BRL';
           client_profile?: string;
         } = {};
         
